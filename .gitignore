@@ -6,13 +6,16 @@
 /out-tsc
 /build
 /tmp
-/out-tsc
 /bazel-out
-/.angular/cache
-/.angular
+projectgg.backend/dist/
+projectgg.backend/build/
+projectgg.frontend/dist/
+projectgg.frontend/.angular/
 
 # Node
 /node_modules
+projectgg.backend/node_modules/
+projectgg.frontend/node_modules/
 
 # Logs
 logs
@@ -29,6 +32,8 @@ Thumbs.db
 
 # Tests
 /coverage
+projectgg.backend/coverage/
+projectgg.frontend/coverage/
 /.nyc_output
 testem.log
 __screenshots__/
@@ -49,7 +54,9 @@ __screenshots__/
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/mcp.json
-.history/*
+.history/
+projectgg.backend/.history/
+projectgg.frontend/.history/
 
 # dotenv environment variable files
 .env
@@ -59,9 +66,14 @@ __screenshots__/
 .env.local
 
 # temp directories
-.temp
-.tmp
+.temp/
+.tmp/
 .sass-cache/
+projectgg.backend/.temp/
+projectgg.backend/.tmp/
+projectgg.frontend/.temp/
+projectgg.frontend/.tmp/
+projectgg.frontend/.sass-cache/
 
 # Miscellaneous
 /connect.lock
