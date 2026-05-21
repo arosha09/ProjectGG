@@ -1,0 +1,228 @@
+<section class="dashboard-shell">
+	<header class="dashbar">
+		<div class="brand">
+			<span class="brand-mark">◆</span>
+			<span>PROJECT GG</span>
+		</div>
+
+		<div class="dash-actions">
+			<div class="theme-dropdown" [class.open]="themeDropdownOpen">
+				<button type="button" class="theme-toggle" (click)="toggleThemeDropdown()">
+					<span class="theme-color-dot" [style.background-color]="getThemeColor(currentTheme)"></span>
+					<span class="theme-label">{{ currentTheme | titlecase }}</span>
+					<span class="theme-arrow">▼</span>
+				</button>
+				<div class="theme-menu">
+					<button type="button" class="theme-option" [class.active]="currentTheme === 'green'" (click)="setTheme('green')">
+						<span class="option-dot" style="background: #00ff99;"></span>
+						<span>Green</span>
+					</button>
+					<button type="button" class="theme-option" [class.active]="currentTheme === 'red'" (click)="setTheme('red')">
+						<span class="option-dot" style="background: #ff5f6d;"></span>
+						<span>Red</span>
+					</button>
+					<button type="button" class="theme-option" [class.active]="currentTheme === 'yellow'" (click)="setTheme('yellow')">
+						<span class="option-dot" style="background: #ffd24d;"></span>
+						<span>Yellow</span>
+					</button>
+					<button type="button" class="theme-option" [class.active]="currentTheme === 'blue'" (click)="setTheme('blue')">
+						<span class="option-dot" style="background: #5fb6ff;"></span>
+						<span>Blue</span>
+					</button>
+				</div>
+			</div>
+
+			<div class="status-dropdown" [class.open]="statusDropdownOpen" [attr.data-status]="currentStatus">
+				<button type="button" class="status-toggle" (click)="toggleStatusDropdown()">
+					<span class="status-dot"></span>
+					<span class="status-label">{{ currentStatus | titlecase }}</span>
+					<span class="theme-arrow">▼</span>
+				</button>
+				<div class="status-menu">
+					<button type="button" class="status-option" [class.active]="currentStatus === 'online'" (click)="setStatus('online')">
+						<span class="option-dot" style="background: #00ff99;"></span>
+						<span>Online</span>
+					</button>
+					<button type="button" class="status-option" [class.active]="currentStatus === 'away'" (click)="setStatus('away')">
+						<span class="option-dot" style="background: #ffd24d;"></span>
+						<span>Away</span>
+					</button>
+					<button type="button" class="status-option" [class.active]="currentStatus === 'offline'" (click)="setStatus('offline')">
+						<span class="option-dot" style="background: #d80606;"></span>
+						<span>Offline</span>
+					</button>
+					<button type="button" class="status-option" [class.active]="currentStatus === 'invisible'" (click)="setStatus('invisible')">
+						<span class="option-dot" style="background: #6c6870;"></span>
+						<span>Invisible</span>
+					</button>
+				</div>
+			</div>
+
+			<button class="btn btn-small logout-btn" type="button" (click)="logout()">Logout</button>
+		</div>
+	</header>
+
+	<main class="container dashboard-main">
+		<mat-card class="hero-card">
+			<div class="hero-left">
+				<p class="eyebrow">Player profile</p>
+				<h1 [attr.data-text]="currentUser?.name || currentUser?.username || 'Legend'">{{ currentUser?.name || currentUser?.username || 'Legend' }}</h1>
+				<p class="lede">Welcome back. Your neon collection is ready for deployment.</p>
+			</div>
+			<div class="profile-meta">
+				<mat-card class="meta-card">
+					<span class="meta-value">{{ getLevel() }}</span>
+					<span class="meta-label">Level</span>
+				</mat-card>
+				<mat-card class="meta-card">
+					<span class="meta-value">{{ userGames.length }}</span>
+					<span class="meta-label">Owned games</span>
+				</mat-card>
+			</div>
+		</mat-card>
+		
+		<section class="section-head">
+			<h2>Game library</h2>
+			<p>Tap a game to sync it into your collection. Showing {{ pagedLibraryItems.length }} of {{ libraryItems.length }} cards.</p>
+		</section>
+		
+		<app-skeleton *ngIf="loading"></app-skeleton>
+		<p *ngIf="error" class="error-banner">{{ error }}</p>
+		
+		<section class="games-grid">
+			<ng-container *ngFor="let item of pagedLibraryItems; trackBy: trackByLibraryItem">
+				
+				<mat-card class="owned-card" *ngIf="item.type === 'game'">
+					<div class="card-media owned-media" [class.has-image]="!!item.game.imageUrl">
+						<img *ngIf="item.game.imageUrl" class="cover-image" [src]="item.game.imageUrl" [alt]="item.game.name" (error)="hideBrokenCover($event)" />
+						<div class="cover-overlay"></div>
+						<div class="game-content owned-content">
+							<div class="game-top">
+								<div>
+									<h3>{{ item.game.name }}</h3>
+								</div>
+								<span *ngIf="isAdded(item.game.code)" class="owned-badge">OWNED</span>
+							</div>
+							<p class="game-desc text-clamp">{{ item.game.desc }}</p>
+							<app-collection-button
+								class="game-btn"
+								[mode]="isAdded(item.game.code) ? 'remove' : 'add'"
+								(action)="isAdded(item.game.code) ? removeGame(item.game.code) : addGame(item.game.code)"
+							></app-collection-button>
+						</div>
+					</div>
+				</mat-card>
+
+				<ng-container *ngIf="item.type === 'series'">
+					
+					<mat-card class="owned-card series-card" *ngIf="!isSeriesExpanded(item.series.name)" (click)="toggleSeries(item.series.name)">
+						<div class="card-media owned-media" [class.has-image]="!!item.series.games[0]?.imageUrl">
+							<img *ngIf="item.series.games[0]?.imageUrl" class="cover-image" [src]="item.series.games[0]?.imageUrl" [alt]="item.series.name" (error)="hideBrokenCover($event)" />
+							<div class="cover-overlay"></div>
+							<div class="game-content owned-content">
+								<div class="game-top">
+									<div>
+										<p class="series-label">Series</p>
+										<h3>{{ item.series.name }}</h3>
+									</div>
+									<span class="owned-badge">{{ item.series.games.length }} games</span>
+								</div>
+								<p class="game-desc text-clamp">Open this series to browse and manage games in timeline/release order.</p>
+								<button class="series-toggle" type="button" (click)="toggleSeriesFromButton($event, item.series.name)">
+									Expand Series
+								</button>
+							</div>
+						</div>
+					</mat-card>
+
+					<div class="series-panel-inline" *ngIf="isSeriesExpanded(item.series.name)" (click)="$event.stopPropagation()">
+						<div class="series-panel-head">
+							<h3>{{ item.series.name }} Games</h3>
+							<button class="series-toggle series-toggle-collapse" type="button" (click)="toggleSeries(item.series.name)">Collapse</button>
+						</div>
+
+						<div class="series-games-grid">
+							<mat-card class="owned-card series-inner-card" *ngFor="let game of getSeriesPageGames(item.series)">
+								<div class="card-media owned-media template-adjust" [class.has-image]="!!game.imageUrl">
+									<img *ngIf="game.imageUrl" class="cover-image" [src]="game.imageUrl" [alt]="game.name" (error)="hideBrokenCover($event)" />
+									<div class="cover-overlay"></div>
+									<div class="game-content owned-content">
+										<div class="game-top">
+											<div>
+												<h3>{{ game.name }}</h3>
+												<p class="series-order">Timeline {{ game.sequence_timeline ?? '-' }} • Release {{ game.sequence_release ?? '-' }}</p>
+											</div>
+											<span *ngIf="isAdded(game.code)" class="owned-badge">OWNED</span>
+										</div>
+										<p class="game-desc text-clamp">{{ game.desc }}</p>
+										<app-collection-button
+											class="game-btn"
+											[mode]="isAdded(game.code) ? 'remove' : 'add'"
+											(action)="isAdded(game.code) ? removeGame(game.code) : addGame(game.code)"
+										></app-collection-button>
+									</div>
+								</div>
+							</mat-card>
+						</div>
+
+						<div class="paginator series-paginator" *ngIf="item.series.games.length > seriesPageSize">
+							<button mat-stroked-button type="button" (click)="goToSeriesPage(item.series, getSeriesCurrentPage(item.series) - 1)" [disabled]="getSeriesCurrentPage(item.series) === 1">
+								Prev
+							</button>
+							<div class="page-info">
+								<span>Page {{ getSeriesCurrentPage(item.series) }} of {{ getSeriesTotalPages(item.series) }}</span>
+							</div>
+							<button mat-stroked-button type="button" (click)="goToSeriesPage(item.series, getSeriesCurrentPage(item.series) + 1)" [disabled]="getSeriesCurrentPage(item.series) === getSeriesTotalPages(item.series)">
+								Next
+							</button>
+						</div>
+					</div>
+				</ng-container>
+
+			</ng-container>
+		</section>
+
+		<div class="paginator" *ngIf="totalLibraryPages > 1">
+			<button mat-stroked-button type="button" (click)="goToLibraryPage(libraryCurrentPage - 1)" [disabled]="libraryCurrentPage === 1">
+				Prev
+			</button>
+			<div class="page-info">
+				<span>Page {{ libraryCurrentPage }} of {{ totalLibraryPages }}</span>
+			</div>
+			<button mat-stroked-button type="button" (click)="goToLibraryPage(libraryCurrentPage + 1)" [disabled]="libraryCurrentPage === totalLibraryPages">
+				Next
+			</button>
+		</div>
+
+		<section class="section-head mt-4">
+			<h2>Your arsenal</h2>
+			<p>Games already linked to your account.</p>
+		</section>
+		
+		<section class="owned-grid">
+			<mat-card class="owned-card" *ngFor="let game of userGames">
+				<div class="card-media owned-media" [class.has-image]="!!game.imageUrl">
+					<img *ngIf="game.imageUrl" class="cover-image" [src]="game.imageUrl" [alt]="game.name" (error)="hideBrokenCover($event)" />
+					<div class="cover-overlay"></div>
+					<div class="game-content owned-content">
+						<div class="game-top">
+							<div>
+								<h3>{{ game.name }}</h3>
+							</div>
+						</div>
+						<app-collection-button
+							class="game-btn"
+							mode="remove"
+							label="Remove in your arsenal"
+							(action)="removeGame(game.code)"
+						></app-collection-button>
+					</div>
+				</div>
+			</mat-card>
+			<mat-card class="owned-card empty-state" *ngIf="!userGames.length">
+				<h3>No games yet</h3>
+				<p>Add from the library above.</p>
+			</mat-card>
+		</section>
+	</main>
+</section>

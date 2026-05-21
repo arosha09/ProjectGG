@@ -1,0 +1,9 @@
+<button class="collection-btn" [class.add]="mode() === 'add'" [class.remove]="mode() === 'remove'" [disabled]="disabled()" (click)="onClick()">
+  @if (label()) {
+    <span>{{ label() }}</span>
+  } @else if (mode() === 'add') {
+    <span>{{ disabled() ? 'Added' : 'Add to your collection' }}</span>
+  } @else {
+    <span>Remove from collection</span>
+  }
+</button>

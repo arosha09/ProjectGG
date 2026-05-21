@@ -1,0 +1,124 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { tap, map } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
+import { Game } from '../models/game.model';
+
+type GameApiItem = Partial<Game> & {
+  game_name?: string;
+  game_code?: string;
+  sequence_timeline?: number | null;
+  sequence_release?: number | null;
+  is_series?: boolean;
+  series_name?: string | null;
+};
+
+@Injectable({
+  providedIn: 'root'
+})
+export class GamesService {
+  private readonly apiUrl = environment.apiUrl;
+  private readonly supabaseUrl = environment.supabase.url;
+  private readonly bucketName = environment.supabase.bucketName;
+  private allGamesSubject = new BehaviorSubject<Game[]>([]);
+  private userGamesSubject = new BehaviorSubject<Game[]>([]);
+  
+  allGames$ = this.allGamesSubject.asObservable();
+  userGames$ = this.userGamesSubject.asObservable();
+
+  constructor(private http: HttpClient) {}
+
+  getAllGames(page = 1, pageSize = 12): Observable<Game[]> {
+    return this.http.get<unknown>(`${this.apiUrl}/games/get-all-games`, {
+      params: {
+        page,
+        page_size: pageSize,
+      },
+    }).pipe(
+      map((body: unknown) => {
+        if (!body) return [];
+
+        const response = body as { data?: GameApiItem[]; rows?: GameApiItem[] } | GameApiItem[];
+        const games = Array.isArray(response) ? response : (response.data || response.rows || []);
+        return this.withImageFallback(games);
+      }),
+      tap(games => this.allGamesSubject.next(games))
+    );
+  }
+
+  getUserGames(userId: string, page = 1, pageSize = 12): Observable<Game[]> {
+    return this.http.get<unknown>(`${this.apiUrl}/games/get-user-games`, {
+      params: {
+        user_id: userId,
+        page,
+        page_size: pageSize,
+      }
+    }).pipe(
+      map((body: unknown) => {
+        if (!body) return [];
+
+        const response = body as { data?: GameApiItem[]; rows?: GameApiItem[] } | GameApiItem[];
+        const games = Array.isArray(response) ? response : (response.data || response.rows || []);
+        return this.withImageFallback(games);
+      }),
+      tap(games => this.userGamesSubject.next(games))
+    );
+  }
+
+  addGameToUser(userId: string, gameCode: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/games/add-user-games`, {
+      in_user_id: userId,
+      in_game_code: gameCode
+    }).pipe(
+      tap(() => this.userGamesSubject.next([...this.userGamesSubject.value]))
+    );
+  }
+
+  removeGameFromUser(userId: string, gameCode: string): Observable<boolean> {
+    return this.http.delete<boolean>(`${this.apiUrl}/games/remove-user-games`, {
+      params: {
+        user_id: userId,
+        game_code: gameCode,
+      },
+    }).pipe(
+      tap(() => this.userGamesSubject.next(this.userGamesSubject.value.filter((game) => game.code !== gameCode)))
+    );
+  }
+
+  private normalizeGame(game: GameApiItem): Game {
+    return {
+      name: game.name ?? game.game_name ?? '',
+      code: game.code ?? game.game_code ?? '',
+      desc: game.desc ?? '',
+      imageUrl: game.imageUrl,
+      total_count: game.total_count,
+      sequence_timeline: game.sequence_timeline ?? null,
+      sequence_release: game.sequence_release ?? null,
+      is_series: game.is_series ?? false,
+      series_name: game.series_name ?? null,
+    };
+  }
+
+  private withImageFallback(games: GameApiItem[]): Game[] {
+    return games.map((game) => {
+      const normalized = this.normalizeGame(game);
+      return {
+        ...normalized,
+        imageUrl: normalized.imageUrl ?? this.getImageUrl(normalized.code),
+      };
+    });
+  }
+
+  getLocalAllGames(): Game[] {
+    return this.allGamesSubject.value;
+  }
+
+  getLocalUserGames(): Game[] {
+    return this.userGamesSubject.value;
+  }
+
+  getImageUrl(gameCode: string): string {
+    return `${this.supabaseUrl}/storage/v1/object/public/${this.bucketName}/${gameCode}.jpg`;
+  }
+}

@@ -1,0 +1,47 @@
+<section class="auth-shell">
+	<div class="auth-grid"></div>
+
+	<div class="auth-card card">
+		<p class="eyebrow">Create account</p>
+		<h1>Forge your gamer identity</h1>
+		<p class="lede">Register to unlock your dashboard and keep your collection in sync.</p>
+
+		<form class="auth-form" (ngSubmit)="submit()">
+			<label>
+				<span>Display name</span>
+				<input [(ngModel)]="name" name="name" type="text" placeholder="Nova Runner" />
+			</label>
+
+			<label>
+				<span>Gamertag</span>
+				<input [(ngModel)]="username" name="username" type="text" placeholder="nova_runner" />
+			</label>
+
+			<label>
+				<span>Email</span>
+				<input [(ngModel)]="email" name="email" type="email" placeholder="pilot@projectgg.io" />
+			</label>
+
+			<label>
+				<span>Password</span>
+				<input [(ngModel)]="password" name="password" type="password" placeholder="Create a secure password" />
+			</label>
+
+			<label>
+				<span>Confirm password</span>
+				<input [(ngModel)]="confirmPassword" name="confirmPassword" type="password" placeholder="Repeat password" />
+			</label>
+
+			<button class="btn btn-large" type="submit" [disabled]="loading">
+				{{ loading ? 'BUILDING PROFILE...' : 'JOIN PROJECT GG' }}
+			</button>
+		</form>
+
+		<p *ngIf="error" class="error-text">{{ error }}</p>
+
+		<p class="switch-link">
+			Already connected?
+			<a routerLink="/login">Login now</a>
+		</p>
+	</div>
+</section>

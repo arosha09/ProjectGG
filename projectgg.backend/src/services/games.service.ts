@@ -11,11 +11,15 @@ export class GamesService {
     return this.gamesRepository.addUserGame(userGame);
   }
 
-  async getAllGames(): Promise<GetAllGamesDto[]> {
-    return this.gamesRepository.getAllGames();
+  async getAllGames(page = 1, pageSize = 12): Promise<GetAllGamesDto[]> {
+    return this.gamesRepository.getAllGames(page, pageSize);
   }
 
-  async getUserGames(userId: string): Promise<GetAllGamesDto[]> {
-    return this.gamesRepository.getUserGames(userId);
+  async getUserGames(userId: string, page = 1, pageSize = 12): Promise<GetAllGamesDto[]> {
+    return this.gamesRepository.getUserGames(userId, page, pageSize);
+  }
+
+  async removeUserGame(userId: string, gameCode: string): Promise<boolean> {
+    return this.gamesRepository.removeUserGame(userId, gameCode);
   }
 }

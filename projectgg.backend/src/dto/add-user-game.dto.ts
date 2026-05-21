@@ -2,8 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class AddUserGameDto {
   @ApiProperty({ example: 'user-123' })
-  user_id: string;
+  in_user_id: string;
 
-  @ApiProperty({ example: 42 })
-  game_code: number;
+  @ApiProperty({ example: 'AC1' })
+  in_game_code: string;
 }

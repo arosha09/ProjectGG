@@ -1,0 +1,61 @@
+.collection-btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 30px rgba(0, 0, 0, 0.22);
+  position: relative;
+  overflow: hidden;
+}
+
+.collection-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04));
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.collection-btn.add {
+  background: rgba(0, 255, 153, 0.14);
+  color: #d8fff0;
+  border-color: rgba(0, 255, 153, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 28px rgba(0,255,153,0.12);
+}
+
+.collection-btn.remove {
+  background: rgba(255, 95, 109, 0.14);
+  color: #ffe5e8;
+  border-color: rgba(255, 95, 109, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 28px rgba(255,95,109,0.12);
+}
+
+.collection-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+.collection-btn.add:hover:not(:disabled) {
+  border-color: rgba(0, 255, 153, 0.4);
+  background: rgba(0, 255, 153, 0.18);
+}
+
+.collection-btn.remove:hover:not(:disabled) {
+  border-color: rgba(255, 95, 109, 0.4);
+  background: rgba(255, 95, 109, 0.18);
+}
+
+.collection-btn:disabled {
+  opacity: 0.72;
+  cursor: default;
+  transform: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 20px rgba(0,0,0,0.16);
+}

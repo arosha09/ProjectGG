@@ -3,26 +3,30 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "build": "ng build",
-    "watch": "ng build --watch --configuration development",
+    "start": "node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng serve",
+    "build": "node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build",
+    "watch": "node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:projectgg.ui": "node dist/projectgg.frontend/server/server.mjs"
   },
   "private": true,
   "packageManager": "npm@11.14.1",
   "dependencies": {
+    "@angular/animations": "^21.2.13",
+    "@angular/cdk": "^21.2.11",
     "@angular/common": "^21.2.0",
     "@angular/compiler": "^21.2.0",
     "@angular/core": "^21.2.0",
     "@angular/forms": "^21.2.0",
+    "@angular/material": "^21.2.11",
     "@angular/platform-browser": "^21.2.0",
     "@angular/platform-server": "^21.2.0",
     "@angular/router": "^21.2.0",
     "@angular/ssr": "^21.2.11",
     "express": "^5.1.0",
     "rxjs": "~7.8.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "@tabler/icons": "^2.40.0"
   },
   "devDependencies": {
     "@angular/build": "^21.2.11",

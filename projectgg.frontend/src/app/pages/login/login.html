@@ -1,0 +1,32 @@
+<section class="auth-shell">
+	<div class="auth-grid"></div>
+
+	<div class="auth-card card">
+		<p class="eyebrow">Welcome back</p>
+		<h1>Access the neon battlefield</h1>
+		<p class="lede">Sign in to sync your game library and continue your quest.</p>
+
+		<form class="auth-form" (ngSubmit)="submit()">
+			<label>
+				<span>Email</span>
+				<input [(ngModel)]="email" name="email" type="email" placeholder="pilot@projectgg.io" />
+			</label>
+
+			<label>
+				<span>Password</span>
+				<input [(ngModel)]="password" name="password" type="password" placeholder="••••••••" />
+			</label>
+
+			<button class="btn btn-large" type="submit" [disabled]="loading">
+				{{ loading ? 'SYNCING...' : 'ENTER ARENA' }}
+			</button>
+		</form>
+
+		<p *ngIf="error" class="error-text">{{ error }}</p>
+
+		<p class="switch-link">
+			New recruit?
+			<a routerLink="/register">Create your profile</a>
+		</p>
+	</div>
+</section>

@@ -1,0 +1,83 @@
+:host {
+	display: block;
+}
+
+.auth-shell {
+	position: relative;
+	min-height: 100vh;
+	display: grid;
+	place-items: center;
+	background: var(--bg-darker);
+	overflow: hidden;
+	padding: 24px;
+}
+
+.auth-grid {
+	position: absolute;
+	inset: 0;
+	background-image:
+		linear-gradient(rgba(0, 255, 136, 0.05) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(0, 255, 136, 0.05) 1px, transparent 1px);
+	background-size: 42px 42px;
+	opacity: 0.28;
+}
+
+.auth-card {
+	position: relative;
+	z-index: 1;
+	width: min(100%, 440px);
+	padding: 32px;
+	backdrop-filter: blur(16px);
+}
+
+.eyebrow {
+	color: var(--color-accent);
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	font-size: 12px;
+	margin-bottom: 10px;
+}
+
+h1 {
+	margin: 0 0 14px;
+	font-size: clamp(2rem, 5vw, 3rem);
+	line-height: 1;
+}
+
+.lede {
+	margin-bottom: 24px;
+}
+
+.auth-form {
+	display: grid;
+	gap: 16px;
+}
+
+label {
+	display: grid;
+	gap: 8px;
+}
+
+label span {
+	color: var(--text-primary);
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+
+input {
+	width: 100%;
+}
+
+.error-text {
+	margin-top: 16px;
+	color: #ffb4b4;
+}
+
+.switch-link {
+	margin-top: 18px;
+}
+
+.switch-link a {
+	color: var(--color-primary);
+}
