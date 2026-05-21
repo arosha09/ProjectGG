@@ -1,12 +1,13 @@
 <section class="home-shell">
 	<div class="home-grid"></div>
+	<div class="scanline"></div>
+	<div class="ambient-glow"></div>
 
-	<header class="topbar">
+	<header class="topbar fade-in-up">
 		<div class="brand">
-			<span class="brand-mark">◆</span>
+			<img src="logo.ico" alt="ProjectGG" class="brand-mark" />
 			<span>PROJECT GG</span>
 		</div>
-
 		<nav class="topnav">
 			<a routerLink="/login">Login</a>
 			<a routerLink="/register" class="cta-link">Join Arena</a>
@@ -15,46 +16,42 @@
 
 	<main class="hero container">
 		<div class="hero-copy">
-			<p class="eyebrow">Cyberpunk gaming hub</p>
-			<h1>Build your squad. Track your games. Level up.</h1>
-			<p class="lede">
-				A futuristic gamer dashboard powered by your backend APIs for auth, profiles,
-				and game collections.
+			<p class="eyebrow slide-in-left" style="animation-delay: 0.15s">ProjectGG gaming hub</p>
+			<h1 class="glitch-text" data-text="Build your squad. Track your games. Level up." style="animation-delay: 0.3s">Build your squad. Track your games. Level up.</h1>
+			<p class="lede slide-in-left" style="animation-delay: 0.45s">
+				Your ultimate gaming command center. Curate your library, track your collection, and flex your legendary profile.
 			</p>
-
-			<div class="hero-actions">
-				<a routerLink="/register" class="btn btn-large">Start Playing</a>
+			<div class="hero-actions fade-in-up" style="animation-delay: 0.6s">
+				<a routerLink="/register" class="btn btn-large btn-glow">Start Playing</a>
 				<a routerLink="/login" class="btn btn-secondary btn-large">Connect</a>
 			</div>
-
-			<div class="hero-stats">
+			<div class="hero-stats fade-in-up" style="animation-delay: 0.8s">
 				<article class="stat-card card">
-					<span class="stat-value">24/7</span>
+					<span class="stat-value" style="color: var(--rgb-green); text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);">24/7</span>
 					<span class="stat-label">Neon uptime</span>
 				</article>
 				<article class="stat-card card">
-					<span class="stat-value">∞</span>
+					<span class="stat-value" style="color: var(--rgb-purple); text-shadow: 0 0 10px rgba(170, 68, 255, 0.5);">∞</span>
 					<span class="stat-label">Gaming potential</span>
 				</article>
 				<article class="stat-card card">
-					<span class="stat-value">01</span>
+					<span class="stat-value" style="color: var(--rgb-blue); text-shadow: 0 0 10px rgba(0, 204, 255, 0.5);">01</span>
 					<span class="stat-label">Legendary profile</span>
 				</article>
 			</div>
 		</div>
 
-		<aside class="hero-panel card">
-			<p class="panel-title">Mission control</p>
+		<aside class="hero-panel card slide-in-right" style="animation-delay: 0.4s">
+			<p class="panel-title">⏣ Game hub</p>
 			<ul class="mission-list">
-				<li>Secure auth with backend tokens</li>
-				<li>Game library sync from APIs</li>
-				<li>Collection dashboard and profile view</li>
+				<li>Curate your perfect game library</li>
+				<li>Track playtime & completion stats</li>
+				<li>Unlock achievements & rank up</li>
 			</ul>
-
 			<div class="status-row">
-				<span class="status status-online">Online</span>
+				<span class="status status-online">Live</span>
 				<span class="pulse-dot"></span>
-				<span>Ready to deploy</span>
+				<span>Ready to play</span>
 			</div>
 		</aside>
 	</main>
