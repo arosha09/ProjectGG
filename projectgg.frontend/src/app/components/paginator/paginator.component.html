@@ -1,0 +1,11 @@
+<div class="paginator" *ngIf="totalPages() > 1">
+	<button mat-stroked-button type="button" (click)="goTo(currentPage() - 1)" [disabled]="currentPage() === 1">
+		Prev
+	</button>
+	<div class="page-info">
+		<span>Page {{ currentPage() }} of {{ totalPages() }}</span>
+	</div>
+	<button mat-stroked-button type="button" (click)="goTo(currentPage() + 1)" [disabled]="currentPage() === totalPages()">
+		Next
+	</button>
+</div>

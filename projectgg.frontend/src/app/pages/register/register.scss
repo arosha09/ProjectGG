@@ -7,45 +7,99 @@
 	min-height: 100vh;
 	display: grid;
 	place-items: center;
-	background: var(--bg-darker);
 	overflow: hidden;
 	padding: 24px;
+	background:
+		radial-gradient(circle at 15% 20%, rgba(170, 68, 255, 0.14), transparent 40%),
+		radial-gradient(circle at 85% 15%, rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.12), transparent 30%),
+		radial-gradient(circle at 30% 85%, rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.1), transparent 35%),
+		var(--bg-darker);
 }
 
 .auth-grid {
 	position: absolute;
 	inset: 0;
 	background-image:
-		linear-gradient(rgba(255, 0, 255, 0.05) 1px, transparent 1px),
-		linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+		linear-gradient(rgba(0, 255, 136, 0.06) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(170, 68, 255, 0.06) 1px, transparent 1px);
 	background-size: 42px 42px;
-	opacity: 0.24;
+	opacity: 0.4;
+	animation: grid-pan 24s linear infinite;
+}
+
+.scanline {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: linear-gradient(90deg, transparent, var(--color-accent), var(--color-primary), transparent);
+	opacity: 0.3;
+	z-index: 9999;
+	pointer-events: none;
+	animation: scanline 7s linear infinite;
+}
+
+.ambient-glow {
+	position: absolute;
+	top: -20%;
+	right: -5%;
+	width: 50%;
+	height: 70%;
+	background: radial-gradient(circle, rgba(255, 34, 85, 0.1), transparent 60%);
+	pointer-events: none;
+	animation: float 8s ease-in-out infinite;
 }
 
 .auth-card {
 	position: relative;
 	z-index: 1;
 	width: min(100%, 460px);
-	padding: 32px;
-	backdrop-filter: blur(16px);
+	padding: 36px;
+	backdrop-filter: blur(20px);
+	background: rgba(5, 7, 15, 0.85);
+	border: 1px solid rgba(170, 68, 255, 0.2);
+	box-shadow:
+		0 8px 32px rgba(0, 0, 0, 0.4),
+		inset 0 0 40px rgba(255, 34, 85, 0.03);
+}
+
+.auth-card::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: linear-gradient(90deg, transparent, var(--color-accent), var(--color-primary), transparent);
+	opacity: 0.6;
+}
+
+.auth-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 10px;
 }
 
 .eyebrow {
-	color: var(--color-secondary);
+	color: var(--color-primary);
 	text-transform: uppercase;
 	letter-spacing: 2px;
 	font-size: 12px;
-	margin-bottom: 10px;
+	margin: 0;
 }
 
 h1 {
 	margin: 0 0 14px;
 	font-size: clamp(2rem, 5vw, 3rem);
 	line-height: 1;
+	text-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
 }
 
 .lede {
 	margin-bottom: 24px;
+	color: rgba(255, 255, 255, 0.6);
 }
 
 .auth-form {
@@ -59,7 +113,7 @@ label {
 }
 
 label span {
-	color: var(--text-primary);
+	color: var(--color-accent);
 	font-size: 12px;
 	text-transform: uppercase;
 	letter-spacing: 1px;
@@ -67,17 +121,32 @@ label span {
 
 input {
 	width: 100%;
+	background: rgba(255, 255, 255, 0.03);
+	border: 1px solid rgba(0, 255, 204, 0.15);
+}
+
+input:focus {
+	border-color: var(--color-accent);
+	box-shadow: 0 0 12px rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.15);
 }
 
 .error-text {
 	margin-top: 16px;
-	color: #ffb4b4;
+	color: #ff5f6d;
+	text-shadow: 0 0 6px rgba(255, 95, 109, 0.4);
 }
 
 .switch-link {
 	margin-top: 18px;
+	color: rgba(255, 255, 255, 0.5);
 }
 
 .switch-link a {
 	color: var(--color-primary);
+	transition: all var(--transition-fast);
+}
+
+.switch-link a:hover {
+	color: var(--color-accent);
+	text-shadow: 0 0 6px var(--color-accent);
 }

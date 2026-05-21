@@ -1,0 +1,20 @@
+<div class="status-dropdown" [class.open]="isOpen()" [attr.data-status]="currentStatus()">
+  <button type="button" class="status-toggle" (click)="toggle.emit()">
+    <span class="status-dot" [class]="'status-dot status-dot--' + currentStatus()"></span>
+    <span class="status-label">{{ currentStatus() | titlecase }}</span>
+    <span class="status-arrow">▼</span>
+  </button>
+  <div class="status-menu">
+    @for (s of statuses; track s.key) {
+      <button
+        type="button"
+        class="status-option"
+        [class.active]="currentStatus() === s.key"
+        (click)="select(s.key)"
+      >
+        <span class="option-dot" [style.background]="s.color" style="margin-right: 8px"></span>
+        <span>{{ s.key | titlecase }}</span>
+      </button>
+    }
+  </div>
+</div>

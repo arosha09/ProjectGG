@@ -5,12 +5,13 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { GamesService } from '../../services/games.service';
-import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Game } from '../../models/game.model';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
-import { CollectionButtonComponent } from '../../components/collection-button/collection-button.component';
+import { GameCardComponent } from '../../components/game-card/game-card.component';
+import { PaginatorComponent } from '../../components/paginator/paginator.component';
+import { ThemeSelectorComponent } from '../../components/theme-selector/theme-selector.component';
+import { StatusSelectorComponent } from '../../components/status-selector/status-selector.component';
 
 type SeriesGroup = {
   name: string;
@@ -21,16 +22,16 @@ type LibraryItem = { type: 'game'; game: Game } | { type: 'series'; series: Seri
 
 @Component({
   selector: 'app-dashboard',
-  standalone: true,
-  // Note: If using angular-tabler-icons, remember to add TablerIconsModule to imports here!
-  imports: [
-    CommonModule,
-    MatCardModule,
-    MatButtonModule,
-    MatProgressSpinnerModule,
-    SkeletonComponent,
-    CollectionButtonComponent,
-  ],
+	standalone: true,
+	imports: [
+		CommonModule,
+		MatCardModule,
+		SkeletonComponent,
+		GameCardComponent,
+		PaginatorComponent,
+		ThemeSelectorComponent,
+		StatusSelectorComponent,
+	],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
@@ -136,12 +137,12 @@ export class Dashboard implements OnInit, OnDestroy {
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
-    const themeDropdown = document.querySelector('.theme-dropdown');
-    const statusDropdown = document.querySelector('.status-dropdown');
-    if (themeDropdown && !themeDropdown.contains(target)) {
+    const themeEl = document.querySelector('app-theme-selector');
+    const statusEl = document.querySelector('app-status-selector');
+    if (themeEl && !themeEl.contains(target)) {
       this.themeDropdownOpen = false;
     }
-    if (statusDropdown && !statusDropdown.contains(target)) {
+    if (statusEl && !statusEl.contains(target)) {
       this.statusDropdownOpen = false;
     }
   }

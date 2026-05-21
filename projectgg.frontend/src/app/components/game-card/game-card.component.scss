@@ -1,0 +1,87 @@
+.owned-card {
+	width: 320px; height: 460px; padding: 0 !important;
+	overflow: hidden; border-radius: 6px; position: relative;
+	background: linear-gradient(180deg, rgba(6,6,8,.92), rgba(8,10,16,.96)) !important;
+	border: 1px solid rgba(255,255,255,.03) !important;
+	box-shadow: 0 8px 26px rgba(0,0,0,.6), inset 0 2px 18px rgba(0,0,0,.6);
+	transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s, border-color .2s;
+}
+
+.owned-card::before {
+	content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+	background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+	opacity: 0; z-index: 4; transition: opacity .3s;
+}
+
+.owned-card::after {
+	content: ''; position: absolute; bottom: 0; right: 0; width: 20px; height: 20px;
+	border-right: 2px solid var(--accent-color);
+	border-bottom: 2px solid var(--accent-color);
+	opacity: 0; z-index: 4; transition: opacity .3s;
+}
+
+.owned-card:hover {
+	transform: translateY(-6px) scale(1.02);
+	border-color: var(--card-border) !important;
+	box-shadow: 0 16px 40px rgba(0,0,0,.7), 0 0 25px var(--accent-glow);
+}
+
+.owned-card:hover::before { opacity: 1; }
+.owned-card:hover::after { opacity: .6; }
+.owned-card:hover .cover-image { transform: scale(1.05); }
+
+.owned-media {
+	width: 100%; height: 100%; position: relative;
+	display: flex; flex-direction: column; justify-content: flex-end;
+
+	&.has-image .cover-overlay {
+		background: linear-gradient(180deg, rgba(4,8,16,0) 0%, rgba(4,8,16,.3) 30%, rgba(4,8,16,.92) 75%, #050910 100%);
+	}
+}
+
+.cover-image {
+	position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+	object-fit: cover; z-index: 1; transition: transform .3s;
+}
+
+.cover-overlay {
+	position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+	background: linear-gradient(180deg, rgba(6,10,20,.3) 0%, rgba(4,7,14,.96) 90%); z-index: 2;
+}
+
+.owned-content {
+	position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3;
+	padding: 24px 20px 20px; display: flex; flex-direction: column; box-sizing: border-box;
+}
+
+.game-top {
+	display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+	h3 { font-size: 19px; font-weight: 800; color: var(--accent-color); margin: 0; line-height: 1.3; }
+}
+
+.series-label {
+	display: inline-block; background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.15);
+	color: var(--accent-color); padding: 2px 6px; border-radius: 3px;
+	font-size: 10px; font-weight: 700; text-transform: uppercase;
+	letter-spacing: .5px; margin-bottom: 4px;
+}
+
+.series-order {
+	font-size: 11px; color: var(--accent-color); margin: 4px 0 0;
+	font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+}
+
+.game-desc.text-clamp {
+	display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+	overflow: hidden; text-overflow: ellipsis;
+	font-size: 13px !important; color: rgba(230,255,240,.7);
+	margin: 10px 0 16px !important; line-height: 1.5; height: 58px;
+}
+
+.owned-badge {
+	background: var(--accent-color); color: #030810;
+	font-size: 10px; font-weight: 800; padding: 3px 7px;
+	border-radius: 3px; letter-spacing: .5px; flex-shrink: 0;
+}
+
+.game-btn { width: 100%; margin-top: auto; display: block; }

@@ -1,0 +1,29 @@
+<mat-card class="owned-card">
+	<div class="card-media owned-media" [class.has-image]="!!game().imageUrl">
+		<img *ngIf="game().imageUrl" class="cover-image" [src]="game().imageUrl" [alt]="game().name" (error)="hideBrokenCover($event)" />
+		<div class="cover-overlay"></div>
+		<div class="game-content owned-content">
+			<div class="game-top">
+				<div>
+					@if (isSeries()) {
+						<p class="series-label">Series</p>
+					}
+					<h3>{{ game().name }}</h3>
+					@if (seriesOrder(); as order) {
+						<p class="series-order">Timeline {{ order.timeline ?? '-' }} • Release {{ order.release ?? '-' }}</p>
+					}
+				</div>
+				@if (isAdded()) {
+					<span class="owned-badge">OWNED</span>
+				}
+			</div>
+			<p class="game-desc text-clamp">{{ game().desc }}</p>
+			<app-collection-button
+				class="game-btn"
+				[mode]="mode()"
+				[label]="label()"
+				(action)="action.emit()"
+			></app-collection-button>
+		</div>
+	</div>
+</mat-card>

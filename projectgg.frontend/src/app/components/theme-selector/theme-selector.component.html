@@ -1,0 +1,15 @@
+<div class="theme-dropdown" [class.open]="isOpen()">
+	<button type="button" class="theme-toggle" (click)="toggle.emit()">
+		<span class="theme-color-dot" [style.background-color]="getColor(currentTheme())"></span>
+		<span class="theme-label">{{ currentTheme() | titlecase }}</span>
+		<span class="theme-arrow">▼</span>
+	</button>
+	<div class="theme-menu">
+		@for (t of themes; track t.key) {
+			<button type="button" class="theme-option" [class.active]="currentTheme() === t.key" (click)="select(t.key)">
+				<span class="option-dot" [style.background]="t.color" style="margin-right: 8px"></span>
+				<span>{{ t.key | titlecase }}</span>
+			</button>
+		}
+	</div>
+</div>
