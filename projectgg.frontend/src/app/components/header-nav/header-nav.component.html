@@ -30,6 +30,12 @@
         <a class="profile-menu-item" routerLink="/profile">
           PROFILE
         </a>
+        @if (isAdmin()) {
+          <a class="profile-menu-item profile-menu-admin" routerLink="/admin">
+            <mat-icon>admin_panel_settings</mat-icon>
+            ADMIN PANEL
+          </a>
+        }
         <button class="profile-menu-item" type="button" (click)="logout.emit()">
           LOGOUT
         </button>

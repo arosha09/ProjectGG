@@ -16,16 +16,25 @@
 	}
 
 	.status-menu {
-		display: none; position: absolute; top: calc(100% + 6px); left: 0;
-		width: 140px; box-sizing: border-box; background: #091322;
-		border: 1px solid var(--card-border); border-radius: 4px;
-		padding: 4px; box-shadow: 0 10px 25px rgba(0,0,0,.5); z-index: 110;
+		display: none; position: absolute; top: calc(100% + 8px); left: 0;
+		width: 140px; box-sizing: border-box;
+		background: linear-gradient(180deg, #0a1020, #080e1a);
+		border: 1px solid var(--border-color); border-radius: 6px;
+		padding: 6px;
+		box-shadow: 0 12px 36px rgba(0,0,0,.6), 0 0 20px var(--accent-glow);
+		z-index: 110;
+		animation: menuIn .15s ease-out;
 	}
 
 	&.open {
 		.status-menu { display: block; }
 		.status-toggle { border-color: var(--accent-color); background: rgba(255,255,255,.05); }
 	}
+}
+
+@keyframes menuIn {
+	from { opacity: 0; transform: translateY(-6px); }
+	to { opacity: 1; transform: translateY(0); }
 }
 
 .status-label {
@@ -40,12 +49,12 @@
 .status-option {
 	display: flex; align-items: center; width: 100%;
 	padding: 8px 10px; background: transparent; border: none;
-	border-radius: 3px; color: rgba(230,255,240,.7);
+	border-radius: 4px; color: rgba(230,255,240,.7);
 	font-size: 13px; cursor: pointer; text-align: left;
 	transition: background .15s, color .15s;
 
 	&:hover { background: rgba(255,255,255,.05); color: #e9f9f3; }
-	&.active { background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.15); color: var(--accent-color); font-weight: 600; }
+	&.active { background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.12); color: var(--accent-color); font-weight: 600; }
 }
 
 .option-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }

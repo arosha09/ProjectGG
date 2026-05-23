@@ -1,0 +1,62 @@
+<div
+  class="import-result-card"
+  [class.is-selected]="selected()"
+>
+  <mat-checkbox
+    class="ir-check"
+    [checked]="selected()"
+    (change)="selectionChange.emit()"
+    color="primary"
+  ></mat-checkbox>
+  @if (result().cover_url) {
+    <img class="ir-cover" [src]="result().cover_url" [alt]="result().name" />
+  }
+  <div class="ir-body">
+    <div class="ir-top">
+      <h3 class="ir-name">{{ result().name }}</h3>
+      @if (result().rating) {
+        <span class="ir-rating">{{ result().rating }}</span>
+      }
+    </div>
+    <div class="ir-meta">
+      @for (s of result().sources; track s) {
+        <span class="ir-source"
+          [class.source-steam]="s === 'steam'"
+          [class.source-gog]="s === 'gog'"
+          [class.source-epic]="s === 'epic'"
+          [class.source-rawg]="s === 'rawg'"
+        >{{ s }}</span>
+      }
+      @for (p of result().platforms; track p) {
+        @if (p !== 'pc') {
+          <span class="ir-platform">{{ p }}</span>
+        }
+      }
+      @if (result().release_year) {
+        <span class="ir-year">{{ result().release_year }}</span>
+      }
+    </div>
+    @if ((result().genres?.length ?? 0) > 0) {
+      <div class="ir-genres">
+        @for (genre of result().genres?.slice(0, 4) ?? []; track genre) {
+          <span class="ir-genre">{{ genre }}</span>
+        }
+      </div>
+    }
+    @if (result().desc) {
+      <p class="ir-desc">{{ result().desc }}</p>
+    }
+  </div>
+  <button
+    class="ir-import-btn"
+    [disabled]="importing()"
+    (click)="importGame.emit()"
+  >
+    @if (importing()) {
+      <span class="ir-spinner"></span>
+      IMPORTING
+    } @else {
+      + IMPORT
+    }
+  </button>
+</div>

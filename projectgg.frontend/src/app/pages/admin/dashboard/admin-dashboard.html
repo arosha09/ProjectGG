@@ -1,0 +1,98 @@
+<app-admin-nav></app-admin-nav>
+
+@if (isAdmin) {
+	<section class="admin-shell">
+		<div class="admin-header">
+			<span class="admin-badge">ADMIN PANEL</span>
+			<h1>Operator console</h1>
+			<p class="admin-sub">System management tools for {{ currentUser?.name || 'operator' }}</p>
+		</div>
+
+		<div class="admin-cards">
+			<a class="admin-card" routerLink="/admin/sync">
+				<div class="admin-card-icon"><mat-icon>sync</mat-icon></div>
+				<div class="admin-card-body">
+					<h3>Game Sync</h3>
+					<p>Scan and sync existing games with external sources for cover art, genres, and ratings</p>
+				</div>
+			<div class="admin-card-arrow"><mat-icon>chevron_right</mat-icon></div>
+		</a>
+
+		<a class="admin-card" routerLink="/dashboard">
+			<div class="admin-card-icon"><mat-icon>sports_esports</mat-icon></div>
+				<div class="admin-card-body">
+					<h3>User Dashboard</h3>
+					<p>Browse library, manage your personal game collection</p>
+				</div>
+				<div class="admin-card-arrow"><mat-icon>chevron_right</mat-icon></div>
+			</a>
+		</div>
+
+		<div class="import-section">
+			<div class="section-divider"></div>
+			<h2 class="import-heading">Import games from external sources</h2>
+			<p class="import-sub">Search across Steam, GOG, Epic Games Store, and RAWG — preview results and import directly into your database.</p>
+
+			<div class="import-search-wrap" [class.is-searching]="searching">
+				<input
+					class="import-search-input"
+					type="text"
+					placeholder="Search for a game..."
+					[(ngModel)]="searchQuery"
+					(keyup.enter)="onSearch()"
+				/>
+				<button class="import-search-btn" (click)="onSearch()"><mat-icon>search</mat-icon></button>
+				@if (searchQuery) {
+					<button class="import-search-clear" (click)="clearSearch()"><mat-icon>close</mat-icon></button>
+				}
+				@if (searching) {
+					<div class="import-search-pulse"></div>
+				}
+			</div>
+
+			@if (importLog.length > 0) {
+				<div class="import-log">
+					@for (entry of importLog; track entry) {
+						<div class="import-log-entry">{{ entry }}</div>
+					}
+				</div>
+			}
+
+			@if (searchResults.length > 0) {
+				<div class="import-results-header">
+					<span class="irh-count">{{ searchResults.length }} results</span>
+					<div class="irh-actions">
+						@if (hasSelection) {
+							<button class="irh-import-selected" (click)="importSelected()" [disabled]="importing.size > 0">
+								<mat-icon>playlist_add</mat-icon> IMPORT SELECTED
+							</button>
+						}
+						<button class="irh-import-all" (click)="importAll()" [disabled]="importing.size > 0">
+							<mat-icon>playlist_add</mat-icon> IMPORT ALL
+						</button>
+					</div>
+				</div>
+				<div class="import-results">
+					@for (result of searchResults; track result.id) {
+						<app-game-search-result
+							[result]="result"
+							[selected]="selectedIds.has(result.id)"
+							[importing]="importing.has(result.id)"
+							(selectionChange)="toggleSelect(result.id)"
+							(importGame)="importGame(result)"
+						></app-game-search-result>
+					}
+				</div>
+			}
+		</div>
+	</section>
+} @else {
+	<section class="admin-shell">
+		<div class="sync-access-denied">
+			<span class="ad-icon"><mat-icon>block</mat-icon></span>
+			<h2>ACCESS RESTRICTED</h2>
+			<p>Admin credentials required.</p>
+			<a class="sync-btn" routerLink="/dashboard">Return to Hub</a>
+		</div>
+	</section>
+}

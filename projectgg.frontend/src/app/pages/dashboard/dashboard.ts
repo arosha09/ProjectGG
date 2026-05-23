@@ -1,11 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { GamesService } from '../../services/games.service';
-import { MatCardModule } from '@angular/material/card';
+import { FormsModule } from '@angular/forms';
 import { Game } from '../../models/game.model';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 import { GameCardComponent } from '../../components/game-card/game-card.component';
@@ -23,14 +25,17 @@ type LibraryItem = { type: 'game'; game: Game } | { type: 'series'; series: Seri
 
 @Component({
   selector: 'app-dashboard',
-	standalone: true,
+  standalone: true,
 	imports: [
 		CommonModule,
 		MatCardModule,
+		MatIconModule,
 		SkeletonComponent,
 		GameCardComponent,
 		PaginatorComponent,
 		HeaderNavComponent,
+		FormsModule,
+		RouterLink,
 	],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
@@ -57,6 +62,10 @@ export class Dashboard implements OnInit, OnDestroy {
   expandedSeries = new Set<string>();
   seriesCurrentPages: Record<string, number> = {};
   libraryCurrentPage = 1;
+  searchQuery = '';
+  searchResults: Game[] | null = null;
+  searching = false;
+  sortOption: 'name' | 'release' | 'timeline' = 'name';
 
   constructor(
     private readonly auth: AuthService,
@@ -328,6 +337,79 @@ export class Dashboard implements OnInit, OnDestroy {
       .sort((left, right) => left.name.localeCompare(right.name));
   }
 
+  onSearchInput(): void {
+    const q = this.searchQuery.trim();
+    if (!q) {
+      this.searchResults = null;
+      this.searching = false;
+      this.libraryCurrentPage = 1;
+      return;
+    }
+    this.searching = true;
+    this.games.searchGames(q, 1, 100).subscribe({
+      next: (results) => {
+        this.searchResults = results;
+        this.searching = false;
+        this.libraryCurrentPage = 1;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.searching = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.searchResults = null;
+    this.libraryCurrentPage = 1;
+  }
+
+  get sortedLibraryItems(): LibraryItem[] {
+    const items = this.searchResults
+      ? this.searchResults.map((game) => ({ type: 'game' as const, game }))
+      : this.libraryItems;
+
+    return [...items].sort((a, b) => {
+      const aName = a.type === 'game' ? a.game.name : a.series.name;
+      const bName = b.type === 'game' ? b.game.name : b.series.name;
+
+      if (this.sortOption === 'release') {
+        const aRel = a.type === 'game' ? (a.game.sequence_release ?? 9999) : 9999;
+        const bRel = b.type === 'game' ? (b.game.sequence_release ?? 9999) : 9999;
+        if (aRel !== bRel) return aRel - bRel;
+        return aName.localeCompare(bName);
+      }
+
+      if (this.sortOption === 'timeline') {
+        const aTim = a.type === 'game' ? (a.game.sequence_timeline ?? 9999) : 9999;
+        const bTim = b.type === 'game' ? (b.game.sequence_timeline ?? 9999) : 9999;
+        if (aTim !== bTim) return aTim - bTim;
+        return aName.localeCompare(bName);
+      }
+
+      return aName.localeCompare(bName);
+    });
+  }
+
+  get filteredLibraryItems(): LibraryItem[] {
+    return this.searchResults
+      ? this.sortedLibraryItems
+      : this.libraryItems;
+  }
+
+  get pagedLibraryItems(): LibraryItem[] {
+    const items = this.filteredLibraryItems;
+    const start = (this.libraryCurrentPage - 1) * this.libraryPageSize;
+    return items.slice(start, start + this.libraryPageSize);
+  }
+
+  get totalLibraryPages(): number {
+    const items = this.filteredLibraryItems;
+    return Math.max(1, Math.ceil(items.length / this.libraryPageSize));
+  }
+
   get libraryItems(): LibraryItem[] {
     const standaloneItems: LibraryItem[] = this.allGames
       .filter((game) => !game.series_name)
@@ -343,15 +425,6 @@ export class Dashboard implements OnInit, OnDestroy {
       const rightName = right.type === 'game' ? right.game.name : right.series.name;
       return leftName.localeCompare(rightName);
     });
-  }
-
-  get pagedLibraryItems(): LibraryItem[] {
-    const startIndex = (this.libraryCurrentPage - 1) * this.libraryPageSize;
-    return this.libraryItems.slice(startIndex, startIndex + this.libraryPageSize);
-  }
-
-  get totalLibraryPages(): number {
-    return Math.max(1, Math.ceil(this.libraryItems.length / this.libraryPageSize));
   }
 
   get visibleExpandedSeriesGroups(): SeriesGroup[] {
@@ -427,6 +500,11 @@ export class Dashboard implements OnInit, OnDestroy {
 
   isAdded(gameCode: string): boolean {
     return this.userGames.some((game) => game.code === gameCode);
+  }
+
+  get isAdmin(): boolean {
+    const user = this.auth?.getCurrentUser();
+    return user?.role === 'admin';
   }
 
   getDefaultAvatar(gender?: string): string {

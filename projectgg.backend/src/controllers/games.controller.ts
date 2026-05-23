@@ -47,4 +47,16 @@ export class GamesController {
         return this.gamesService.removeUserGame(userId, gameCode);
     }
 
+    @Get('search')
+    @ApiQuery({ name: 'q', type: String, required: true, example: 'assassin' })
+    @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
+    @ApiQuery({ name: 'page_size', type: Number, required: false, example: 12 })
+    async searchGames(
+        @Query('q') query: string,
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+        @Query('page_size', new DefaultValuePipe(12), ParseIntPipe) pageSize: number,
+    ): Promise<GetAllGamesDto[]> {
+        return this.gamesService.searchGames(query, page, pageSize);
+    }
+
 }

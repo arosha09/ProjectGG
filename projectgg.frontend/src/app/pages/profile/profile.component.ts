@@ -171,6 +171,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
       });
   }
 
+  get isAdmin(): boolean {
+    return this.currentUser?.role === 'admin';
+  }
+
   logout(): void {
     this.auth.logout();
     this.router.navigate(['/home']);

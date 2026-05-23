@@ -1,0 +1,108 @@
+<section class="sync-shell">
+  <app-admin-nav></app-admin-nav>
+
+  <main class="sync-main">
+    @if (!currentUser?.role || currentUser?.role !== 'admin') {
+      <div class="sync-access-denied">
+        <span class="ad-icon"><mat-icon>block</mat-icon></span>
+        <h2>ACCESS RESTRICTED</h2>
+        <p>Admin credentials required to access the sync terminal.</p>
+        <a class="sync-btn" routerLink="/dashboard">Return to Hub</a>
+      </div>
+    } @else {
+      <div class="sync-controls">
+        <div class="sync-stats">
+          <div class="stat-block">
+            <span class="stat-num">{{ queue.length || '—' }}</span>
+            <span class="stat-lbl">UNSYNCED</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-num">{{ completed }}</span>
+            <span class="stat-lbl">SYNCED</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-num">{{ total }}</span>
+            <span class="stat-lbl">TOTAL</span>
+          </div>
+        </div>
+
+        <div class="sync-actions">
+          <button class="sync-btn sync-btn-primary" (click)="startSync()" [disabled]="syncing">
+            @if (syncing) {
+              <span class="sync-spinner"></span>
+              SYNCING...
+            } @else {
+              <mat-icon>sync</mat-icon> SYNC ALL
+            }
+          </button>
+          <button class="sync-btn sync-btn-secondary" (click)="loadQueue()" [disabled]="syncing || scanning">
+            @if (scanning) {
+              <span class="sync-spinner"></span>
+              SCANNING...
+            } @else {
+              <mat-icon>playlist_add</mat-icon> SCAN QUEUE
+            }
+          </button>
+        </div>
+      </div>
+
+      @if (syncing || completed > 0) {
+        <div class="sync-progress-section">
+          <div class="sync-progress-header">
+            <span class="sp-label">PROGRESS</span>
+            <span class="sp-pct">{{ progressPercent }}%</span>
+          </div>
+          <div class="sync-progress-track">
+            <div class="sync-progress-fill" [style.width.%]="progressPercent">
+              <div class="sp-glow"></div>
+            </div>
+          </div>
+          <p class="sync-status-line">{{ status }}</p>
+          @if (current && syncing) {
+            <div class="sync-current">
+              <span class="sc-pulse"></span>
+              <span>CURRENT: {{ current }}</span>
+            </div>
+          }
+        </div>
+      }
+
+      @if (showQueue && queue.length > 0) {
+        <div class="sync-queue-list">
+          <h3>SYNC QUEUE ({{ queue.length }})</h3>
+          <div class="sq-items">
+            @for (game of queue; track game.code) {
+              <div class="sq-item" [class.sq-done]="results.find(r => r.code === game.code)?.success"
+                   [class.sq-fail]="results.find(r => r.code === game.code)?.success === false">
+                <span class="sq-code">{{ game.code }}</span>
+                <span class="sq-name">{{ game.name }}</span>
+                @if (results.find(r => r.code === game.code); as result) {
+                  <span class="sq-status" [class.sq-ok]="result.success" [class.sq-err]="!result.success">
+                    <mat-icon>{{ result.success ? 'check' : 'close' }}</mat-icon>
+                  </span>
+                } @else if (syncing && current === game.code) {
+                  <span class="sq-status sq-loading"><mat-icon>sync</mat-icon></span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @if (showQueue && queue.length === 0 && !syncing) {
+        <div class="sync-empty">
+          <p>No unsynced games found. All games have cover images and genres.</p>
+        </div>
+      }
+
+      @if (results.length > 0) {
+        <div class="sync-summary">
+          <span class="ss-ok"><mat-icon>check</mat-icon> {{ successCount }} succeeded</span>
+          @if (failCount > 0) {
+            <span class="ss-fail"><mat-icon>close</mat-icon> {{ failCount }} failed</span>
+          }
+        </div>
+      }
+    }
+  </main>
+</section>

@@ -133,6 +133,17 @@
   color: var(--accent-color);
 }
 
+.profile-menu-admin:hover {
+  background: rgba(170, 68, 255, 0.1) !important;
+  color: #aa44ff !important;
+}
+
+.profile-menu-admin mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
 .menu-icon {
   font-size: 14px;
   line-height: 1;

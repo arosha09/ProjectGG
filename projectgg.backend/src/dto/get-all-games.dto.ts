@@ -30,4 +30,28 @@ export class GetAllGamesDto {
 
     @ApiProperty({ example: "Assassin's Creed", required: false, nullable: true })
     series_name?: string | null;
+
+    @ApiProperty({ example: ['Action', 'Adventure'], required: false })
+    genres?: string[];
+
+    @ApiProperty({ example: 'https://cdn.akamai.steamstatic.com/steam/apps/289470/header.jpg', required: false })
+    cover_url?: string;
+
+    @ApiProperty({ example: '289470', required: false })
+    external_id?: string;
+
+    @ApiProperty({ example: 'steam', required: false })
+    external_source?: string;
+
+    @ApiProperty({ example: 85, required: false })
+    rating?: number | null;
+
+    @ApiProperty({ example: 2014, required: false })
+    release_year?: number | null;
+
+    @ApiProperty({ example: ['pc', 'ps5'], required: false })
+    platforms?: string[];
+
+    @ApiProperty({ example: ['steam', 'rawg'], required: false })
+    sources?: string[];
 }

@@ -54,6 +54,9 @@
       </button>
     </form>
 
+    @if (successMessage) {
+      <app-status-message type="success" [message]="successMessage" />
+    }
     <app-status-message *ngIf="error" type="error" [message]="error" />
 
     <p class="switch-link">
@@ -62,3 +65,27 @@
     </p>
   </div>
 </section>
+
+@if (showAdminChoice) {
+  <div class="modal-overlay" (click)="goToDashboard()">
+    <div class="modal-card card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <span class="modal-badge">ADMIN</span>
+        <h2>Access level confirmed</h2>
+        <p class="modal-sub">Where do you want to go, operator?</p>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-user" (click)="goToDashboard()">
+          <span class="modal-btn-icon"><mat-icon>sports_esports</mat-icon></span>
+          <span class="modal-btn-label">User Dashboard</span>
+          <span class="modal-btn-desc">Browse library, manage collection</span>
+        </button>
+        <button class="modal-btn modal-btn-admin" (click)="goToAdmin()">
+          <span class="modal-btn-icon"><mat-icon>settings</mat-icon></span>
+          <span class="modal-btn-label">Admin Panel</span>
+          <span class="modal-btn-desc">Sync games, system tools</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}

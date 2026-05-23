@@ -25,6 +25,7 @@ export class Register {
   confirmPassword = '';
   loading = false;
   error = '';
+  successMessage = '';
   showPassword = false;
   showConfirmPassword = false;
 
@@ -61,7 +62,11 @@ export class Register {
 
     this.auth.register(this.name, this.username, this.email, this.password, dob, this.gender).subscribe({
       next: () => {
-        this.router.navigate(['/dashboard']);
+        this.successMessage = 'INITIALIZATION SUCCESSFUL';
+        this.cdr.detectChanges();
+        setTimeout(() => {
+          this.router.navigate(['/dashboard']);
+        }, 5000);
       },
       error: (err: any) => {
         this.loading = false;

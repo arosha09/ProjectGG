@@ -18,7 +18,9 @@ export class Login {
   password = '';
   loading = false;
   error = '';
+  successMessage = '';
   showPassword = false;
+  showAdminChoice = false;
 
   constructor(
     private readonly auth: AuthService,
@@ -39,7 +41,18 @@ export class Login {
 
     this.auth.login(this.email, this.password).subscribe({
       next: () => {
-        this.router.navigate(['/dashboard']);
+        this.loading = false;
+        this.successMessage = 'AUTHORIZED';
+        this.cdr.detectChanges();
+        setTimeout(() => {
+          const user = this.auth.getCurrentUser();
+          if (user?.role === 'admin') {
+            this.showAdminChoice = true;
+          } else {
+            this.router.navigate(['/dashboard']);
+          }
+          this.cdr.detectChanges();
+        }, 2000);
       },
       error: (err: any) => {
         this.loading = false;
@@ -55,6 +68,16 @@ export class Login {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  goToDashboard(): void {
+    this.showAdminChoice = false;
+    this.router.navigate(['/dashboard']);
+  }
+
+  goToAdmin(): void {
+    this.showAdminChoice = false;
+    this.router.navigate(['/admin']);
   }
 
   togglePassword(): void {

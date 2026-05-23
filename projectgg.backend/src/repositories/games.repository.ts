@@ -35,7 +35,7 @@ export class GamesRepository {
       [...uniqueSeries].map(async (name) => {
         const { data, error } = await this.supabase.storage
           .from(this.bucketName)
-          .createSignedUrl(`series/${name}.jpg`, 60 * 60);
+          .createSignedUrl(`series/${name}.png`, 60 * 60);
         if (!error && data?.signedUrl) {
           seriesUrlMap.set(name, data.signedUrl);
         }
@@ -44,13 +44,19 @@ export class GamesRepository {
 
     return Promise.all(
       (games ?? []).map(async (game) => {
-        const filePath = `game/${game.code}.jpg`;
-        const { data, error } = await this.supabase.storage
-          .from(this.bucketName)
-          .createSignedUrl(filePath, 60 * 60);
+        let coverUrl = game.cover_url;
+        if (!coverUrl) {
+          const filePath = `game/${game.code}.jpg`;
+          const { data, error } = await this.supabase.storage
+            .from(this.bucketName)
+            .createSignedUrl(filePath, 60 * 60);
+          if (!error && data?.signedUrl) {
+            coverUrl = data.signedUrl;
+          }
+        }
         return {
           ...game,
-          imageUrl: error || !data?.signedUrl ? undefined : data.signedUrl,
+          cover_url: coverUrl,
           series_image_url: game.series_name
             ? seriesUrlMap.get(game.series_name)
             : undefined,
@@ -106,12 +112,21 @@ export class GamesRepository {
     const normalizedGames = (data ?? []).map((game: any) => ({
       name: game.name ?? '',
       code: game.code ?? '',
-      desc: '',
+      desc: game.desc ?? '',
       total_count: game.total_count,
-      sequence_timeline: null,
-      sequence_release: null,
-      is_series: false,
-      series_name: null,
+      sequence_timeline: game.sequence_timeline ?? null,
+      sequence_release: game.sequence_release ?? null,
+      is_series: game.is_series ?? false,
+      series_name: game.series_name ?? null,
+      genres: game.genres ?? [],
+      cover_url: game.cover_url ?? undefined,
+      external_id: game.external_id ?? undefined,
+      external_source: game.external_source ?? undefined,
+      rating: game.rating ?? null,
+      release_year: game.release_year ?? null,
+      platform: game.platform ?? 'pc',
+      platforms: game.platforms ?? ['pc'],
+      sources: game.sources ?? ['pc'],
     }));
 
     return this.withImageUrl(normalizedGames);
@@ -129,5 +144,24 @@ export class GamesRepository {
       );
     }
     return data;
+  }
+
+  async searchGames(
+    query: string,
+    page = 1,
+    pageSize = 12,
+  ): Promise<GetAllGamesDto[]> {
+    const functionName = 'search_games';
+    const { data, error } = await this.supabase.rpc(functionName, {
+      search_query: query,
+      page_size: pageSize,
+      page_number: page,
+    });
+    if (error) {
+      throw new InternalServerErrorException(
+        `${functionName} failed: ${error.message}`,
+      );
+    }
+    return this.withImageUrl(data ?? []);
   }
 }

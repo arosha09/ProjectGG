@@ -1,16 +1,39 @@
 <mat-card class="owned-card">
-	<div class="card-media owned-media" [class.has-image]="!!game().imageUrl">
-		<img *ngIf="game().imageUrl" class="cover-image" [src]="game().imageUrl" [alt]="game().name" (error)="hideBrokenCover($event)" />
+	<div class="card-media owned-media" [class.has-image]="!!game().cover_url">
+		<img *ngIf="game().cover_url" class="cover-image" [src]="game().cover_url" [alt]="game().name" (error)="hideBrokenCover($event)" />
 		<div class="cover-overlay"></div>
-		<div class="game-content owned-content">
+			<div class="game-content owned-content">
 			<div class="game-top">
 				<div>
 					@if (isSeries()) {
 						<p class="series-label">Series</p>
 					}
-					<h3>{{ game().name }}</h3>
+					<div class="title-row">
+						<h3>{{ game().name }}</h3>
+						@for (p of (game().platforms ?? []); track p) {
+							@if (p !== 'pc') {
+								<span class="platform-badge">{{ p }}</span>
+							}
+						}
+						@for (s of (game().sources ?? []); track s) {
+							<span class="source-badge">{{ s }}</span>
+						}
+						@if (game().rating) {
+							<span class="rating-badge">{{ game().rating }}</span>
+						}
+					</div>
 					@if (seriesOrder(); as order) {
 						<p class="series-order">Timeline {{ order.timeline ?? '-' }} • Release {{ order.release ?? '-' }}</p>
+					}
+					@if (game().genres && game().genres!.length > 0) {
+						<div class="genre-row">
+							@for (genre of game().genres!.slice(0, 3); track genre) {
+								<span class="genre-chip">{{ genre }}</span>
+							}
+							@if (game().genres!.length > 3) {
+								<span class="genre-chip genre-more">+{{ game().genres!.length - 3 }}</span>
+							}
+						</div>
 					}
 				</div>
 				@if (isAdded()) {

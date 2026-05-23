@@ -9,4 +9,12 @@ export interface Game {
   sequence_release?: number | null;
   is_series?: boolean;
   series_name?: string | null;
+  genres?: string[];
+  cover_url?: string;
+  external_id?: string;
+  external_source?: string;
+  rating?: number | null;
+  release_year?: number | null;
+  platforms?: string[];
+  sources?: string[];
 }

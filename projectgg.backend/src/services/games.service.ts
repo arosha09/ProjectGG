@@ -22,5 +22,9 @@ export class GamesService {
   async removeUserGame(userId: string, gameCode: string): Promise<boolean> {
     return this.gamesRepository.removeUserGame(userId, gameCode);
   }
+
+  async searchGames(query: string, page = 1, pageSize = 12): Promise<GetAllGamesDto[]> {
+    return this.gamesRepository.searchGames(query, page, pageSize);
+  }
 }
 

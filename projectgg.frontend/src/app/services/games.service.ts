@@ -85,18 +85,70 @@ export class GamesService {
     );
   }
 
+  searchGames(query: string, page = 1, pageSize = 12): Observable<Game[]> {
+    return this.http.get<unknown>(`${this.apiUrl}/games/search`, {
+      params: { q: query, page, page_size: pageSize },
+    }).pipe(
+      map((body: unknown) => {
+        if (!body) return [];
+        const response = body as { data?: GameApiItem[]; rows?: GameApiItem[] } | GameApiItem[];
+        const games = Array.isArray(response) ? response : (response.data || response.rows || []);
+        return this.withImageFallback(games);
+      })
+    );
+  }
+
+  getSyncQueue(): Observable<{ code: string; name: string }[]> {
+    return this.http.get<{ code: string; name: string }[]>(`${this.apiUrl}/games/sync/queue`);
+  }
+
+  syncGame(code: string, name?: string): Observable<any> {
+    const params: any = {};
+    if (name) params.name = name;
+    return this.http.post(`${this.apiUrl}/games/sync/${code}`, null, { params });
+  }
+
+  searchExternal(query: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/games/sync/search/external`, {
+      params: { q: query },
+    });
+  }
+
+  importGame(data: {
+    name: string;
+    cover_url?: string;
+    genres?: string[];
+    external_id?: string;
+    external_source?: string;
+    rating?: number | null;
+    release_year?: number | null;
+    desc?: string;
+    platforms?: string[];
+    sources?: string[];
+  }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/games/sync/import`, data);
+  }
+
   private normalizeGame(game: GameApiItem): Game {
     return {
       name: game.name ?? game.game_name ?? '',
       code: game.code ?? game.game_code ?? '',
       desc: game.desc ?? '',
-      imageUrl: game.imageUrl,
+      imageUrl: game.imageUrl ?? game.cover_url,
       series_image_url: game.series_image_url,
       total_count: game.total_count,
       sequence_timeline: game.sequence_timeline ?? null,
       sequence_release: game.sequence_release ?? null,
       is_series: game.is_series ?? false,
       series_name: game.series_name ?? null,
+      genres: game.genres ?? [],
+      cover_url: game.cover_url,
+      external_id: game.external_id,
+      external_source: game.external_source,
+      rating: game.rating ?? null,
+      release_year: game.release_year ?? null,
+      platforms: game.platforms ?? ['pc'],
+      sources: game.sources ?? ['pc'],
     };
   }
 

@@ -7,6 +7,7 @@
     [profileDropdownOpen]="profileDropdownOpen"
     [userName]="currentUser?.username"
     [avatarUrl]="currentUser?.avatar || getDefaultAvatar(currentUser?.gender)"
+    [isAdmin]="isAdmin"
     (themeChange)="setTheme($event)"
     (statusChange)="setStatus($event)"
     (themeToggle)="toggleThemeDropdown()"
@@ -36,8 +37,39 @@
 
 		<section class="section-head">
 			<h2>Game library</h2>
-			<p>Tap a game to sync it into your collection. Showing {{ pagedLibraryItems.length }} of {{ libraryItems.length }} cards.</p>
+			<p>Tap a game to sync it into your collection. Showing {{ pagedLibraryItems.length }} of {{ filteredLibraryItems.length }} cards.</p>
 		</section>
+
+		<div class="search-filter-bar">
+			<div class="search-input-wrap">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="Search games..."
+					[(ngModel)]="searchQuery"
+					(input)="onSearchInput()"
+				/>
+				@if (searchQuery) {
+					<button class="search-clear" type="button" (click)="clearSearch()"><mat-icon>close</mat-icon></button>
+				}
+				@if (searching) {
+					<span class="search-spinner"></span>
+				}
+			</div>
+			<div class="sort-select">
+				<select [(ngModel)]="sortOption" class="sort-dropdown">
+					<option value="name">Name</option>
+					<option value="release">Release Order</option>
+					<option value="timeline">Timeline Order</option>
+				</select>
+			</div>
+			@if (isAdmin) {
+				<a class="sync-link" routerLink="/admin/sync">
+					<mat-icon class="sync-link-icon">sync</mat-icon>
+					SYNC
+				</a>
+			}
+		</div>
 
 		<app-skeleton *ngIf="loading"></app-skeleton>
 		<p *ngIf="error" class="error-banner">{{ error }}</p>
@@ -56,8 +88,8 @@
 				<ng-container *ngIf="item.type === 'series'">
 
 					<mat-card class="owned-card series-card" *ngIf="!isSeriesExpanded(item.series.name)" (click)="toggleSeries(item.series.name)">
-						<div class="card-media owned-media" [class.has-image]="!!item.series.games[0]?.imageUrl">
-							<img *ngIf="item.series.games[0]?.imageUrl" class="cover-image" [src]="item.series.games[0]?.imageUrl" [alt]="item.series.name" (error)="hideBrokenCover($event)" />
+						<div class="card-media owned-media" [class.has-image]="!!item.series.games[0]?.series_image_url">
+							<img *ngIf="item.series.games[0]?.series_image_url" class="cover-image" [src]="item.series.games[0]?.series_image_url" [alt]="item.series.name" (error)="hideBrokenCover($event)" />
 							<div class="cover-overlay"></div>
 							<div class="game-content owned-content">
 								<div class="game-top">

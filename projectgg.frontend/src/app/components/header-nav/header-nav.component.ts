@@ -1,13 +1,14 @@
 import { Component, input, output, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
 import { ThemeSelectorComponent, ThemeOption } from '../theme-selector/theme-selector.component';
 import { StatusSelectorComponent, StatusOption } from '../status-selector/status-selector.component';
 
 @Component({
   selector: 'app-header-nav',
   standalone: true,
-  imports: [CommonModule, RouterLink, ThemeSelectorComponent, StatusSelectorComponent],
+  imports: [CommonModule, RouterLink, MatIconModule, ThemeSelectorComponent, StatusSelectorComponent],
   templateUrl: './header-nav.component.html',
   styleUrls: ['./header-nav.component.scss'],
 })
@@ -19,6 +20,7 @@ export class HeaderNavComponent {
   readonly profileDropdownOpen = input(false);
   readonly userName = input<string | null>(null);
   readonly avatarUrl = input<string | null>(null);
+  readonly isAdmin = input(false);
 
   readonly themeChange = output<ThemeOption>();
   readonly statusChange = output<StatusOption>();

@@ -6,6 +6,7 @@
   [profileDropdownOpen]="profileDropdownOpen"
   [userName]="currentUser?.username"
   [avatarUrl]="currentUser?.avatar || getDefaultAvatar(currentUser?.gender)"
+  [isAdmin]="isAdmin"
   (themeChange)="setTheme($event)"
   (statusChange)="setStatus($event)"
   (themeToggle)="toggleThemeDropdown()"

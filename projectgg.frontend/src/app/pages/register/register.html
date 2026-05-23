@@ -118,6 +118,9 @@
       </button>
     </form>
 
+    @if (successMessage) {
+      <app-status-message type="success" [message]="successMessage" />
+    }
     <app-status-message *ngIf="error" type="error" [message]="error" />
 
     <p class="switch-link">
