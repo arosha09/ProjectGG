@@ -61,6 +61,8 @@ export class AuthRepository {
           username: payload.username,
           email: payload.email,
           name: payload.name,
+          date_of_birth: payload.date_of_birth,
+          gender: payload.gender,
           password_hash: payload.password_hash,
           role: payload.role ?? 'user',
           avatar: payload.avatar,

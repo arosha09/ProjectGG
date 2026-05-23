@@ -11,7 +11,7 @@ export class GamesController {
 
     @Post('add-user-games')
     @ApiBody({ type: AddUserGameDto })
-    async addUserGame(@Body() userGame: AddUserGameDto): Promise<AddUserGameDto[]> {
+    async addUserGame(@Body() userGame: AddUserGameDto): Promise<void> {
         return this.gamesService.addUserGame(userGame);
     }
 
@@ -26,7 +26,7 @@ export class GamesController {
     }
 
     @Get('get-user-games')
-    @ApiQuery({ name: 'user_id', type: String, required: true, example: 'user_id    ' })
+    @ApiQuery({ name: 'user_id', type: String, required: true, example: 'user_id' })
     @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
     @ApiQuery({ name: 'page_size', type: Number, required: false, example: 12 })
     async getUserGames(

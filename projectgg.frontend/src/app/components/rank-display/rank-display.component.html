@@ -1,0 +1,21 @@
+@if (userRank(); as rank) {
+  <mat-card class="rank-card" [class.rank-compact]="compact()">
+    <div class="rank-inner">
+      <div class="rank-visual">
+        <img
+          class="rank-image"
+          [src]="rankImageUrl"
+          [alt]="rank.rank_name"
+          (error)="$event.target['style'].display = 'none'"
+        />
+      </div>
+      <div class="rank-info">
+        <p class="rank-title">{{ rank.rank_name }}</p>
+        <div class="xp-bar-track">
+          <div class="xp-bar-fill" [style.width.%]="rank.progress_percent"></div>
+        </div>
+        <p class="xp-label">{{ xpLabel }}</p>
+      </div>
+    </div>
+  </mat-card>
+}

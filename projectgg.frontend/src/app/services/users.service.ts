@@ -10,6 +10,7 @@ export class UsersService {
   private readonly apiUrl = environment.apiUrl;
   private currentUserSubject = new BehaviorSubject<any>(null);
   private tokenSubject = new BehaviorSubject<string | null>(null);
+  private refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
   currentUser$ = this.currentUserSubject.asObservable();
   token$ = this.tokenSubject.asObservable();
@@ -19,23 +20,28 @@ export class UsersService {
   }
 
   private loadFromLocalStorage(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('currentUser');
+    const refreshToken = localStorage.getItem('refresh_token');
 
     if (token) {
       this.tokenSubject.next(token);
     }
 
+    if (refreshToken) {
+      this.refreshTokenSubject.next(refreshToken);
+    }
+
     if (user) {
-      this.currentUserSubject.next(JSON.parse(user));
+      try {
+        this.currentUserSubject.next(JSON.parse(user));
+      } catch {
+        this.currentUserSubject.next(null);
+      }
     }
   }
 
-  register(payload: { name: string; username: string; email: string; password_hash: string; role?: string; avatar?: string; }): Observable<any> {
+  register(payload: { name: string; username: string; email: string; date_of_birth: Date; gender: string; password_hash: string; role?: string; avatar?: string; }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/auth/register`, payload).pipe(
       tap((response) => this.syncAuthState(response))
     );
@@ -43,6 +49,18 @@ export class UsersService {
 
   login(payload: { email: string; password: string }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/auth/login`, payload).pipe(
+      tap((response) => this.syncAuthState(response))
+    );
+  }
+
+  refreshToken(): Observable<any> {
+    const refresh_token = this.refreshTokenSubject.value;
+    if (!refresh_token) {
+      return new Observable((sub) => {
+        sub.error(new Error('No refresh token'));
+      });
+    }
+    return this.http.post<any>(`${this.apiUrl}/auth/refresh`, { refresh_token }).pipe(
       tap((response) => this.syncAuthState(response))
     );
   }
@@ -68,15 +86,18 @@ export class UsersService {
   logout(): void {
     this.currentUserSubject.next(null);
     this.tokenSubject.next(null);
-
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('currentUser');
-    }
+    this.refreshTokenSubject.next(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('currentUser');
   }
 
   getToken(): string | null {
     return this.tokenSubject.value;
+  }
+
+  getRefreshToken(): string | null {
+    return this.refreshTokenSubject.value;
   }
 
   getCurrentUser(): any {
@@ -89,19 +110,21 @@ export class UsersService {
 
   private syncAuthState(response: any): void {
     const token = response?.token;
+    const refreshToken = response?.refresh_token;
     const user = response?.user;
 
     if (token) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
-      }
+      localStorage.setItem('token', token);
       this.tokenSubject.next(token);
     }
 
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken);
+      this.refreshTokenSubject.next(refreshToken);
+    }
+
     if (user) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(user));
-      }
+      localStorage.setItem('currentUser', JSON.stringify(user));
       this.currentUserSubject.next(user);
     }
   }

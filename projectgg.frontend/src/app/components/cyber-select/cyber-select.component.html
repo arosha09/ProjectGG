@@ -1,0 +1,16 @@
+<div class="cyber-select-wrap">
+  <button class="cyber-select-trigger" type="button" [disabled]="disabled()" (click)="toggle()">
+    <span class="sel-text" [class.placeholder]="!selectedLabel">{{ selectedLabel || placeholder() }}</span>
+    <span class="sel-arrow">&#9662;</span>
+  </button>
+
+  @if (open()) {
+    <div class="sel-popup">
+      @for (opt of options(); track opt.value) {
+        <button class="sel-option" [class.active]="opt.value === value()" type="button" (click)="select(opt)">
+          {{ opt.label }}
+        </button>
+      }
+    </div>
+  }
+</div>

@@ -192,7 +192,7 @@ html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accen
 }
 
 .games-grid, .owned-grid {
-	display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	display: grid; grid-template-columns: repeat(4, 1fr);
 	justify-content: center; gap: 24px; width: 100%; margin-top: 20px;
 }
 

@@ -1,0 +1,55 @@
+<app-header-nav
+  [currentTheme]="currentTheme"
+  [currentStatus]="currentStatus"
+  [themeDropdownOpen]="themeDropdownOpen"
+  [statusDropdownOpen]="statusDropdownOpen"
+  [profileDropdownOpen]="profileDropdownOpen"
+  [userName]="currentUser?.username"
+  [avatarUrl]="currentUser?.avatar || getDefaultAvatar(currentUser?.gender)"
+  (themeChange)="setTheme($event)"
+  (statusChange)="setStatus($event)"
+  (themeToggle)="toggleThemeDropdown()"
+  (statusToggle)="toggleStatusDropdown()"
+  (profileToggle)="toggleProfileDropdown()"
+  (logout)="logout()"
+></app-header-nav>
+
+<section class="profile-page">
+  <div class="container">
+    <mat-card class="profile-hero">
+      <div class="hero-left">
+        <p class="eyebrow">Player Profile</p>
+        <h1 [attr.data-text]="currentUser?.name || currentUser?.username || 'Legend'">
+          {{ currentUser?.name || currentUser?.username || 'Legend' }}
+        </h1>
+        <p class="lede">Neon collection status: Active. Continue your journey.</p>
+      </div>
+
+      <div class="hero-actions">
+        <app-daily-claim
+          [canClaim]="!!canClaim?.can_claim"
+          [loading]="claiming"
+          (claim)="claimDaily()"
+        ></app-daily-claim>
+      </div>
+    </mat-card>
+
+    <div class="profile-grid">
+      <app-rank-display [userRank]="userRank"></app-rank-display>
+      
+      <mat-card class="stats-card">
+        <h3>Account Stats</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-value">{{ userRank?.total_xp || 0 }}</span>
+            <span class="stat-label">Total XP</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">{{ userRank?.rank_name || 'None' }}</span>
+            <span class="stat-label">Current Rank</span>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</section>

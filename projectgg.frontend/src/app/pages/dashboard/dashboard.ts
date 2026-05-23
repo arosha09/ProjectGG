@@ -10,8 +10,9 @@ import { Game } from '../../models/game.model';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 import { GameCardComponent } from '../../components/game-card/game-card.component';
 import { PaginatorComponent } from '../../components/paginator/paginator.component';
-import { ThemeSelectorComponent } from '../../components/theme-selector/theme-selector.component';
-import { StatusSelectorComponent } from '../../components/status-selector/status-selector.component';
+import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
+import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
+import { StatusOption } from '../../components/status-selector/status-selector.component';
 
 type SeriesGroup = {
   name: string;
@@ -29,8 +30,7 @@ type LibraryItem = { type: 'game'; game: Game } | { type: 'series'; series: Seri
 		SkeletonComponent,
 		GameCardComponent,
 		PaginatorComponent,
-		ThemeSelectorComponent,
-		StatusSelectorComponent,
+		HeaderNavComponent,
 	],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
@@ -38,8 +38,8 @@ type LibraryItem = { type: 'game'; game: Game } | { type: 'series'; series: Seri
 export class Dashboard implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   readonly pageSize = 12;
-  readonly libraryPageSize = 10;
-  readonly seriesPageSize = 10;
+  readonly libraryPageSize = 12;
+  readonly seriesPageSize = 12;
 
   currentUser: any = null;
   allGames: Game[] = [];
@@ -50,9 +50,10 @@ export class Dashboard implements OnInit, OnDestroy {
   loading = true;
   error = '';
   currentTheme: 'green' | 'red' | 'yellow' | 'blue' = 'green';
-  themeDropdownOpen = false;
   currentStatus: 'online' | 'away' | 'offline' | 'invisible' = 'online';
+  themeDropdownOpen = false;
   statusDropdownOpen = false;
+  profileDropdownOpen = false;
   expandedSeries = new Set<string>();
   seriesCurrentPages: Record<string, number> = {};
   libraryCurrentPage = 1;
@@ -106,6 +107,7 @@ export class Dashboard implements OnInit, OnDestroy {
   toggleThemeDropdown(): void {
     this.themeDropdownOpen = !this.themeDropdownOpen;
     this.statusDropdownOpen = false;
+    this.profileDropdownOpen = false;
   }
 
   setStatus(status: 'online' | 'away' | 'offline' | 'invisible'): void {
@@ -132,6 +134,13 @@ export class Dashboard implements OnInit, OnDestroy {
   toggleStatusDropdown(): void {
     this.statusDropdownOpen = !this.statusDropdownOpen;
     this.themeDropdownOpen = false;
+    this.profileDropdownOpen = false;
+  }
+
+  toggleProfileDropdown(): void {
+    this.profileDropdownOpen = !this.profileDropdownOpen;
+    this.themeDropdownOpen = false;
+    this.statusDropdownOpen = false;
   }
 
   @HostListener('document:click', ['$event'])
@@ -139,11 +148,15 @@ export class Dashboard implements OnInit, OnDestroy {
     const target = event.target as HTMLElement;
     const themeEl = document.querySelector('app-theme-selector');
     const statusEl = document.querySelector('app-status-selector');
+    const navEl = document.querySelector('app-header-nav');
     if (themeEl && !themeEl.contains(target)) {
       this.themeDropdownOpen = false;
     }
     if (statusEl && !statusEl.contains(target)) {
       this.statusDropdownOpen = false;
+    }
+    if (navEl && !navEl.contains(target)) {
+      this.profileDropdownOpen = false;
     }
   }
 
@@ -414,6 +427,12 @@ export class Dashboard implements OnInit, OnDestroy {
 
   isAdded(gameCode: string): boolean {
     return this.userGames.some((game) => game.code === gameCode);
+  }
+
+  getDefaultAvatar(gender?: string): string {
+    if (gender === 'Male') return 'assets/male.png';
+    if (gender === 'Female') return 'assets/female.png';
+    return 'assets/unknown.png';
   }
 
   logout(): void {

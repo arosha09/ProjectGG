@@ -1,0 +1,59 @@
+<div class="cyber-date-wrap">
+  <button class="cyber-date-trigger" type="button" [disabled]="disabled()" (click)="toggle()">
+    <span class="date-text" [class.placeholder]="!selDate()">{{ selDate() ? displayText : placeholder() }}</span>
+    <mat-icon class="cal-icon" [style.color]="iconColor()">calendar_today</mat-icon>
+  </button>
+
+  @if (open()) {
+    <div class="cal-popup" (click)="$event.stopPropagation()">
+      @switch (calView()) {
+        @case ('days') {
+          <div class="cal-header">
+            <button class="cal-nav" type="button" (click)="prevMonth()">&#9664;</button>
+            <div class="cal-title-group">
+              <button class="cal-title-btn" type="button" (click)="showMonthGrid()">{{ months[viewMonth()] }}</button>
+              <button class="cal-title-btn" type="button" (click)="showYearGrid()">{{ viewYear() }}</button>
+            </div>
+            <button class="cal-nav" type="button" (click)="nextMonth()">&#9654;</button>
+          </div>
+          <div class="cal-days-header">
+            @for (label of dayLabels; track label) {
+              <span class="cal-day-label">{{ label }}</span>
+            }
+          </div>
+          <div class="cal-grid">
+            @for (day of daysGrid; track $index) {
+              @if (day !== null) {
+                <button class="cal-day" [class.selected]="isToday(day)" type="button" (click)="selectDay(day)">{{ day }}</button>
+              } @else {
+                <span class="cal-day cal-empty"></span>
+              }
+            }
+          </div>
+        }
+        @case ('months') {
+          <div class="cal-header cal-header-center">
+            <span class="cal-picker-title">{{ months[viewMonth()] }}</span>
+          </div>
+          <div class="cal-picker-grid cal-months-grid">
+            @for (m of months; track $index) {
+              <button class="cal-picker-cell" [class.selected]="$index === viewMonth()" type="button" (click)="selectMonth($index)">{{ m }}</button>
+            }
+          </div>
+        }
+        @case ('years') {
+          <div class="cal-header">
+            <button class="cal-nav" type="button" (click)="prevDecade()">&#9664;</button>
+            <span class="cal-picker-title">{{ viewDecadeStart() }} - {{ viewDecadeStart() + 11 }}</span>
+            <button class="cal-nav" type="button" (click)="nextDecade()">&#9654;</button>
+          </div>
+          <div class="cal-picker-grid cal-years-grid">
+            @for (y of yearGrid(); track y) {
+              <button class="cal-picker-cell" [class.selected]="y === viewYear()" type="button" (click)="selectYear(y)">{{ y }}</button>
+            }
+          </div>
+        }
+      }
+    </div>
+  }
+</div>

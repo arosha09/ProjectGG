@@ -7,7 +7,7 @@ import { GetAllGamesDto } from 'src/dto/get-all-games.dto';
 export class GamesService {
   constructor(private readonly gamesRepository: GamesRepository) {}
 
-  async addUserGame(userGame: AddUserGameDto): Promise<AddUserGameDto[]> {
+  async addUserGame(userGame: AddUserGameDto): Promise<void> {
     return this.gamesRepository.addUserGame(userGame);
   }
 
@@ -23,3 +23,4 @@ export class GamesService {
     return this.gamesRepository.removeUserGame(userId, gameCode);
   }
 }
+

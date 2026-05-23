@@ -1,36 +1,64 @@
 <section class="auth-shell">
-	<div class="auth-grid"></div>
-	<div class="scanline"></div>
-	<div class="ambient-glow"></div>
+  <div class="auth-grid"></div>
+  <div class="scanline"></div>
+  <div class="ambient-glow"></div>
 
-	<div class="auth-card card fade-in-up">
-		<div class="auth-header">
-			<p class="eyebrow">Welcome back</p>
-		</div>
-		<h1>Access the neon battlefield</h1>
-		<p class="lede">Sign in to sync your game library and continue your quest.</p>
+  <div class="auth-card card fade-in-up">
+    <div class="auth-header">
+      <p class="eyebrow">Welcome back</p>
+    </div>
+    <h1>Access the neon battlefield</h1>
+    <p class="lede">Sign in to sync your game library and continue your quest.</p>
 
-		<form class="auth-form" (ngSubmit)="submit()">
-			<label>
-				<span>Email</span>
-				<input [(ngModel)]="email" name="email" type="email" placeholder="pilot@projectgg.io" />
-			</label>
+    <form class="auth-form" (ngSubmit)="submit()">
+      <label>
+        <span>Email</span>
+        <input
+          [(ngModel)]="email"
+          name="email"
+          type="email"
+          placeholder="pilot@projectgg.io"
+          [disabled]="loading"
+          autocomplete="email"
+        />
+      </label>
 
-			<label>
-				<span>Password</span>
-				<input [(ngModel)]="password" name="password" type="password" placeholder="••••••••" />
-			</label>
+      <label class="password-label">
+        <span>Password</span>
+        <div class="password-input-wrapper">
+          <input
+            [(ngModel)]="password"
+            name="password"
+            [type]="showPassword ? 'text' : 'password'"
+            placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+            [disabled]="loading"
+            autocomplete="current-password"
+          />
+          <button
+            type="button"
+            class="password-toggle"
+            (click)="togglePassword()"
+            tabindex="-1"
+            [disabled]="loading"
+          >
+            <mat-icon class="eye-icon">{{ showPassword ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+        </div>
+      </label>
 
-			<button class="btn btn-large" type="submit" [disabled]="loading">
-				{{ loading ? 'SYNCING...' : 'ENTER ARENA' }}
-			</button>
-		</form>
+      <button class="btn btn-large" type="submit" [disabled]="loading">
+        <span class="btn-content">
+          <span class="btn-spinner" [class.active]="loading"></span>
+          {{ loading ? 'SYNCING...' : 'ENTER ARENA' }}
+        </span>
+      </button>
+    </form>
 
-		<p *ngIf="error" class="error-text">{{ error }}</p>
+    <app-status-message *ngIf="error" type="error" [message]="error" />
 
-		<p class="switch-link">
-			New recruit?
-			<a routerLink="/register">Create your profile</a>
-		</p>
-	</div>
+    <p class="switch-link">
+      New recruit?
+      <a routerLink="/register">Create your profile</a>
+    </p>
+  </div>
 </section>

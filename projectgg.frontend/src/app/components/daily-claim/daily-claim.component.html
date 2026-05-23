@@ -1,0 +1,12 @@
+<button
+  class="daily-claim-btn"
+  type="button"
+  [disabled]="!canClaim() || loading()"
+  (click)="claim.emit()"
+>
+  <span class="claim-icon">&#9733;</span>
+  <span class="claim-label">{{ label }}</span>
+  @if (loading()) {
+    <span class="claim-spinner"></span>
+  }
+</button>

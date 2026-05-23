@@ -3,6 +3,7 @@ export interface Game {
   code: string;
   desc: string;
   imageUrl?: string;
+  series_image_url?: string;
   total_count?: number;
   sequence_timeline?: number | null;
   sequence_release?: number | null;

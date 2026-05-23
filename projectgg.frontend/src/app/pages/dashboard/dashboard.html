@@ -1,28 +1,19 @@
 <section class="dashboard-shell">
-	<header class="dashbar">
-		<div class="brand">
-			<img src="logo.ico" alt="ProjectGG" class="brand-mark" />
-			<span>PROJECT GG</span>
-		</div>
-
-		<div class="dash-actions">
-			<app-theme-selector
-				[currentTheme]="currentTheme"
-				[isOpen]="themeDropdownOpen"
-				(themeChange)="setTheme($event)"
-				(toggle)="toggleThemeDropdown()"
-			></app-theme-selector>
-
-			<app-status-selector
-				[currentStatus]="currentStatus"
-				[isOpen]="statusDropdownOpen"
-				(statusChange)="setStatus($event)"
-				(toggle)="toggleStatusDropdown()"
-			></app-status-selector>
-
-			<button class="btn btn-small logout-btn" type="button" (click)="logout()">Logout</button>
-		</div>
-	</header>
+  <app-header-nav
+    [currentTheme]="currentTheme"
+    [currentStatus]="currentStatus"
+    [themeDropdownOpen]="themeDropdownOpen"
+    [statusDropdownOpen]="statusDropdownOpen"
+    [profileDropdownOpen]="profileDropdownOpen"
+    [userName]="currentUser?.username"
+    [avatarUrl]="currentUser?.avatar || getDefaultAvatar(currentUser?.gender)"
+    (themeChange)="setTheme($event)"
+    (statusChange)="setStatus($event)"
+    (themeToggle)="toggleThemeDropdown()"
+    (statusToggle)="toggleStatusDropdown()"
+    (profileToggle)="toggleProfileDropdown()"
+    (logout)="logout()"
+  ></app-header-nav>
 
 	<main class="container dashboard-main">
 		<mat-card class="hero-card">

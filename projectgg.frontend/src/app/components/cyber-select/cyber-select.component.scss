@@ -1,0 +1,107 @@
+.cyber-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.cyber-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(0,255,204,.15);
+  border-radius: 2px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s, opacity .2s;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+
+  &:hover:not(:disabled) {
+    border-color: rgba(0,255,204,.35);
+  }
+
+  &:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 12px rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), .15);
+    outline: none;
+  }
+
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+}
+
+.sel-text {
+  &.placeholder {
+    color: rgba(230,255,240,.3);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+}
+
+.sel-arrow {
+  font-size: 12px;
+  color: rgba(230,255,240,.5);
+  transition: transform .2s;
+}
+
+.sel-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  background: linear-gradient(180deg, #0a1020, #080e1a);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.6), 0 0 20px var(--accent-glow);
+  z-index: 300;
+  padding: 6px;
+  animation: popIn .15s ease-out;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sel-option {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: rgba(230,255,240,.75);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s, color .12s;
+
+  &:hover {
+    background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), .1);
+    color: var(--accent-color);
+  }
+
+  &.active {
+    color: var(--accent-color);
+  }
+}
+
+.sel-popup::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sel-popup::-webkit-scrollbar-thumb {
+  background: var(--accent-color);
+  border-radius: 2px;
+}

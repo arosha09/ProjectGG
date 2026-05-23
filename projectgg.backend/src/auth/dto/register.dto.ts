@@ -13,6 +13,12 @@ export class RegisterDto {
   @ApiProperty({ example: 'John Doe' })
   name: string;
 
+  @ApiProperty({ example: '1990-01-01' })
+  date_of_birth: Date;
+
+  @ApiProperty({ example: 'Male' })
+  gender: string;
+
   @ApiPropertyOptional({ example: 'user' })
   role?: string;
 

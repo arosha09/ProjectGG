@@ -16,17 +16,23 @@ export class AuthService {
     return this.usersService.token$;
   }
 
-  register(name: string, username: string, email: string, password: string): Observable<any> {
+  register(name: string, username: string, email: string, password: string, date_of_birth: Date, gender: string): Observable<any> {
     return this.usersService.register({
       name,
       username,
       email,
       password_hash: password,
+      date_of_birth,
+      gender,
     });
   }
 
   login(email: string, password: string): Observable<any> {
     return this.usersService.login({ email, password });
+  }
+
+  refreshToken(): Observable<any> {
+    return this.usersService.refreshToken();
   }
 
   logout(): void {

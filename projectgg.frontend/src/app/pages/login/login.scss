@@ -123,6 +123,12 @@ input {
 	width: 100%;
 	background: rgba(255, 255, 255, 0.03);
 	border: 1px solid rgba(0, 255, 136, 0.15);
+	transition: opacity 0.2s;
+
+	&:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
 }
 
 input:focus {
@@ -130,10 +136,77 @@ input:focus {
 	box-shadow: 0 0 12px rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.15);
 }
 
-.error-text {
-	margin-top: 16px;
-	color: #ff5f6d;
-	text-shadow: 0 0 6px rgba(255, 95, 109, 0.4);
+.password-label {
+	display: grid;
+	gap: 8px;
+}
+
+.password-input-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+
+	input {
+		flex: 1;
+		padding-right: 44px;
+	}
+}
+
+.password-toggle {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0.5;
+	transition: opacity 0.2s;
+	color: var(--color-primary);
+	font-size: 18px;
+	line-height: 1;
+
+	&:hover:not(:disabled) {
+		opacity: 1;
+	}
+
+	&:disabled {
+		cursor: not-allowed;
+	}
+}
+
+.eye-icon {
+	font-size: 18px;
+	line-height: 1;
+}
+
+.btn-content {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+}
+
+.btn-spinner {
+	width: 14px;
+	height: 14px;
+	border: 2px solid rgba(0, 255, 136, 0.3);
+	border-top-color: var(--color-primary);
+	border-radius: 50%;
+	display: none;
+
+	&.active {
+		display: block;
+		animation: spin 0.7s linear infinite;
+	}
+}
+
+@keyframes spin {
+	to { transform: rotate(360deg); }
 }
 
 .switch-link {
@@ -149,4 +222,19 @@ input:focus {
 .switch-link a:hover {
 	color: var(--color-primary);
 	text-shadow: 0 0 6px var(--color-primary);
+}
+
+@keyframes grid-pan {
+	0% { background-position: 0 0; }
+	100% { background-position: 42px 42px; }
+}
+
+@keyframes scanline {
+	0% { transform: translateY(-2px); }
+	100% { transform: translateY(100vh); }
+}
+
+@keyframes float {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-20px); }
 }

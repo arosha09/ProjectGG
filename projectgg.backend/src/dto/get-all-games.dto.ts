@@ -13,6 +13,9 @@ export class GetAllGamesDto {
     @ApiProperty({ example: 'https://example.supabase.co/storage/v1/object/sign/game_image/ACU.jpg', required: false })
     imageUrl?: string;
 
+    @ApiProperty({ example: 'https://example.supabase.co/storage/v1/object/sign/game_image/Assassins%20Creed.jpg', required: false })
+    series_image_url?: string;
+
     @ApiProperty({ example: 50, required: false })
     total_count?: number;
 

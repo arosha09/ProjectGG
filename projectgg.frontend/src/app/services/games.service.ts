@@ -20,10 +20,9 @@ type GameApiItem = Partial<Game> & {
 export class GamesService {
   private readonly apiUrl = environment.apiUrl;
   private readonly supabaseUrl = environment.supabase.url;
-  private readonly bucketName = environment.supabase.bucketName;
   private allGamesSubject = new BehaviorSubject<Game[]>([]);
   private userGamesSubject = new BehaviorSubject<Game[]>([]);
-  
+
   allGames$ = this.allGamesSubject.asObservable();
   userGames$ = this.userGamesSubject.asObservable();
 
@@ -92,6 +91,7 @@ export class GamesService {
       code: game.code ?? game.game_code ?? '',
       desc: game.desc ?? '',
       imageUrl: game.imageUrl,
+      series_image_url: game.series_image_url,
       total_count: game.total_count,
       sequence_timeline: game.sequence_timeline ?? null,
       sequence_release: game.sequence_release ?? null,
@@ -119,6 +119,6 @@ export class GamesService {
   }
 
   getImageUrl(gameCode: string): string {
-    return `${this.supabaseUrl}/storage/v1/object/public/${this.bucketName}/${gameCode}.jpg`;
+    return `${this.supabaseUrl}/storage/v1/object/public/system_files/game/${gameCode}.jpg`;
   }
 }

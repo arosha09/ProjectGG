@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GenerateTokenDto } from './dto/generate-token.dto';
+import { RefreshDto } from './dto/refresh.dto';
 import { JwtAuthGuard } from './jwt.guard';
 
 @ApiTags('Auth')
@@ -21,6 +22,12 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   async login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post('refresh')
+  @ApiBody({ type: RefreshDto })
+  async refresh(@Body() dto: RefreshDto) {
+    return this.auth.refreshToken(dto.refresh_token);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -6,16 +6,22 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly refreshExpiresIn: number;
+
   constructor(
     private readonly repo: AuthRepository,
     private readonly jwtService: JwtService,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    this.refreshExpiresIn = parseInt(config.get('JWT_REFRESH_EXPIRES_IN') || '2592000', 10);
+  }
 
   async register(payload: RegisterDto) {
     const existingUser = await this.repo.findByEmail(payload.email);
@@ -33,9 +39,10 @@ export class AuthService {
       password_hash: hashedPassword,
     });
     const token = this.createToken(user);
+    const refresh_token = this.createRefreshToken(user);
 
     delete user.password_hash;
-    return { user, token, success: true, message: 'User registered successfully' };
+    return { user, token, refresh_token, success: true, message: 'User registered successfully' };
   }
 
   async login(dto: LoginDto) {
@@ -45,7 +52,22 @@ export class AuthService {
     if (!match) throw new UnauthorizedException('Invalid credentials');
     delete user.password_hash;
     const token = this.createToken(user);
-    return { user, token, success: true, message: 'User logged in successfully' };
+    const refresh_token = this.createRefreshToken(user);
+    return { user, token, refresh_token, success: true, message: 'User logged in successfully' };
+  }
+
+  async refreshToken(refreshTokenStr: string) {
+    try {
+      const payload = this.jwtService.verify(refreshTokenStr);
+      const user = await this.repo.findById(payload.sub);
+      if (!user) throw new UnauthorizedException('User not found');
+      delete user.password_hash;
+      const token = this.createToken(user);
+      const refresh_token = this.createRefreshToken(user);
+      return { user, token, refresh_token, success: true, message: 'Token refreshed successfully' };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 
   createToken(user: any) {
@@ -53,10 +75,16 @@ export class AuthService {
     return this.jwtService.sign(payload);
   }
 
+  createRefreshToken(user: any) {
+    const payload = { sub: user.id, type: 'refresh' };
+    return this.jwtService.sign(payload, { expiresIn: this.refreshExpiresIn });
+  }
+
   async generateToken(user_id: string) {
     const user = await this.repo.findById(user_id);
     if (!user) throw new NotFoundException('User not found');
+    const refresh_token = this.createRefreshToken(user);
     const token = this.createToken(user);
-    return { token, success: true, message: 'Token generated successfully' };
+    return { token, refresh_token, success: true, message: 'Token generated successfully' };
   }
 }

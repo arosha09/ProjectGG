@@ -1,51 +1,128 @@
 <section class="auth-shell">
-	<div class="auth-grid"></div>
-	<div class="scanline"></div>
-	<div class="ambient-glow"></div>
+  <div class="auth-grid"></div>
+  <div class="scanline"></div>
+  <div class="ambient-glow"></div>
 
-	<div class="auth-card card fade-in-up">
-		<div class="auth-header">
-			<p class="eyebrow">Create account</p>
-		</div>
-		<h1>Forge your gamer identity</h1>
-		<p class="lede">Register to unlock your dashboard and keep your collection in sync.</p>
+  <div class="auth-card card fade-in-up">
+    <div class="auth-header">
+      <p class="eyebrow">Create account</p>
+    </div>
+    <h1>Forge your gamer identity</h1>
+    <p class="lede">Register to unlock your dashboard and keep your collection in sync.</p>
 
-		<form class="auth-form" (ngSubmit)="submit()">
-			<label>
-				<span>Display name</span>
-				<input [(ngModel)]="name" name="name" type="text" placeholder="Nova Runner" />
-			</label>
+    <form class="auth-form" (ngSubmit)="submit()">
+      <label>
+        <span>Display name</span>
+        <input
+          [(ngModel)]="name"
+          name="name"
+          type="text"
+          placeholder="Nova Runner"
+          [disabled]="loading"
+        />
+      </label>
 
-			<label>
-				<span>Gamertag</span>
-				<input [(ngModel)]="username" name="username" type="text" placeholder="nova_runner" />
-			</label>
+      <label>
+        <span>Gamertag</span>
+        <input
+          [(ngModel)]="username"
+          name="username"
+          type="text"
+          placeholder="nova_runner"
+          [disabled]="loading"
+        />
+      </label>
 
-			<label>
-				<span>Email</span>
-				<input [(ngModel)]="email" name="email" type="email" placeholder="pilot@projectgg.io" />
-			</label>
+      <label>
+        <span>Email</span>
+        <input
+          [(ngModel)]="email"
+          name="email"
+          type="email"
+          placeholder="pilot@projectgg.io"
+          [disabled]="loading"
+        />
+      </label>
 
-			<label>
-				<span>Password</span>
-				<input [(ngModel)]="password" name="password" type="password" placeholder="Create a secure password" />
-			</label>
+      <label>
+        <span>Date of Birth</span>
+        <app-cyber-date-picker
+          [value]="dateOfBirth"
+          placeholder="MM/DD/YYYY"
+          [disabled]="loading"
+          iconColor="#aa44ff"
+          (valueChange)="dateOfBirth = $event"
+        ></app-cyber-date-picker>
+      </label>
 
-			<label>
-				<span>Confirm password</span>
-				<input [(ngModel)]="confirmPassword" name="confirmPassword" type="password" placeholder="Repeat password" />
-			</label>
+      <label>
+        <span>Gender</span>
+        <app-cyber-select
+          [options]="genderOptions"
+          [value]="gender"
+          placeholder="Select gender"
+          [disabled]="loading"
+          (valueChange)="gender = $event"
+        ></app-cyber-select>
+      </label>
 
-			<button class="btn btn-large" type="submit" [disabled]="loading">
-				{{ loading ? 'BUILDING PROFILE...' : 'JOIN PROJECT GG' }}
-			</button>
-		</form>
+      <label class="password-label">
+        <span>Password</span>
+        <div class="password-input-wrapper">
+          <input
+            [(ngModel)]="password"
+            name="password"
+            [type]="showPassword ? 'text' : 'password'"
+            placeholder="Create a secure password"
+            [disabled]="loading"
+          />
+          <button
+            type="button"
+            class="password-toggle"
+            (click)="togglePassword()"
+            tabindex="-1"
+            [disabled]="loading"
+          >
+            <mat-icon class="eye-icon">{{ showPassword ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+        </div>
+      </label>
 
-		<p *ngIf="error" class="error-text">{{ error }}</p>
+      <label class="password-label">
+        <span>Confirm password</span>
+        <div class="password-input-wrapper">
+          <input
+            [(ngModel)]="confirmPassword"
+            name="confirmPassword"
+            [type]="showConfirmPassword ? 'text' : 'password'"
+            placeholder="Repeat password"
+            [disabled]="loading"
+          />
+          <button
+            type="button"
+            class="password-toggle"
+            (click)="toggleConfirmPassword()"
+            tabindex="-1"
+            [disabled]="loading"
+          >
+            <mat-icon class="eye-icon">{{ showPassword ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+        </div>
+      </label>
 
-		<p class="switch-link">
-			Already connected?
-			<a routerLink="/login">Login now</a>
-		</p>
-	</div>
+      <button class="btn btn-large" type="submit" [disabled]="loading">
+        <span class="btn-content">
+          <span class="btn-spinner" [class.active]="loading"></span>
+          {{ loading ? 'BUILDING PROFILE...' : 'JOIN PROJECT GG' }}
+        </span>
+      </button>
+    </form>
+
+    <app-status-message *ngIf="error" type="error" [message]="error" />
+
+    <p class="switch-link">
+      Already connected?
+      <a routerLink="/login">Login now</a>
+    </p>
+  </div>
 </section>

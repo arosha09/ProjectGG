@@ -14,6 +14,12 @@ export const supabaseProvider = {
       throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment');
     }
 
-    return createClient(url, key);
+    return createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
   },
 };

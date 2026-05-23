@@ -1,0 +1,39 @@
+<header class="dashbar">
+  <div class="brand">
+    <img src="logo.ico" alt="ProjectGG" class="brand-mark" />
+    <span>PROJECT GG</span>
+  </div>
+
+  <div class="dash-actions">
+    <app-theme-selector
+      [currentTheme]="currentTheme()"
+      [isOpen]="themeDropdownOpen()"
+      (themeChange)="themeChange.emit($event)"
+      (toggle)="themeToggle.emit()"
+    ></app-theme-selector>
+
+    <app-status-selector
+      [currentStatus]="currentStatus()"
+      [isOpen]="statusDropdownOpen()"
+      (statusChange)="statusChange.emit($event)"
+      (toggle)="statusToggle.emit()"
+    ></app-status-selector>
+
+    <div class="profile-trigger" *ngIf="userName()" (click)="profileToggle.emit()">
+      <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
+      <span class="user-name">{{ userName() }}</span>
+      <span class="trigger-arrow">▼</span>
+    </div>
+
+    @if (profileDropdownOpen()) {
+      <div class="profile-menu">
+        <a class="profile-menu-item" routerLink="/profile">
+          PROFILE
+        </a>
+        <button class="profile-menu-item" type="button" (click)="logout.emit()">
+          LOGOUT
+        </button>
+      </div>
+    }
+  </div>
+</header>
