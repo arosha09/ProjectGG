@@ -14,7 +14,7 @@
         <div class="sync-stats">
           <div class="stat-block">
             <span class="stat-num">{{ queue.length || '—' }}</span>
-            <span class="stat-lbl">UNSYNCED</span>
+            <span class="stat-lbl">QUEUED</span>
           </div>
           <div class="stat-block">
             <span class="stat-num">{{ completed }}</span>
@@ -27,15 +27,22 @@
         </div>
 
         <div class="sync-actions">
-          <button class="sync-btn sync-btn-primary" (click)="startSync()" [disabled]="syncing">
+          <button class="sync-btn sync-btn-primary" (click)="startSync()" [disabled]="syncing || scanning || syncComplete || queue.length === 0">
             @if (syncing) {
               <span class="sync-spinner"></span>
               SYNCING...
+            } @else if (syncComplete) {
+              <mat-icon>check_circle</mat-icon> ALL SYNCED
             } @else {
-              <mat-icon>sync</mat-icon> SYNC ALL
+              <mat-icon>sync</mat-icon> {{ hasSelection ? 'SYNC SELECTED' : 'SYNC ALL' }}
             }
           </button>
-          <button class="sync-btn sync-btn-secondary" (click)="loadQueue()" [disabled]="syncing || scanning">
+          @if (syncing) {
+            <button class="sync-btn sync-btn-danger" (click)="cancelSync()">
+              <mat-icon>stop</mat-icon> STOP
+            </button>
+          }
+          <button class="sync-btn sync-btn-secondary" (click)="loadQueue(false)" [disabled]="syncing || scanning">
             @if (scanning) {
               <span class="sync-spinner"></span>
               SCANNING...
@@ -43,6 +50,33 @@
               <mat-icon>playlist_add</mat-icon> SCAN QUEUE
             }
           </button>
+          <button class="sync-btn sync-btn-tertiary" (click)="loadQueue(true)" [disabled]="syncing || scanning || syncComplete">
+            <mat-icon>refresh</mat-icon> SCAN ALL
+          </button>
+        </div>
+      </div>
+
+      <div class="sync-toolbar">
+        <div class="sync-search-wrap">
+          <input
+            class="sync-search-input"
+            type="text"
+            placeholder="Filter by code or title..."
+            [(ngModel)]="searchQuery"
+          />
+          @if (searchQuery) {
+            <span class="sync-search-clear" (click)="searchQuery = ''"><mat-icon>close</mat-icon></span>
+          }
+        </div>
+        <div class="sync-page-size-wrap">
+          <label class="sync-page-size-label">Batch</label>
+          <input
+            class="sync-page-size-input"
+            type="number"
+            min="1"
+            max="1000"
+            [(ngModel)]="scanPageSize"
+          />
         </div>
       </div>
 
@@ -69,19 +103,69 @@
 
       @if (showQueue && queue.length > 0) {
         <div class="sync-queue-list">
-          <h3>SYNC QUEUE ({{ queue.length }})</h3>
+          <div class="sq-header">
+            <h3>QUEUE ({{ filteredQueue.length }} / {{ queue.length }})</h3>
+            <div class="sq-header-actions">
+              <button class="sq-select-btn" (click)="selectAll()">ALL</button>
+              <button class="sq-select-btn" (click)="deselectAll()">NONE</button>
+            </div>
+          </div>
           <div class="sq-items">
-            @for (game of queue; track game.code) {
+            @for (game of filteredQueue; track game.code) {
               <div class="sq-item" [class.sq-done]="results.find(r => r.code === game.code)?.success"
                    [class.sq-fail]="results.find(r => r.code === game.code)?.success === false">
-                <span class="sq-code">{{ game.code }}</span>
-                <span class="sq-name">{{ game.name }}</span>
-                @if (results.find(r => r.code === game.code); as result) {
-                  <span class="sq-status" [class.sq-ok]="result.success" [class.sq-err]="!result.success">
-                    <mat-icon>{{ result.success ? 'check' : 'close' }}</mat-icon>
-                  </span>
-                } @else if (syncing && current === game.code) {
-                  <span class="sq-status sq-loading"><mat-icon>sync</mat-icon></span>
+                <div class="sq-item-row">
+                  <mat-checkbox
+                    class="sq-check"
+                    [checked]="selectedCodes.has(game.code)"
+                    (change)="toggleSelect(game.code)"
+                    color="primary"
+                  ></mat-checkbox>
+                  <span class="sq-code">{{ game.code }}</span>
+                  <span class="sq-name">{{ game.name }}</span>
+                  @if (game.missing && game.missing.length > 0) {
+                    <div class="sq-missing">
+                      @for (m of game.missing; track m) {
+                        <span class="sq-miss-tag" [class.sq-miss-cover]="m === 'cover'"
+                              [class.sq-miss-genres]="m === 'genres'"
+                              [class.sq-miss-rating]="m === 'rating'"
+                              [class.sq-miss-platforms]="m === 'platforms'"
+                              [class.sq-miss-sources]="m === 'sources'"
+                              [class.sq-miss-stale]="m === 'stale'"
+                              [class.sq-miss-never]="m === 'never'">{{ m }}</span>
+                      }
+                    </div>
+                  }
+                  @if (results.find(r => r.code === game.code); as result) {
+                    <span class="sq-status" [class.sq-ok]="result.success" [class.sq-err]="!result.success" (click)="toggleDetail(game.code)">
+                      <mat-icon>{{ result.success ? 'check' : 'close' }}</mat-icon>
+                    </span>
+                  } @else if (syncing && current === game.code) {
+                    <span class="sq-status sq-loading"><mat-icon>sync</mat-icon></span>
+                  }
+                </div>
+                @if (showDetail.has(game.code)) {
+                  @if (results.find(r => r.code === game.code); as result) {
+                    <div class="sq-result-detail" [class.sq-rd-err]="!result.success">
+                      @if (result.success) {
+                        <span class="sq-rd-source">{{ result.source | uppercase }}</span>
+                        @if (result.genres?.length > 0) {
+                          <span class="sq-rd-info">{{ result.genres.join(', ') }}</span>
+                        }
+                        @if (result.rating != null) {
+                          <span class="sq-rd-info">★ {{ result.rating }}</span>
+                        }
+                        @if (result.release_year) {
+                          <span class="sq-rd-info">{{ result.release_year }}</span>
+                        }
+                        @if (result.platforms?.length > 0) {
+                          <span class="sq-rd-info">{{ result.platforms.join(', ') }}</span>
+                        }
+                      } @else {
+                        {{ result.message }}
+                      }
+                    </div>
+                  }
                 }
               </div>
             }
@@ -91,7 +175,12 @@
 
       @if (showQueue && queue.length === 0 && !syncing) {
         <div class="sync-empty">
-          <p>No unsynced games found. All games have cover images and genres.</p>
+          <p>No games in queue. All games have been synced within the last week.</p>
+          <div class="sync-empty-actions">
+            <button class="sync-btn sync-btn-tertiary" (click)="loadQueue(true)">
+              <mat-icon>refresh</mat-icon> SCAN ALL
+            </button>
+          </div>
         </div>
       }
 

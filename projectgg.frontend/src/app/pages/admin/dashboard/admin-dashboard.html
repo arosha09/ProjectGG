@@ -50,6 +50,12 @@
 				}
 			</div>
 
+			@if (error) {
+				<div class="import-error-wrap">
+					<app-status-message type="error" [message]="error" [dismissible]="true" (dismiss)="error = ''" />
+				</div>
+			}
+
 			@if (importLog.length > 0) {
 				<div class="import-log">
 					@for (entry of importLog; track entry) {

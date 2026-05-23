@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { GamesService } from '../../../services/games.service';
 import { AuthService } from '../../../services/auth.service';
 import { AdminNavComponent } from '../../../components/admin-nav/admin-nav.component';
@@ -10,20 +11,27 @@ import { AdminNavComponent } from '../../../components/admin-nav/admin-nav.compo
 @Component({
   selector: 'app-admin-sync',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, AdminNavComponent],
+  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, AdminNavComponent],
   templateUrl: './admin-sync.html',
   styleUrls: ['./admin-sync.scss'],
 })
 export class AdminSync {
   syncing = false;
   scanning = false;
-  queue: { code: string; name: string }[] = [];
+  queue: { code: string; name: string; missing: string[] }[] = [];
   completed = 0;
   total = 0;
   current = '';
   status = '';
-  results: { code: string; success: boolean; message: string }[] = [];
+  results: any[] = [];
   showQueue = false;
+  searchQuery = '';
+  selectedCodes = new Set<string>();
+  isForce = false;
+  stopSync = false;
+  syncComplete = false;
+  scanPageSize = 200;
+  showDetail = new Set<string>();
 
   constructor(
     private readonly games: GamesService,
@@ -39,16 +47,105 @@ export class AdminSync {
     return this.currentUser?.role === 'admin';
   }
 
-  loadQueue(): void {
+  get filteredQueue(): { code: string; name: string; missing: string[] }[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    if (!q) return this.queue;
+    return this.queue.filter(g =>
+      g.code.toLowerCase().includes(q) || g.name.toLowerCase().includes(q)
+    );
+  }
+
+  toggleDetail(code: string): void {
+    if (this.showDetail.has(code)) {
+      this.showDetail.delete(code);
+    } else {
+      this.showDetail.add(code);
+    }
+  }
+
+  get hasSelection(): boolean {
+    return this.selectedCodes.size > 0;
+  }
+
+  scanAllGames(): void {
+    this.syncComplete = false;
     this.scanning = true;
-    this.status = 'Scanning game database...';
+    this.selectedCodes.clear();
+    this.status = 'Loading all games...';
+    this.showQueue = false;
     this.cdr.detectChanges();
-    this.games.getSyncQueue().subscribe({
-      next: (q) => {
-        this.queue = q;
+
+    const pageSize = this.scanPageSize || 200;
+    this.games.getAllGames(1, pageSize).subscribe({
+      next: (first) => {
+        const total = first[0]?.total_count ?? 0;
+        this.queue = first.map(g => ({ code: g.code, name: g.name, missing: [] }));
+        this.status = `Loading games... ${this.queue.length} / ${total}`;
+        this.cdr.detectChanges();
+
+        if (total <= pageSize) {
+          this.showQueue = true;
+          this.scanning = false;
+          this.status = `Loaded ${this.queue.length} games`;
+          this.cdr.detectChanges();
+          return;
+        }
+
+        const totalPages = Math.ceil(total / pageSize);
+        this.loadPage(2, totalPages, total);
+      },
+      error: (err) => {
+        this.status = `Failed to load games: ${err.message}`;
+        this.scanning = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private loadPage(page: number, totalPages: number, total: number): void {
+    this.games.getAllGames(page, this.scanPageSize || 200).subscribe({
+      next: (more) => {
+        this.queue = [...this.queue, ...more.map(g => ({ code: g.code, name: g.name, missing: [] }))];
+        this.status = `Loading games... ${this.queue.length} / ${total}`;
+        this.cdr.detectChanges();
+
+        if (page >= totalPages) {
+          this.showQueue = true;
+          this.scanning = false;
+          this.status = `Loaded ${this.queue.length} games`;
+          this.cdr.detectChanges();
+        } else {
+          this.loadPage(page + 1, totalPages, total);
+        }
+      },
+      error: () => {
+        this.status = `Loading games... ${this.queue.length} / ${total} (page ${page} failed)`;
+        this.cdr.detectChanges();
+        if (page >= totalPages) {
+          this.showQueue = true;
+          this.scanning = false;
+          this.status = `Loaded ${this.queue.length} games`;
+          this.cdr.detectChanges();
+        } else {
+          this.loadPage(page + 1, totalPages, total);
+        }
+      },
+    });
+  }
+
+  loadQueue(force: boolean = false): void {
+    this.syncComplete = false;
+    this.isForce = force;
+    this.scanning = true;
+    this.selectedCodes.clear();
+    this.status = force ? 'Scanning all games...' : 'Scanning game database...';
+    this.cdr.detectChanges();
+    this.games.getSyncQueue(force).subscribe({
+      next: (q: any[]) => {
+        this.queue = q.map((g: any) => ({ code: g.code, name: g.name, missing: g.missing ?? [] }));
         this.showQueue = true;
         this.scanning = false;
-        this.status = q.length > 0 ? `Found ${q.length} unsynced games` : 'All games are synced!';
+        this.status = q.length > 0 ? `Found ${q.length} games` : 'All games are synced!';
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -59,36 +156,54 @@ export class AdminSync {
     });
   }
 
+  toggleSelect(code: string): void {
+    if (this.selectedCodes.has(code)) {
+      this.selectedCodes.delete(code);
+    } else {
+      this.selectedCodes.add(code);
+    }
+  }
+
+  selectAll(): void {
+    for (const g of this.filteredQueue) {
+      this.selectedCodes.add(g.code);
+    }
+  }
+
+  deselectAll(): void {
+    this.selectedCodes.clear();
+  }
+
   startSync(): void {
     if (this.syncing) return;
+    const syncQueue = this.hasSelection
+      ? this.queue.filter(g => this.selectedCodes.has(g.code))
+      : this.queue;
+    if (syncQueue.length === 0) return;
     this.syncing = true;
     this.completed = 0;
     this.results = [];
-    this.status = 'Loading sync queue...';
+    this.queue = syncQueue;
+    this.total = syncQueue.length;
+    this.status = `Starting sync of ${this.total} games...`;
+    this.processNext(0);
+  }
 
-    this.games.getSyncQueue().subscribe({
-      next: (q) => {
-        this.queue = q;
-        this.total = q.length;
-        if (this.total === 0) {
-          this.status = 'All games are already synced!';
-          this.syncing = false;
-          return;
-        }
-        this.status = `Starting sync of ${this.total} games...`;
-        this.processNext(0);
-      },
-      error: (err) => {
-        this.status = `Error: ${err.message}`;
-        this.syncing = false;
-      },
-    });
+  cancelSync(): void {
+    this.stopSync = true;
+    this.status = 'Stopping after current game...';
   }
 
   private processNext(index: number): void {
-    if (index >= this.queue.length) {
-      this.status = 'Sync complete!';
+    if (this.stopSync || index >= this.queue.length) {
       this.syncing = false;
+      this.stopSync = false;
+      if (index >= this.queue.length) {
+        this.syncComplete = true;
+        this.status = 'Sync complete!';
+      } else {
+        this.status = 'Sync stopped.';
+      }
       this.cdr.detectChanges();
       return;
     }

@@ -8,11 +8,12 @@ import { AuthService } from '../../../services/auth.service';
 import { GamesService } from '../../../services/games.service';
 import { AdminNavComponent } from '../../../components/admin-nav/admin-nav.component';
 import { GameSearchResultComponent } from '../../../components/game-search-result/game-search-result.component';
+import { StatusMessageComponent } from '../../../components/status-message/status-message.component';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, AdminNavComponent, GameSearchResultComponent],
+  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, AdminNavComponent, GameSearchResultComponent, StatusMessageComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss'],
 })
@@ -20,6 +21,7 @@ export class AdminDashboard {
   searchQuery = '';
   searchResults: any[] = [];
   searching = false;
+  error = '';
   importing = new Set<number>();
   importLog: string[] = [];
   selectedIds = new Set<number>();
@@ -46,6 +48,7 @@ export class AdminDashboard {
   onSearch(): void {
     const q = this.searchQuery.trim();
     this.selectedIds.clear();
+    this.error = '';
     if (q.length < 2) return;
     this.searchResults = [];
     this.doSearch(q);
@@ -55,6 +58,7 @@ export class AdminDashboard {
     this.searchQuery = '';
     this.searchResults = [];
     this.selectedIds.clear();
+    this.error = '';
   }
 
   private doSearch(q: string): void {
@@ -63,10 +67,14 @@ export class AdminDashboard {
       next: (results) => {
         this.searchResults = results;
         this.searching = false;
+        if (results.length === 0) {
+          this.error = 'ERROR-404 Not found';
+        }
         this.cdr.markForCheck();
       },
       error: () => {
         this.searching = false;
+        this.error = 'ERROR-404 Not found';
         this.cdr.markForCheck();
       },
     });
@@ -90,7 +98,6 @@ export class AdminDashboard {
       cover_url: result.cover_url,
       genres: result.genres,
       external_id: String(result.id),
-      external_source: result.sources?.[0] || result.source,
       rating: result.rating ?? null,
       release_year: result.release_year || null,
       desc: result.desc || null,

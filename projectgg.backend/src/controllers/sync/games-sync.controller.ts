@@ -12,8 +12,14 @@ export class GamesSyncController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('queue')
-  async getSyncQueue(): Promise<SyncQueueDto[]> {
-    return this.syncService.getSyncQueue();
+  @ApiQuery({ name: 'force', type: Boolean, required: false })
+  @ApiQuery({ name: 'q', type: String, required: false })
+  async getSyncQueue(
+    @Query('force') force?: string,
+    @Query('q') q?: string,
+  ): Promise<SyncQueueDto[]> {
+    const isForce = force === 'true';
+    return this.syncService.getSyncQueue(isForce, q);
   }
 
   @UseGuards(JwtAuthGuard)

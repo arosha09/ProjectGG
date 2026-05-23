@@ -6,6 +6,9 @@ export class SyncQueueDto {
 
   @ApiProperty({ example: "Assassin's Creed Unity" })
   name: string;
+
+  @ApiProperty({ example: ['cover', 'genres', 'rating'] })
+  missing: string[];
 }
 
 export class SyncProgressDto {

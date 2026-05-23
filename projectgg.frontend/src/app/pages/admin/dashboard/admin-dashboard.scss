@@ -284,6 +284,11 @@
 	pointer-events: none;
 }
 
+.import-error-wrap {
+  max-width: 480px;
+  margin-top: 8px;
+}
+
 @keyframes dotPulse {
 	0%, 100% { opacity: .3; box-shadow: 0 0 4px #ffd700; }
 	50% { opacity: 1; box-shadow: 0 0 12px #ffd700; }

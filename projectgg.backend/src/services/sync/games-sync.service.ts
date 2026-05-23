@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
-import { SyncResultDto, SyncSearchResultDto } from 'src/dto/sync/sync.dto';
+import { SyncResultDto, SyncSearchResultDto, SyncQueueDto } from 'src/dto/sync/sync.dto';
 
 @Injectable()
 export class GamesSyncService {
@@ -194,34 +194,60 @@ export class GamesSyncService {
     return entries;
   }
 
-  async getSyncQueue(): Promise<{ code: string; name: string }[]> {
-    const { data, error } = await this.supabase
+  async getSyncQueue(force: boolean = false, q?: string): Promise<SyncQueueDto[]> {
+    let query = this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('code, name')
-      .is('cover_url', null)
-      .order('name', { ascending: true });
+      .select('code, name, cover_url, genres, rating, platforms, sources, last_synced_at');
 
+    if (!force) {
+      query = query.or('cover_url.is.null,last_synced_at.is.null,last_synced_at.lt.' + this.subtractDays(7));
+    }
+
+    if (q) {
+      query = query.or(`code.ilike.%${q}%,name.ilike.%${q}%`);
+    }
+
+    const { data, error } = await query.order('name', { ascending: true });
     if (error) throw error;
-    return data ?? [];
+
+    const thirtyDays = new Date(this.subtractDays(30));
+    const results: any[] = data ?? [];
+    return results.map(g => {
+      const missing: string[] = [];
+      if (!g.cover_url) missing.push('cover');
+      if (!g.genres || g.genres.length === 0) missing.push('genres');
+      if (g.rating == null) missing.push('rating');
+      if (!g.platforms || g.platforms.length === 0) missing.push('platforms');
+      if (!g.sources || g.sources.length === 0) missing.push('sources');
+      if (!g.last_synced_at) missing.push('never');
+      else if (new Date(g.last_synced_at) < thirtyDays) missing.push('stale');
+      return { code: g.code, name: g.name, missing };
+    });
+  }
+
+  private subtractDays(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString();
   }
 
   async syncGame(code: string, name: string): Promise<SyncResultDto> {
     const steamResult = await this.trySteam(name, code);
     if (steamResult.success) {
-      try { await this.persistSync(code, steamResult); } catch { }
+      try { await this.persistSync(code, steamResult); } catch (e: any) { console.error(`[sync] persistSync (steam) failed for ${code}:`, e); return { code, success: false, message: `Steam OK but DB write failed: ${e.message ?? e}` }; }
       return steamResult;
     }
 
     const gogResult = await this.tryGOG(name, code);
     if (gogResult.success) {
-      try { await this.persistSync(code, gogResult); } catch { }
+      try { await this.persistSync(code, gogResult); } catch (e: any) { console.error(`[sync] persistSync (gog) failed for ${code}:`, e); return { code, success: false, message: `GOG OK but DB write failed: ${e.message ?? e}` }; }
       return gogResult;
     }
 
     const raggResult = await this.tryRAWG(name, code);
     if (raggResult.success) {
-      try { await this.persistSync(code, raggResult); } catch { }
+      try { await this.persistSync(code, raggResult); } catch (e: any) { console.error(`[sync] persistSync (rawg) failed for ${code}:`, e); return { code, success: false, message: `RAWG OK but DB write failed: ${e.message ?? e}` }; }
       return raggResult;
     }
 
@@ -233,7 +259,6 @@ export class GamesSyncService {
     cover_url?: string;
     genres?: string[];
     external_id?: string;
-    external_source?: string;
     rating?: number | null;
     release_year?: number | null;
     desc?: string;
@@ -247,9 +272,8 @@ export class GamesSyncService {
       in_cover_url: data.cover_url ?? null,
       in_genres: data.genres ?? null,
       in_external_id: data.external_id ?? null,
-      in_external_source: data.external_source ?? data.sources?.[0] ?? null,
       in_rating: data.rating ?? null,
-      in_release_year: data.release_year ?? null,
+      in_sequence_release: data.release_year ?? null,
       in_is_series: false,
       in_series_name: null,
       in_platforms: data.platforms ?? ['pc'],
@@ -273,14 +297,17 @@ export class GamesSyncService {
       in_cover_url: result.cover_url ?? null,
       in_genres: result.genres ?? null,
       in_external_id: extId,
-      in_external_source: result.source ?? null,
       in_rating: result.rating ?? null,
-      in_release_year: result.release_year ?? null,
+      in_sequence_release: result.release_year ?? null,
       in_desc: result.desc ?? null,
       in_platforms: result.platforms ?? null,
       in_sources: result.sources ?? null,
+      in_last_synced_at: new Date().toISOString(),
     });
-    if (error) throw error;
+    if (error) {
+      console.error(`[sync] RPC update_game_external error for ${code}:`, error);
+      throw error;
+    }
   }
 
   private async steamRating(appId: number): Promise<number | null> {

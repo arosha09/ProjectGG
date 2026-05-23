@@ -98,8 +98,11 @@ export class GamesService {
     );
   }
 
-  getSyncQueue(): Observable<{ code: string; name: string }[]> {
-    return this.http.get<{ code: string; name: string }[]>(`${this.apiUrl}/games/sync/queue`);
+  getSyncQueue(force: boolean = false, q?: string): Observable<{ code: string; name: string; missing: string[] }[]> {
+    const params: any = {};
+    if (force) params.force = 'true';
+    if (q) params.q = q;
+    return this.http.get<{ code: string; name: string; missing: string[] }[]>(`${this.apiUrl}/games/sync/queue`, { params });
   }
 
   syncGame(code: string, name?: string): Observable<any> {
