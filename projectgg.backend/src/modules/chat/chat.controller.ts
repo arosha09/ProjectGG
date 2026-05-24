@@ -1,11 +1,12 @@
 import {
-  Controller, Get, Post, Body, Req, UseGuards, Query,
+  Controller, Get, Post, Body, Req, UseGuards, Query, Inject,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { DiscordBotService } from './discord-bot.service';
+import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 
 @ApiTags('Chat')
 @Controller('chat')
@@ -14,6 +15,7 @@ export class ChatController {
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
     private readonly discordBot: DiscordBotService,
+    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
   ) {}
 
   @Get('guild')
@@ -23,6 +25,21 @@ export class ChatController {
       voiceMembers: this.discordBot.voiceMembers,
       botReady: this.discordBot.isReady,
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('check-discord')
+  async checkDiscord(@Req() req: any) {
+    const userId = req.user.id;
+    const { data } = await this.supabase
+      .schema('projectgg')
+      .from('user_platform_connections')
+      .select('platform_username, platform_user_id')
+      .eq('user_id', userId)
+      .eq('platform', 'discord')
+      .single();
+    return { linked: !!data, discordUsername: data?.platform_username ?? null };
   }
 
   @Get('history')
@@ -43,11 +60,27 @@ export class ChatController {
     @Req() req: any,
     @Body() body: { content: string; channel_id?: string },
   ) {
-    const userId = Number(req.user.id);
-    const username = req.user.username ?? req.user.email ?? 'Unknown';
+    const userId = req.user.id;
+
+    // Use Discord username when available
+    let username = req.user.username ?? req.user.email ?? 'Unknown';
+    try {
+      const { data } = await this.supabase
+        .schema('projectgg')
+        .from('user_platform_connections')
+        .select('platform_username')
+        .eq('user_id', userId)
+        .eq('platform', 'discord')
+        .single();
+      if (data?.platform_username) {
+        username = data.platform_username;
+      }
+    } catch {
+      // fallback to app username
+    }
 
     const msg = await this.chatService.saveMessage(
-      userId, username, body.content, body.channel_id,
+      Number(userId), username, body.content, body.channel_id,
     );
 
     // Relay to Discord

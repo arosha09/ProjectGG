@@ -3,7 +3,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Socket } from 'socket.io-client';
 import { ChatService, ChatMessage } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
@@ -31,7 +31,7 @@ interface ChannelGroup {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, HeaderNavComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, HeaderNavComponent, RouterLink],
   templateUrl: './chat.component.html',
   styleUrls: ['./chat.component.scss'],
 })
@@ -40,6 +40,11 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   currentUser: any = null;
   loading = true;
+
+  // Discord linking gate
+  discordLinked = false;
+  discordUsername: string | null = null;
+  checkingDiscord = true;
 
   // Server data
   channels: GuildChannel[] = [];
@@ -71,8 +76,31 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.router.navigate(['/login']);
       return;
     }
-    this.loadGuild();
-    this.connectSocket();
+    this.checkDiscord();
+  }
+
+  private checkDiscord(): void {
+    this.checkingDiscord = true;
+    this.http.get<any>(`${this.apiUrl}/chat/check-discord`).subscribe({
+      next: (res) => {
+        this.discordLinked = res.linked;
+        this.discordUsername = res.discordUsername;
+        this.checkingDiscord = false;
+        if (this.discordLinked) {
+          this.loadGuild();
+          this.connectSocket();
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.checkingDiscord = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  linkDiscord(): void {
+    this.router.navigate(['/settings'], { queryParams: { highlight: 'discord' } });
   }
 
   private loadGuild(): void {
@@ -82,7 +110,6 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.channels = data.channels ?? [];
         this.voiceMembers = data.voiceMembers ?? [];
         this.loading = false;
-        // Select first text channel
         const firstText = this.channels.find(c => c.type === 0);
         if (firstText) this.selectChannel(firstText);
         this.cdr.markForCheck();
@@ -93,17 +120,15 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   get channelGroups(): ChannelGroup[] {
     const groups = new Map<string | null, GuildChannel[]>();
-
     for (const ch of this.channels) {
       if (ch.type === 4) continue;
       const groupKey = ch.categoryId ?? '__no_category';
       if (!groups.has(groupKey)) groups.set(groupKey, []);
       groups.get(groupKey)!.push(ch);
     }
-
     return Array.from(groups.entries())
       .map(([key, chs]) => ({
-        name: key === '__no_category' ? '' : (chs[0]?.categoryName ?? key),
+        name: key === '__no_category' ? null : (chs[0]?.categoryName ?? key),
         channels: chs.sort((a, b) => a.position - b.position),
       }));
   }
@@ -156,7 +181,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  leaveVoice(): void {
+  private leaveVoice(): void {
     this.voiceService.leaveChannel();
     this.voiceConnected = false;
     this.voiceChannelId = null;
@@ -183,13 +208,11 @@ export class ChatComponent implements OnInit, OnDestroy {
   private connectSocket(): void {
     this.socket = this.chatService.connect();
     this.socket.on('message', (msg: ChatMessage) => {
-      // Only add if it matches the selected channel (or if no channel selected)
       if (!this.selectedChannel || msg.channel_id === this.selectedChannel.id) {
         this.messages = [...this.messages, msg];
         this.cdr.markForCheck();
         this.scrollToBottom();
       }
-      // Also refresh voice members if it's a voice event
       if (msg.channel_type === 'voice') {
         this.http.get<any>(`${this.apiUrl}/chat/guild`).subscribe({
           next: (data) => { this.voiceMembers = data.voiceMembers ?? []; this.cdr.markForCheck(); },
@@ -229,5 +252,6 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.chatService.disconnect();
+    if (this.voiceConnected) this.leaveVoice();
   }
 }

@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 export const SUPABASE_CLIENT = 'SUPABASE_CLIENT';
 
@@ -19,6 +20,9 @@ export const supabaseProvider = {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
+      },
+      realtime: {
+        transport: WebSocket as any,
       },
     });
   },

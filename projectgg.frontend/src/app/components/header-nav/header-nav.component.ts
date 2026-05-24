@@ -25,6 +25,7 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
   readonly userName = input<string | null>(null);
   readonly avatarUrl = input<string | null>(null);
   readonly isAdmin = input(false);
+  readonly discordConnected = input(false);
 
   readonly themeChange = output<ThemeOption>();
   readonly statusChange = output<StatusOption>();

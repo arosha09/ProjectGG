@@ -19,9 +19,12 @@
       (toggle)="statusToggle.emit()"
     ></app-status-selector>
 
-    <a class="nav-discord-btn" routerLink="/chat" title="Discord Chat">
+    <a class="nav-discord-btn"
+       [routerLink]="discordConnected() ? '/chat' : '/settings'"
+       [queryParams]="discordConnected() ? undefined : {highlight: 'discord'}"
+       title="Discord Chat">
       <img src="https://cdn.simpleicons.org/discord/ffffff" alt="Discord" class="nav-discord-icon" />
-      <span>Discord</span>
+      <span>{{ discordConnected() ? 'Discord' : 'Link Discord' }}</span>
     </a>
 
     <div class="profile-trigger" *ngIf="userName()" (click)="profileToggle.emit()">
