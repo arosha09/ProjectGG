@@ -17,4 +17,7 @@ export interface Game {
   release_year?: number | null;
   platforms?: string[];
   sources?: string[];
+  tier?: string;
+  collected_at?: string;
+  xp_awarded?: number;
 }

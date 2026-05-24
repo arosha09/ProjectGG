@@ -1,17 +1,23 @@
-import { Body, Controller, DefaultValuePipe, Delete, Get, ParseIntPipe, ParseUUIDPipe, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, DefaultValuePipe, Delete, ForbiddenException, Get, ParseIntPipe, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { GamesService } from "src/services/games.service";
 import { AddUserGameDto } from 'src/dto/add-user-game.dto';
 import { GetAllGamesDto } from 'src/dto/get-all-games.dto';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
 
 @ApiTags('Games')
 @Controller('games')
 export class GamesController {
     constructor(private readonly gamesService: GamesService) {}
 
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @Post('add-user-games')
     @ApiBody({ type: AddUserGameDto })
-    async addUserGame(@Body() userGame: AddUserGameDto): Promise<void> {
+    async addUserGame(@Req() req: any, @Body() userGame: AddUserGameDto): Promise<void> {
+        if (req.user.role !== 'admin') {
+            throw new ForbiddenException('Only admins can directly add games');
+        }
         return this.gamesService.addUserGame(userGame);
     }
 
@@ -37,13 +43,19 @@ export class GamesController {
         return this.gamesService.getUserGames(userId, page, pageSize);
     }
 
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @Delete('remove-user-games')
     @ApiQuery({ name: 'user_id', type: String, required: true, example: 'user_id' })
     @ApiQuery({ name: 'game_code', type: String, required: true, example: 'AC1' })
     async removeUserGame(
+        @Req() req: any,
         @Query('user_id', new ParseUUIDPipe()) userId: string,
         @Query('game_code') gameCode: string,
     ): Promise<boolean> {
+        if (req.user.role !== 'admin') {
+            throw new ForbiddenException('Only admins can directly remove games');
+        }
         return this.gamesService.removeUserGame(userId, gameCode);
     }
 

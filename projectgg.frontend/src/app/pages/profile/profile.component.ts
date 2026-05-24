@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, ChangeDetectorRef, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,11 +13,13 @@ import { DailyClaimComponent } from '../../components/daily-claim/daily-claim.co
 import { XpService } from '../../services/xp.service';
 import { UserRankDto } from '../../models/rank.model';
 import { environment } from '../../../environments/environment';
+import { Game } from '../../models/game.model';
+import { TasksService } from '../../services/tasks.service';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, HeaderNavComponent, RankDisplayComponent, DailyClaimComponent],
+  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, HeaderNavComponent, RankDisplayComponent, DailyClaimComponent, RouterLink],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss'],
 })
@@ -50,6 +52,12 @@ export class ProfileComponent implements OnInit, OnDestroy {
   ];
   connections: any[] = [];
 
+  collectedGames: Game[] = [];
+  collectedGamesLoading = false;
+  collectedGamesPage = 1;
+  collectedGamesTotalPages = 1;
+  readonly pageSize = 12;
+
   private readonly apiUrl = environment.apiUrl;
 
   constructor(
@@ -59,6 +67,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly xpService: XpService,
     private readonly http: HttpClient,
+    private readonly tasksService: TasksService,
   ) {}
 
   ngOnInit(): void {
@@ -72,6 +81,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.loadRankData();
     this.refreshProfile();
     this.loadConnections();
+    this.loadCollectedGames();
   }
 
   private refreshProfile(): void {
@@ -243,6 +253,22 @@ export class ProfileComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadCollectedGames(): void {
+    this.collectedGamesLoading = true;
+    this.tasksService.getCollectedGames(this.collectedGamesPage, this.pageSize).subscribe({
+      next: (games) => {
+        this.collectedGames = games;
+        this.collectedGamesLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => { this.collectedGamesLoading = false; this.cdr.markForCheck(); },
+    });
+  }
+
+  get collectedGameCount(): number {
+    return this.collectedGames.length;
+  }
+
   getConnection(platform: string): any {
     return this.connections.find(c => c.platform === platform);
   }
@@ -250,6 +276,17 @@ export class ProfileComponent implements OnInit, OnDestroy {
   getPlatformLogo(id: string): string {
     const slugs: Record<string, string> = { steam: 'steam', discord: 'discord', gog: 'gogdotcom', epic: 'epicgames', ubisoft: 'ubisoft', ea: 'ea', spotify: 'spotify', youtube_music: 'youtubemusic', apple_music: 'applemusic' };
     return `https://cdn.simpleicons.org/${slugs[id] ?? id}/ffffff`;
+  }
+
+  tierColor(tier?: string): string {
+    const colors: Record<string, string> = {
+      common: '#8c96a8',
+      uncommon: '#00e676',
+      rare: '#5fb6ff',
+      epic: '#aa44ff',
+      legendary: '#ffd700',
+    };
+    return colors[tier ?? 'common'] || '#8c96a8';
   }
 
   setTheme(theme: 'green' | 'red' | 'yellow' | 'blue'): void {

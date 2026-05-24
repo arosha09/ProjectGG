@@ -1,0 +1,89 @@
+<section class="tasks-shell">
+  <app-header-nav
+    [currentTheme]="currentTheme"
+    [currentStatus]="currentStatus"
+    [themeDropdownOpen]="themeDropdownOpen"
+    [statusDropdownOpen]="statusDropdownOpen"
+    [profileDropdownOpen]="profileDropdownOpen"
+    [userName]="currentUser?.username"
+    [avatarUrl]="currentUser?.avatar"
+    [isAdmin]="isAdmin"
+    (themeChange)="setTheme($event)"
+    (statusChange)="setStatus($event)"
+    (themeToggle)="toggleThemeDropdown()"
+    (statusToggle)="toggleStatusDropdown()"
+    (profileToggle)="toggleProfileDropdown()"
+    (logout)="logout()"
+  ></app-header-nav>
+
+  <main class="container tasks-main">
+    <div class="tasks-header">
+      <h1>MISSIONS</h1>
+      <p>Complete tasks to earn games and XP</p>
+    </div>
+
+    @if (completeMsg) {
+      <div class="complete-toast">{{ completeMsg }}</div>
+    }
+
+    @if (loading) {
+      <div class="tasks-loading">
+        <div class="sk-card" *ngFor="let _ of [1,2,3]">
+          <div class="sk-line w-60"></div>
+          <div class="sk-line w-80"></div>
+          <div class="sk-line w-40"></div>
+        </div>
+      </div>
+    } @else if (availableTasks.length === 0) {
+      <div class="tasks-empty">
+        <mat-icon>celebration</mat-icon>
+        <p>All missions complete! Check back later.</p>
+      </div>
+    } @else {
+      <div class="tasks-grid">
+        @for (task of availableTasks; track task.id) {
+          <mat-card class="task-card">
+            <div class="task-card-top">
+              <div class="task-icon-wrap">
+                <mat-icon>{{ task.icon || 'assignment' }}</mat-icon>
+              </div>
+              <div class="task-info">
+                <h3>{{ task.title }}</h3>
+                @if (task.description) {
+                  <p class="task-desc">{{ task.description }}</p>
+                }
+              </div>
+            </div>
+
+            <div class="task-rewards">
+              <span class="reward-badge xp-badge">
+                <mat-icon>bolt</mat-icon>
+                +{{ task.xp_reward }} XP
+              </span>
+              @if (task.reward_game_code) {
+                <span class="reward-badge game-badge">
+                  <mat-icon>videogame_asset</mat-icon>
+                  {{ task.reward_game_code }}
+                </span>
+              }
+            </div>
+
+            <button
+              class="task-complete-btn"
+              [disabled]="completingId === task.id"
+              (click)="completeTask(task.id)"
+            >
+              @if (completingId === task.id) {
+                <span class="btn-spinner"></span>
+                Completing...
+              } @else {
+                <mat-icon>check_circle</mat-icon>
+                Complete
+              }
+            </button>
+          </mat-card>
+        }
+      </div>
+    }
+  </main>
+</section>

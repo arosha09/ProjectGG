@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://your-production-api-domain/api',
+  apiUrl: 'https://projectgg-api.onrender.com/api',
   supabase: {
     url: 'https://qpdpzookcfrylxnrqkwo.supabase.co',
     bucketName: 'game_image',

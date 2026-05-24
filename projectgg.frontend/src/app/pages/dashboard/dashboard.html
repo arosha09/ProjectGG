@@ -94,6 +94,7 @@
 					[game]="item.game"
 					[isAdded]="isAdded(item.game.code)"
 					[mode]="isAdded(item.game.code) ? 'remove' : 'add'"
+					[showButton]="allowCollection"
 					(action)="isAdded(item.game.code) ? removeGame(item.game.code) : addGame(item.game.code)"
 				></app-game-card>
 
@@ -133,6 +134,7 @@
 								[seriesOrder]="{ timeline: game.sequence_timeline, release: game.sequence_release }"
 								[isAdded]="isAdded(game.code)"
 								[mode]="isAdded(game.code) ? 'remove' : 'add'"
+								[showButton]="allowCollection"
 								(action)="isAdded(game.code) ? removeGame(game.code) : addGame(game.code)"
 							></app-game-card>
 						</div>
@@ -157,12 +159,12 @@
 			(pageChange)="goToLibraryPage($event)"
 		></app-paginator>
 
-		<section class="section-head mt-4">
+		<section class="section-head mt-4" *ngIf="allowCollection">
 			<h2>Your arsenal</h2>
 			<p>Games already linked to your account.</p>
 		</section>
 
-		<section class="owned-grid">
+		<section class="owned-grid" *ngIf="allowCollection">
 			<app-game-card
 				*ngFor="let game of userGames"
 				[game]="game"

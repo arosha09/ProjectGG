@@ -1,3 +1,49 @@
+.tier-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.tier-common {
+  background: rgba(140,150,168,.15);
+  color: #8c96a8;
+  border: 1px solid rgba(140,150,168,.25);
+}
+
+.tier-uncommon {
+  background: rgba(0,230,118,.1);
+  color: #00e676;
+  border: 1px solid rgba(0,230,118,.2);
+}
+
+.tier-rare {
+  background: rgba(95,182,255,.1);
+  color: #5fb6ff;
+  border: 1px solid rgba(95,182,255,.2);
+}
+
+.tier-epic {
+  background: rgba(170,68,255,.1);
+  color: #aa44ff;
+  border: 1px solid rgba(170,68,255,.2);
+}
+
+.tier-legendary {
+  background: rgba(255,215,0,.12);
+  color: #ffd700;
+  border: 1px solid rgba(255,215,0,.25);
+  box-shadow: 0 0 10px rgba(255,215,0,.15);
+}
+
 .owned-card {
 	width: 100%; aspect-ratio: 16 / 23; padding: 0 !important;
 	overflow: hidden; border-radius: 6px; position: relative;

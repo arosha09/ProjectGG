@@ -12,11 +12,13 @@ async function bootstrap() {
     underlying.disable('etag');
   }
 
+  const frontendUrl = process.env.FRONTEND_URL;
   app.enableCors({
-    origin: true,
+    origin: frontendUrl ?? true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
   });
 
   app.use((req, res, next) => {
@@ -31,31 +33,26 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  // Make the plain `/api` root return something useful (redirect to docs in dev)
   if (underlying && typeof underlying.get === 'function') {
     underlying.get('/api', (req: any, res: any) => {
-      // Redirect to Swagger UI while developing to avoid an empty 404 at /api
-      if (process.env.NODE_ENV !== 'production') {
-        return res.redirect('/docs');
-      }
-
       return res.json({ message: 'Project GG API', status: 'ok' });
     });
   }
 
-  const config = new DocumentBuilder()
-    .setTitle('Project GG Backend')
-    .setDescription('The API description')
-    .setVersion('1.0')
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'access-token',
-    )
-    .build();
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Project GG Backend')
+      .setDescription('The API description')
+      .setVersion('1.0')
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'access-token',
+      )
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-
-  SwaggerModule.setup('docs', app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }

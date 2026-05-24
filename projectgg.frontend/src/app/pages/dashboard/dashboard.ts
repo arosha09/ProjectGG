@@ -544,8 +544,11 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get isAdmin(): boolean {
-    const user = this.auth?.getCurrentUser();
-    return user?.role === 'admin';
+    return this.currentUser?.role === 'admin';
+  }
+
+  get allowCollection(): boolean {
+    return this.isAdmin;
   }
 
   getDefaultAvatar(gender?: string): string {

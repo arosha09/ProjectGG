@@ -144,6 +144,62 @@
 
         <app-rank-display [userRank]="userRank"></app-rank-display>
       </div>
+
+      <!-- Collected games -->
+      <div class="profile-collection-section">
+        <div class="collection-section-header">
+          <mat-icon>videogame_asset</mat-icon>
+          <h3>Collected Games</h3>
+          @if (collectedGames.length > 0) {
+            <span class="collection-count">{{ collectedGames.length }}</span>
+          }
+          <a class="collection-view-all" routerLink="/tasks">Missions</a>
+        </div>
+
+        @if (collectedGamesLoading) {
+          <div class="collection-grid">
+            @for (_ of [1,2,3,4,5,6]; track _) {
+              <div class="collection-sk-card">
+                <div class="sk-img"></div>
+                <div class="sk-line w-70"></div>
+              </div>
+            }
+          </div>
+        } @else if (collectedGames.length === 0) {
+          <div class="collection-empty">
+            <mat-icon>explore</mat-icon>
+            <p>No games collected yet. Complete missions to earn your first game.</p>
+            <a class="cyber-btn-sm" routerLink="/tasks">
+              <mat-icon>assignment</mat-icon> View Missions
+            </a>
+          </div>
+        } @else {
+          <div class="collection-grid">
+            @for (game of collectedGames; track game.code) {
+              <div class="collection-item" [style.--tier-color]="tierColor(game.tier)">
+                <div class="collection-item-media">
+                  @if (game.tier) {
+                    <span class="collection-tier-badge" [style.background]="tierColor(game.tier) + '22'" [style.color]="tierColor(game.tier)" [style.border-color]="tierColor(game.tier) + '44'">
+                      {{ game.tier }}
+                    </span>
+                  }
+                  @if (game.cover_url) {
+                    <img [src]="game.cover_url" alt="{{ game.name }}" class="collection-cover" />
+                  } @else {
+                    <div class="collection-cover-fallback">
+                      <mat-icon>videogame_asset</mat-icon>
+                    </div>
+                  }
+                  <div class="collection-cover-overlay"></div>
+                </div>
+                <div class="collection-item-info">
+                  <span class="collection-game-name">{{ game.name }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
     }
 
     @if (avatarModalOpen) {

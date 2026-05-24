@@ -1,5 +1,10 @@
 <mat-card class="owned-card">
 	<div class="card-media owned-media" [class.has-image]="!!game().cover_url">
+		@if (game().tier) {
+			<div class="tier-badge" [class]="'tier-' + game().tier">
+				{{ game().tier }}
+			</div>
+		}
 		<img *ngIf="game().cover_url" class="cover-image" [src]="game().cover_url" [alt]="game().name" (error)="hideBrokenCover($event)" />
 		<div class="cover-overlay"></div>
 			<div class="game-content owned-content">
@@ -41,12 +46,14 @@
 				}
 			</div>
 			<p class="game-desc text-clamp">{{ game().desc }}</p>
-			<app-collection-button
-				class="game-btn"
-				[mode]="mode()"
-				[label]="label()"
-				(action)="action.emit()"
-			></app-collection-button>
+			@if (showButton()) {
+				<app-collection-button
+					class="game-btn"
+					[mode]="mode()"
+					[label]="label()"
+					(action)="action.emit()"
+				></app-collection-button>
+			}
 		</div>
 	</div>
 </mat-card>

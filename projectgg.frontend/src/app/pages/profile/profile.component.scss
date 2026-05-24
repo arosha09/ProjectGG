@@ -700,6 +700,166 @@
   gap: 8px;
 }
 
+/* ========== COLLECTED GAMES ========== */
+.profile-collection-section {
+  margin-top: 32px;
+}
+
+.collection-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--accent-color); }
+  h3 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #e9f9f3; }
+}
+
+.collection-count {
+  margin-left: auto;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.1);
+  color: var(--accent-color);
+}
+
+.collection-view-all {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px;
+  color: rgba(230,255,240,.4);
+  text-decoration: none;
+  transition: color .2s;
+
+  &:hover { color: var(--accent-color); }
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+.collection-item {
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.03);
+  transition: transform .2s, box-shadow .2s;
+  cursor: default;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,.4);
+  }
+}
+
+.collection-item-media {
+  position: relative;
+  aspect-ratio: 16 / 23;
+  overflow: hidden;
+}
+
+.collection-tier-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 2;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid;
+  pointer-events: none;
+}
+
+.collection-cover {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform .3s;
+}
+
+.collection-item:hover .collection-cover {
+  transform: scale(1.05);
+}
+
+.collection-cover-fallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.02);
+
+  mat-icon { font-size: 28px; width: 28px; height: 28px; color: rgba(230,255,240,.1); }
+}
+
+.collection-cover-overlay {
+  position: absolute;
+  bottom: 0; left: 0; width: 100%; height: 50%;
+  background: linear-gradient(transparent, rgba(4,7,14,.9));
+}
+
+.collection-item-info {
+  padding: 8px 10px;
+}
+
+.collection-game-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(230,255,240,.7);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.collection-sk-card {
+  display: flex; flex-direction: column; gap: 8px;
+  .sk-img {
+    aspect-ratio: 16 / 23;
+    border-radius: 4px;
+    background: rgba(255,255,255,.03);
+  }
+  .sk-line {
+    height: 10px; border-radius: 3px; background: rgba(255,255,255,.03);
+    &.w-70 { width: 70%; }
+  }
+}
+
+.collection-empty {
+  text-align: center;
+  padding: 40px 20px;
+  border: 1px dashed rgba(255,255,255,.06);
+  border-radius: 8px;
+
+  mat-icon { font-size: 36px; width: 36px; height: 36px; color: rgba(230,255,240,.1); margin-bottom: 8px; }
+  p { font-size: 13px; color: rgba(230,255,240,.35); margin: 0 0 16px; }
+}
+
+.cyber-btn-sm {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 8px 18px;
+  border: 1px solid var(--accent-color);
+  background: transparent;
+  color: var(--accent-color);
+  font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  text-transform: uppercase;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .2s, box-shadow .2s;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+  &:hover {
+    background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.1);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+}
+
 /* ========== RESPONSIVE ========== */
 @media (max-width: 992px) {
   .profile-grid {
@@ -732,6 +892,9 @@
     flex-direction: column;
     gap: 4px;
   }
+  .collection-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
@@ -752,6 +915,9 @@
   .platform-badge-row {
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .collection-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

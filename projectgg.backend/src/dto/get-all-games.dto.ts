@@ -48,4 +48,7 @@ export class GetAllGamesDto {
 
     @ApiProperty({ example: ['steam', 'rawg'], required: false })
     sources?: string[];
+
+    @ApiProperty({ example: 'legendary', required: false })
+    tier?: string;
 }

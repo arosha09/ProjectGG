@@ -50,9 +50,14 @@
               <span>Voice Channels</span>
             </div>
             @for (vc of voiceChannels; track vc.id) {
-              <div class="channel-item channel-voice">
+              <div class="channel-item channel-voice"
+                [class.channel-active]="voiceChannelId === vc.id"
+                (click)="selectChannel(vc)">
                 <mat-icon class="ch-icon">volume_up</mat-icon>
                 <span class="ch-name">{{ vc.name }}</span>
+                @if (voiceChannelId === vc.id) {
+                  <span class="vc-live-dot"></span>
+                }
                 @if (getMembersForVoiceChannel(vc.id).length > 0) {
                   <span class="vc-count">{{ getMembersForVoiceChannel(vc.id).length }}</span>
                 }
@@ -112,6 +117,28 @@
             <mat-icon>send</mat-icon>
           </button>
         </div>
+
+        <!-- Voice status bar -->
+        @if (voiceConnected || voiceConnecting) {
+          <div class="voice-status-bar" [class.voice-connecting]="voiceConnecting">
+            <mat-icon class="vstatus-icon">{{ voiceConnecting ? 'hourglass_top' : (voiceMuted ? 'mic_off' : 'mic') }}</mat-icon>
+            <span class="vstatus-text">
+              @if (voiceConnecting) {
+                Connecting to voice...
+              } @else {
+                Connected to voice
+              }
+            </span>
+            @if (!voiceConnecting) {
+              <button class="vstatus-mute" (click)="toggleVoiceMute()">
+                <mat-icon>{{ voiceMuted ? 'mic_off' : 'mic' }}</mat-icon>
+              </button>
+              <button class="vstatus-leave" (click)="leaveVoice()">
+                <mat-icon>call_end</mat-icon>
+              </button>
+            }
+          </div>
+        }
       } @else {
         <div class="no-channel">
           <mat-icon>forum</mat-icon>

@@ -19,6 +19,7 @@ export class GameCardComponent {
   readonly seriesOrder = input<{ timeline?: number | null; release?: number | null } | null>(null);
   readonly mode = input<'add' | 'remove'>('add');
   readonly label = input<string | null>(null);
+  readonly showButton = input(true);
   readonly action = output<void>();
 
   hideBrokenCover(event: Event): void {

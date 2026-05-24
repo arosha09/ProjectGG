@@ -7,7 +7,9 @@ import { XpModule } from './modules/xp.module';
 import { GamesSyncModule } from './modules/sync/games-sync.module';
 import { PlatformConnectionsModule } from './modules/platform-connections/platform-connections.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { VoiceModule } from './modules/voice/voice.module';
 import { MailModule } from './mail/mail.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 
 @Module({
   imports: [
@@ -17,9 +19,11 @@ import { MailModule } from './mail/mail.module';
     GamesSyncModule,
     PlatformConnectionsModule,
     ChatModule,
+    VoiceModule,
     AuthModule,
     MailModule,
     XpModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

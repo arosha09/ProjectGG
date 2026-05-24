@@ -165,6 +165,9 @@ export class GamesService {
       release_year: game.release_year ?? null,
       platforms: game.platforms ?? ['pc'],
       sources: game.sources ?? ['pc'],
+      tier: game.tier ?? undefined,
+      collected_at: game.collected_at ?? undefined,
+      xp_awarded: game.xp_awarded ?? undefined,
     };
   }
 

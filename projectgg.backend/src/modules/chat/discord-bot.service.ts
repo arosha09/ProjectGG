@@ -95,7 +95,7 @@ export class DiscordBotService implements OnModuleInit {
         ],
       });
 
-      this.client.on('ready', () => {
+      this.client.on('clientReady', () => {
         this.logger.log(`Discord bot logged in as ${this.client.user?.tag}`);
         const guilds = this.client.guilds.cache.map((g: any) => `${g.name} (${g.id})`);
         this.logger.log(`Watching guilds: ${guilds.join(', ')}`);

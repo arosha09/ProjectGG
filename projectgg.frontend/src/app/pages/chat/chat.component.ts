@@ -10,6 +10,7 @@ import { AuthService } from '../../services/auth.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
+import { VoiceService } from '../../services/voice.service';
 
 interface GuildChannel {
   id: string; name: string; type: number;
@@ -49,12 +50,19 @@ export class ChatComponent implements OnInit, OnDestroy {
   sending = false;
   socket: Socket | null = null;
 
+  // Voice
+  voiceConnected = false;
+  voiceChannelId: string | null = null;
+  voiceMuted = false;
+  voiceConnecting = false;
+
   constructor(
     private readonly chatService: ChatService,
     private readonly auth: AuthService,
     private readonly http: HttpClient,
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
+    private readonly voiceService: VoiceService,
   ) {}
 
   ngOnInit(): void {
@@ -85,14 +93,9 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   get channelGroups(): ChannelGroup[] {
     const groups = new Map<string | null, GuildChannel[]>();
-    const categories = new Map<string, string>();
 
     for (const ch of this.channels) {
-      if (ch.type === 4) categories.set(ch.id, ch.name); // category
-    }
-
-    for (const ch of this.channels) {
-      if (ch.type === 4) continue; // skip categories in the list
+      if (ch.type === 4) continue;
       const groupKey = ch.categoryId ?? '__no_category';
       if (!groups.has(groupKey)) groups.set(groupKey, []);
       groups.get(groupKey)!.push(ch);
@@ -100,7 +103,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     return Array.from(groups.entries())
       .map(([key, chs]) => ({
-        name: key === '__no_category' ? null : (categories.get(key!) ?? key),
+        name: key === '__no_category' ? '' : (chs[0]?.categoryName ?? key),
         channels: chs.sort((a, b) => a.position - b.position),
       }));
   }
@@ -122,8 +125,52 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   selectChannel(channel: GuildChannel): void {
+    if (channel.type === 2 || channel.type === 13) {
+      this.toggleVoice(channel);
+      return;
+    }
     this.selectedChannel = channel;
     this.loadMessages(channel.id);
+  }
+
+  private toggleVoice(channel: GuildChannel): void {
+    if (this.voiceConnected && this.voiceChannelId === channel.id) {
+      this.leaveVoice();
+    } else {
+      this.joinVoice(channel);
+    }
+  }
+
+  private async joinVoice(channel: GuildChannel): Promise<void> {
+    this.voiceConnecting = true;
+    this.cdr.markForCheck();
+    try {
+      await this.voiceService.joinChannel('', channel.id);
+      this.voiceConnected = true;
+      this.voiceChannelId = channel.id;
+      this.voiceMuted = false;
+    } catch (e) {
+      console.error('Failed to join voice:', e);
+    }
+    this.voiceConnecting = false;
+    this.cdr.markForCheck();
+  }
+
+  leaveVoice(): void {
+    this.voiceService.leaveChannel();
+    this.voiceConnected = false;
+    this.voiceChannelId = null;
+    this.voiceMuted = false;
+  }
+
+  toggleVoiceMute(): void {
+    if (this.voiceMuted) {
+      this.voiceService.unmute();
+      this.voiceMuted = false;
+    } else {
+      this.voiceService.mute();
+      this.voiceMuted = true;
+    }
   }
 
   private loadMessages(channelId: string): void {

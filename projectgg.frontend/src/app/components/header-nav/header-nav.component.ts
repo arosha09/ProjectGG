@@ -37,6 +37,7 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
 
   profileItems: DropdownItem[] = [
     { label: 'PROFILE', icon: 'person', link: '/profile' },
+    { label: 'MISSIONS', icon: 'assignment', link: '/tasks' },
     { label: 'SETTINGS', icon: 'settings', link: '/settings' },
     { label: 'ADMIN PANEL', icon: 'admin_panel_settings', link: '/admin', adminOnly: true },
     { label: 'LOGOUT', icon: 'logout', action: () => this.logout.emit() },
