@@ -51,6 +51,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     { id: 'ea', name: 'EA App' },
   ];
   connections: any[] = [];
+  discordConnected = false;
 
   collectedGames: Game[] = [];
   collectedGamesLoading = false;
@@ -248,7 +249,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
   // Platform connections
   loadConnections(): void {
     this.http.get<any[]>(`${this.apiUrl}/platform/connections`).subscribe({
-      next: (conns) => { this.connections = conns; this.cdr.markForCheck(); },
+      next: (conns) => {
+        this.connections = conns;
+        this.discordConnected = conns.some(c => c.platform === 'discord');
+        this.cdr.markForCheck();
+      },
       error: () => {},
     });
   }

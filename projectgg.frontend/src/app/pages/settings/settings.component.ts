@@ -71,6 +71,7 @@ export class SettingsComponent implements OnInit {
     return [...this.gamingPlatforms, ...this.musicPlatforms];
   }
   connections: PlatformConn[] = [];
+  discordConnected = false;
   linking = false;
   importing = false;
   importResult = '';
@@ -306,17 +307,10 @@ export class SettingsComponent implements OnInit {
 
   loadConnections(): void {
     this.http.get<PlatformConn[]>(`${this.apiUrl}/platform/connections`).subscribe({
-      next: (conns) => { this.connections = conns; this.cdr.markForCheck(); },
-      error: () => {},
-    });
-  }
-
-  linkSteam(): void {
-    this.linking = true;
-    this.http.get<{ url: string }>(`${this.apiUrl}/platform/steam/auth-url`).subscribe({
-      next: (res) => {
-        this.linking = false;
-        window.location.href = res.url;
+      next: (conns) => {
+        this.connections = conns;
+        this.discordConnected = conns.some(c => c.platform === 'discord');
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.linking = false;

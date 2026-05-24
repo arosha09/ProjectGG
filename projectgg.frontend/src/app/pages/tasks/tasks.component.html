@@ -8,6 +8,7 @@
     [userName]="currentUser?.username"
     [avatarUrl]="currentUser?.avatar"
     [isAdmin]="isAdmin"
+    [discordConnected]="false"
     (themeChange)="setTheme($event)"
     (statusChange)="setStatus($event)"
     (themeToggle)="toggleThemeDropdown()"
