@@ -33,3 +33,25 @@
 }
 
 :host ::ng-deep .mat-mdc-stroked-button[disabled]::before { display: none; }
+
+@media (max-width: 768px) {
+  .paginator {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .page-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 480px) {
+  .paginator {
+    gap: 4px;
+  }
+  .page-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-width: 28px;
+  }
+}

@@ -53,11 +53,20 @@
 	font-size: 13px; cursor: pointer; text-align: left;
 	transition: background .15s, color .15s;
 
-	&:hover { background: rgba(255,255,255,.05); color: #e9f9f3; }
+	&:hover { background: rgba(var(--accent-color-r, 170), var(--accent-color-g, 68), var(--accent-color-b, 255), 0.1); color: var(--accent-color, #aa44ff); }
 	&.active { background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.12); color: var(--accent-color); font-weight: 600; }
 }
 
 .theme-color-dot, .option-dot {
 	width: 8px; height: 8px; border-radius: 50%;
 	display: inline-block; flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .theme-toggle {
+    width: 120px;
+  }
+  .theme-menu {
+    width: 120px;
+  }
 }

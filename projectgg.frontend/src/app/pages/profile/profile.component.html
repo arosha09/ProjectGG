@@ -1,56 +1,195 @@
-<app-header-nav
-  [currentTheme]="currentTheme"
-  [currentStatus]="currentStatus"
-  [themeDropdownOpen]="themeDropdownOpen"
-  [statusDropdownOpen]="statusDropdownOpen"
-  [profileDropdownOpen]="profileDropdownOpen"
-  [userName]="currentUser?.username"
-  [avatarUrl]="currentUser?.avatar || getDefaultAvatar(currentUser?.gender)"
-  [isAdmin]="isAdmin"
-  (themeChange)="setTheme($event)"
-  (statusChange)="setStatus($event)"
-  (themeToggle)="toggleThemeDropdown()"
-  (statusToggle)="toggleStatusDropdown()"
-  (profileToggle)="toggleProfileDropdown()"
-  (logout)="logout()"
-></app-header-nav>
+<section class="profile-shell">
+  <app-header-nav
+    [currentTheme]="currentTheme"
+    [currentStatus]="currentStatus"
+    [themeDropdownOpen]="themeDropdownOpen"
+    [statusDropdownOpen]="statusDropdownOpen"
+    [profileDropdownOpen]="profileDropdownOpen"
+    [userName]="currentUser?.username"
+    [avatarUrl]="avatarDisplay"
+    [isAdmin]="isAdmin"
+    (themeChange)="setTheme($event)"
+    (statusChange)="setStatus($event)"
+    (themeToggle)="toggleThemeDropdown()"
+    (statusToggle)="toggleStatusDropdown()"
+    (profileToggle)="toggleProfileDropdown()"
+    (logout)="logout()"
+  ></app-header-nav>
 
-<section class="profile-page">
-  <div class="container">
-    <mat-card class="profile-hero">
-      <div class="hero-left">
-        <p class="eyebrow">Player Profile</p>
-        <h1 [attr.data-text]="currentUser?.name || currentUser?.username || 'Legend'">
-          {{ currentUser?.name || currentUser?.username || 'Legend' }}
-        </h1>
-        <p class="lede">Neon collection status: Active. Continue your journey.</p>
-      </div>
-
-      <div class="hero-actions">
-        <app-daily-claim
-          [canClaim]="!!canClaim?.can_claim"
-          [loading]="claiming"
-          (claim)="claimDaily()"
-        ></app-daily-claim>
-      </div>
-    </mat-card>
-
-    <div class="profile-grid">
-      <app-rank-display [userRank]="userRank"></app-rank-display>
-      
-      <mat-card class="stats-card">
-        <h3>Account Stats</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <span class="stat-value">{{ userRank?.total_xp || 0 }}</span>
-            <span class="stat-label">Total XP</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ userRank?.rank_name || 'None' }}</span>
-            <span class="stat-label">Current Rank</span>
+  <main class="container profile-main">
+    @if (loading) {
+      <div class="sk-hero">
+        <div class="sk-hero-inner">
+          <div class="sk-circle"></div>
+          <div class="sk-hero-text">
+            <div class="sk-line w-20"></div>
+            <div class="sk-line w-60"></div>
+            <div class="sk-line w-40"></div>
           </div>
         </div>
+        <div class="sk-meta-row">
+          <div class="sk-block"></div>
+          <div class="sk-block"></div>
+          <div class="sk-block"></div>
+        </div>
+        <div class="sk-btn w-30"></div>
+      </div>
+
+      <div class="profile-grid">
+        <div class="sk-card">
+          <div class="sk-line w-40"></div>
+          <div class="sk-rows">
+            <div class="sk-line w-80"></div>
+            <div class="sk-line w-60"></div>
+            <div class="sk-line w-70"></div>
+          </div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-line w-30"></div>
+          <div class="sk-rows">
+            <div class="sk-line w-50"></div>
+            <div class="sk-line w-40"></div>
+            <div class="sk-line w-30"></div>
+          </div>
+        </div>
+        <div class="sk-card">
+          <div class="sk-line w-35"></div>
+          <div class="sk-rows">
+            <div class="sk-line w-90"></div>
+            <div class="sk-line w-50"></div>
+            <div class="sk-line w-70"></div>
+          </div>
+        </div>
+      </div>
+    } @else {
+      <mat-card class="profile-hero">
+        <div class="hero-left">
+          <div class="hero-avatar-row">
+            <div class="hero-avatar-frame" (click)="openAvatarModal()">
+              <div class="hero-avatar-wrap">
+                @if (avatarDisplay) {
+                  <img
+                    class="hero-avatar-img"
+                    [src]="avatarDisplay"
+                    (error)="onAvatarError($event)"
+                    alt="Avatar"
+                  />
+                }
+                <div class="hero-avatar-overlay">
+                  <mat-icon class="edit-icon">edit</mat-icon>
+                </div>
+              </div>
+              <span class="gender-indicator">{{ genderLabel }}</span>
+            </div>
+            <div class="hero-text-col">
+              <p class="eyebrow">Player Profile</p>
+              <h1 [attr.data-text]="currentUser?.name || currentUser?.username || 'Legend'">
+                {{ currentUser?.name || currentUser?.username || 'Legend' }}
+              </h1>
+              <p class="lede">Neon collection status: Active. Continue your journey.</p>
+            </div>
+          </div>
+        </div>
+
+        <app-daily-claim
+          [canClaim]="canClaim"
+          [loading]="claimLoading"
+          (claim)="onClaimDaily()"
+        />
       </mat-card>
-    </div>
-  </div>
+
+      <div class="profile-grid">
+        <mat-card class="info-card">
+          <div class="info-head">
+            <mat-icon>badge</mat-icon>
+            <h3>Account Info</h3>
+          </div>
+          <div class="info-body">
+            <div class="info-row">
+              <span class="info-lbl">Name</span>
+              <span class="info-val">{{ currentUser?.name || 'Not set' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-lbl">Gender</span>
+              <span class="info-val">{{ genderLabel }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-lbl">Member since</span>
+              <span class="info-val">{{ currentUser?.created_at ? (currentUser.created_at | date:'mediumDate') : '—' }}</span>
+            </div>
+          </div>
+        </mat-card>
+
+        <mat-card class="info-card">
+          <div class="info-head">
+            <mat-icon>link</mat-icon>
+            <h3>Connected Accounts</h3>
+          </div>
+          <div class="info-body">
+            @for (p of platforms; track p.id) {
+              <div class="platform-badge-row">
+                <img class="platform-badge-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
+                <div class="platform-badge-info">
+                  <span class="platform-badge-name">{{ p.name }}</span>
+                  @if (getConnection(p.id); as conn) {
+                    <span class="platform-badge-user">{{ conn.platform_username || conn.platform_user_id || 'Connected' }}</span>
+                  } @else {
+                    <span class="platform-badge-user not-linked">Not linked</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </mat-card>
+
+        <app-rank-display [userRank]="userRank"></app-rank-display>
+      </div>
+    }
+
+    @if (avatarModalOpen) {
+      <div class="avatar-modal-backdrop" (click)="closeAvatarModal()">
+        <div class="avatar-modal" (click)="$event.stopPropagation()">
+          <button class="modal-close" type="button" (click)="closeAvatarModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+          <h3 class="modal-title">Avatar</h3>
+          <div class="modal-preview">
+            <img
+              [src]="avatarDisplay ?? 'assets/unknown.png'"
+              (error)="onAvatarError($event)"
+              alt="Avatar"
+            />
+          </div>
+          <div class="modal-actions">
+            <button class="cyber-btn" type="button" (click)="fileInput.click()" [disabled]="avatarUploading">
+              <mat-icon>upload</mat-icon> Upload
+            </button>
+            <input #fileInput type="file" accept="image/*" hidden (change)="onAvatarUpload($event)" />
+            @if (currentUser?.avatar) {
+              <button class="cyber-btn danger" type="button" (click)="onDeleteAvatar(); closeAvatarModal()">
+                <mat-icon>delete</mat-icon> Delete
+              </button>
+            }
+          </div>
+          @if (systemAvatars.length) {
+            <div class="modal-system-section">
+              <h4>System Avatars</h4>
+              <div class="modal-avatars-grid">
+                @for (av of systemAvatars; track av.filename) {
+                  <img
+                    class="system-avatar-opt"
+                    [src]="av.url"
+                    [class.selected]="currentUser?.avatar?.includes(av.filename)"
+                    (click)="onSelectSystemAvatar(av.filename)"
+                    [title]="av.filename"
+                    alt="System avatar"
+                  />
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </main>
 </section>

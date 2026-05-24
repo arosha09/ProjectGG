@@ -232,3 +232,18 @@
     box-shadow: 0 0 10px var(--accent-glow);
   }
 }
+
+@media (max-width: 768px) {
+  .cal-popup {
+    position: fixed;
+    top: 50%;
+    left: 16px;
+    right: 16px;
+    transform: translateY(-50%);
+    width: auto;
+    min-width: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+}

@@ -16,17 +16,6 @@ export class UserAvatarDto {
     is_system_avatar?: boolean;
 }
 
-export class UpdateProfileDto {
-    @ApiPropertyOptional({ example: 'New Username' })
-    name?: string;
-
-    @ApiPropertyOptional({ example: 'new_username' })
-    username?: string;
-
-    @ApiPropertyOptional({ example: 'avatar_01.png' })
-    avatar?: string;
-}
-
 export class ProfileDto {
     @ApiProperty()
     id: number;
@@ -54,4 +43,45 @@ export class ProfileDto {
 
     @ApiPropertyOptional()
     rank_code?: string;
+
+    @ApiProperty({ example: false })
+    email_verified?: boolean;
+}
+
+export class UpdateProfileDto {
+    @ApiPropertyOptional()
+    name?: string;
+
+    @ApiPropertyOptional()
+    username?: string;
+
+    @ApiPropertyOptional()
+    email?: string;
+
+    @ApiPropertyOptional()
+    current_password?: string;
+
+    @ApiPropertyOptional()
+    new_password?: string;
+
+    @ApiPropertyOptional()
+    avatar?: string;
+}
+
+export class VerifyEmailDto {
+    @ApiProperty()
+    code: string;
+}
+
+export class SendVerificationDto {
+    @ApiProperty({ example: 'Verification email sent' })
+    message: string;
+}
+
+export class ChangePasswordDto {
+    @ApiProperty()
+    current_password: string;
+
+    @ApiProperty()
+    new_password: string;
 }

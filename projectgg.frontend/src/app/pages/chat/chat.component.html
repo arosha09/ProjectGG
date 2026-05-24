@@ -1,0 +1,123 @@
+<section class="chat-shell">
+  <app-header-nav
+    [currentTheme]="'green'"
+    [currentStatus]="'online'"
+    [userName]="currentUser?.username ?? null"
+    [avatarUrl]="currentUser?.avatar_url ?? null"
+    [isAdmin]="(currentUser?.role === 'admin')"
+    (themeChange)="handleThemeChange($event)"
+    (themeToggle)="handleThemeToggle()"
+    (statusChange)="handleStatusChange($event)"
+    (statusToggle)="handleStatusToggle()"
+    (profileToggle)="handleProfileToggle()"
+  ></app-header-nav>
+  <div class="chat-layout">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-server">
+        <mat-icon>dns</mat-icon>
+        <span>ProjectGG Server</span>
+      </div>
+
+      <div class="sidebar-scroll">
+        @if (loading) {
+          <div class="sidebar-loading">Loading...</div>
+        } @else {
+          <!-- Text & announcement channels grouped by category -->
+          @for (group of channelGroups; track group.name) {
+            @if (group.name) {
+              <div class="channel-category">
+                <mat-icon class="cat-arrow">expand_more</mat-icon>
+                <span>{{ group.name }}</span>
+              </div>
+            }
+            @for (ch of group.channels; track ch.id) {
+              <div
+                class="channel-item"
+                [class.channel-active]="selectedChannel?.id === ch.id"
+                (click)="selectChannel(ch)"
+              >
+                <mat-icon class="ch-icon">{{ channelIcon(ch.type) }}</mat-icon>
+                <span class="ch-name">{{ ch.name }}</span>
+              </div>
+            }
+          }
+
+          <!-- Voice channels separately -->
+          @if (voiceChannels.length > 0) {
+            <div class="channel-category">
+              <mat-icon class="cat-arrow">expand_more</mat-icon>
+              <span>Voice Channels</span>
+            </div>
+            @for (vc of voiceChannels; track vc.id) {
+              <div class="channel-item channel-voice">
+                <mat-icon class="ch-icon">volume_up</mat-icon>
+                <span class="ch-name">{{ vc.name }}</span>
+                @if (getMembersForVoiceChannel(vc.id).length > 0) {
+                  <span class="vc-count">{{ getMembersForVoiceChannel(vc.id).length }}</span>
+                }
+              </div>
+              @for (member of getMembersForVoiceChannel(vc.id); track member.userId) {
+                <div class="vc-member">
+                  <span class="vc-dot"></span>
+                  <span>{{ member.username }}</span>
+                </div>
+              }
+            }
+          }
+        }
+      </div>
+    </aside>
+
+    <!-- MAIN CHAT AREA -->
+    <main class="main-panel">
+      @if (selectedChannel) {
+        <!-- Channel header -->
+        <div class="channel-header">
+          <mat-icon class="ch-icon">{{ channelIcon(selectedChannel.type) }}</mat-icon>
+          <h2>{{ selectedChannel.name }}</h2>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages">
+          @for (msg of messages; track msg.id) {
+            <div class="chat-msg"
+              [class.msg-discord]="msg.source === 'discord'"
+              [class.msg-web]="msg.source === 'web'"
+              [class.msg-voice]="msg.channel_type === 'voice'"
+            >
+              <div class="msg-head">
+                <span class="msg-username"
+                  [class.discord-user]="msg.source === 'discord'"
+                  [class.web-user]="msg.source === 'web'"
+                >{{ msg.username }}</span>
+                <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
+              </div>
+              <div class="msg-content" [class.msg-system]="msg.username === 'System'">{{ msg.content }}</div>
+            </div>
+          }
+        </div>
+
+        <!-- Input -->
+        <div class="chat-input-bar">
+          <input
+            class="chat-input"
+            type="text"
+            [(ngModel)]="newMessage"
+            placeholder="Message #{{ selectedChannel.name }}"
+            (keyup.enter)="send()"
+            [disabled]="sending"
+          />
+          <button class="chat-send-btn" (click)="send()" [disabled]="!newMessage.trim() || sending">
+            <mat-icon>send</mat-icon>
+          </button>
+        </div>
+      } @else {
+        <div class="no-channel">
+          <mat-icon>forum</mat-icon>
+          <p>Select a channel to start chatting</p>
+        </div>
+      }
+    </main>
+  </div>
+</section>

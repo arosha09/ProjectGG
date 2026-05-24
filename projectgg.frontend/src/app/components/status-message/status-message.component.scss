@@ -1,10 +1,11 @@
 .status-box {
   position: relative;
   display: flex;
+  width: fit-content;
   align-items: center;
   margin-top: 10px;
-  gap: 12px;
-  padding: 14px 18px;
+  gap: 10px;
+  padding: 12px 20px;
   border-radius: 4px;
   overflow: hidden;
   font-family: inherit;
@@ -41,6 +42,49 @@
 
       &:hover {
         color: #ff5f6d;
+      }
+    }
+  }
+
+  &.warning {
+    background: rgba(255, 215, 0, 0.08);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    color: #ffd700;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+    cursor: pointer;
+    transition: background .2s, box-shadow .2s;
+
+    &:hover {
+      background: rgba(255, 215, 0, 0.12);
+      box-shadow: 0 0 16px rgba(255, 215, 0, 0.08);
+    }
+
+    .status-glow {
+      background: radial-gradient(ellipse at center, rgba(255, 215, 0, 0.15), transparent 70%);
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+
+    .status-scanner {
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 215, 0, 0.03) 2px,
+        rgba(255, 215, 0, 0.03) 4px
+      );
+      animation: scanlines 1.5s linear infinite;
+    }
+
+    .status-icon {
+      color: #ffd700;
+      text-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+    }
+
+    .status-dismiss {
+      color: rgba(255, 215, 0, 0.5);
+
+      &:hover {
+        color: #ffd700;
       }
     }
   }
@@ -105,9 +149,8 @@
 }
 
 .status-text {
-  flex: 1;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1;
   font-weight: 600;
   letter-spacing: 0.3px;
 }
@@ -137,4 +180,16 @@
 @keyframes scanlines {
   0% { transform: translateY(0); }
   100% { transform: translateY(4px); }
+}
+
+@media (max-width: 480px) {
+  .status-box {
+    width: 100%;
+    padding: 10px 14px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .status-text {
+    font-size: 12px;
+  }
 }

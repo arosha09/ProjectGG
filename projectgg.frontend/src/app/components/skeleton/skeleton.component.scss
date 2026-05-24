@@ -60,3 +60,23 @@
 }
 
 @keyframes shimmer { 100% { transform: translateX(200%); } }
+
+@media (max-width: 768px) {
+  .skeleton-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .skeleton-card {
+    padding: 12px;
+    min-height: 180px;
+  }
+  .skeleton-media {
+    height: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+}

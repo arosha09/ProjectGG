@@ -18,4 +18,7 @@ export class UserDto {
 
   @ApiProperty({ example: '2026-05-20T07:08:13.454547+00:00' })
   created_at: string;
+
+  @ApiProperty({ example: false })
+  email_verified?: boolean;
 }

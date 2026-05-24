@@ -18,7 +18,7 @@ import { AdminNavComponent } from '../../../components/admin-nav/admin-nav.compo
 export class AdminSync {
   syncing = false;
   scanning = false;
-  queue: { code: string; name: string; missing: string[] }[] = [];
+  queue: { code: string; name: string; missing: string[]; locked_columns?: string[] }[] = [];
   completed = 0;
   total = 0;
   current = '';
@@ -47,7 +47,7 @@ export class AdminSync {
     return this.currentUser?.role === 'admin';
   }
 
-  get filteredQueue(): { code: string; name: string; missing: string[] }[] {
+  get filteredQueue(): { code: string; name: string; missing: string[]; locked_columns?: string[] }[] {
     const q = this.searchQuery.trim().toLowerCase();
     if (!q) return this.queue;
     return this.queue.filter(g =>
@@ -79,7 +79,7 @@ export class AdminSync {
     this.games.getAllGames(1, pageSize).subscribe({
       next: (first) => {
         const total = first[0]?.total_count ?? 0;
-        this.queue = first.map(g => ({ code: g.code, name: g.name, missing: [] }));
+        this.queue = first.map(g => ({ code: g.code, name: g.name, missing: [], locked_columns: (g as any).locked_columns ?? [] }));
         this.status = `Loading games... ${this.queue.length} / ${total}`;
         this.cdr.detectChanges();
 
@@ -105,7 +105,7 @@ export class AdminSync {
   private loadPage(page: number, totalPages: number, total: number): void {
     this.games.getAllGames(page, this.scanPageSize || 200).subscribe({
       next: (more) => {
-        this.queue = [...this.queue, ...more.map(g => ({ code: g.code, name: g.name, missing: [] }))];
+        this.queue = [...this.queue, ...more.map(g => ({ code: g.code, name: g.name, missing: [], locked_columns: (g as any).locked_columns ?? [] }))];
         this.status = `Loading games... ${this.queue.length} / ${total}`;
         this.cdr.detectChanges();
 
@@ -133,16 +133,16 @@ export class AdminSync {
     });
   }
 
-  loadQueue(force: boolean = false): void {
+  loadQueue(force: boolean = false, brokenOnly: boolean = false): void {
     this.syncComplete = false;
     this.isForce = force;
     this.scanning = true;
     this.selectedCodes.clear();
-    this.status = force ? 'Scanning all games...' : 'Scanning game database...';
+    this.status = force ? 'Scanning all games...' : brokenOnly ? 'Scanning broken games...' : 'Scanning game database...';
     this.cdr.detectChanges();
-    this.games.getSyncQueue(force).subscribe({
+    this.games.getSyncQueue(force, undefined, brokenOnly).subscribe({
       next: (q: any[]) => {
-        this.queue = q.map((g: any) => ({ code: g.code, name: g.name, missing: g.missing ?? [] }));
+        this.queue = q.map((g: any) => ({ code: g.code, name: g.name, missing: g.missing ?? [], locked_columns: g.locked_columns ?? [] }));
         this.showQueue = true;
         this.scanning = false;
         this.status = q.length > 0 ? `Found ${q.length} games` : 'All games are synced!';
@@ -152,6 +152,27 @@ export class AdminSync {
         this.status = `Failed to load queue: ${err.message}`;
         this.scanning = false;
         this.cdr.detectChanges();
+      },
+    });
+  }
+
+  scanBroken(): void {
+    this.loadQueue(false, true);
+  }
+
+  toggleColumnLock(game: { code: string; name: string; missing: string[]; locked_columns?: string[] }, column: string): void {
+    const locked = game.locked_columns ?? [];
+    const isLocked = locked.includes(column);
+    const obs = isLocked
+      ? this.games.unlockColumn(game.code, column)
+      : this.games.lockColumn(game.code, column);
+    obs.subscribe({
+      next: (res) => {
+        game.locked_columns = res.locked_columns;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(`Failed to toggle lock on ${game.code}/${column}:`, err);
       },
     });
   }

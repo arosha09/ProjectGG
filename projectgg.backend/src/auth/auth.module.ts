@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -7,7 +7,8 @@ import { AuthService } from './auth.service';
 import { AuthRepository } from './auth.repository';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt.guard';
-import { supabaseProvider, SUPABASE_CLIENT } from 'src/config/supabase.provider';
+import { supabaseProvider } from 'src/config/supabase.provider';
+import { UsersModule } from 'src/modules/users.module';
 
 @Global()
 @Module({
@@ -20,9 +21,10 @@ import { supabaseProvider, SUPABASE_CLIENT } from 'src/config/supabase.provider'
         signOptions: { expiresIn: parseInt(cfg.get('JWT_EXPIRES_IN') || '3600', 10) },
       }),
     }),
+    forwardRef(() => UsersModule),
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthRepository, JwtStrategy, JwtAuthGuard, supabaseProvider],
-  exports: [AuthService, JwtStrategy, JwtAuthGuard, PassportModule, JwtModule],
+  exports: [AuthService, AuthRepository, JwtStrategy, JwtAuthGuard, PassportModule, JwtModule],
 })
 export class AuthModule {}

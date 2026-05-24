@@ -68,3 +68,15 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@media (max-width: 768px) {
+  .daily-claim-card {
+    padding: 20px;
+  }
+  .daily-claim-card h3 {
+    font-size: 1rem;
+  }
+  .claim-btn {
+    width: 100%;
+  }
+}

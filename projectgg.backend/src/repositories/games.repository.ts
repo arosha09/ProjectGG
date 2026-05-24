@@ -30,14 +30,21 @@ export class GamesRepository {
       if (g.series_name) uniqueSeries.add(g.series_name);
     }
 
+    const seriesExts = ['.png', '.jpg', '.jpeg', '.webp'];
     const seriesUrlMap = new Map<string, string>();
     await Promise.all(
       [...uniqueSeries].map(async (name) => {
-        const { data, error } = await this.supabase.storage
-          .from(this.bucketName)
-          .createSignedUrl(`series/${name}.png`, 60 * 60);
-        if (!error && data?.signedUrl) {
-          seriesUrlMap.set(name, data.signedUrl);
+        for (const encoded of [encodeURIComponent(name), name]) {
+          for (const ext of seriesExts) {
+            const filePath = `series/${encoded}${ext}`;
+            const { data, error } = await this.supabase.storage
+              .from(this.bucketName)
+              .createSignedUrl(filePath, 60 * 60);
+            if (!error && data?.signedUrl) {
+              seriesUrlMap.set(name, data.signedUrl);
+              return;
+            }
+          }
         }
       }),
     );
@@ -46,7 +53,7 @@ export class GamesRepository {
       (games ?? []).map(async (game) => {
         let coverUrl = game.cover_url;
         if (!coverUrl) {
-          const filePath = `game/${game.code}.jpg`;
+          const filePath = `game/${encodeURIComponent(game.code)}.jpg`;
           const { data, error } = await this.supabase.storage
             .from(this.bucketName)
             .createSignedUrl(filePath, 60 * 60);
@@ -121,10 +128,7 @@ export class GamesRepository {
       genres: game.genres ?? [],
       cover_url: game.cover_url ?? undefined,
       external_id: game.external_id ?? undefined,
-      external_source: game.external_source ?? undefined,
       rating: game.rating ?? null,
-      release_year: game.release_year ?? null,
-      platform: game.platform ?? 'pc',
       platforms: game.platforms ?? ['pc'],
       sources: game.sources ?? ['pc'],
     }));

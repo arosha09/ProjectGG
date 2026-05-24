@@ -105,3 +105,16 @@
   background: var(--accent-color);
   border-radius: 2px;
 }
+
+@media (max-width: 768px) {
+  .sel-popup {
+    position: fixed;
+    top: auto;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: auto;
+    max-height: 50vh;
+    z-index: 1000;
+  }
+}

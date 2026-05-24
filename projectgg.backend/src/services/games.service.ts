@@ -16,7 +16,11 @@ export class GamesService {
   }
 
   async getUserGames(userId: string, page = 1, pageSize = 12): Promise<GetAllGamesDto[]> {
-    return this.gamesRepository.getUserGames(userId, page, pageSize);
+    try {
+      return await this.gamesRepository.getUserGames(userId, page, pageSize);
+    } catch {
+      return [];
+    }
   }
 
   async removeUserGame(userId: string, gameCode: string): Promise<boolean> {

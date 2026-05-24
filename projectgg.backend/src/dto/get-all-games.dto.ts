@@ -40,14 +40,8 @@ export class GetAllGamesDto {
     @ApiProperty({ example: '289470', required: false })
     external_id?: string;
 
-    @ApiProperty({ example: 'steam', required: false })
-    external_source?: string;
-
     @ApiProperty({ example: 85, required: false })
     rating?: number | null;
-
-    @ApiProperty({ example: 2014, required: false })
-    release_year?: number | null;
 
     @ApiProperty({ example: ['pc', 'ps5'], required: false })
     platforms?: string[];

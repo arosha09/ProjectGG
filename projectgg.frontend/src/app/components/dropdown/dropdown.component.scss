@@ -1,0 +1,115 @@
+.dd-wrap {
+  position: relative;
+}
+
+.dd-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 6px;
+  color: rgba(230,255,240,.7);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color .2s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    border-color: rgba(255,255,255,.15);
+  }
+
+  &:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+}
+
+.dd-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(200,216,208,.4);
+}
+
+.dd-text {
+  &.placeholder {
+    color: rgba(230,255,240,.3);
+  }
+}
+
+.dd-arrow {
+  font-size: 10px;
+  color: rgba(230,255,240,.5);
+  transition: transform .2s;
+}
+
+.dd-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 100%;
+  background: linear-gradient(180deg, #0a1020, #080e1a);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.6), 0 0 20px var(--accent-glow);
+  z-index: 300;
+  padding: 6px;
+  animation: popIn .15s ease-out;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dd-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: rgba(230,255,240,.75);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+  white-space: nowrap;
+  transition: background .12s, color .12s;
+
+  &:hover {
+    background: rgba(var(--accent-color-r, 170), var(--accent-color-g, 68), var(--accent-color-b, 255), 0.1) !important;
+    color: var(--accent-color, #aa44ff) !important;
+  }
+
+  &.active {
+    color: var(--accent-color, #aa44ff);
+    background: rgba(var(--accent-color-r, 170), var(--accent-color-g, 68), var(--accent-color-b, 255), 0.05);
+  }
+}
+
+.dd-opt-icon {
+  font-size: 14px;
+  line-height: 1;
+  width: 18px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .dropdown-menu {
+    position: fixed;
+    top: auto;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: auto;
+    max-height: 60vh;
+  }
+}

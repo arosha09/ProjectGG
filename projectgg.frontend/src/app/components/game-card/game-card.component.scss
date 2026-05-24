@@ -1,5 +1,5 @@
 .owned-card {
-	width: 320px; height: 460px; padding: 0 !important;
+	width: 100%; aspect-ratio: 16 / 23; padding: 0 !important;
 	overflow: hidden; border-radius: 6px; position: relative;
 	background: linear-gradient(180deg, rgba(6,6,8,.92), rgba(8,10,16,.96)) !important;
 	border: 1px solid rgba(255,255,255,.03) !important;
@@ -157,3 +157,14 @@
 }
 
 .game-btn { width: 100%; margin-top: auto; display: block; }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 480px) {
+  .game-desc.text-clamp {
+    display: none;
+  }
+  .genre-chip {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}

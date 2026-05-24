@@ -10,12 +10,12 @@ export class UsersService {
     return this.usersRepository.findById(params);
   }
 
-  async updateProfile(userId: string, updates: { name?: string; username?: string; avatar?: string }): Promise<UserDto | null> {
+  async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean }): Promise<UserDto | null> {
     return this.usersRepository.updateProfile(userId, updates);
   }
 
-  async uploadAvatar(userId: string, file: Buffer, filename: string, contentType: string): Promise<string> {
-    return this.usersRepository.uploadUserAvatar(userId, file, filename, contentType);
+  async uploadAvatar(userId: string, file: Buffer, contentType: string, username: string): Promise<string> {
+    return this.usersRepository.uploadUserAvatar(userId, file, contentType, username);
   }
 
   async deleteAvatar(userId: string): Promise<void> {

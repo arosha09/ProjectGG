@@ -11,10 +11,12 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ConflictException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { AuthRepository } from 'src/auth/auth.repository';
 import { UsersService } from 'src/services/users.service';
 import { UpdateProfileDto, ProfileDto, SystemAvatarDto, UserAvatarDto } from '../dto/avatar.dto';
 import { UserDto } from '../dto/user.dto';
@@ -22,7 +24,10 @@ import { UserDto } from '../dto/user.dto';
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly authRepo: AuthRepository,
+  ) {}
 
   @Get('get-user-details')
   @ApiQuery({ name: 'user_id', type: String, required: false, example: '1fc9d73a-2635-42fa-a72f-dceee35a8bad' })
@@ -57,6 +62,7 @@ export class UsersController {
       username: user.username,
       avatar: avatarUrl || undefined,
       created_at: user.created_at,
+      email_verified: user.email_verified ?? false,
     };
   }
 
@@ -69,7 +75,26 @@ export class UsersController {
     @Body() body: UpdateProfileDto,
   ): Promise<UserDto> {
     const userId = req.user.id;
-    const updated = await this.usersService.updateProfile(userId, body);
+
+    const updates: any = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.username !== undefined) {
+      const existing = await this.authRepo.findByUsername(body.username);
+      if (existing && String(existing.id) !== userId) {
+        throw new ConflictException('Username already in use');
+      }
+      updates.username = body.username;
+    }
+    if (body.email !== undefined) {
+      const existing = await this.authRepo.findByEmail(body.email);
+      if (existing && String(existing.id) !== userId) {
+        throw new ConflictException('Email already in use');
+      }
+      updates.email = body.email;
+      updates.email_verified = false;
+    }
+
+    const updated = await this.usersService.updateProfile(userId, updates);
     if (!updated) {
       throw new BadRequestException('Failed to update profile');
     }
@@ -102,16 +127,25 @@ export class UsersController {
       throw new BadRequestException('No file uploaded');
     }
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+      'image/svg+xml', 'image/bmp', 'image/tiff', 'image/avif',
+      'image/x-icon', 'image/vnd.microsoft.icon',
+    ];
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Only JPEG, PNG, WebP, and GIF images are allowed');
+      throw new BadRequestException('Invalid image format. Allowed: JPEG, PNG, WebP, GIF, SVG, BMP, TIFF, AVIF, ICO');
     }
 
-    const url = await this.usersService.uploadAvatar(userId, file.buffer, file.originalname, file.mimetype);
+    const user = await this.usersService.getUserDetails({ userId });
+    const username = user?.username || userId;
 
-    await this.usersService.updateProfile(userId, { avatar: url });
+    const path = await this.usersService.uploadAvatar(userId, file.buffer, file.mimetype, username);
 
-    return { url, is_system_avatar: false };
+    await this.usersService.updateProfile(userId, { avatar: path });
+
+    const avatarUrl = await this.usersService.getUserAvatarUrl(userId);
+
+    return { url: avatarUrl || '', is_system_avatar: false };
   }
 
   @UseGuards(JwtAuthGuard)

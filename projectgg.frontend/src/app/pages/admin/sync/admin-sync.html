@@ -53,6 +53,9 @@
           <button class="sync-btn sync-btn-tertiary" (click)="loadQueue(true)" [disabled]="syncing || scanning || syncComplete">
             <mat-icon>refresh</mat-icon> SCAN ALL
           </button>
+          <button class="sync-btn sync-btn-broken" (click)="scanBroken()" [disabled]="syncing || scanning">
+            <mat-icon>bug_report</mat-icon> SCAN BROKEN
+          </button>
         </div>
       </div>
 
@@ -127,6 +130,7 @@
                     <div class="sq-missing">
                       @for (m of game.missing; track m) {
                         <span class="sq-miss-tag" [class.sq-miss-cover]="m === 'cover'"
+                              [class.sq-miss-broken-cover]="m === 'broken-cover'"
                               [class.sq-miss-genres]="m === 'genres'"
                               [class.sq-miss-rating]="m === 'rating'"
                               [class.sq-miss-platforms]="m === 'platforms'"
@@ -136,6 +140,16 @@
                       }
                     </div>
                   }
+                  <div class="sq-locks">
+                    @for (col of ['cover_url', 'rating', 'platforms', 'sources']; track col) {
+                      <span class="sq-lock-btn"
+                            [class.sq-locked]="game.locked_columns?.includes(col)"
+                            [title]="(game.locked_columns?.includes(col) ? 'Unlock' : 'Lock') + ' ' + col"
+                            (click)="toggleColumnLock(game, col)">
+                        <mat-icon>{{ game.locked_columns?.includes(col) ? 'lock' : 'lock_open' }}</mat-icon>
+                      </span>
+                    }
+                  </div>
                   @if (results.find(r => r.code === game.code); as result) {
                     <span class="sq-status" [class.sq-ok]="result.success" [class.sq-err]="!result.success" (click)="toggleDetail(game.code)">
                       <mat-icon>{{ result.success ? 'check' : 'close' }}</mat-icon>

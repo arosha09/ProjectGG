@@ -59,3 +59,11 @@
   transform: none;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 20px rgba(0,0,0,0.16);
 }
+
+@media (max-width: 768px) {
+  .collection-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 12px;
+  }
+}

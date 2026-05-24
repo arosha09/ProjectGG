@@ -539,3 +539,40 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 }
+
+@media (max-width: 1200px) {
+  .container {
+    max-width: 960px;
+  }
+}
+
+@media (max-width: 992px) {
+  .container {
+    max-width: 100%;
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.6rem;
+  }
+  h2 {
+    font-size: 1.2rem;
+  }
+  h3 {
+    font-size: 1.1rem;
+  }
+  .btn {
+    padding: 10px 20px;
+    font-size: 12px;
+  }
+  .btn-large {
+    padding: 12px 32px;
+    font-size: 14px;
+  }
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}

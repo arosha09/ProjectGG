@@ -53,7 +53,7 @@
 	font-size: 13px; cursor: pointer; text-align: left;
 	transition: background .15s, color .15s;
 
-	&:hover { background: rgba(255,255,255,.05); color: #e9f9f3; }
+	&:hover { background: rgba(var(--accent-color-r, 170), var(--accent-color-g, 68), var(--accent-color-b, 255), 0.1); color: var(--accent-color, #aa44ff); }
 	&.active { background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.12); color: var(--accent-color); font-weight: 600; }
 }
 
@@ -68,3 +68,12 @@
 .status-dot--away { background: #ffd24d; box-shadow: 0 0 6px #ffd24d; }
 .status-dot--offline { background: #d80606; box-shadow: 0 0 6px #d80606; }
 .status-dot--invisible { background: #6c6870; }
+
+@media (max-width: 768px) {
+  .status-toggle {
+    width: 120px;
+  }
+  .status-menu {
+    width: 120px;
+  }
+}

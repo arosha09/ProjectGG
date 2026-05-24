@@ -25,15 +25,26 @@
 			</div>
 			<div class="profile-meta">
 				<mat-card class="meta-card">
-					<span class="meta-value">{{ getLevel() }}</span>
-					<span class="meta-label">Level</span>
-				</mat-card>
-				<mat-card class="meta-card">
 					<span class="meta-value">{{ userGames.length }}</span>
 					<span class="meta-label">Owned games</span>
 				</mat-card>
 			</div>
 		</mat-card>
+
+		@if (connectionsLoaded && !discordConnected) {
+			<mat-card class="discord-cta-card">
+				<img class="discord-cta-logo" [src]="getPlatformLogo('discord')" alt="Discord" />
+				<div class="discord-cta-body">
+					<h3>Link your Discord</h3>
+					<p>Connect your Discord account to unlock profile integration and features — this is what makes ProjectGG unique.</p>
+				</div>
+				<button class="discord-cta-btn" (click)="linkDiscord()">
+					<mat-icon>login</mat-icon> LINK DISCORD
+				</button>
+			</mat-card>
+		}
+
+		<app-music-player [platformConnections]="musicConnections"></app-music-player>
 
 		<section class="section-head">
 			<h2>Game library</h2>
@@ -42,6 +53,7 @@
 
 		<div class="search-filter-bar">
 			<div class="search-input-wrap">
+				<mat-icon class="search-icon">search</mat-icon>
 				<input
 					class="search-input"
 					type="text"
@@ -57,11 +69,11 @@
 				}
 			</div>
 			<div class="sort-select">
-				<select [(ngModel)]="sortOption" class="sort-dropdown">
-					<option value="name">Name</option>
-					<option value="release">Release Order</option>
-					<option value="timeline">Timeline Order</option>
-				</select>
+				<app-dropdown
+					[options]="sortOptions"
+					[value]="sortOption"
+					(valueChange)="onSortChange($event)"
+				></app-dropdown>
 			</div>
 			@if (isAdmin) {
 				<a class="sync-link" routerLink="/admin/sync">

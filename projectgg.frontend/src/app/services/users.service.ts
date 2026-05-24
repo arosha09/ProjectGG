@@ -104,6 +104,11 @@ export class UsersService {
     return this.currentUserSubject.value;
   }
 
+  updateCurrentUser(user: any): void {
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    this.currentUserSubject.next(user);
+  }
+
   isAuthenticated(): boolean {
     return !!this.tokenSubject.value;
   }

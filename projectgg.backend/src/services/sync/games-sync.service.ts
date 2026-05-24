@@ -6,6 +6,7 @@ import { SyncResultDto, SyncSearchResultDto, SyncQueueDto } from 'src/dto/sync/s
 @Injectable()
 export class GamesSyncService {
   private readonly raggApiKey: string;
+  private readonly steamGridDbKey: string;
 
   private static normalizeName(name: string): string {
     return name
@@ -59,6 +60,7 @@ export class GamesSyncService {
     configService: ConfigService,
   ) {
     this.raggApiKey = configService.get<string>('RAWG_API_KEY') ?? '';
+    this.steamGridDbKey = configService.get<string>('STEAMGRIDDB_API_KEY') ?? '';
   }
 
   private static normalizeForCompare(name: string): string {
@@ -194,11 +196,23 @@ export class GamesSyncService {
     return entries;
   }
 
-  async getSyncQueue(force: boolean = false, q?: string): Promise<SyncQueueDto[]> {
+  async getSyncQueue(force: boolean = false, q?: string, brokenOnly: boolean = false): Promise<SyncQueueDto[]> {
+    try {
+      return await this.querySyncQueue(force, q, true, brokenOnly);
+    } catch {
+      return await this.querySyncQueue(force, q, false, brokenOnly);
+    }
+  }
+
+  private async querySyncQueue(force: boolean, q?: string, includeBrokenFields: boolean = true, brokenOnly: boolean = false): Promise<SyncQueueDto[]> {
+    const selectFields = includeBrokenFields
+      ? 'code, name, cover_url, genres, rating, platforms, sources, last_synced_at, broken_fields, locked_columns'
+      : 'code, name, cover_url, genres, rating, platforms, sources, last_synced_at';
+
     let query = this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('code, name, cover_url, genres, rating, platforms, sources, last_synced_at');
+      .select(selectFields);
 
     if (!force) {
       query = query.or('cover_url.is.null,last_synced_at.is.null,last_synced_at.lt.' + this.subtractDays(7));
@@ -208,21 +222,70 @@ export class GamesSyncService {
       query = query.or(`code.ilike.%${q}%,name.ilike.%${q}%`);
     }
 
-    const { data, error } = await query.order('name', { ascending: true });
+    const { data: baseData, error } = await query.order('name', { ascending: true });
     if (error) throw error;
 
+    let results: any[] = baseData ?? [];
+
+    // Also include games with broken_fields that aren't caught by the SQL filter
+    if (!force && includeBrokenFields) {
+      try {
+        const { data: brokenData } = await this.supabase
+          .schema('projectgg')
+          .from('games_master')
+          .select(selectFields)
+          .not('broken_fields', 'is', null);
+        if (brokenData) {
+          const existingCodes = new Set(results.map((g: any) => g.code));
+          for (const g of brokenData) {
+            if (g.broken_fields && g.broken_fields.length > 0 && !existingCodes.has(g.code)) {
+              results.push(g);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[sync] broken_fields subquery failed:', e);
+      }
+    }
+
+    // Validate existing cover URLs — persist broken covers to DB so resync fixes them.
+    // Skip for force scans (too many games); runs on normal stale/broken scans.
+    if (!force && !q) {
+      await Promise.all(results.map(async (g: any) => {
+        if (!g.cover_url) return;
+        const broken: string[] = g.broken_fields ?? [];
+        if (broken.includes('cover_url')) return;
+        const valid = await this.isValidImageUrl(g.cover_url);
+        if (valid) return;
+        broken.push('cover_url');
+        g.broken_fields = broken;
+        await this.supabase
+          .schema('projectgg')
+          .from('games_master')
+          .update({ broken_fields: broken })
+          .eq('code', g.code);
+      }));
+    }
+
+    // Filter to only broken_fields games if requested
+    if (brokenOnly) {
+      results = results.filter(g => g.broken_fields && g.broken_fields.length > 0);
+    }
+
     const thirtyDays = new Date(this.subtractDays(30));
-    const results: any[] = data ?? [];
     return results.map(g => {
+      const broken: string[] = includeBrokenFields ? (g.broken_fields ?? []) : [];
+      const locked: string[] = g.locked_columns ?? [];
       const missing: string[] = [];
       if (!g.cover_url) missing.push('cover');
+      else if (broken.includes('cover_url')) missing.push('broken-cover');
       if (!g.genres || g.genres.length === 0) missing.push('genres');
       if (g.rating == null) missing.push('rating');
       if (!g.platforms || g.platforms.length === 0) missing.push('platforms');
       if (!g.sources || g.sources.length === 0) missing.push('sources');
       if (!g.last_synced_at) missing.push('never');
       else if (new Date(g.last_synced_at) < thirtyDays) missing.push('stale');
-      return { code: g.code, name: g.name, missing };
+      return { code: g.code, name: g.name, missing, locked_columns: locked };
     });
   }
 
@@ -232,26 +295,58 @@ export class GamesSyncService {
     return d.toISOString();
   }
 
+  private async coverFallback(result: SyncResultDto, name: string, code: string): Promise<void> {
+    if (result.cover_url && await this.isValidImageUrl(result.cover_url)) return;
+    if (!this.steamGridDbKey) return;
+    const sgdb = await this.trySteamGridDB(name, code);
+    if (sgdb.success && sgdb.cover_url) {
+      result.cover_url = sgdb.cover_url;
+      result.message += ' (cover via SGDB)';
+      if (sgdb.external_id && !result.external_id) result.external_id = sgdb.external_id;
+      result.sources = [...new Set([...(result.sources ?? []), ...(sgdb.sources ?? [])])];
+    }
+  }
+
   async syncGame(code: string, name: string): Promise<SyncResultDto> {
+    let locked: string[] = [];
+    try {
+      const { data: lockData } = await this.supabase
+        .schema('projectgg')
+        .from('games_master')
+        .select('locked_columns')
+        .eq('code', code)
+        .single();
+      locked = lockData?.locked_columns ?? [];
+    } catch { }
+
     const steamResult = await this.trySteam(name, code);
     if (steamResult.success) {
-      try { await this.persistSync(code, steamResult); } catch (e: any) { console.error(`[sync] persistSync (steam) failed for ${code}:`, e); return { code, success: false, message: `Steam OK but DB write failed: ${e.message ?? e}` }; }
+      await this.coverFallback(steamResult, name, code);
+      try { await this.persistSync(code, steamResult, locked); } catch (e: any) { console.error(`[sync] persistSync (steam) failed for ${code}:`, e); return { code, success: false, message: `Steam OK but DB write failed: ${e.message ?? e}` }; }
       return steamResult;
     }
 
     const gogResult = await this.tryGOG(name, code);
     if (gogResult.success) {
-      try { await this.persistSync(code, gogResult); } catch (e: any) { console.error(`[sync] persistSync (gog) failed for ${code}:`, e); return { code, success: false, message: `GOG OK but DB write failed: ${e.message ?? e}` }; }
+      await this.coverFallback(gogResult, name, code);
+      try { await this.persistSync(code, gogResult, locked); } catch (e: any) { console.error(`[sync] persistSync (gog) failed for ${code}:`, e); return { code, success: false, message: `GOG OK but DB write failed: ${e.message ?? e}` }; }
       return gogResult;
     }
 
     const raggResult = await this.tryRAWG(name, code);
     if (raggResult.success) {
-      try { await this.persistSync(code, raggResult); } catch (e: any) { console.error(`[sync] persistSync (rawg) failed for ${code}:`, e); return { code, success: false, message: `RAWG OK but DB write failed: ${e.message ?? e}` }; }
+      await this.coverFallback(raggResult, name, code);
+      try { await this.persistSync(code, raggResult, locked); } catch (e: any) { console.error(`[sync] persistSync (rawg) failed for ${code}:`, e); return { code, success: false, message: `RAWG OK but DB write failed: ${e.message ?? e}` }; }
       return raggResult;
     }
 
-    return { code, success: false, message: 'Not found on Steam, GOG, or RAWG' };
+    const sgdbResult = await this.trySteamGridDB(name, code);
+    if (sgdbResult.success) {
+      try { await this.persistSync(code, sgdbResult, locked); } catch (e: any) { console.error(`[sync] persistSync (sgdb) failed for ${code}:`, e); return { code, success: false, message: `SteamGridDB OK but DB write failed: ${e.message ?? e}` }; }
+      return sgdbResult;
+    }
+
+    return { code, success: false, message: 'Not found on Steam, GOG, RAWG, or SteamGridDB' };
   }
 
   async createGameFromExternal(data: {
@@ -284,14 +379,54 @@ export class GamesSyncService {
     return result;
   }
 
+  async toggleLock(code: string, column: string, lock: boolean): Promise<{ locked_columns: string[] }> {
+    const { data, error } = await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .select('locked_columns')
+      .eq('code', code)
+      .single();
+    if (error) throw error;
+    let locked: string[] = data?.locked_columns ?? [];
+    if (lock && !locked.includes(column)) {
+      locked.push(column);
+    } else if (!lock) {
+      locked = locked.filter((c: string) => c !== column);
+    }
+    const { error: updateError } = await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .update({ locked_columns: locked })
+      .eq('code', code);
+    if (updateError) throw updateError;
+    return { locked_columns: locked };
+  }
+
   private async persistSync(
     code: string,
     result: SyncResultDto,
+    locked: string[] = [],
   ): Promise<void> {
+    // Strip locked fields — they won't be updated
+    if (locked.includes('cover_url')) result.cover_url = undefined;
+    if (locked.includes('genres')) { result.genres = []; }
+    if (locked.includes('rating')) result.rating = undefined;
+    if (locked.includes('platforms')) { result.platforms = undefined; }
+    if (locked.includes('sources')) { result.sources = undefined; }
+
     const extId = result.external_id
       ?? (result.source === 'steam' && result.cover_url
         ? result.cover_url.match(/\/apps\/(\d+)\//)?.[1] ?? null
         : null);
+
+    const clearBroken: string[] = [];
+    if (result.cover_url && await this.isValidImageUrl(result.cover_url)) clearBroken.push('cover_url');
+    else if (result.cover_url) console.warn(`[sync] skipping clear of cover_url for ${code} — URL failed validation`);
+    if (result.genres && result.genres.length > 0) clearBroken.push('genres');
+    if (result.rating != null) clearBroken.push('rating');
+    if (result.platforms && result.platforms.length > 0) clearBroken.push('platforms');
+    if (result.sources && result.sources.length > 0) clearBroken.push('sources');
+
     const { error } = await this.supabase.rpc('update_game_external', {
       in_code: code,
       in_cover_url: result.cover_url ?? null,
@@ -303,11 +438,13 @@ export class GamesSyncService {
       in_platforms: result.platforms ?? null,
       in_sources: result.sources ?? null,
       in_last_synced_at: new Date().toISOString(),
+      in_clear_broken: clearBroken.length > 0 ? clearBroken : null,
     });
     if (error) {
       console.error(`[sync] RPC update_game_external error for ${code}:`, error);
       throw error;
     }
+    console.log(`[DEBUG] persistSync RPC call successful for ${code}`);
   }
 
   private async steamRating(appId: number): Promise<number | null> {
@@ -425,6 +562,52 @@ export class GamesSyncService {
       };
     } catch (err: any) {
       return { code, success: false, message: `RAWG error: ${err.message}` };
+    }
+  }
+
+  private async trySteamGridDB(name: string, code: string): Promise<SyncResultDto> {
+    if (!this.steamGridDbKey) return { code, success: false, message: 'No SteamGridDB API key' };
+    try {
+      const searchUrl = `https://www.steamgriddb.com/api/v2/search/autocomplete/${encodeURIComponent(name)}`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { 'Authorization': `Bearer ${this.steamGridDbKey}` },
+      });
+      if (!searchRes.ok) return { code, success: false, message: `SteamGridDB search ${searchRes.status}` };
+      const searchData: any = await searchRes.json();
+      if (!searchData?.success) return { code, success: false, message: 'SteamGridDB search unsuccessful' };
+      const games = searchData.data ?? [];
+      if (games.length === 0) return { code, success: false, message: 'Not on SteamGridDB' };
+
+      const gameId = games[0].id;
+      const gridsUrl = `https://www.steamgriddb.com/api/v2/grids/game/${gameId}`;
+      const gridsRes = await fetch(gridsUrl, {
+        headers: { 'Authorization': `Bearer ${this.steamGridDbKey}` },
+      });
+      if (!gridsRes.ok) return { code, success: false, message: `SteamGridDB grids ${gridsRes.status}` };
+      const gridsData: any = await gridsRes.json();
+      if (!gridsData?.success) return { code, success: false, message: 'No grids from SteamGridDB' };
+      const grids = gridsData.data ?? [];
+      if (grids.length === 0) return { code, success: false, message: 'No grid images on SteamGridDB' };
+
+      const grid = grids.find((g: any) => g.width === 600 && g.height === 900) ?? grids[0];
+      const coverUrl = grid.url;
+
+      return {
+        code,
+        success: true,
+        message: 'Cover via SteamGridDB',
+        genres: [],
+        cover_url: coverUrl,
+        source: 'steamgriddb',
+        rating: null,
+        release_year: null,
+        desc: undefined,
+        external_id: String(gameId),
+        platforms: ['pc'],
+        sources: ['steamgriddb'],
+      };
+    } catch (err: any) {
+      return { code, success: false, message: `SteamGridDB error: ${err.message}` };
     }
   }
 

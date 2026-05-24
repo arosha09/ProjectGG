@@ -9,6 +9,9 @@ export class SyncQueueDto {
 
   @ApiProperty({ example: ['cover', 'genres', 'rating'] })
   missing: string[];
+
+  @ApiPropertyOptional({ example: ['cover_url', 'rating'] })
+  locked_columns?: string[];
 }
 
 export class SyncProgressDto {

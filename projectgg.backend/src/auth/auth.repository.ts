@@ -52,7 +52,7 @@ export class AuthRepository {
     return data;
   }
 
-  async createUser(payload: RegisterDto & { password_hash: string }) {
+  async createUser(payload: RegisterDto & { password_hash: string; email_verified?: boolean; verification_token?: string; verification_token_expires?: string }) {
     const { data, error } = await this.supabase
       .schema('projectgg')
       .from('users')
@@ -66,11 +66,40 @@ export class AuthRepository {
           password_hash: payload.password_hash,
           role: payload.role ?? 'user',
           avatar: payload.avatar,
+          email_verified: payload.email_verified ?? false,
+          verification_token: payload.verification_token,
+          verification_token_expires: payload.verification_token_expires,
         },
       ])
       .select('*')
       .single();
     if (error) throw new InternalServerErrorException(error.message);
     return data;
+  }
+
+  async updateUser(id: string, updates: Record<string, any>): Promise<any> {
+    const { data, error } = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .update(updates)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return data;
+  }
+
+  async setVerificationToken(userId: string, token: string, expiresAt: string): Promise<void> {
+    const { error } = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .update({
+        verification_token: token,
+        verification_token_expires: expiresAt,
+      })
+      .eq('id', userId);
+
+    if (error) throw new InternalServerErrorException(error.message);
   }
 }

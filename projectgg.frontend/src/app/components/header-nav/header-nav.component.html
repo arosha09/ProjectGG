@@ -1,5 +1,5 @@
 <header class="dashbar">
-  <div class="brand">
+  <div class="brand" routerLink="/dashboard">
     <img src="logo.ico" alt="ProjectGG" class="brand-mark" />
     <span>PROJECT GG</span>
   </div>
@@ -19,27 +19,52 @@
       (toggle)="statusToggle.emit()"
     ></app-status-selector>
 
+    <a class="nav-discord-btn" routerLink="/chat" title="Discord Chat">
+      <img src="https://cdn.simpleicons.org/discord/ffffff" alt="Discord" class="nav-discord-icon" />
+      <span>Discord</span>
+    </a>
+
     <div class="profile-trigger" *ngIf="userName()" (click)="profileToggle.emit()">
       <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
       <span class="user-name">{{ userName() }}</span>
       <span class="trigger-arrow">▼</span>
     </div>
 
-    @if (profileDropdownOpen()) {
-      <div class="profile-menu">
-        <a class="profile-menu-item" routerLink="/profile">
-          PROFILE
-        </a>
-        @if (isAdmin()) {
-          <a class="profile-menu-item profile-menu-admin" routerLink="/admin">
-            <mat-icon>admin_panel_settings</mat-icon>
-            ADMIN PANEL
-          </a>
-        }
-        <button class="profile-menu-item" type="button" (click)="logout.emit()">
-          LOGOUT
-        </button>
-      </div>
-    }
+    <app-cyber-dropdown
+      [items]="profileItems"
+      [isOpen]="profileDropdownOpen()"
+      [isAdmin]="isAdmin()"
+    ></app-cyber-dropdown>
   </div>
+  <button class="hamburger" (click)="toggleMobileMenu()" [class.active]="mobileMenuOpen">
+    <span></span><span></span><span></span>
+  </button>
 </header>
+
+<div class="mobile-menu" [class.open]="mobileMenuOpen">
+  <app-theme-selector
+    [currentTheme]="currentTheme()"
+    [isOpen]="themeDropdownOpen()"
+    (themeChange)="themeChange.emit($event); mobileMenuOpen = false"
+    (toggle)="themeToggle.emit()"
+  ></app-theme-selector>
+
+  <app-status-selector
+    [currentStatus]="currentStatus()"
+    [isOpen]="statusDropdownOpen()"
+    (statusChange)="statusChange.emit($event); mobileMenuOpen = false"
+    (toggle)="statusToggle.emit()"
+  ></app-status-selector>
+
+  <div class="profile-trigger" *ngIf="userName()" (click)="profileToggle.emit(); mobileMenuOpen = false">
+    <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
+    <span class="user-name">{{ userName() }}</span>
+    <span class="trigger-arrow">▼</span>
+  </div>
+
+  <app-cyber-dropdown
+    [items]="profileItems"
+    [isOpen]="profileDropdownOpen()"
+    [isAdmin]="isAdmin()"
+  ></app-cyber-dropdown>
+</div>

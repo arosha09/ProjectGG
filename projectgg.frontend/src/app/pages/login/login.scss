@@ -373,3 +373,20 @@ input:focus {
 	0%, 100% { transform: translateY(0); }
 	50% { transform: translateY(-20px); }
 }
+
+@media (max-width: 768px) {
+  .login-container {
+    padding: 20px 16px;
+  }
+  .login-card {
+    padding: 24px 16px;
+  }
+  .login-card h1 {
+    font-size: 1.5rem;
+  }
+}
+@media (max-width: 480px) {
+  .login-card {
+    border-width: 1px;
+  }
+}

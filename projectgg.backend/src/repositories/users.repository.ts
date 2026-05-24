@@ -34,7 +34,7 @@ export class UsersRepository {
         return (data as UserDto) ?? null;
     }
 
-    async updateProfile(userId: string, updates: { name?: string; username?: string; avatar?: string }): Promise<UserDto | null> {
+    async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean }): Promise<UserDto | null> {
         const { data, error } = await this.supabase
             .schema('projectgg')
             .from('users')
@@ -50,24 +50,42 @@ export class UsersRepository {
         return data as UserDto;
     }
 
-    async uploadUserAvatar(userId: string, file: Buffer, filename: string, contentType: string): Promise<string> {
-        const filePath = `avatars/${userId}_${filename}`;
-        const { data, error } = await this.supabase.storage
+    private getExtension(contentType: string): string {
+        const map: Record<string, string> = {
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/png': 'png',
+            'image/webp': 'webp',
+            'image/gif': 'gif',
+            'image/svg+xml': 'svg',
+            'image/bmp': 'bmp',
+            'image/tiff': 'tiff',
+            'image/avif': 'avif',
+            'image/x-icon': 'ico',
+            'image/vnd.microsoft.icon': 'ico',
+        };
+        return map[contentType] || 'png';
+    }
+
+    async uploadUserAvatar(userId: string, file: Buffer, contentType: string, username: string): Promise<string> {
+        const ext = this.getExtension(contentType);
+        const filePath = `avatars/${userId}_${username}.${ext}`;
+        const { error: uploadError } = await this.supabase.storage
             .from(this.userFilesBucket)
             .upload(filePath, file, {
                 contentType,
                 upsert: true,
             });
 
-        if (error) {
-            throw new InternalServerErrorException(`Avatar upload failed: ${error.message}`);
+        if (uploadError) {
+            throw new InternalServerErrorException(`Avatar upload failed: ${uploadError.message}`);
         }
 
-        const { data: urlData } = await this.supabase.storage
+        const { data } = await this.supabase.storage
             .from(this.userFilesBucket)
-            .getPublicUrl(filePath);
+            .createSignedUrl(filePath, 604800);
 
-        return urlData?.publicUrl || '';
+        return `user://${this.userFilesBucket}/${filePath}`;
     }
 
     async deleteUserAvatar(userId: string): Promise<void> {
@@ -108,6 +126,16 @@ export class UsersRepository {
     async getUserAvatarUrl(userId: string): Promise<string | null> {
         const user = await this.findById({ userId });
         if (!user?.avatar) return null;
+
+        if (user.avatar.startsWith('user://')) {
+            const path = user.avatar.replace('user://', '');
+            const bucket = this.userFilesBucket;
+            const filePath = path.startsWith(`${bucket}/`) ? path.slice(bucket.length + 1) : path;
+            const { data } = await this.supabase.storage
+                .from(bucket)
+                .createSignedUrl(filePath, 604800);
+            return data?.signedUrl || null;
+        }
 
         if (user.avatar.startsWith('http')) {
             return user.avatar;

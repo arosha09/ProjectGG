@@ -98,11 +98,20 @@ export class GamesService {
     );
   }
 
-  getSyncQueue(force: boolean = false, q?: string): Observable<{ code: string; name: string; missing: string[] }[]> {
+  getSyncQueue(force: boolean = false, q?: string, brokenOnly: boolean = false): Observable<{ code: string; name: string; missing: string[]; locked_columns?: string[] }[]> {
     const params: any = {};
     if (force) params.force = 'true';
     if (q) params.q = q;
-    return this.http.get<{ code: string; name: string; missing: string[] }[]>(`${this.apiUrl}/games/sync/queue`, { params });
+    if (brokenOnly) params.broken = 'true';
+    return this.http.get<{ code: string; name: string; missing: string[]; locked_columns?: string[] }[]>(`${this.apiUrl}/games/sync/queue`, { params });
+  }
+
+  lockColumn(code: string, column: string): Observable<{ locked_columns: string[] }> {
+    return this.http.post<{ locked_columns: string[] }>(`${this.apiUrl}/games/sync/lock/${code}/${column}`, null);
+  }
+
+  unlockColumn(code: string, column: string): Observable<{ locked_columns: string[] }> {
+    return this.http.delete<{ locked_columns: string[] }>(`${this.apiUrl}/games/sync/lock/${code}/${column}`);
   }
 
   syncGame(code: string, name?: string): Observable<any> {
@@ -115,6 +124,10 @@ export class GamesService {
     return this.http.get<any[]>(`${this.apiUrl}/games/sync/search/external`, {
       params: { q: query },
     });
+  }
+
+  getAuthUrl(platform: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/platform/${platform}/auth-url`);
   }
 
   importGame(data: {
@@ -175,5 +188,9 @@ export class GamesService {
 
   getImageUrl(gameCode: string): string {
     return `${this.supabaseUrl}/storage/v1/object/public/system_files/game/${gameCode}.jpg`;
+  }
+
+  validatePlatform(platform: string, body: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/platform/${platform}/validate`, body);
   }
 }

@@ -1,8 +1,8 @@
 @if (message(); as msg) {
-  <div class="status-box" [class.success]="type() === 'success'" [class.error]="type() === 'error'">
+  <div class="status-box" [class.success]="type() === 'success'" [class.error]="type() === 'error'" [class.warning]="type() === 'warning'">
     <div class="status-glow"></div>
     <div class="status-scanner"></div>
-    <div class="status-icon">{{ type() === 'success' ? '&#10003;' : '&#9888;' }}</div>
+    <div class="status-icon">{{ type() === 'success' ? '&#10003;' : type() === 'warning' ? '&#9888;' : '&#9888;' }}</div>
     <span class="status-text">{{ msg }}</span>
     @if (dismissible()) {
       <button class="status-dismiss" (click)="dismiss.emit()" aria-label="Dismiss">&#10005;</button>

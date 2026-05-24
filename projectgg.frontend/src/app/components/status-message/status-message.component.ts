@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 
-export type StatusType = 'success' | 'error';
+export type StatusType = 'success' | 'error' | 'warning';
 
 @Component({
   selector: 'app-status-message',

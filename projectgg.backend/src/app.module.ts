@@ -5,6 +5,9 @@ import { GamesModule } from './modules/games.module';
 import { AuthModule } from './auth/auth.module';
 import { XpModule } from './modules/xp.module';
 import { GamesSyncModule } from './modules/sync/games-sync.module';
+import { PlatformConnectionsModule } from './modules/platform-connections/platform-connections.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -12,7 +15,10 @@ import { GamesSyncModule } from './modules/sync/games-sync.module';
     UsersModule,
     GamesModule,
     GamesSyncModule,
+    PlatformConnectionsModule,
+    ChatModule,
     AuthModule,
+    MailModule,
     XpModule,
   ],
 })

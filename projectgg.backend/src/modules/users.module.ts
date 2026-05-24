@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UsersController } from 'src/controllers/users.controller';
@@ -13,7 +13,7 @@ import { AuthModule } from 'src/auth/auth.module';
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [UsersController],
   providers: [UsersService, UsersRepository, supabaseProvider],

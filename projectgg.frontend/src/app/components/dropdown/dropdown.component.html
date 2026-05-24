@@ -1,0 +1,22 @@
+<div class="dd-wrap">
+  <button class="dd-trigger" type="button" [disabled]="disabled()" (click)="toggle()">
+    @if (label()) {
+      <span class="dd-label">{{ label() }}</span>
+    }
+    <span class="dd-text" [class.placeholder]="!selectedLabel && !label()">{{ selectedLabel || 'Select' }}</span>
+    <span class="dd-arrow">&#9662;</span>
+  </button>
+
+  @if (open()) {
+    <div class="dd-popup">
+      @for (opt of options(); track opt.value) {
+        <button class="dd-option" [class.active]="opt.value === value()" type="button" (click)="select(opt)">
+          @if (opt.icon) {
+            <span class="dd-opt-icon">{{ opt.icon }}</span>
+          }
+          <span>{{ opt.label }}</span>
+        </button>
+      }
+    </div>
+  }
+</div>

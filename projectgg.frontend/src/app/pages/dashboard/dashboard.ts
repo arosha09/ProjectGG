@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { Subject } from 'rxjs';
@@ -9,10 +10,13 @@ import { AuthService } from '../../services/auth.service';
 import { GamesService } from '../../services/games.service';
 import { FormsModule } from '@angular/forms';
 import { Game } from '../../models/game.model';
+import { environment } from '../../../environments/environment';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 import { GameCardComponent } from '../../components/game-card/game-card.component';
 import { PaginatorComponent } from '../../components/paginator/paginator.component';
 import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
+import { DropdownComponent, DropdownOption } from '../../components/dropdown/dropdown.component';
+import { MusicPlayerComponent } from '../../components/music-player/music-player.component';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
 import { StatusOption } from '../../components/status-selector/status-selector.component';
 
@@ -26,17 +30,19 @@ type LibraryItem = { type: 'game'; game: Game } | { type: 'series'; series: Seri
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-	imports: [
-		CommonModule,
-		MatCardModule,
-		MatIconModule,
-		SkeletonComponent,
-		GameCardComponent,
-		PaginatorComponent,
-		HeaderNavComponent,
-		FormsModule,
-		RouterLink,
-	],
+  imports: [
+    CommonModule,
+    MatCardModule,
+    MatIconModule,
+    SkeletonComponent,
+    GameCardComponent,
+    PaginatorComponent,
+    HeaderNavComponent,
+    DropdownComponent,
+    MusicPlayerComponent,
+    FormsModule,
+    RouterLink,
+  ],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
@@ -67,11 +73,24 @@ export class Dashboard implements OnInit, OnDestroy {
   searching = false;
   sortOption: 'name' | 'release' | 'timeline' = 'name';
 
+  readonly sortOptions: DropdownOption[] = [
+    { value: 'name', label: 'Name' },
+    { value: 'release', label: 'Release Order' },
+    { value: 'timeline', label: 'Timeline Order' },
+  ];
+
+  // Discord CTA
+  discordConnected = false;
+  connectionsLoaded = false;
+  musicConnections: any[] = [];
+  private readonly apiUrl = environment.apiUrl;
+
   constructor(
     private readonly auth: AuthService,
     private readonly games: GamesService,
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
+    private readonly http: HttpClient,
   ) {}
 
   ngOnInit(): void {
@@ -83,15 +102,14 @@ export class Dashboard implements OnInit, OnDestroy {
     }
 
     this.loadData();
-
-    // apply persisted theme (if any)
+    this.loadConnections();
     this.applySavedTheme();
     this.applySavedStatus();
   }
 
   setTheme(theme: 'green' | 'red' | 'yellow' | 'blue'): void {
     this.currentTheme = theme;
-    this.themeDropdownOpen = false; // close dropdown after selection
+    this.themeDropdownOpen = false;
     try {
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('projectgg:theme', theme);
@@ -145,6 +163,14 @@ export class Dashboard implements OnInit, OnDestroy {
     this.themeDropdownOpen = false;
     this.profileDropdownOpen = false;
   }
+
+  onSortChange(newSort: string): void {
+  if (newSort === 'name' || newSort === 'release' || newSort === 'timeline') {
+    this.sortOption = newSort as 'name' | 'release' | 'timeline';
+    this.libraryCurrentPage = 1;
+    this.cdr.markForCheck(); // If using ChangeDetectionStrategy.OnPush
+  }
+}
 
   toggleProfileDropdown(): void {
     this.profileDropdownOpen = !this.profileDropdownOpen;
@@ -244,11 +270,33 @@ export class Dashboard implements OnInit, OnDestroy {
     }
   }
 
+  private loadConnections(): void {
+    this.http.get<any[]>(`${this.apiUrl}/platform/connections`).subscribe({
+      next: (conns) => {
+        this.discordConnected = conns.some(c => c.platform === 'discord');
+        this.connectionsLoaded = true;
+        this.musicConnections = conns.filter(c =>
+          ['spotify', 'youtube_music', 'apple_music'].includes(c.platform)
+        );
+        this.cdr.markForCheck();
+      },
+      error: () => { this.connectionsLoaded = true; },
+    });
+  }
+
+  linkDiscord(): void {
+    this.router.navigate(['/settings'], { queryParams: { highlight: 'discord' } });
+  }
+
+  getPlatformLogo(id: string): string {
+    const slugs: Record<string, string> = { steam: 'steam', discord: 'discord', gog: 'gogdotcom', epic: 'epicgames', ubisoft: 'ubisoft', ea: 'ea', spotify: 'spotify', youtube_music: 'youtubemusic', apple_music: 'applemusic' };
+    return `https://cdn.simpleicons.org/${slugs[id] ?? id}/ffffff`;
+  }
+
   addGame(gameCode: string): void {
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (!userId) return;
 
-    // Optimistic update: mutate userGames locally so the library grid is never torn down.
     const game = this.allGames.find((g) => g.code === gameCode);
     if (game && !this.isAdded(gameCode)) {
       this.userGames = [...this.userGames, game];
@@ -261,7 +309,6 @@ export class Dashboard implements OnInit, OnDestroy {
       .subscribe({
         next: () => this.refreshUserGames(String(userId)),
         error: () => {
-          // Roll back on failure
           this.userGames = this.userGames.filter((g) => g.code !== gameCode);
           this.cdr.markForCheck();
         },
@@ -272,7 +319,6 @@ export class Dashboard implements OnInit, OnDestroy {
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (!userId) return;
 
-    // Optimistic update: remove locally so the library grid is never torn down.
     const previous = this.userGames;
     this.userGames = this.userGames.filter((g) => g.code !== gameCode);
     this.cdr.markForCheck();
@@ -283,7 +329,6 @@ export class Dashboard implements OnInit, OnDestroy {
       .subscribe({
         next: () => this.refreshUserGames(String(userId)),
         error: () => {
-          // Roll back on failure
           this.userGames = previous;
           this.cdr.markForCheck();
         },
@@ -291,8 +336,6 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   private refreshUserGames(userId: string): void {
-    // Only re-fetches userGames — never touches allGames,
-    // so the library grid is never destroyed and rebuilt.
     this.games
       .getUserGames(userId, this.currentPage, this.pageSize)
       .pipe(takeUntil(this.destroy$))
@@ -394,9 +437,7 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get filteredLibraryItems(): LibraryItem[] {
-    return this.searchResults
-      ? this.sortedLibraryItems
-      : this.libraryItems;
+    return this.sortedLibraryItems;
   }
 
   get pagedLibraryItems(): LibraryItem[] {
@@ -508,8 +549,9 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   getDefaultAvatar(gender?: string): string {
-    if (gender === 'Male') return 'assets/male.png';
-    if (gender === 'Female') return 'assets/female.png';
+    const g = gender?.toLowerCase();
+    if (g === 'male') return 'assets/male.png';
+    if (g === 'female') return 'assets/female.png';
     return 'assets/unknown.png';
   }
 
@@ -517,11 +559,7 @@ export class Dashboard implements OnInit, OnDestroy {
     this.auth.logout();
     this.router.navigate(['/home']);
   }
-
-  getLevel(): number {
-    return Math.max(1, Math.min(99, this.userGames.length * 7 + 1));
-  }
-
+  
   hideBrokenCover(event: Event): void {
     const img = event.target as HTMLImageElement | null;
     if (img) {

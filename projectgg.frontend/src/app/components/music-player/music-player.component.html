@@ -1,0 +1,94 @@
+<section class="music-player-card">
+  <div class="mp-header">
+    <div class="mp-header-left">
+      <span class="mp-title">NOW PLAYING</span>
+      @if (selectedPlatform && currentlyPlaying) {
+        <span class="mp-pulse-dot"></span>
+      }
+    </div>
+    @if (availablePlatforms.some(p => p.connected)) {
+      <button class="mp-add-btn" (click)="connectPlatform('music')" title="Link another service">+</button>
+    }
+  </div>
+
+  <div class="mp-platforms">
+    @for (p of availablePlatforms; track p.id) {
+      @if (p.connected) {
+        <button
+          class="mp-platform-btn"
+          [class.active]="p.id === selectedPlatform"
+          (click)="selectPlatform(p.id)"
+        >
+          <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/ffffff'" [alt]="p.name" class="mp-platform-icon" />
+          <span>{{ p.name }}</span>
+        </button>
+      } @else if (p.id === 'apple_music') {
+        <button class="mp-platform-btn mp-soon" disabled title="Coming soon">
+          <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/888'" [alt]="p.name" class="mp-platform-icon" />
+          <span>{{ p.name }}</span>
+          <span class="mp-soon-label">SOON</span>
+        </button>
+      }
+    }
+  </div>
+
+  @if (!availablePlatforms.some(p => p.connected)) {
+    <div class="mp-connect-prompt">
+      <p>Connect a music service</p>
+      <button class="mp-connect-btn" (click)="connectPlatform('music')">LINK</button>
+    </div>
+  }
+
+  @if (loading) {
+    <div class="mp-loading">
+      <span class="mp-spinner"></span>
+    </div>
+  }
+
+  @if (error) {
+    <div class="mp-error">{{ error }}</div>
+  }
+
+  @if (!loading && !error && availablePlatforms.some(p => p.connected)) {
+    <div class="mp-now-playing">
+      @if (currentlyPlaying) {
+        <div class="mp-album-art-wrap">
+          @if (currentlyPlaying.albumArt) {
+            <img [src]="currentlyPlaying.albumArt" alt="Album art" class="mp-album-art" />
+          } @else {
+            <div class="mp-album-art mp-placeholder-art">
+              <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,230,118,0.3)" stroke-width="2"/>
+                <circle cx="50" cy="50" r="15" fill="rgba(0,230,118,0.2)"/>
+                <line x1="50" y1="35" x2="50" y2="15" stroke="#00e676" stroke-width="1.5" opacity="0.5"/>
+              </svg>
+            </div>
+          }
+        </div>
+
+        <div class="mp-track-info">
+          <p class="mp-track-name">{{ currentlyPlaying.name }}</p>
+          <p class="mp-track-artist">{{ currentlyPlaying.artist }}</p>
+        </div>
+
+        <div class="mp-progress-wrap">
+          <div class="mp-progress-bar">
+            <div class="mp-progress-fill" [style.width.%]="currentlyPlaying.progress ?? 0"></div>
+          </div>
+          <div class="mp-progress-time">
+            <span>{{ currentlyPlaying.currentTime || '0:00' }}</span>
+            <span>{{ currentlyPlaying.duration || '0:00' }}</span>
+          </div>
+        </div>
+      } @else {
+        <p class="mp-nothing">Nothing playing</p>
+      }
+
+      <div class="mp-visualizer">
+        @for (bar of [1,2,3,4,5,6,7,8]; track bar) {
+          <div class="mp-bar" [style.--i]="bar"></div>
+        }
+      </div>
+    </div>
+  }
+</section>
