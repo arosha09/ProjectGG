@@ -321,6 +321,22 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  linkSteam(): void {
+    this.linking = true;
+    this.http.get<{ url: string }>(`${this.apiUrl}/platform/steam/auth-url`).subscribe({
+      next: (res) => {
+        this.linking = false;
+        window.location.href = res.url;
+      },
+      error: (err) => {
+        this.linking = false;
+        this.importResult = err.error?.message || 'Failed to get Steam auth URL';
+        this.importError = true;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
   linkDiscord(): void {
     this.linking = true;
     this.http.get<{ url: string }>(`${this.apiUrl}/platform/discord/auth-url`).subscribe({

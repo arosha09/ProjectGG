@@ -31,7 +31,7 @@ interface ChannelGroup {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, HeaderNavComponent, RouterLink],
+  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, HeaderNavComponent],
   templateUrl: './chat.component.html',
   styleUrls: ['./chat.component.scss'],
 })
@@ -181,7 +181,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private leaveVoice(): void {
+  leaveVoice(): void {
     this.voiceService.leaveChannel();
     this.voiceConnected = false;
     this.voiceChannelId = null;
