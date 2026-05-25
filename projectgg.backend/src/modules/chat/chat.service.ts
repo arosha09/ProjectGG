@@ -13,6 +13,10 @@ export interface ChatMessage {
   guild_name?: string;
   avatar_url?: string;
   created_at: string;
+  reply_to?: number;
+  attachment_url?: string;
+  mentions?: string[];
+  replyToMessage?: ChatMessage | null;
 }
 
 export interface GgServer {
@@ -58,7 +62,23 @@ export class ChatService {
     if (channelId) query = query.eq('channel_id', channelId);
     const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
     if (error) throw error;
-    return (data ?? []).reverse();
+    const messages = (data ?? []).reverse() as ChatMessage[];
+
+    const replyToIds = messages.map(m => m.reply_to).filter((id): id is number => id != null);
+    if (replyToIds.length > 0) {
+      const { data: parentMessages } = await this.db()
+        .from('chat_messages')
+        .select('*')
+        .in('id', replyToIds);
+      const parentMap = new Map<number, ChatMessage>((parentMessages ?? []).map(m => [m.id, m as ChatMessage]));
+      for (const msg of messages) {
+        if (msg.reply_to != null) {
+          msg.replyToMessage = parentMap.get(msg.reply_to) ?? null;
+        }
+      }
+    }
+
+    return messages;
   }
 
   async saveMessage(
@@ -67,6 +87,9 @@ export class ChatService {
     content: string,
     channelId?: string,
     avatarUrl?: string,
+    replyTo?: number,
+    attachmentUrl?: string,
+    mentions?: string[],
   ): Promise<ChatMessage> {
     const trimmed = content.trim();
     if (!trimmed) throw new BadRequestException('Message cannot be empty');
@@ -80,6 +103,9 @@ export class ChatService {
         source: 'web',
         channel_id: channelId ?? null,
         avatar_url: avatarUrl ?? null,
+        reply_to: replyTo ?? null,
+        attachment_url: attachmentUrl ?? null,
+        mentions: mentions ?? null,
       })
       .select()
       .single();

@@ -76,9 +76,31 @@ export class ChatComponent implements OnInit, OnDestroy {
   voiceMembers: VoiceMember[] = [];
   selectedChannel: GuildChannel | null = null;
   messages: ChatMessage[] = [];
-  newMessage = '';
+  messageText = '';
   sending = false;
   socket: Socket | null = null;
+
+  // Reply
+  replyToMessage: ChatMessage | null = null;
+
+  // File upload
+  pendingUpload: File | null = null;
+  uploading = false;
+
+  // GIF picker
+  showGifPicker = false;
+  gifQuery = '';
+  gifResults: { id: string; url: string; preview: string; title: string }[] = [];
+  gifSearchTimeout: any;
+  gifToSend: string | null = null;
+
+  // Mention autocomplete
+  showMentionAutocomplete = false;
+  mentionIndex = 0;
+  filteredMentions: GuildMember[] = [];
+
+  // Image preview
+  previewImageUrl: string | null = null;
 
   // Voice
   voiceConnected = false;
@@ -350,20 +372,166 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  send(): void {
-    const content = this.newMessage.trim();
-    if (!content || this.sending || !this.selectedChannel) return;
+  // ===== RICH CHAT METHODS =====
+
+  startReply(msg: ChatMessage): void {
+    this.replyToMessage = msg;
+  }
+
+  cancelReply(): void {
+    this.replyToMessage = null;
+  }
+
+  getReplyAuthor(msgId: number): string {
+    const msg = this.messages.find(m => m.id === msgId);
+    return msg?.username ?? 'Unknown';
+  }
+
+  getReplyPreview(msgId: number): string {
+    const msg = this.messages.find(m => m.id === msgId);
+    return msg ? (msg.content?.slice(0, 80) ?? '') : '';
+  }
+
+  uploadFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files?.length) {
+      this.pendingUpload = input.files[0];
+    }
+  }
+
+  async sendMessage(): Promise<void> {
+    if (!this.messageText.trim() && !this.pendingUpload && !this.gifToSend) return;
+    const channelId = this.selectedChannel?.id;
+    if (!channelId) return;
+
     this.sending = true;
-    this.chatService.sendMessage(content, this.selectedChannel.id).subscribe({
-      next: (msg) => {
-        this.messages = [...this.messages, msg];
-        this.newMessage = '';
+    let attachmentUrl = '';
+
+    if (this.gifToSend) {
+      attachmentUrl = this.gifToSend;
+      this.gifToSend = null;
+    } else if (this.pendingUpload) {
+      this.uploading = true;
+      const formData = new FormData();
+      formData.append('file', this.pendingUpload);
+      try {
+        const res = await this.http.post<{ url: string }>(`${this.apiUrl}/chat/upload`, formData).toPromise();
+        attachmentUrl = res?.url ?? '';
+      } catch (e) {
+        console.error('Upload failed:', e);
+      }
+      this.uploading = false;
+      this.pendingUpload = null;
+    }
+
+    const body: any = { content: this.messageText, channel_id: channelId };
+    if (this.replyToMessage) body.reply_to = this.replyToMessage.id;
+    if (attachmentUrl) body.attachment_url = attachmentUrl;
+
+    this.http.post(`${this.apiUrl}/chat/send`, body).subscribe({
+      next: () => {
+        this.messageText = '';
+        this.replyToMessage = null;
         this.sending = false;
         this.cdr.markForCheck();
-        this.scrollToBottom();
       },
       error: () => { this.sending = false; this.cdr.markForCheck(); },
     });
+  }
+
+  onInputKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.sendMessage();
+    }
+    if (event.key === 'Escape') {
+      this.cancelReply();
+      this.showGifPicker = false;
+      this.showMentionAutocomplete = false;
+    }
+    if (event.key === 'ArrowDown' && this.showMentionAutocomplete) {
+      event.preventDefault();
+      this.mentionIndex = Math.min(this.mentionIndex + 1, this.filteredMentions.length - 1);
+    }
+    if (event.key === 'ArrowUp' && this.showMentionAutocomplete) {
+      event.preventDefault();
+      this.mentionIndex = Math.max(this.mentionIndex - 1, 0);
+    }
+    if (event.key === 'Enter' && this.showMentionAutocomplete) {
+      event.preventDefault();
+      if (this.filteredMentions[this.mentionIndex]) {
+        this.insertMention(this.filteredMentions[this.mentionIndex]);
+      }
+    }
+    if (event.key === 'Tab' && this.showMentionAutocomplete) {
+      event.preventDefault();
+      if (this.filteredMentions[this.mentionIndex]) {
+        this.insertMention(this.filteredMentions[this.mentionIndex]);
+      }
+    }
+  }
+
+  onInputChange(): void {
+    const cursorPos = (document.querySelector('.chat-textarea') as HTMLTextAreaElement)?.selectionStart ?? 0;
+    const textBefore = this.messageText.slice(0, cursorPos);
+    const atMatch = textBefore.match(/@(\w*)$/);
+    if (atMatch) {
+      const query = atMatch[1].toLowerCase();
+      this.filteredMentions = this.members.filter(m =>
+        m.username.toLowerCase().includes(query)
+      ).slice(0, 8);
+      this.showMentionAutocomplete = this.filteredMentions.length > 0;
+      this.mentionIndex = 0;
+    } else {
+      this.showMentionAutocomplete = false;
+    }
+  }
+
+  insertMention(member: GuildMember): void {
+    const cursorPos = (document.querySelector('.chat-textarea') as HTMLTextAreaElement)?.selectionStart ?? 0;
+    const textBefore = this.messageText.slice(0, cursorPos);
+    const textAfter = this.messageText.slice(cursorPos);
+    const atIndex = textBefore.lastIndexOf('@');
+    const newText = textBefore.slice(0, atIndex) + '@' + member.username + ' ' + textAfter;
+    this.messageText = newText;
+    this.showMentionAutocomplete = false;
+  }
+
+  toggleGifPicker(): void {
+    this.showGifPicker = !this.showGifPicker;
+    if (this.showGifPicker) {
+      this.searchGifs();
+    }
+  }
+
+  searchGifs(): void {
+    clearTimeout(this.gifSearchTimeout);
+    this.gifSearchTimeout = setTimeout(() => {
+      const q = this.gifQuery || 'trending';
+      const endpoint = q === 'trending' ? '/chat/gifs/trending' : `/chat/gifs?q=${encodeURIComponent(q)}&limit=12`;
+      this.http.get<any>(`${this.apiUrl}${endpoint}`).subscribe({
+        next: (res) => { this.gifResults = res.results ?? []; this.cdr.markForCheck(); },
+      });
+    }, 400);
+  }
+
+  selectGif(url: string): void {
+    this.showGifPicker = false;
+    this.gifToSend = url;
+    this.sendMessage();
+  }
+
+  highlightMentions(content: string): string {
+    if (!content) return '';
+    return content.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+  }
+
+  openImage(url: string): void {
+    this.previewImageUrl = url;
+  }
+
+  closeImage(): void {
+    this.previewImageUrl = null;
   }
 
   private scrollToBottom(): void {

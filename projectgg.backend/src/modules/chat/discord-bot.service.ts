@@ -212,6 +212,12 @@ export class DiscordBotService implements OnModuleInit {
         const channelName = message.channel.name ?? 'unknown';
         const guildName = message.guild?.name ?? 'DM';
 
+        const firstAttachment = message.attachments?.first();
+        const attachmentUrl = firstAttachment?.url ?? null;
+
+        const firstSticker = message.stickers?.first();
+        const stickerUrl = firstSticker?.imageURL?.() ?? firstSticker?.url ?? null;
+
         await this.storeMessage({
           username: message.author.globalName ?? message.author.username,
           content: message.content,
@@ -222,6 +228,8 @@ export class DiscordBotService implements OnModuleInit {
           guild_name: guildName,
           channel_type: this.channelTypeLabel(message.channel.type),
           avatar_url: message.author.displayAvatarURL?.() ?? null,
+          attachment_url: attachmentUrl,
+          sticker_url: stickerUrl,
         });
       });
 
@@ -289,6 +297,8 @@ export class DiscordBotService implements OnModuleInit {
     guild_name?: string;
     channel_type?: string;
     avatar_url?: string;
+    attachment_url?: string;
+    sticker_url?: string;
   }): Promise<void> {
     try {
       const { error } = await this.supabase
@@ -304,6 +314,8 @@ export class DiscordBotService implements OnModuleInit {
           guild_name: data.guild_name ?? null,
           channel_type: data.channel_type ?? null,
           avatar_url: data.avatar_url ?? null,
+          attachment_url: data.attachment_url ?? null,
+          sticker_url: data.sticker_url ?? null,
         });
       if (error) this.logger.error('DB insert error:', error);
     } catch (e) {
@@ -321,6 +333,8 @@ export class DiscordBotService implements OnModuleInit {
     guild_name?: string;
     channel_type?: string;
     avatar_url?: string;
+    attachment_url?: string;
+    sticker_url?: string;
   }): Promise<void> {
     await this.storeInDb(data);
 
@@ -335,6 +349,8 @@ export class DiscordBotService implements OnModuleInit {
         guild_name: data.guild_name,
         channel_type: data.channel_type,
         avatar_url: data.avatar_url ?? null,
+        attachment_url: data.attachment_url ?? null,
+        sticker_url: data.sticker_url ?? null,
         created_at: new Date().toISOString(),
       });
     }

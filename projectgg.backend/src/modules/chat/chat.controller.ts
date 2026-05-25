@@ -1,12 +1,18 @@
 import {
   Controller, Get, Post, Delete, Body, Param, Req, UseGuards, Query, Inject,
+  UseInterceptors, UploadedFile, BadRequestException, HttpException, HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { DiscordBotService } from './discord-bot.service';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
+import { randomBytes } from 'crypto';
+import { extname } from 'path';
+import * as fs from 'fs';
 
 @ApiTags('Chat')
 @Controller()
@@ -16,6 +22,7 @@ export class ChatController {
     private readonly chatGateway: ChatGateway,
     private readonly discordBot: DiscordBotService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
+    private readonly configService: ConfigService,
   ) {}
 
   // ================================================================
@@ -89,23 +96,112 @@ export class ChatController {
   @Post('chat/send')
   async sendMessage(
     @Req() req: any,
-    @Body() body: { content: string; channel_id?: string },
+    @Body() body: { content: string; channel_id?: string; reply_to?: number; attachment_url?: string },
   ) {
     const userId = Number(req.user.id);
     const username = req.user.username ?? req.user.email ?? 'Unknown';
 
     const msg = await this.chatService.saveMessage(
-      userId, username, body.content, body.channel_id,
+      userId, username, body.content, body.channel_id, undefined, body.reply_to, body.attachment_url,
     );
 
     // Relay to Discord bot
-    this.discordBot.sendToDiscord(
-      `**${username}**: ${body.content}`,
-      body.channel_id,
-    );
+    let discordContent = `**${username}**: ${body.content}`;
+    if (body.attachment_url) discordContent += `\n${body.attachment_url}`;
+    this.discordBot.sendToDiscord(discordContent, body.channel_id);
 
     this.chatGateway.broadcastMessage(msg);
     return msg;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('chat/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file provided');
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Allowed: jpeg, png, gif, webp, mp4');
+    }
+
+    const maxSize = 25 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File too large (max 25MB)');
+    }
+
+    const ext = extname(file.originalname);
+    const filename = `chat_${Date.now()}_${randomBytes(4).toString('hex')}${ext}`;
+
+    const fileBuffer = fs.readFileSync(file.path);
+
+    const { error: uploadError } = await this.supabase.storage
+      .from('chat_uploads')
+      .upload(filename, fileBuffer, { contentType: file.mimetype });
+
+    fs.unlinkSync(file.path);
+
+    if (uploadError) {
+      throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    const { data: { publicUrl } } = this.supabase.storage
+      .from('chat_uploads')
+      .getPublicUrl(filename);
+
+    return { url: publicUrl };
+  }
+
+  @Get('chat/gifs')
+  async searchGifs(@Query('q') q?: string, @Query('limit') limit?: string) {
+    const key = this.configService.get<string>('TENOR_API_KEY');
+    const query = q || '';
+    const limitNum = limit ? Math.min(Number(limit), 50) : 10;
+
+    if (!key) {
+      return {
+        results: [{
+          id: '1',
+          url: 'https://media.tenor.com/example.gif',
+          preview: 'https://media.tenor.com/example_preview.gif',
+          title: 'Example',
+        }],
+      };
+    }
+
+    const res = await fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${key}&limit=${limitNum}`);
+    const data = await res.json();
+
+    return {
+      results: (data.results ?? []).map((r: any) => ({
+        id: r.id,
+        url: r.media_formats?.gif?.url,
+        preview: r.media_formats?.tinygif?.url,
+        title: r.title,
+      })),
+    };
+  }
+
+  @Get('chat/gifs/trending')
+  async trendingGifs() {
+    const key = this.configService.get<string>('TENOR_API_KEY');
+
+    if (!key) {
+      return { results: [] };
+    }
+
+    const res = await fetch(`https://tenor.googleapis.com/v2/trending?key=${key}`);
+    const data = await res.json();
+
+    return {
+      results: (data.results ?? []).map((r: any) => ({
+        id: r.id,
+        url: r.media_formats?.gif?.url,
+        preview: r.media_formats?.tinygif?.url,
+        title: r.title,
+      })),
+    };
   }
 
   // ================================================================
@@ -210,14 +306,14 @@ export class ChatController {
   @Post('gg/send')
   async sendGgMessage(
     @Req() req: any,
-    @Body() body: { content: string; channel_id: string },
+    @Body() body: { content: string; channel_id: string; reply_to?: number; attachment_url?: string },
   ) {
     const userId = req.user.id;
     const username = req.user.username ?? req.user.email ?? 'Unknown';
     const avatarUrl = req.user.avatar_url ?? null;
 
     const msg = await this.chatService.saveMessage(
-      Number(userId), username, body.content, body.channel_id, avatarUrl,
+      Number(userId), username, body.content, body.channel_id, avatarUrl, body.reply_to, body.attachment_url,
     );
 
     this.chatGateway.broadcastMessage(msg);

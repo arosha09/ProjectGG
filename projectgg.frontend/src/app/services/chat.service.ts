@@ -16,6 +16,9 @@ export interface ChatMessage {
   channel_type?: string;
   avatar_url?: string;
   created_at: string;
+  reply_to?: number | null;
+  attachment_url?: string | null;
+  sticker_url?: string | null;
 }
 
 export interface GgServer {

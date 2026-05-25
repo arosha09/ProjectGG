@@ -121,6 +121,15 @@
                   </div>
                 }
                 <div class="msg-body">
+                  @if (msg.reply_to) {
+                    <div class="msg-reply-bar">
+                      <span class="reply-line"></span>
+                      <div class="reply-preview">
+                        <span class="reply-author">{{ getReplyAuthor(msg.reply_to) }}</span>
+                        <span class="reply-text">{{ getReplyPreview(msg.reply_to) }}</span>
+                      </div>
+                    </div>
+                  }
                   <div class="msg-head">
                     <span class="msg-username"
                       [class.discord-user]="msg.source === 'discord'"
@@ -128,7 +137,20 @@
                     >{{ msg.username }}</span>
                     <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
                   </div>
-                  <div class="msg-content" [class.msg-system]="msg.username === 'System'">{{ msg.content }}</div>
+                  <div class="msg-content" [class.msg-system]="msg.username === 'System'" [innerHTML]="highlightMentions(msg.content)"></div>
+                  @if (msg.attachment_url) {
+                    <div class="msg-attachment">
+                      <img [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
+                    </div>
+                  }
+                  @if (msg.sticker_url) {
+                    <div class="msg-sticker">
+                      <img [src]="msg.sticker_url" class="sticker-img" />
+                    </div>
+                  }
+                  <div class="msg-actions">
+                    <button class="msg-action-btn" (click)="startReply(msg)" title="Reply">↩</button>
+                  </div>
                 </div>
               </div>
             }
@@ -140,18 +162,58 @@
               <span>You don't have permission to send messages in <strong>#{{ selectedChannel.name }}</strong></span>
             </div>
           } @else {
-            <div class="chat-input-bar">
-              <input
-                class="chat-input"
-                type="text"
-                [(ngModel)]="newMessage"
-                placeholder="Message #{{ selectedChannel.name }}"
-                (keyup.enter)="send()"
-                [disabled]="sending"
-              />
-              <button class="chat-send-btn" (click)="send()" [disabled]="!newMessage.trim() || sending">
-                <mat-icon>send</mat-icon>
-              </button>
+            <div class="chat-input-area">
+              @if (replyToMessage) {
+                <div class="reply-preview-bar">
+                  <div class="reply-preview-info">
+                    <span class="reply-label">Replying to</span>
+                    <span class="reply-username">{{ replyToMessage.username }}</span>
+                    <span class="reply-content">{{ replyToMessage.content | slice:0:80 }}</span>
+                  </div>
+                  <button class="reply-cancel" (click)="cancelReply()">✕</button>
+                </div>
+              }
+              <div class="chat-input-toolbar">
+                <button class="toolbar-btn" (click)="fileInput.click()" title="Upload image">📎</button>
+                <button class="toolbar-btn" (click)="toggleGifPicker()" title="GIF">GIF</button>
+                <input #fileInput type="file" accept="image/*" (change)="uploadFile($event)" hidden />
+                @if (uploading) {
+                  <span class="uploading-indicator">Uploading...</span>
+                }
+              </div>
+              @if (showGifPicker) {
+                <div class="gif-picker">
+                  <input class="gif-search" [(ngModel)]="gifQuery" (input)="searchGifs()" placeholder="Search GIFs..." />
+                  <div class="gif-grid">
+                    @for (gif of gifResults; track gif.id) {
+                      <img [src]="gif.preview" (click)="selectGif(gif.url)" class="gif-item" />
+                    }
+                  </div>
+                </div>
+              }
+              @if (showMentionAutocomplete) {
+                <div class="mention-autocomplete">
+                  @for (m of filteredMentions; track m.id) {
+                    <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index">
+                      <img [src]="m.avatar || ''" class="mention-avatar" />
+                      <span class="mention-name">{{ m.username }}</span>
+                    </div>
+                  }
+                </div>
+              }
+              <div class="chat-input-row">
+                <textarea
+                  class="chat-textarea"
+                  [(ngModel)]="messageText"
+                  (keydown)="onInputKeydown($event)"
+                  (input)="onInputChange()"
+                  placeholder="Message #{{ selectedChannel.name }}"
+                  rows="1"
+                ></textarea>
+                <button class="chat-send-btn" (click)="sendMessage()" [disabled]="!messageText.trim() && !pendingUpload && !gifToSend || sending">
+                  <mat-icon>send</mat-icon>
+                </button>
+              </div>
             </div>
           }
 
@@ -228,6 +290,12 @@
           }
         </div>
       </aside>
+    </div>
+  }
+
+  @if (previewImageUrl) {
+    <div class="image-overlay" (click)="closeImage()">
+      <img [src]="previewImageUrl" class="overlay-image" />
     </div>
   }
 </section>
