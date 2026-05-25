@@ -153,31 +153,51 @@ export class ChatController {
     return { url: publicUrl };
   }
 
-  private readonly giphyApiKey = 'GlVGYHkrYQAFSjYqbG3GAF0MvJCq7nCC';
+  private readonly fallbackGifs = [
+    { id: 'wave', url: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif', preview: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif', title: 'Wave' },
+    { id: 'hype', url: 'https://media0.giphy.com/media/l0HlNaQ6gW0X7l6qY/giphy.gif', preview: 'https://media0.giphy.com/media/l0HlNaQ6gW0X7l6qY/giphy-downsized-small.gif', title: 'Hype' },
+    { id: 'laugh', url: 'https://media2.giphy.com/media/l0HlTy9QUVqYjgxHy/giphy.gif', preview: 'https://media2.giphy.com/media/l0HlTy9QUVqYjgxHy/giphy-downsized-small.gif', title: 'Laugh' },
+    { id: 'shrug', url: 'https://media4.giphy.com/media/10zfF42YbPLnwI/giphy.gif', preview: 'https://media4.giphy.com/media/10zfF42YbPLnwI/giphy-downsized-small.gif', title: 'Shrug' },
+    { id: 'wow', url: 'https://media2.giphy.com/media/3oriO0OEd9QIDdllqE/giphy.gif', preview: 'https://media2.giphy.com/media/3oriO0OEd9QIDdllqE/giphy-downsized-small.gif', title: 'Wow' },
+    { id: 'party', url: 'https://media1.giphy.com/media/xT8qBf6V1MNs8oI3ni/giphy.gif', preview: 'https://media1.giphy.com/media/xT8qBf6V1MNs8oI3ni/giphy-downsized-small.gif', title: 'Party' },
+    { id: 'think', url: 'https://media0.giphy.com/media/1BXa2alBjrCXC/giphy.gif', preview: 'https://media0.giphy.com/media/1BXa2alBjrCXC/giphy-downsized-small.gif', title: 'Think' },
+    { id: 'fire', url: 'https://media3.giphy.com/media/3o7aD2sa1jK4F3f5Wc/giphy.gif', preview: 'https://media3.giphy.com/media/3o7aD2sa1jK4F3f5Wc/giphy-downsized-small.gif', title: 'Fire' },
+    { id: 'cry', url: 'https://media1.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif', preview: 'https://media1.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy-downsized-small.gif', title: 'Cry' },
+    { id: 'yes', url: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif', preview: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif', title: 'Yes' },
+    { id: 'no', url: 'https://media2.giphy.com/media/3o7btT1TBYmX2mY3eE/giphy.gif', preview: 'https://media2.giphy.com/media/3o7btT1TBYmX2mY3eE/giphy-downsized-small.gif', title: 'No' },
+    { id: 'eyes', url: 'https://media3.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif', preview: 'https://media3.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif', title: 'Eyes' },
+  ];
 
   @Get('chat/gifs')
   async searchGifs(@Query('q') q?: string, @Query('limit') limit?: string) {
     const query = q || '';
-    const limitNum = limit ? Math.min(Number(limit), 50) : 10;
+    const limitNum = limit ? Math.min(Number(limit), 50) : 12;
 
-    try {
-      const endpoint = query
-        ? `https://api.giphy.com/v1/gifs/search?api_key=${this.giphyApiKey}&q=${encodeURIComponent(query)}&limit=${limitNum}`
-        : `https://api.giphy.com/v1/gifs/trending?api_key=${this.giphyApiKey}&limit=${limitNum}`;
-      const res = await fetch(endpoint);
-      const data = await res.json();
-
-      return {
-        results: (data.data ?? []).map((r: any) => ({
-          id: r.id,
-          url: r.images?.original?.url,
-          preview: r.images?.fixed_width_small?.url,
-          title: r.title,
-        })),
-      };
-    } catch {
-      return { results: [] };
+    const key = this.configService.get<string>('GIPHY_API_KEY');
+    if (key) {
+      try {
+        const endpoint = query
+          ? `https://api.giphy.com/v1/gifs/search?api_key=${key}&q=${encodeURIComponent(query)}&limit=${limitNum}`
+          : `https://api.giphy.com/v1/gifs/trending?api_key=${key}&limit=${limitNum}`;
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        if (data?.data?.length) {
+          return {
+            results: data.data.map((r: any) => ({
+              id: r.id,
+              url: r.images?.original?.url,
+              preview: r.images?.fixed_width_small?.url,
+              title: r.title,
+            })),
+          };
+        }
+      } catch {}
     }
+
+    const filtered = query
+      ? this.fallbackGifs.filter(g => g.title.toLowerCase().includes(query.toLowerCase()))
+      : this.fallbackGifs;
+    return { results: filtered.slice(0, limitNum) };
   }
 
   @Get('chat/gifs/trending')

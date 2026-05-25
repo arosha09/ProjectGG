@@ -261,8 +261,6 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.channels = data.channels ?? [];
         this.voiceMembers = data.voiceMembers ?? [];
         this.loading = false;
-        const firstText = this.channels.find(c => c.type === 0);
-        if (firstText) this.selectChannel(firstText);
         this.cdr.markForCheck();
       },
       error: () => { this.loading = false; this.cdr.markForCheck(); },
