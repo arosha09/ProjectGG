@@ -28,6 +28,30 @@ interface ChannelGroup {
   channels: GuildChannel[];
 }
 
+interface UserRole {
+  id: string; name: string; color: number; hoist: boolean; position: number;
+}
+
+interface ChannelPermission {
+  channelId: string; channelName: string;
+  canView: boolean; canSend: boolean;
+  canConnect: boolean; canSpeak: boolean;
+}
+
+interface UserPermissions {
+  roles: UserRole[];
+  permissions: ChannelPermission[];
+  joinedAt: string | null;
+  nickname: string | null;
+  avatar: string | null;
+}
+
+interface GuildMember {
+  id: string; username: string; globalName: string | null;
+  avatar: string | null; roles: { id: string; name: string; color: number }[];
+  status: string; isBot: boolean;
+}
+
 @Component({
   selector: 'app-chat',
   standalone: true,
@@ -46,6 +70,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   discordUsername: string | null = null;
   checkingDiscord = true;
 
+
   // Server data
   channels: GuildChannel[] = [];
   voiceMembers: VoiceMember[] = [];
@@ -60,6 +85,14 @@ export class ChatComponent implements OnInit, OnDestroy {
   voiceChannelId: string | null = null;
   voiceMuted = false;
   voiceConnecting = false;
+
+  // Permissions
+  userPermissions: UserPermissions | null = null;
+  permissionsLoading = false;
+
+  // Members
+  members: GuildMember[] = [];
+  membersLoading = false;
 
   constructor(
     private readonly chatService: ChatService,
@@ -88,6 +121,8 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.checkingDiscord = false;
         if (this.discordLinked) {
           this.loadGuild();
+          this.loadPermissions();
+          this.loadMembers();
           this.connectSocket();
         }
         this.cdr.markForCheck();
@@ -101,6 +136,100 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   linkDiscord(): void {
     this.router.navigate(['/settings'], { queryParams: { highlight: 'discord' } });
+  }
+
+  private loadPermissions(): void {
+    this.permissionsLoading = true;
+    this.http.get<any>(`${this.apiUrl}/chat/permissions`).subscribe({
+      next: (res) => {
+        if (res.permissions) {
+          this.userPermissions = res.permissions;
+        }
+        this.permissionsLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.permissionsLoading = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private loadMembers(): void {
+    this.membersLoading = true;
+    this.http.get<GuildMember[]>(`${this.apiUrl}/chat/members`).subscribe({
+      next: (data) => {
+        this.members = data ?? [];
+        this.membersLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.membersLoading = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  canViewChannel(channelId: string): boolean {
+    if (!this.userPermissions) return true;
+    const perm = this.userPermissions.permissions.find(p => p.channelId === channelId);
+    return perm ? perm.canView : true;
+  }
+
+  canSendInChannel(channelId: string): boolean {
+    if (!this.userPermissions) return true;
+    const perm = this.userPermissions.permissions.find(p => p.channelId === channelId);
+    return perm ? perm.canSend : true;
+  }
+
+  canConnectToChannel(channelId: string): boolean {
+    if (!this.userPermissions) return true;
+    const perm = this.userPermissions.permissions.find(p => p.channelId === channelId);
+    return perm ? perm.canConnect : true;
+  }
+
+  get mainRole(): UserRole | null {
+    if (!this.userPermissions?.roles.length) return null;
+    const sorted = [...this.userPermissions.roles].sort((a, b) => b.position - a.position);
+    return sorted[0];
+  }
+
+  get roleColor(): string {
+    const r = this.mainRole;
+    return r?.color ? `#${r.color.toString(16).padStart(6, '0')}` : '';
+  }
+
+  get onlineMembers(): GuildMember[] {
+    return this.members.filter(m => m.status === 'online');
+  }
+
+  get idleMembers(): GuildMember[] {
+    return this.members.filter(m => m.status === 'idle');
+  }
+
+  get dndMembers(): GuildMember[] {
+    return this.members.filter(m => m.status === 'dnd');
+  }
+
+  get offlineMembers(): GuildMember[] {
+    return this.members.filter(m => m.status === 'offline');
+  }
+
+  memberAvatar(member: GuildMember): string {
+    return member.avatar ?? '';
+  }
+
+  memberRoleColor(member: GuildMember): string {
+    const sorted = [...member.roles].sort((a, b) => b.color - a.color);
+    const top = sorted.find(r => r.color !== 0);
+    return top ? `#${top.color.toString(16).padStart(6, '0')}` : '';
+  }
+
+  avatarForUsername(username: string): string {
+    const member = this.members.find(
+      m => m.username === username || m.globalName === username
+    );
+    return member?.avatar ?? '';
   }
 
   private loadGuild(): void {

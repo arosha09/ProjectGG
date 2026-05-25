@@ -24,6 +24,8 @@ export class PlatformConnectionsService {
   private readonly steamApiKey: string;
   private readonly discordClientId: string;
   private readonly discordClientSecret: string;
+  private readonly discordBotToken: string;
+  private readonly discordGuildId: string;
   private readonly spotifyClientId: string;
   private readonly spotifyClientSecret: string;
   private readonly googleClientId: string;
@@ -49,6 +51,8 @@ export class PlatformConnectionsService {
     this.discordClientId = configService.get<string>('DISCORD_CLIENT_ID') ?? '';
     this.discordClientSecret =
       configService.get<string>('DISCORD_CLIENT_SECRET') ?? '';
+    this.discordBotToken = configService.get<string>('DISCORD_BOT_TOKEN') ?? '';
+    this.discordGuildId = configService.get<string>('DISCORD_GUILD_ID') ?? '';
     this.spotifyClientId = configService.get<string>('SPOTIFY_CLIENT_ID') ?? '';
     this.spotifyClientSecret =
       configService.get<string>('SPOTIFY_CLIENT_SECRET') ?? '';
@@ -355,7 +359,7 @@ export class PlatformConnectionsService {
       client_id: this.discordClientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: 'identify',
+      scope: 'identify guilds.join',
       state,
     });
     return { url: `https://discord.com/oauth2/authorize?${params.toString()}` };
@@ -449,7 +453,41 @@ export class PlatformConnectionsService {
       throw error;
     }
     console.log('Discord connection saved to DB');
+
+    // Auto-join the ProjectGG guild if not already a member
+    await this.addUserToGuild(discordUser.id, accessToken);
+
     return data;
+  }
+
+  private async addUserToGuild(
+    discordUserId: string,
+    userAccessToken: string,
+  ): Promise<void> {
+    if (!this.discordBotToken || !this.discordGuildId) return;
+    try {
+      const res = await fetch(
+        `https://discord.com/api/guilds/${this.discordGuildId}/members/${discordUserId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bot ${this.discordBotToken}`,
+          },
+          body: JSON.stringify({ access_token: userAccessToken }),
+        },
+      );
+      if (res.ok) {
+        console.log(`User ${discordUserId} added to guild`);
+      } else if (res.status === 204 || res.status === 201) {
+        console.log(`User ${discordUserId} already in guild`);
+      } else {
+        const text = await res.text();
+        console.warn(`Failed to add user to guild (${res.status}): ${text}`);
+      }
+    } catch (e) {
+      console.error('Error adding user to guild:', e);
+    }
   }
 
   // ============================================================

@@ -20,6 +20,23 @@ export interface VoiceMember {
   channelName: string;
 }
 
+export interface ChannelPermission {
+  channelId: string;
+  channelName: string;
+  canView: boolean;
+  canSend: boolean;
+  canConnect: boolean;
+  canSpeak: boolean;
+}
+
+export interface UserPermissions {
+  roles: { id: string; name: string; color: number; hoist: boolean; position: number }[];
+  permissions: ChannelPermission[];
+  joinedAt: string | null;
+  nickname: string | null;
+  avatar: string | null;
+}
+
 @Injectable()
 export class DiscordBotService implements OnModuleInit {
   private readonly logger = new Logger(DiscordBotService.name);
@@ -62,7 +79,7 @@ export class DiscordBotService implements OnModuleInit {
     }
 
     return guild.channels.cache
-      .filter((ch: any) => ch.type !== 4) // exclude category channels themselves
+      .filter((ch: any) => ch.type !== 4)
       .map((ch: any) => ({
         id: ch.id,
         name: ch.name,
@@ -73,6 +90,89 @@ export class DiscordBotService implements OnModuleInit {
         categoryName: categoryNames.get(ch.parentId) ?? null,
       }))
       .sort((a: GuildChannel, b: GuildChannel) => a.position - b.position);
+  }
+
+  async getUserPermissions(discordUserId: string): Promise<UserPermissions | null> {
+    if (!this.client) return null;
+    const guild = this.client.guilds.cache.get(this.guildId);
+    if (!guild) return null;
+
+    try {
+      const member = await guild.members.fetch(discordUserId);
+      if (!member) return null;
+
+      const roles = member.roles.cache
+        .filter((r: any) => r.id !== guild.id)
+        .map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          color: r.color,
+          hoist: r.hoist,
+          position: r.rawPosition ?? r.position ?? 0,
+        }));
+
+      const permissions: ChannelPermission[] = [];
+      for (const [, ch] of guild.channels.cache) {
+        if (ch.type === 4) continue;
+        const perms = ch.permissionsFor?.(member);
+        permissions.push({
+          channelId: ch.id,
+          channelName: ch.name,
+          canView: perms?.has('ViewChannel') ?? false,
+          canSend: perms?.has('SendMessages') ?? false,
+          canConnect: perms?.has('Connect') ?? false,
+          canSpeak: perms?.has('Speak') ?? false,
+        });
+      }
+
+      return {
+        roles,
+        permissions,
+        joinedAt: member.joinedAt?.toISOString() ?? null,
+        nickname: member.nickname,
+        avatar: member.user?.displayAvatarURL?.() ?? null,
+      };
+    } catch (e) {
+      this.logger.warn(`Failed to fetch user ${discordUserId} permissions:`, e);
+      return null;
+    }
+  }
+
+  async getGuildMembers(): Promise<{
+    id: string; username: string; globalName: string | null;
+    avatar: string | null; roles: { id: string; name: string; color: number }[];
+    status: string; isBot: boolean;
+  }[]> {
+    if (!this.client) return [];
+    const guild = this.client.guilds.cache.get(this.guildId);
+    if (!guild) return [];
+
+    try {
+      const members = await guild.members.fetch();
+      const presenceMap = new Map<string, string>();
+      if (guild.presences?.cache) {
+        for (const [, p] of guild.presences.cache) {
+          presenceMap.set(p.userId, p.status ?? 'offline');
+        }
+      }
+
+      return members
+        .filter((m: any) => !m.user?.bot)
+        .map((m: any) => ({
+          id: m.id,
+          username: m.user?.globalName ?? m.user?.username ?? 'Unknown',
+          globalName: m.nickname ?? null,
+          avatar: m.user?.displayAvatarURL?.() ?? null,
+          roles: m.roles.cache
+            .filter((r: any) => r.id !== guild.id)
+            .map((r: any) => ({ id: r.id, name: r.name, color: r.color })),
+          status: presenceMap.get(m.id) ?? (m.presence?.status ?? 'offline'),
+          isBot: m.user?.bot ?? false,
+        }));
+    } catch (e) {
+      this.logger.warn('Failed to fetch guild members:', e);
+      return [];
+    }
   }
 
   async onModuleInit(): Promise<void> {

@@ -4,15 +4,27 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
+import { OnModuleInit } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { DiscordBotService } from './discord-bot.service';
 
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'] },
   namespace: '/chat',
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer()
   server!: Server;
+
+  constructor(
+    private readonly discordBot: DiscordBotService,
+  ) {}
+
+  onModuleInit(): void {
+    this.discordBot.setMessageCallback((msg) => {
+      this.broadcastMessage(msg);
+    });
+  }
 
   handleConnection(client: Socket): void {
     // Client connected — they'll receive broadcasts

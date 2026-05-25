@@ -30,8 +30,8 @@
     </div>
   } @else {
     <div class="chat-layout">
-      <!-- LEFT SIDEBAR -->
-      <aside class="sidebar">
+      <!-- LEFT SIDEBAR — CHANNELS -->
+      <aside class="sidebar sidebar-channels">
         <div class="sidebar-server">
           <mat-icon>dns</mat-icon>
           <span>ProjectGG Server</span>
@@ -49,14 +49,24 @@
                 </div>
               }
               @for (ch of group.channels; track ch.id) {
-                <div
-                  class="channel-item"
-                  [class.channel-active]="selectedChannel?.id === ch.id"
-                  (click)="selectChannel(ch)"
-                >
-                  <mat-icon class="ch-icon">{{ channelIcon(ch.type) }}</mat-icon>
-                  <span class="ch-name">{{ ch.name }}</span>
-                </div>
+                @if (canViewChannel(ch.id)) {
+                  <div
+                    class="channel-item"
+                    [class.channel-active]="selectedChannel?.id === ch.id"
+                    [class.channel-no-access]="!canSendInChannel(ch.id) && ch.type !== 2 && ch.type !== 13"
+                    [class.channel-no-voice]="(ch.type === 2 || ch.type === 13) && !canConnectToChannel(ch.id)"
+                    (click)="selectChannel(ch)"
+                  >
+                    <mat-icon class="ch-icon">{{ channelIcon(ch.type) }}</mat-icon>
+                    <span class="ch-name">{{ ch.name }}</span>
+                    @if (!canSendInChannel(ch.id) && ch.type !== 2 && ch.type !== 13) {
+                      <mat-icon class="ch-lock">lock</mat-icon>
+                    }
+                    @if ((ch.type === 2 || ch.type === 13) && !canConnectToChannel(ch.id)) {
+                      <mat-icon class="ch-lock">lock</mat-icon>
+                    }
+                  </div>
+                }
               }
             }
 
@@ -66,28 +76,57 @@
                 <span>Voice Channels</span>
               </div>
               @for (vc of voiceChannels; track vc.id) {
-                <div class="channel-item channel-voice"
-                  [class.channel-active]="voiceChannelId === vc.id"
-                  (click)="selectChannel(vc)">
-                  <mat-icon class="ch-icon">volume_up</mat-icon>
-                  <span class="ch-name">{{ vc.name }}</span>
-                  @if (voiceChannelId === vc.id) {
-                    <span class="vc-live-dot"></span>
-                  }
-                  @if (getMembersForVoiceChannel(vc.id).length > 0) {
-                    <span class="vc-count">{{ getMembersForVoiceChannel(vc.id).length }}</span>
-                  }
-                </div>
-                @for (member of getMembersForVoiceChannel(vc.id); track member.userId) {
-                  <div class="vc-member">
-                    <span class="vc-dot"></span>
-                    <span>{{ member.username }}</span>
+                @if (canViewChannel(vc.id)) {
+                  <div class="channel-item channel-voice"
+                    [class.channel-active]="voiceChannelId === vc.id"
+                    [class.channel-no-voice]="!canConnectToChannel(vc.id)"
+                    (click)="selectChannel(vc)">
+                    <mat-icon class="ch-icon">volume_up</mat-icon>
+                    <span class="ch-name">{{ vc.name }}</span>
+                    @if (!canConnectToChannel(vc.id)) {
+                      <mat-icon class="ch-lock">lock</mat-icon>
+                    }
+                    @if (voiceChannelId === vc.id) {
+                      <span class="vc-live-dot"></span>
+                    }
+                    @if (getMembersForVoiceChannel(vc.id).length > 0) {
+                      <span class="vc-count">{{ getMembersForVoiceChannel(vc.id).length }}</span>
+                    }
                   </div>
+                  @for (member of getMembersForVoiceChannel(vc.id); track member.userId) {
+                    <div class="vc-member">
+                      <span class="vc-dot"></span>
+                      <span>{{ member.username }}</span>
+                    </div>
+                  }
                 }
               }
             }
           }
         </div>
+
+        <!-- USER INFO + ROLES -->
+        @if (userPermissions) {
+          <div class="sidebar-user">
+            <div class="user-avatar-wrapper">
+              @if (userPermissions.avatar) {
+                <img class="user-avatar-img" [src]="userPermissions.avatar" alt="" />
+              } @else {
+                <span class="user-avatar-text">{{ (discordUsername ?? '?')[0] }}</span>
+              }
+            </div>
+            <div class="user-info">
+              <span class="user-name">{{ discordUsername }}</span>
+              <span class="user-roles">
+                @for (role of userPermissions.roles; track role.id) {
+                  <span class="user-role-badge" [style.color]="'#' + role.color.toString(16).padStart(6, '0')" [style.borderColor]="role.color ? '#' + role.color.toString(16).padStart(6, '0') : 'transparent'">
+                    {{ role.name }}
+                  </span>
+                }
+              </span>
+            </div>
+          </div>
+        }
       </aside>
 
       <!-- MAIN CHAT AREA -->
@@ -105,14 +144,27 @@
                 [class.msg-web]="msg.source === 'web'"
                 [class.msg-voice]="msg.channel_type === 'voice'"
               >
-                <div class="msg-head">
-                  <span class="msg-username"
-                    [class.discord-user]="msg.source === 'discord'"
-                    [class.web-user]="msg.source === 'web'"
-                  >{{ msg.username }}</span>
-                  <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
+                @if (msg.username !== 'System') {
+                  <div class="msg-avatar-col">
+                    <div class="msg-avatar-wrapper">
+                      @if (avatarForUsername(msg.username)) {
+                        <img class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" />
+                      } @else {
+                        <span class="msg-avatar-text">{{ msg.username[0] }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+                <div class="msg-body">
+                  <div class="msg-head">
+                    <span class="msg-username"
+                      [class.discord-user]="msg.source === 'discord'"
+                      [class.web-user]="msg.source === 'web'"
+                    >{{ msg.username }}</span>
+                    <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
+                  </div>
+                  <div class="msg-content" [class.msg-system]="msg.username === 'System'">{{ msg.content }}</div>
                 </div>
-                <div class="msg-content" [class.msg-system]="msg.username === 'System'">{{ msg.content }}</div>
               </div>
             }
           </div>
@@ -158,6 +210,72 @@
           </div>
         }
       </main>
+
+      <!-- RIGHT SIDEBAR — MEMBERS -->
+      <aside class="sidebar sidebar-members">
+        <div class="sidebar-scroll">
+          @if (membersLoading) {
+            <div class="sidebar-loading">Loading...</div>
+          } @else {
+            @if (onlineMembers.length > 0) {
+              <div class="member-group-label">Online — {{ onlineMembers.length }}</div>
+              @for (m of onlineMembers; track m.id) {
+                <div class="member-item">
+                  <div class="member-avatar-wrapper">
+                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
+                    <span class="member-status-dot status-online"></span>
+                  </div>
+                  <div class="member-info">
+                    <span class="member-name" [style.color]="memberRoleColor(m)">{{ m.username }}</span>
+                  </div>
+                </div>
+              }
+            }
+            @if (idleMembers.length > 0) {
+              <div class="member-group-label">Idle — {{ idleMembers.length }}</div>
+              @for (m of idleMembers; track m.id) {
+                <div class="member-item">
+                  <div class="member-avatar-wrapper">
+                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
+                    <span class="member-status-dot status-idle"></span>
+                  </div>
+                  <div class="member-info">
+                    <span class="member-name" [style.color]="memberRoleColor(m)">{{ m.username }}</span>
+                  </div>
+                </div>
+              }
+            }
+            @if (dndMembers.length > 0) {
+              <div class="member-group-label">Do Not Disturb — {{ dndMembers.length }}</div>
+              @for (m of dndMembers; track m.id) {
+                <div class="member-item">
+                  <div class="member-avatar-wrapper">
+                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
+                    <span class="member-status-dot status-dnd"></span>
+                  </div>
+                  <div class="member-info">
+                    <span class="member-name" [style.color]="memberRoleColor(m)">{{ m.username }}</span>
+                  </div>
+                </div>
+              }
+            }
+            @if (offlineMembers.length > 0) {
+              <div class="member-group-label">Offline — {{ offlineMembers.length }}</div>
+              @for (m of offlineMembers; track m.id) {
+                <div class="member-item">
+                  <div class="member-avatar-wrapper">
+                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
+                    <span class="member-status-dot status-offline"></span>
+                  </div>
+                  <div class="member-info">
+                    <span class="member-name member-offline">{{ m.username }}</span>
+                  </div>
+                </div>
+              }
+            }
+          }
+        </div>
+      </aside>
     </div>
   }
 </section>

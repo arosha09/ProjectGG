@@ -1,11 +1,12 @@
 import {
-  Controller, Get, Post, Body, Req, UseGuards, Query, Inject,
+  Controller, Get, Post, Body, Req, UseGuards, Query, Inject, Inject,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { DiscordBotService } from './discord-bot.service';
+import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 
 @ApiTags('Chat')
@@ -15,6 +16,7 @@ export class ChatController {
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
     private readonly discordBot: DiscordBotService,
+    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
   ) {}
 
@@ -40,6 +42,32 @@ export class ChatController {
       .eq('platform', 'discord')
       .single();
     return { linked: !!data, discordUsername: data?.platform_username ?? null };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('permissions')
+  async getPermissions(@Req() req: any) {
+    const userId = req.user.id;
+    const { data } = await this.supabase
+      .schema('projectgg')
+      .from('user_platform_connections')
+      .select('platform_user_id')
+      .eq('user_id', userId)
+      .eq('platform', 'discord')
+      .single();
+    if (!data?.platform_user_id) {
+      return { linked: false, permissions: null };
+    }
+    const perms = await this.discordBot.getUserPermissions(data.platform_user_id);
+    return { linked: true, permissions: perms };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('members')
+  async getMembers() {
+    return this.discordBot.getGuildMembers();
   }
 
   @Get('history')
