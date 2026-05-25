@@ -153,55 +153,36 @@ export class ChatController {
     return { url: publicUrl };
   }
 
+  private readonly giphyApiKey = 'GlVGYHkrYQAFSjYqbG3GAF0MvJCq7nCC';
+
   @Get('chat/gifs')
   async searchGifs(@Query('q') q?: string, @Query('limit') limit?: string) {
-    const key = this.configService.get<string>('TENOR_API_KEY');
     const query = q || '';
     const limitNum = limit ? Math.min(Number(limit), 50) : 10;
 
-    if (!key) {
+    try {
+      const endpoint = query
+        ? `https://api.giphy.com/v1/gifs/search?api_key=${this.giphyApiKey}&q=${encodeURIComponent(query)}&limit=${limitNum}`
+        : `https://api.giphy.com/v1/gifs/trending?api_key=${this.giphyApiKey}&limit=${limitNum}`;
+      const res = await fetch(endpoint);
+      const data = await res.json();
+
       return {
-        results: [{
-          id: '1',
-          url: 'https://media.tenor.com/example.gif',
-          preview: 'https://media.tenor.com/example_preview.gif',
-          title: 'Example',
-        }],
+        results: (data.data ?? []).map((r: any) => ({
+          id: r.id,
+          url: r.images?.original?.url,
+          preview: r.images?.fixed_width_small?.url,
+          title: r.title,
+        })),
       };
+    } catch {
+      return { results: [] };
     }
-
-    const res = await fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${key}&limit=${limitNum}`);
-    const data = await res.json();
-
-    return {
-      results: (data.results ?? []).map((r: any) => ({
-        id: r.id,
-        url: r.media_formats?.gif?.url,
-        preview: r.media_formats?.tinygif?.url,
-        title: r.title,
-      })),
-    };
   }
 
   @Get('chat/gifs/trending')
   async trendingGifs() {
-    const key = this.configService.get<string>('TENOR_API_KEY');
-
-    if (!key) {
-      return { results: [] };
-    }
-
-    const res = await fetch(`https://tenor.googleapis.com/v2/trending?key=${key}`);
-    const data = await res.json();
-
-    return {
-      results: (data.results ?? []).map((r: any) => ({
-        id: r.id,
-        url: r.media_formats?.gif?.url,
-        preview: r.media_formats?.tinygif?.url,
-        title: r.title,
-      })),
-    };
+    return this.searchGifs('', '12');
   }
 
   // ================================================================
