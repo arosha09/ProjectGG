@@ -35,6 +35,8 @@ export interface UserPermissions {
   joinedAt: string | null;
   nickname: string | null;
   avatar: string | null;
+  ggAvatar: string | null;
+  ggUsername: string | null;
 }
 
 @Injectable()
@@ -125,12 +127,51 @@ export class DiscordBotService implements OnModuleInit {
         });
       }
 
+      let ggAvatar: string | null = null;
+      let ggUsername: string | null = null;
+      const { data: conn } = await this.supabase
+        .schema('projectgg')
+        .from('user_platform_connections')
+        .select('user_id')
+        .eq('platform', 'discord')
+        .eq('platform_user_id', discordUserId)
+        .maybeSingle();
+      if (conn) {
+        const { data: ggUser } = await this.supabase
+          .schema('projectgg')
+          .from('users')
+          .select('username, avatar')
+          .eq('id', conn.user_id)
+          .maybeSingle();
+        if (ggUser) {
+          ggUsername = ggUser.username;
+          if (ggUser.avatar?.startsWith('http')) {
+            ggAvatar = ggUser.avatar;
+          } else if (ggUser.avatar?.startsWith('user://')) {
+            const path = ggUser.avatar.replace('user://', '');
+            const bucket = 'user_files';
+            const filePath = path.startsWith(`${bucket}/`) ? path.slice(bucket.length + 1) : path;
+            const { data: signed } = await this.supabase.storage
+              .from(bucket)
+              .createSignedUrl(filePath, 604800);
+            ggAvatar = signed?.signedUrl ?? null;
+          } else if (ggUser.avatar) {
+            const { data: publicUrl } = this.supabase.storage
+              .from('system_files')
+              .getPublicUrl(`avatars/${ggUser.avatar}`);
+            ggAvatar = publicUrl?.publicUrl ?? null;
+          }
+        }
+      }
+
       return {
         roles,
         permissions,
         joinedAt: member.joinedAt?.toISOString() ?? null,
         nickname: member.nickname,
         avatar: member.user?.displayAvatarURL?.() ?? null,
+        ggAvatar,
+        ggUsername,
       };
     } catch (e) {
       this.logger.warn(`Failed to fetch user ${discordUserId} permissions:`, e);
@@ -142,6 +183,7 @@ export class DiscordBotService implements OnModuleInit {
     id: string; username: string; globalName: string | null;
     avatar: string | null; roles: { id: string; name: string; color: number }[];
     status: string; isBot: boolean;
+    ggUsername: string | null; ggAvatar: string | null;
   }[]> {
     if (!this.client) return [];
     const guild = this.client.guilds.cache.get(this.guildId);
@@ -156,19 +198,71 @@ export class DiscordBotService implements OnModuleInit {
         }
       }
 
+      const discordIds = members.filter((m: any) => !m.user?.bot).map((m: any) => m.id);
+      const { data: connections } = await this.supabase
+        .schema('projectgg')
+        .from('user_platform_connections')
+        .select('platform_user_id, user_id')
+        .eq('platform', 'discord')
+        .in('platform_user_id', discordIds);
+
+      const userIds = (connections ?? []).map(c => c.user_id);
+      const ggUserMap = new Map<string, { username: string; avatar: string | null }>();
+      if (userIds.length > 0) {
+        const { data: ggUsers } = await this.supabase
+          .schema('projectgg')
+          .from('users')
+          .select('id, username, avatar')
+          .in('id', userIds);
+
+        for (const u of ggUsers ?? []) {
+          let resolvedAvatar: string | null = null;
+          if (u.avatar?.startsWith('http')) {
+            resolvedAvatar = u.avatar;
+          } else if (u.avatar?.startsWith('user://')) {
+            const path = u.avatar.replace('user://', '');
+            const bucket = 'user_files';
+            const filePath = path.startsWith(`${bucket}/`) ? path.slice(bucket.length + 1) : path;
+            const { data: signed } = await this.supabase.storage
+              .from(bucket)
+              .createSignedUrl(filePath, 604800);
+            resolvedAvatar = signed?.signedUrl ?? null;
+          } else if (u.avatar) {
+            const { data: publicUrl } = this.supabase.storage
+              .from('system_files')
+              .getPublicUrl(`avatars/${u.avatar}`);
+            resolvedAvatar = publicUrl?.publicUrl ?? null;
+          }
+          ggUserMap.set(u.id, { username: u.username, avatar: resolvedAvatar });
+        }
+      }
+
+      const discordToGgMap = new Map<string, { username: string; avatar: string | null }>();
+      for (const c of connections ?? []) {
+        const ggUser = ggUserMap.get(c.user_id);
+        if (ggUser) {
+          discordToGgMap.set(c.platform_user_id, ggUser);
+        }
+      }
+
       return members
         .filter((m: any) => !m.user?.bot)
-        .map((m: any) => ({
-          id: m.id,
-          username: m.user?.globalName ?? m.user?.username ?? 'Unknown',
-          globalName: m.nickname ?? null,
-          avatar: m.user?.displayAvatarURL?.() ?? null,
-          roles: m.roles.cache
-            .filter((r: any) => r.id !== guild.id)
-            .map((r: any) => ({ id: r.id, name: r.name, color: r.color })),
-          status: presenceMap.get(m.id) ?? (m.presence?.status ?? 'offline'),
-          isBot: m.user?.bot ?? false,
-        }));
+        .map((m: any) => {
+          const gg = discordToGgMap.get(m.id) ?? null;
+          return {
+            id: m.id,
+            username: m.user?.globalName ?? m.user?.username ?? 'Unknown',
+            globalName: m.nickname ?? null,
+            avatar: m.user?.displayAvatarURL?.() ?? null,
+            roles: m.roles.cache
+              .filter((r: any) => r.id !== guild.id)
+              .map((r: any) => ({ id: r.id, name: r.name, color: r.color })),
+            status: presenceMap.get(m.id) ?? (m.presence?.status ?? 'offline'),
+            isBot: m.user?.bot ?? false,
+            ggUsername: gg?.username ?? null,
+            ggAvatar: gg?.avatar ?? null,
+          };
+        });
     } catch (e) {
       this.logger.warn('Failed to fetch guild members:', e);
       return [];

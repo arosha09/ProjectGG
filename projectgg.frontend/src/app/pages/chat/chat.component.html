@@ -72,14 +72,16 @@
         @if (userPermissions) {
           <div class="sidebar-user">
             <div class="user-avatar-wrapper">
-              @if (userPermissions.avatar) {
+              @if (userPermissions.ggAvatar) {
+                <img class="user-avatar-img" [src]="userPermissions.ggAvatar" alt="" />
+              } @else if (userPermissions.avatar) {
                 <img class="user-avatar-img" [src]="userPermissions.avatar" alt="" />
               } @else {
                 <span class="user-avatar-text">{{ (discordUsername ?? '?')[0] }}</span>
               }
             </div>
             <div class="user-info">
-              <span class="user-name">{{ discordUsername }}</span>
+              <span class="user-name">{{ userPermissions.ggUsername || discordUsername }}</span>
               <span class="user-roles">
                 @for (role of userPermissions.roles; track role.id) {
                   <span class="user-role-badge" [style.color]="'#' + role.color.toString(16).padStart(6, '0')" [style.borderColor]="role.color ? '#' + role.color.toString(16).padStart(6, '0') : 'transparent'">

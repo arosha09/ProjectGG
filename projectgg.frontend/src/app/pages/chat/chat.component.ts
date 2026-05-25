@@ -44,12 +44,15 @@ interface UserPermissions {
   joinedAt: string | null;
   nickname: string | null;
   avatar: string | null;
+  ggAvatar: string | null;
+  ggUsername: string | null;
 }
 
 interface GuildMember {
   id: string; username: string; globalName: string | null;
   avatar: string | null; roles: { id: string; name: string; color: number }[];
   status: string; isBot: boolean;
+  ggUsername: string | null; ggAvatar: string | null;
 }
 
 @Component({
@@ -216,7 +219,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   memberAvatar(member: GuildMember): string {
-    return member.avatar ?? '';
+    return member.ggAvatar ?? member.avatar ?? '';
   }
 
   memberRoleColor(member: GuildMember): string {
@@ -227,9 +230,9 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   avatarForUsername(username: string): string {
     const member = this.members.find(
-      m => m.username === username || m.globalName === username
+      m => m.username === username || m.globalName === username || m.ggUsername === username
     );
-    return member?.avatar ?? '';
+    return member?.ggAvatar ?? member?.avatar ?? '';
   }
 
   private loadGuild(): void {
