@@ -2,16 +2,6 @@
   display: block;
 }
 
-html[data-theme="green"] { --accent-color: #00ff99; --accent-color-r: 0; --accent-color-g: 255; --accent-color-b: 153; --accent-glow: rgba(0,255,153,0.18); --card-border: rgba(0,255,153,0.22); --border-color: rgba(0,255,153,0.15); }
-html[data-theme="red"] { --accent-color: #ff5f6d; --accent-color-r: 255; --accent-color-g: 95; --accent-color-b: 109; --accent-glow: rgba(255,95,109,0.14); --card-border: rgba(255,95,109,0.25); --border-color: rgba(255,95,109,0.15); }
-html[data-theme="yellow"] { --accent-color: #ffd24d; --accent-color-r: 255; --accent-color-g: 210; --accent-color-b: 77; --accent-glow: rgba(255,210,77,0.15); --card-border: rgba(255,210,77,0.24); --border-color: rgba(255,210,77,0.15); }
-html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accent-color-g: 182; --accent-color-b: 255; --accent-glow: rgba(95,182,255,0.16); --card-border: rgba(95,182,255,0.25); --border-color: rgba(95,182,255,0.15); }
-
-@keyframes scanline {
-  0% { top: -100%; }
-  100% { top: 100%; }
-}
-
 @keyframes borderPulse {
   0%, 100% { border-color: var(--card-border); }
   50% { border-color: var(--accent-color); }
@@ -59,10 +49,10 @@ html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accen
 .dashboard-shell {
   background-color: var(--bg-darker);
   background-image:
-    radial-gradient(circle at 10% 15%, rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.12), transparent 40%),
-    radial-gradient(circle at 85% 20%, rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.1), transparent 30%),
-    radial-gradient(circle at 20% 80%, rgba(255, 34, 85, 0.1), transparent 35%),
-    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,153,.015) 2px, rgba(0,255,153,.015) 4px);
+    radial-gradient(circle at 10% 15%, rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.2), transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.18), transparent 30%),
+    radial-gradient(circle at 20% 80%, rgba(255, 34, 85, 0.18), transparent 35%),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,153,.025) 2px, rgba(0,255,153,.025) 4px);
   color: var(--text-primary);
   min-height: 100vh;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -74,34 +64,41 @@ html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accen
 }
 
 .dashboard-shell::before {
-  content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 2px;
+  content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 3px;
   background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
-  opacity: .35; z-index: 999; animation: scanline 6s linear infinite;
+  opacity: .6; z-index: 999; 
   pointer-events: none;
+  box-shadow: 0 0 15px var(--accent-color);
 }
 
 .dashboard-shell::after {
   content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background:
-    linear-gradient(90deg, rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.03) 1px, transparent 1px),
-    linear-gradient(rgba(255, 34, 85, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px; pointer-events: none; z-index: 998;
+    linear-gradient(90deg, rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(255, 34, 85, 0.06) 1px, transparent 1px);
+  background-size: 50px 50px; pointer-events: none; z-index: 998; animation: grid-pan-dash 12s linear infinite;
 }
 
 .hero-card {
-  background: linear-gradient(135deg, rgba(4,10,22,.9) 0%, rgba(6,15,30,.5) 100%);
-  border: 1px solid var(--border-color); border-radius: 8px;
+  background: linear-gradient(135deg, rgba(4,10,22,.95) 0%, rgba(6,15,30,.6) 100%);
+  border: 2px solid var(--border-color); border-radius: 8px;
   padding: 32px 24px !important; margin: 32px 0 40px;
   display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 24px;
-  box-shadow: 0 16px 36px rgba(0,0,0,.4); position: relative;
-  overflow: hidden; animation: borderPulse 3s ease-in-out infinite;
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 30px rgba(0, 240, 255, 0.05); position: relative;
+  overflow: hidden;
+}
+
+.hero-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+  opacity: 1;
 }
 
 .hero-card h1 {
   font-size: 38px; font-weight: 900; letter-spacing: -.5px;
   margin: 4px 0 8px; color: var(--accent-color) !important;
-  text-shadow: 0 0 20px rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.18);
-  position: relative; display: inline-block; animation: glitch 5s infinite;
+  text-shadow: 0 0 30px var(--accent-color), 0 0 60px rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.3);
+  position: relative; display: inline-block;
 }
 
 .hero-card h1::before, .hero-card h1::after {
@@ -195,13 +192,13 @@ html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accen
 
 .search-input {
   width: 100%; padding: 10px 36px 10px 34px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.08); border-radius: 6px;
-  color: #e9f9f3; font-size: 13px; font-weight: 500;
+  background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.04);
+  border: 1px solid rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.15); border-radius: 6px;
+  color: var(--text-primary); font-size: 13px; font-weight: 500;
   outline: none; transition: border-color .2s, box-shadow .2s; box-sizing: border-box;
 }
 
-.search-input::placeholder { color: rgba(230,255,240,.3); }
+.search-input::placeholder { color: var(--text-muted); }
 
 .search-input:focus {
   border-color: var(--accent-color);
@@ -226,7 +223,39 @@ html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accen
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.sort-select { flex-shrink: 0; }
+.sort-select {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.sort-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 180px;
+  padding: 12px 16px;
+  background: rgba(8, 10, 18, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  color: rgba(230, 255, 240, 0.92);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-trigger:hover {
+  background: rgba(0, 240, 255, 0.06);
+  border-color: rgba(0, 240, 255, 0.18);
+}
+
+.sort-arrow {
+  font-size: 10px;
+  opacity: 0.65;
+}
 
 .sync-link {
   display: inline-flex; align-items: center; gap: 6px;
@@ -256,16 +285,16 @@ html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accen
 .owned-card {
   width: 100%; padding: 0 !important;
   overflow: hidden; border-radius: 6px; position: relative;
-  background: linear-gradient(180deg, rgba(6,6,8,.92), rgba(8,10,16,.96)) !important;
-  border: 1px solid rgba(255,255,255,.03) !important;
-  box-shadow: 0 8px 26px rgba(0,0,0,.6), inset 0 2px 18px rgba(0,0,0,.6);
+  background: linear-gradient(180deg, rgba(6,6,8,.95), rgba(8,10,16,.98)) !important;
+  border: 2px solid rgba(0, 240, 255, 0.2) !important;
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.15), inset 0 0 20px rgba(0, 240, 255, 0.03);
   transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s, border-color .2s;
 }
 
 .owned-card::before {
   content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
   background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
-  opacity: 0; z-index: 4; transition: opacity .3s;
+  opacity: 0; z-index: 4; transition: opacity .3s; animation: border-glow 2s ease-in-out infinite;
 }
 
 .owned-card::after {
@@ -273,16 +302,17 @@ html[data-theme="blue"] { --accent-color: #5fb6ff; --accent-color-r: 95; --accen
   border-right: 2px solid var(--accent-color);
   border-bottom: 2px solid var(--accent-color);
   opacity: 0; z-index: 4; transition: opacity .3s;
+  box-shadow: -2px -2px 8px var(--accent-color);
 }
 
 .owned-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  border-color: var(--card-border) !important;
-  box-shadow: 0 16px 40px rgba(0,0,0,.7), 0 0 25px var(--accent-glow);
+  transform: translateY(-8px) scale(1.03);
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 40px var(--accent-color), 0 0 60px rgba(0, 240, 255, 0.2), inset 0 0 30px rgba(0, 240, 255, 0.1);
 }
 
 .owned-card:hover::before { opacity: 1; }
-.owned-card:hover::after { opacity: .6; }
+.owned-card:hover::after { opacity: 0.8; }
 
 .series-card {
   cursor: pointer; border: 1px dashed rgba(255,255,255,.12) !important;

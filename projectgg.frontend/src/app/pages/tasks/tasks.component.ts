@@ -1,11 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { TasksService, Task } from '../../services/tasks.service';
-import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -13,7 +12,7 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatCardModule, HeaderNavComponent],
+  imports: [CommonModule, MatIconModule, MatCardModule],
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.scss'],
 })
@@ -103,6 +102,7 @@ export class TasksComponent implements OnInit {
     this.themeDropdownOpen = false;
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('projectgg:theme', theme);
+    localStorage.setItem('projectgg_theme', theme);
   }
 
   private applySavedTheme(): void {
@@ -145,6 +145,18 @@ export class TasksComponent implements OnInit {
     this.profileDropdownOpen = !this.profileDropdownOpen;
     this.themeDropdownOpen = false;
     this.statusDropdownOpen = false;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    const themeEl = document.querySelector('app-theme-selector');
+    const statusEl = document.querySelector('app-status-selector');
+    const navEl = document.querySelector('app-header-nav');
+
+    if (themeEl && !themeEl.contains(target)) this.themeDropdownOpen = false;
+    if (statusEl && !statusEl.contains(target)) this.statusDropdownOpen = false;
+    if (navEl && !navEl.contains(target)) this.profileDropdownOpen = false;
   }
 
   logout(): void {

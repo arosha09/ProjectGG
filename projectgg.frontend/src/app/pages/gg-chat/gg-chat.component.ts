@@ -10,13 +10,13 @@ import {
 import { AuthService } from '../../services/auth.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
 import { VoiceService } from '../../services/voice.service';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-gg-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, HeaderNavComponent],
+  imports: [CommonModule, FormsModule, MatIconModule],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
 })
@@ -63,6 +63,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly voiceService: VoiceService,
+    readonly theme: ThemeService,
   ) {}
 
   ngOnInit(): void {
@@ -328,12 +329,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
   trackById(_: number, item: any): number {
     return item.id;
   }
-
-  handleThemeChange(_: any): void {}
-  handleThemeToggle(): void {}
-  handleStatusChange(_: any): void {}
-  handleStatusToggle(): void {}
-  handleProfileToggle(): void {}
 
   ngOnDestroy(): void {
     this.chatService.disconnect();

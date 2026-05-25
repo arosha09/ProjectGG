@@ -1,22 +1,4 @@
 <section class="dashboard-shell">
-  <app-header-nav
-    [currentTheme]="currentTheme"
-    [currentStatus]="currentStatus"
-    [themeDropdownOpen]="themeDropdownOpen"
-    [statusDropdownOpen]="statusDropdownOpen"
-    [profileDropdownOpen]="profileDropdownOpen"
-    [userName]="currentUser?.username"
-    [avatarUrl]="currentUser?.avatar || getDefaultAvatar(currentUser?.gender)"
-    [isAdmin]="isAdmin"
-    [discordConnected]="discordConnected"
-    (themeChange)="setTheme($event)"
-    (statusChange)="setStatus($event)"
-    (themeToggle)="toggleThemeDropdown()"
-    (statusToggle)="toggleStatusDropdown()"
-    (profileToggle)="toggleProfileDropdown()"
-    (logout)="logout()"
-  ></app-header-nav>
-
 	<main class="container dashboard-main">
 		<mat-card class="hero-card">
 			<div class="hero-left">
@@ -70,11 +52,15 @@
 				}
 			</div>
 			<div class="sort-select">
-				<app-dropdown
-					[options]="sortOptions"
-					[value]="sortOption"
-					(valueChange)="onSortChange($event)"
-				></app-dropdown>
+				<button class="sort-trigger" type="button" (click)="sortDropdownOpen = !sortDropdownOpen">
+					<span>{{ sortLabel }}</span>
+					<span class="sort-arrow">▼</span>
+				</button>
+				<app-cyber-dropdown
+					[items]="sortItems"
+					[isOpen]="sortDropdownOpen"
+					(itemSelect)="sortDropdownOpen = false"
+				></app-cyber-dropdown>
 			</div>
 			@if (isAdmin) {
 				<a class="sync-link" routerLink="/admin/sync">

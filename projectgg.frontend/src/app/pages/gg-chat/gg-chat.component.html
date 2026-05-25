@@ -1,18 +1,4 @@
 <section class="gg-shell">
-  <app-header-nav
-    [currentTheme]="'green'"
-    [currentStatus]="'online'"
-    [userName]="currentUser?.username ?? null"
-    [avatarUrl]="currentUser?.avatar_url ?? null"
-    [isAdmin]="(currentUser?.role === 'admin')"
-    [discordConnected]="false"
-    (themeChange)="handleThemeChange($event)"
-    (themeToggle)="handleThemeToggle()"
-    (statusChange)="handleStatusChange($event)"
-    (statusToggle)="handleStatusToggle()"
-    (profileToggle)="handleProfileToggle()"
-  ></app-header-nav>
-
   <div class="gg-layout">
     <!-- SERVER LIST -->
     <aside class="gg-servers">

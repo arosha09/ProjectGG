@@ -14,9 +14,9 @@ import { environment } from '../../../environments/environment';
 import { SkeletonComponent } from '../../components/skeleton/skeleton.component';
 import { GameCardComponent } from '../../components/game-card/game-card.component';
 import { PaginatorComponent } from '../../components/paginator/paginator.component';
-import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
-import { DropdownComponent, DropdownOption } from '../../components/dropdown/dropdown.component';
+import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
 import { MusicPlayerComponent } from '../../components/music-player/music-player.component';
+import { ThemeService } from '../../services/theme.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
 import { StatusOption } from '../../components/status-selector/status-selector.component';
 
@@ -25,7 +25,9 @@ type SeriesGroup = {
   games: Game[];
 };
 
-type LibraryItem = { type: 'game'; game: Game } | { type: 'series'; series: SeriesGroup };
+type LibraryItem =
+  | { type: 'game'; game: Game }
+  | { type: 'series'; series: SeriesGroup };
 
 @Component({
   selector: 'app-dashboard',
@@ -37,17 +39,17 @@ type LibraryItem = { type: 'game'; game: Game } | { type: 'series'; series: Seri
     SkeletonComponent,
     GameCardComponent,
     PaginatorComponent,
-    HeaderNavComponent,
-    DropdownComponent,
     MusicPlayerComponent,
     FormsModule,
     RouterLink,
+    CyberDropdownComponent,
   ],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
 export class Dashboard implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+
   readonly pageSize = 12;
   readonly libraryPageSize = 12;
   readonly seriesPageSize = 12;
@@ -72,14 +74,12 @@ export class Dashboard implements OnInit, OnDestroy {
   searchResults: Game[] | null = null;
   searching = false;
   sortOption: 'name' | 'release' | 'timeline' = 'name';
-
-  readonly sortOptions: DropdownOption[] = [
-    { value: 'name', label: 'Name' },
-    { value: 'release', label: 'Release Order' },
-    { value: 'timeline', label: 'Timeline Order' },
+  sortDropdownOpen = false;
+  readonly sortItems: DropdownItem[] = [
+    { label: 'Name', action: () => this.onSortChange('name') },
+    { label: 'Release', action: () => this.onSortChange('release') },
+    { label: 'Timeline', action: () => this.onSortChange('timeline') },
   ];
-
-  // Discord CTA
   discordConnected = false;
   connectionsLoaded = false;
   musicConnections: any[] = [];
@@ -91,6 +91,7 @@ export class Dashboard implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly http: HttpClient,
+    private readonly themeService: ThemeService,
   ) {}
 
   ngOnInit(): void {
@@ -110,12 +111,7 @@ export class Dashboard implements OnInit, OnDestroy {
   setTheme(theme: 'green' | 'red' | 'yellow' | 'blue'): void {
     this.currentTheme = theme;
     this.themeDropdownOpen = false;
-    try {
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('projectgg:theme', theme);
-    } catch (e) {
-      console.warn('Could not persist theme:', e);
-    }
+    this.themeService.setTheme(theme as ThemeOption);
   }
 
   private applySavedTheme(): void {
@@ -165,12 +161,23 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   onSortChange(newSort: string): void {
-  if (newSort === 'name' || newSort === 'release' || newSort === 'timeline') {
-    this.sortOption = newSort as 'name' | 'release' | 'timeline';
-    this.libraryCurrentPage = 1;
-    this.cdr.markForCheck(); // If using ChangeDetectionStrategy.OnPush
+    if (newSort === 'name' || newSort === 'release' || newSort === 'timeline') {
+      this.sortOption = newSort as 'name' | 'release' | 'timeline';
+      this.libraryCurrentPage = 1;
+      this.cdr.markForCheck(); // If using ChangeDetectionStrategy.OnPush
+    }
   }
-}
+
+  get sortLabel(): string {
+    switch (this.sortOption) {
+      case 'release':
+        return 'Release';
+      case 'timeline':
+        return 'Timeline';
+      default:
+        return 'Name';
+    }
+  }
 
   toggleProfileDropdown(): void {
     this.profileDropdownOpen = !this.profileDropdownOpen;

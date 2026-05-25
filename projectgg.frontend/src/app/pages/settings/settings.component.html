@@ -1,242 +1,364 @@
 <section class="settings-shell">
-  <app-header-nav
-    [currentTheme]="currentTheme"
-    [currentStatus]="currentStatus"
-    [themeDropdownOpen]="themeDropdownOpen"
-    [statusDropdownOpen]="statusDropdownOpen"
-    [profileDropdownOpen]="profileDropdownOpen"
-    [userName]="currentUser?.username"
-    [avatarUrl]="avatarDisplay"
-    [isAdmin]="isAdmin"
-    [discordConnected]="discordConnected"
-    (themeChange)="setTheme($event)"
-    (statusChange)="setStatus($event)"
-    (themeToggle)="toggleThemeDropdown()"
-    (statusToggle)="toggleStatusDropdown()"
-    (profileToggle)="toggleProfileDropdown()"
-    (logout)="logout()"
-  ></app-header-nav>
-
   <main class="container settings-main">
     <div class="settings-header">
       <h1>Settings</h1>
-      <p>Manage your account and profile</p>
+      <p>Manage your account, appearance, and connections</p>
     </div>
 
-    @if (message) {
-      <app-status-message [type]="messageType" [message]="message" [dismissible]="true" (dismiss)="message = ''" />
-    }
+    <div class="settings-container">
+      <!-- Left Sidebar -->
+      <aside class="settings-sidebar">
+        <nav class="settings-nav">
+          <button 
+            class="nav-item" 
+            [class.active]="activeSection === 'profile'"
+            (click)="setActiveSection('profile')">
+            <mat-icon>person</mat-icon>
+            <span>Profile</span>
+          </button>
+          <button 
+            class="nav-item" 
+            [class.active]="activeSection === 'password'"
+            (click)="setActiveSection('password')">
+            <mat-icon>lock</mat-icon>
+            <span>Password</span>
+          </button>
+          <button 
+            class="nav-item" 
+            [class.active]="activeSection === 'appearance'"
+            (click)="setActiveSection('appearance')">
+            <mat-icon>palette</mat-icon>
+            <span>Appearance</span>
+          </button>
+          <button 
+            class="nav-item" 
+            [class.active]="activeSection === 'connections'"
+            (click)="setActiveSection('connections')">
+            <mat-icon>link</mat-icon>
+            <span>Connections</span>
+          </button>
+        </nav>
+      </aside>
 
-    <div class="settings-grid">
-      <mat-card class="settings-card">
-        <div class="card-head">
-          <mat-icon>person</mat-icon>
-          <h3>Profile</h3>
-        </div>
-        <div class="card-body">
-          <div class="field">
-            <label class="field-label">Display Name</label>
-            <input class="field-input" type="text" [(ngModel)]="name" placeholder="Your display name" />
-          </div>
-          <div class="field">
-            <label class="field-label">Username</label>
-            <input class="field-input" type="text" [(ngModel)]="username" placeholder="Your username" />
-          </div>
-          <div class="field">
-            <label class="field-label">Email</label>
-            <div class="email-input-wrap">
-              <input class="field-input" [class.input-verified]="emailVerified" type="email" [(ngModel)]="email" placeholder="your@email.com" />
-              @if (emailVerified) {
-                <mat-icon class="verified-badge">check_circle</mat-icon>
-              }
+      <!-- Right Content -->
+      <div class="settings-content">
+        <!-- Profile Section -->
+        @if (activeSection === 'profile') {
+          <div class="settings-panel profile-panel">
+            <div class="panel-header">
+              <h2>Profile Information</h2>
+              <p>Update your personal details</p>
             </div>
-          </div>
 
-          @if (!emailVerified) {
-            <div class="email-verify-section">
-              @if (verificationSent) {
-                <div class="verify-sent-row">
-                  <span class="verify-sent-label"><mat-icon>forward_to_inbox</mat-icon> Verification sent</span>
-                  <button class="resend-link" (click)="resendVerification()" [disabled]="sendingVerification">Resend</button>
+            <div class="panel-body">
+              @if (profileMessage) { <app-status-message [type]="profileMessageType" [message]="profileMessage" [dismissible]="false" /> }
+              <div class="field">
+                <label class="field-label">Display Name</label>
+                <input class="field-input" type="text" [(ngModel)]="name" placeholder="Your display name" />
+              </div>
+
+              <div class="field">
+                <label class="field-label">Username</label>
+                <input class="field-input" type="text" [(ngModel)]="username" placeholder="Your username" />
+              </div>
+
+              <div class="field">
+                <label class="field-label">Email</label>
+                <div class="email-input-wrap">
+                  <input class="field-input" [class.input-verified]="emailVerified" type="email" [(ngModel)]="email" placeholder="your@email.com" />
+                  @if (emailVerified) {
+                    <mat-icon class="verified-badge">check_circle</mat-icon>
+                  }
                 </div>
-                <div class="code-verify-row">
-                  <input class="code-input" type="text" [(ngModel)]="verifyCode" placeholder="Code" maxlength="6" />
-                  <button class="cyber-btn code-btn" (click)="verifyWithCode()" [disabled]="submittingCode">
-                    @if (submittingCode) {
-                      <span class="btn-spinner"></span>
-                    } @else {
-                      VERIFY
+              </div>
+
+              @if (!emailVerified) {
+                <div class="email-verify-section">
+                  @if (verificationSent) {
+                    <div class="verify-sent-row">
+                      <span class="verify-sent-label"><mat-icon>forward_to_inbox</mat-icon> Verification sent</span>
+                      <button class="resend-link" (click)="resendVerification()" [disabled]="sendingVerification">Resend</button>
+                    </div>
+                    <div class="code-verify-row">
+                      <input class="code-input" type="text" [(ngModel)]="verifyCode" placeholder="Code" maxlength="6" />
+                      <button class="cyber-btn code-btn" (click)="verifyWithCode()" [disabled]="submittingCode">
+                        @if (submittingCode) {
+                          <span class="btn-spinner"></span>
+                        } @else {
+                          VERIFY
+                        }
+                      </button>
+                    </div>
+                    @if (verifyMessage) {
+                      <app-status-message [type]="verifyMessageType" [message]="verifyMessage" [dismissible]="false" />
                     }
-                  </button>
-                </div>
-                @if (verifyMessage) {
-                  <app-status-message [type]="verifyMessageType" [message]="verifyMessage" [dismissible]="false" />
-                }
-              } @else {
-                <app-status-message type="warning" message="Email verification required" [dismissible]="false" />
-                <button class="verify-send-btn" (click)="resendVerification()" [disabled]="sendingVerification">
-                  @if (sendingVerification) {
-                    <span class="btn-spinner"></span> SENDING...
                   } @else {
-                    <mat-icon>send</mat-icon> SEND VERIFICATION
+                    <app-status-message type="warning" message="Email verification required" [dismissible]="false" />
+                    <button class="verify-send-btn" (click)="resendVerification()" [disabled]="sendingVerification">
+                      @if (sendingVerification) {
+                        <span class="btn-spinner"></span> SENDING...
+                      } @else {
+                        <mat-icon>send</mat-icon> SEND VERIFICATION
+                      }
+                    </button>
+                    @if (verifyMessage) {
+                      <app-status-message [type]="verifyMessageType" [message]="verifyMessage" [dismissible]="false" />
+                    }
                   }
-                </button>
-                @if (verifyMessage) {
-                  <app-status-message [type]="verifyMessageType" [message]="verifyMessage" [dismissible]="false" />
-                }
+                </div>
               }
+
+              <button class="cyber-btn btn-primary" (click)="saveProfile()" [disabled]="saving">
+                @if (saving) {
+                  <span class="btn-spinner"></span> SAVING...
+                } @else {
+                  <mat-icon>save</mat-icon> SAVE PROFILE
+                }
+              </button>
             </div>
-          }
+          </div>
+        }
 
-          <button class="cyber-btn" (click)="saveProfile()" [disabled]="saving">
-            @if (saving) {
-              <span class="btn-spinner"></span> SAVING...
-            } @else {
-              <mat-icon>save</mat-icon> SAVE
-            }
-          </button>
-        </div>
-      </mat-card>
+        <!-- Password Section -->
+        @if (activeSection === 'password') {
+          <div class="settings-panel password-panel">
+            <div class="panel-header">
+              <h2>Change Password</h2>
+              <p>Update your account password</p>
+            </div>
 
-      <mat-card class="settings-card">
-        <div class="card-head">
-          <mat-icon>lock</mat-icon>
-          <h3>Password</h3>
-        </div>
-        <div class="card-body">
-          <div class="field">
-            <label class="field-label">Current Password</label>
-            <input class="field-input" type="password" [(ngModel)]="currentPassword" placeholder="Current password" />
-          </div>
-          <div class="field">
-            <label class="field-label">New Password</label>
-            <input class="field-input" type="password" [(ngModel)]="newPassword" placeholder="New password (min 6 chars)" />
-          </div>
-          <div class="field">
-            <label class="field-label">Confirm New Password</label>
-            <input class="field-input" type="password" [(ngModel)]="confirmPassword" placeholder="Confirm new password" />
-          </div>
-          <button class="cyber-btn" (click)="changePassword()" [disabled]="changingPassword">
-            @if (changingPassword) {
-              <span class="btn-spinner"></span> CHANGING...
-            } @else {
-              <mat-icon>lock_reset</mat-icon> CHANGE
-            }
-          </button>
-        </div>
-      </mat-card>
+            <div class="panel-body">
+              <div class="field">
+                <label class="field-label">Current Password</label>
+                <input class="field-input" type="password" [(ngModel)]="currentPassword" placeholder="Current password" />
+              </div>
 
-      <mat-card class="settings-card">
-        <div class="card-head">
-          <mat-icon>link</mat-icon>
-          <h3>Connected Accounts</h3>
-        </div>
-        <div class="card-body">
-          <div class="platform-section">
-            <span class="platform-section-label">Gaming Platforms</span>
+              <div class="field">
+                <label class="field-label">New Password</label>
+                <input class="field-input" type="password" [(ngModel)]="newPassword" placeholder="New password (min 6 chars)" />
+              </div>
+
+              <div class="field">
+                <label class="field-label">Confirm New Password</label>
+                <input class="field-input" type="password" [(ngModel)]="confirmPassword" placeholder="Confirm new password" />
+              </div>
+
+              <button class="cyber-btn btn-primary" (click)="changePassword()" [disabled]="changingPassword">
+                @if (changingPassword) {
+                  <span class="btn-spinner"></span> CHANGING...
+                } @else {
+                  <mat-icon>lock_reset</mat-icon> CHANGE PASSWORD
+                }
+              </button>
+            </div>
           </div>
-          @for (p of gamingPlatforms; track p.id) {
-            <div class="platform-row">
-              <div class="platform-info">
-                <span class="platform-icon"><img class="platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" /></span>
-                <div class="platform-meta">
-                  <span class="platform-name">{{ p.name }}</span>
-                  @if (getConnection(p.id); as conn) {
-                    <span class="platform-user">Connected as {{ conn.platform_username || conn.platform_user_id || '—' }}</span>
-                  } @else {
-                    <span class="platform-user platform-not-linked">Not linked</span>
+        }
+
+        <!-- Appearance Section -->
+        @if (activeSection === 'appearance') {
+          <div class="settings-panel appearance-panel">
+            <div class="panel-header">
+              <h2>Appearance</h2>
+              <p>Customize your visual experience</p>
+            </div>
+
+            <div class="panel-body">
+              @if (appearanceMessage) { <app-status-message [type]="appearanceMessageType" [message]="appearanceMessage" [dismissible]="false" /> }
+              <div class="appearance-section">
+                <h3>Theme Color</h3>
+                <p class="section-desc">Choose your preferred color theme</p>
+
+                <div class="theme-grid">
+                  @for (theme of availableThemes; track theme.id) {
+                    <button 
+                      class="theme-option" 
+                      [class.active]="currentTheme === theme.id"
+                      [style]="'--theme-color: ' + theme.color"
+                      (click)="changeTheme(theme.id)"
+                      [title]="theme.label">
+                      <span class="theme-swatch"></span>
+                      <span class="theme-label">{{ theme.label }}</span>
+                    </button>
                   }
                 </div>
               </div>
-              @if (p.id === 'steam') {
-                @if (getConnection('steam')) {
-                  <div class="platform-actions">
-                    <button class="p-btn p-btn-import" (click)="importSteam()" [disabled]="importing">IMPORT</button>
-                    <button class="p-btn p-btn-danger" (click)="unlinkPlatform('steam')" [disabled]="linking">UNLINK</button>
+
+              <div class="appearance-section">
+                <h3>Status Indicator</h3>
+                <p class="section-desc">Set your online status</p>
+
+                <div class="status-buttons">
+                  <button 
+                    class="status-btn status-online" 
+                    [class.active]="currentStatus === 'online'"
+                    (click)="currentStatus = 'online'; setStatus('online')">
+                    <span class="status-dot"></span> Online
+                  </button>
+                  <button 
+                    class="status-btn status-away" 
+                    [class.active]="currentStatus === 'away'"
+                    (click)="currentStatus = 'away'; setStatus('away')">
+                    <span class="status-dot"></span> Away
+                  </button>
+                  <button 
+                    class="status-btn status-offline" 
+                    [class.active]="currentStatus === 'offline'"
+                    (click)="currentStatus = 'offline'; setStatus('offline')">
+                    <span class="status-dot"></span> Offline
+                  </button>
+                  <button 
+                    class="status-btn status-invisible" 
+                    [class.active]="currentStatus === 'invisible'"
+                    (click)="currentStatus = 'invisible'; setStatus('invisible')">
+                    <span class="status-dot"></span> Invisible
+                  </button>
+                </div>
+              </div>
+              <div class="cursor-style-section-wrapper">
+                <h3>Cursor Style</h3>
+                <p class="section-desc">Choose your preferred cursor appearance</p>
+
+                <div class="cursor-options-grid">
+                  @for (cursor of customCursors; track cursor.id) {
+                    <button 
+                      class="cursor-btn" 
+                      [class.active]="selectedCursor === cursor.id"
+                      (click)="selectCursor(cursor.id)"
+                      [style]="'cursor: ' + cursor.url">
+                      {{ cursor.label }}
+                    </button>
+                  }
+                </div>
+
+                <div class="cursor-preview-area">
+                  <p>Move your cursor here to preview</p>
+                </div>
+              </div>            </div>
+          </div>
+        }
+
+        <!-- Connections Section -->
+        @if (activeSection === 'connections') {
+          <div class="settings-panel connections-panel">
+            <div class="panel-header">
+              <h2>Connected Accounts</h2>
+              <p>Link your gaming and music platforms</p>
+            </div>
+
+            <div class="panel-body">
+              <div class="platform-section">
+                <h3>Gaming Platforms</h3>
+                <div class="platforms-list">
+                  @for (p of gamingPlatforms; track p.id) {
+                    <div class="platform-row">
+                      <div class="platform-info">
+                        <span class="platform-icon"><img class="platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" /></span>
+                        <div class="platform-meta">
+                          <span class="platform-name">{{ p.name }}</span>
+                          @if (getConnection(p.id); as conn) {
+                            <span class="platform-user">Connected as {{ conn.platform_username || conn.platform_user_id || '—' }}</span>
+                          } @else {
+                            <span class="platform-user platform-not-linked">Not linked</span>
+                          }
+                        </div>
+                      </div>
+                      @if (p.id === 'steam') {
+                        @if (getConnection('steam')) {
+                          <div class="platform-actions">
+                            <button class="p-btn p-btn-import" (click)="importSteam()" [disabled]="importing">IMPORT</button>
+                            <button class="p-btn p-btn-danger" (click)="unlinkPlatform('steam')" [disabled]="linking">UNLINK</button>
+                          </div>
+                        } @else {
+                          <button class="p-btn p-btn-link" (click)="linkSteam()" [disabled]="linking">
+                            <mat-icon>login</mat-icon> LINK
+                          </button>
+                        }
+                      } @else {
+                        @if (getConnection(p.id)) {
+                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform(p.id)" [disabled]="linking">UNLINK</button>
+                        } @else {
+                          <button class="p-btn p-btn-link" (click)="openManualLink(p.id)" [disabled]="linking">
+                            <mat-icon>add_link</mat-icon> LINK
+                          </button>
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="platform-section">
+                <h3>Music & Chat Platforms</h3>
+                <div class="platforms-list">
+                  @for (p of musicPlatforms; track p.id) {
+                    <div class="platform-row">
+                      <div class="platform-info">
+                        <span class="platform-icon"><img class="platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" /></span>
+                        <div class="platform-meta">
+                          <span class="platform-name">{{ p.name }}</span>
+                          @if (getConnection(p.id); as conn) {
+                            <span class="platform-user">Connected as {{ conn.platform_username || conn.platform_user_id || '—' }}</span>
+                          } @else {
+                            <span class="platform-user platform-not-linked">Not linked</span>
+                          }
+                        </div>
+                      </div>
+                      @if (p.id === 'discord') {
+                        @if (getConnection('discord')) {
+                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform('discord')" [disabled]="linking">UNLINK</button>
+                        } @else {
+                          <button class="p-btn p-btn-link" (click)="linkDiscord()" [disabled]="linking">
+                            <mat-icon>login</mat-icon> LINK
+                          </button>
+                        }
+                      } @else if (p.id === 'spotify') {
+                        @if (getConnection('spotify')) {
+                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform('spotify')" [disabled]="linking">UNLINK</button>
+                        } @else {
+                          <button class="p-btn p-btn-link" (click)="linkSpotify()" [disabled]="linking">
+                            <mat-icon>login</mat-icon> LINK
+                          </button>
+                        }
+                      } @else if (p.id === 'youtube_music') {
+                        @if (getConnection('youtube_music')) {
+                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform('youtube_music')" [disabled]="linking">UNLINK</button>
+                        } @else {
+                          <button class="p-btn p-btn-link" (click)="linkYoutubeMusic()" [disabled]="linking">
+                            <mat-icon>login</mat-icon> LINK
+                          </button>
+                        }
+                      } @else if (p.id === 'apple_music') {
+                        <span class="p-badge soon">COMING SOON</span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              @if (manualPlatform) {
+                <div class="manual-link-row">
+                  <input class="field-input" type="text" [(ngModel)]="manualUsername" placeholder="Enter {{ getPlatformName(manualPlatform) }} username" />
+                  <div class="manual-link-actions">
+                    <button class="cyber-btn" (click)="confirmManualLink()" [disabled]="!manualUsername.trim()">
+                      <mat-icon>check</mat-icon> CONFIRM
+                    </button>
+                    <button class="cyber-btn cyber-btn-cancel" (click)="cancelManualLink()">
+                      <mat-icon>close</mat-icon> CANCEL
+                    </button>
                   </div>
-                } @else {
-                  <button class="p-btn p-btn-link" (click)="linkSteam()" [disabled]="linking">
-                    <mat-icon>login</mat-icon> LINK
-                  </button>
-                }
-              } @else {
-                @if (getConnection(p.id)) {
-                  <button class="p-btn p-btn-danger" (click)="unlinkPlatform(p.id)" [disabled]="linking">UNLINK</button>
-                } @else {
-                  <button class="p-btn p-btn-link" (click)="openManualLink(p.id)" [disabled]="linking">
-                    <mat-icon>add_link</mat-icon> LINK
-                  </button>
-                }
-              }
-            </div>
-          }
-
-          <div class="platform-section">
-            <span class="platform-section-label">Music & Chat Platforms</span>
-          </div>
-          @for (p of musicPlatforms; track p.id) {
-            <div class="platform-row">
-              <div class="platform-info">
-                <span class="platform-icon"><img class="platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" /></span>
-                <div class="platform-meta">
-                  <span class="platform-name">{{ p.name }}</span>
-                  @if (getConnection(p.id); as conn) {
-                    <span class="platform-user">Connected as {{ conn.platform_username || conn.platform_user_id || '—' }}</span>
-                  } @else {
-                    <span class="platform-user platform-not-linked">Not linked</span>
-                  }
                 </div>
-              </div>
-              @if (p.id === 'discord') {
-                @if (getConnection('discord')) {
-                  <button class="p-btn p-btn-danger" (click)="unlinkPlatform('discord')" [disabled]="linking">UNLINK</button>
-                } @else {
-                  <button class="p-btn p-btn-link" (click)="linkDiscord()" [disabled]="linking">
-                    <mat-icon>login</mat-icon> LINK
-                  </button>
-                }
-              } @else if (p.id === 'spotify') {
-                @if (getConnection('spotify')) {
-                  <button class="p-btn p-btn-danger" (click)="unlinkPlatform('spotify')" [disabled]="linking">UNLINK</button>
-                } @else {
-                  <button class="p-btn p-btn-link" (click)="linkSpotify()" [disabled]="linking">
-                    <mat-icon>login</mat-icon> LINK
-                  </button>
-                }
-              } @else if (p.id === 'youtube_music') {
-                @if (getConnection('youtube_music')) {
-                  <button class="p-btn p-btn-danger" (click)="unlinkPlatform('youtube_music')" [disabled]="linking">UNLINK</button>
-                } @else {
-                  <button class="p-btn p-btn-link" (click)="linkYoutubeMusic()" [disabled]="linking">
-                    <mat-icon>login</mat-icon> LINK
-                  </button>
-                }
-              } @else if (p.id === 'apple_music') {
-                <span class="p-badge soon">COMING SOON</span>
+              }
+
+              @if (importResult) {
+                <div class="import-result" [class.import-ok]="!importError" [class.import-err]="importError">
+                  <mat-icon>{{ importError ? 'error' : 'cloud_download' }}</mat-icon>
+                  <span>{{ importResult }}</span>
+                </div>
               }
             </div>
-          }
-          @if (manualPlatform) {
-            <div class="manual-link-row">
-              <input class="field-input" type="text" [(ngModel)]="manualUsername" placeholder="Enter {{ getPlatformName(manualPlatform) }} username" />
-              <div class="manual-link-actions">
-                <button class="cyber-btn" (click)="confirmManualLink()" [disabled]="!manualUsername.trim()">
-                  <mat-icon>check</mat-icon> CONFIRM
-                </button>
-                <button class="cyber-btn cyber-btn-cancel" (click)="cancelManualLink()">
-                  <mat-icon>close</mat-icon> CANCEL
-                </button>
-              </div>
-            </div>
-          }
-          @if (importResult) {
-            <div class="import-result" [class.import-ok]="!importError" [class.import-err]="importError">
-              <mat-icon>{{ importError ? 'error' : 'cloud_download' }}</mat-icon>
-              <span>{{ importResult }}</span>
-            </div>
-          }
-        </div>
-      </mat-card>
+          </div>
+        }
+      </div>
     </div>
   </main>
 </section>

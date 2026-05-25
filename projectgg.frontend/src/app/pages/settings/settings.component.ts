@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -8,7 +8,6 @@ import { MatCardModule } from '@angular/material/card';
 import { AuthService } from '../../services/auth.service';
 import { UsersService } from '../../services/users.service';
 import { GamesService } from '../../services/games.service';
-import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
 import { StatusMessageComponent } from '../../components/status-message/status-message.component';
 import { environment } from '../../../environments/environment';
 
@@ -21,11 +20,12 @@ interface PlatformConn {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, HeaderNavComponent, StatusMessageComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, StatusMessageComponent],
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.scss'],
 })
 export class SettingsComponent implements OnInit {
+  activeSection: 'profile' | 'password' | 'connections' | 'appearance' = 'profile';
   currentUser: any = null;
   currentTheme: 'green' | 'red' | 'yellow' | 'blue' = 'green';
   currentStatus: 'online' | 'away' | 'offline' | 'invisible' = 'online';
@@ -33,12 +33,34 @@ export class SettingsComponent implements OnInit {
   statusDropdownOpen = false;
   profileDropdownOpen = false;
 
+  // Appearance settings
+  availableThemes = [
+    { id: 'green', label: 'CYAN (Default)', color: '#00f0ff' },
+    { id: 'red', label: 'RED', color: '#ff5f6d' },
+    { id: 'yellow', label: 'GOLD', color: '#ffd700' },
+    { id: 'blue', label: 'AZURE', color: '#5fb6ff' },
+  ];
+
+  // Cursor settings
+  customCursors = [
+    { id: 'default', label: 'System Cursor', url: 'auto' },
+    { id: 'pointer', label: 'Pointer', url: 'pointer' },
+    { id: 'crosshair', label: 'Crosshair', url: 'crosshair' },
+  ];
+  selectedCursor = localStorage.getItem('selectedCursor') || 'default';
+
   name = '';
   username = '';
   email = '';
   currentPassword = '';
   newPassword = '';
   confirmPassword = '';
+  profileMessage = '';
+  profileMessageType: 'success' | 'error' = 'success';
+  passwordMessage = '';
+  passwordMessageType: 'success' | 'error' = 'success';
+  appearanceMessage = '';
+  appearanceMessageType: 'success' | 'error' = 'success';
 
   saving = false;
   changingPassword = false;
@@ -99,11 +121,19 @@ export class SettingsComponent implements OnInit {
     }
     this.applySavedTheme();
     this.applySavedStatus();
+    this.applyCursorOnLoad();
     this.populateForm();
     this.refreshProfile();
 
     // Check for callback results / highlight in query params
     this.route.queryParams.subscribe(params => {
+      if (params['section'] === 'connections') {
+        this.activeSection = 'connections';
+        setTimeout(() => {
+          const el = document.querySelector('.platform-section:last-child');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
       if (params['highlight'] === 'discord') {
         setTimeout(() => {
           const el = document.querySelector('.platform-row');
@@ -150,6 +180,7 @@ export class SettingsComponent implements OnInit {
         this.populateForm();
         this.cdr.markForCheck();
       },
+      error: () => {},
     });
   }
 
@@ -463,6 +494,7 @@ export class SettingsComponent implements OnInit {
     try {
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('projectgg:theme', theme);
+      localStorage.setItem('projectgg_theme', theme);
     } catch {}
   }
 
@@ -512,6 +544,18 @@ export class SettingsComponent implements OnInit {
     this.statusDropdownOpen = false;
   }
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    const themeEl = document.querySelector('app-theme-selector');
+    const statusEl = document.querySelector('app-status-selector');
+    const navEl = document.querySelector('app-header-nav');
+
+    if (themeEl && !themeEl.contains(target)) this.themeDropdownOpen = false;
+    if (statusEl && !statusEl.contains(target)) this.statusDropdownOpen = false;
+    if (navEl && !navEl.contains(target)) this.profileDropdownOpen = false;
+  }
+
   logout(): void {
     this.auth.logout();
     this.router.navigate(['/home']);
@@ -520,5 +564,47 @@ export class SettingsComponent implements OnInit {
   onAvatarError(event: Event): void {
     const img = event.target as HTMLImageElement;
     img.style.display = 'none';
+  }
+
+  // Section navigation
+  setActiveSection(section: 'profile' | 'password' | 'connections' | 'appearance'): void {
+    this.activeSection = section;
+  }
+
+  // Appearance & Theme handling
+  changeTheme(themeId: string): void {
+    this.currentTheme = themeId as any;
+    localStorage.setItem('projectgg:theme', themeId);
+    localStorage.setItem('projectgg_theme', themeId);
+    this.applySavedTheme();
+    this.themeDropdownOpen = false;
+    this.message = 'Theme updated successfully';
+    this.messageType = 'success';
+    setTimeout(() => {
+      this.message = '';
+    }, 3000);
+  }
+
+  // Cursor handling
+  selectCursor(cursorId: string): void {
+    this.selectedCursor = cursorId;
+    localStorage.setItem('selectedCursor', cursorId);
+    const cursor = this.customCursors.find(c => c.id === cursorId);
+    if (cursor) {
+      document.documentElement.style.cursor = cursor.url;
+    }
+    this.message = 'Cursor updated successfully';
+    this.messageType = 'success';
+    setTimeout(() => {
+      this.message = '';
+    }, 3000);
+  }
+
+  applyCursorOnLoad(): void {
+    const cursorId = localStorage.getItem('selectedCursor') || 'default';
+    const cursor = this.customCursors.find(c => c.id === cursorId);
+    if (cursor) {
+      document.documentElement.style.cursor = cursor.url;
+    }
   }
 }
