@@ -78,6 +78,30 @@
   }
 }
 
+.nav-ggchat-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  color: rgba(230,255,240,.4);
+  text-decoration: none;
+  font-size: 12px; font-weight: 700; letter-spacing: .5px;
+  transition: all .2s;
+  border: 1px solid rgba(0,240,255,.25);
+  cursor: pointer;
+  text-decoration: none;
+
+  .nav-ggchat-icon { width: 18px; height: 18px; opacity: .7; }
+
+  &:hover {
+    background: rgba(0,240,255,.1);
+    color: #00f0ff;
+    border-color: rgba(0,240,255,.5);
+    box-shadow: 0 0 12px rgba(0,240,255,.15);
+
+    .nav-ggchat-icon { opacity: 1; }
+  }
+}
+
 .profile-trigger {
   display: flex;
   align-items: center;

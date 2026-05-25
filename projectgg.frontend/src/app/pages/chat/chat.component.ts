@@ -250,7 +250,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   get channelGroups(): ChannelGroup[] {
     const groups = new Map<string | null, GuildChannel[]>();
     for (const ch of this.channels) {
-      if (ch.type === 4) continue;
+      if (ch.type === 4 || ch.type === 2 || ch.type === 13) continue;
       const groupKey = ch.categoryId ?? '__no_category';
       if (!groups.has(groupKey)) groups.set(groupKey, []);
       groups.get(groupKey)!.push(ch);

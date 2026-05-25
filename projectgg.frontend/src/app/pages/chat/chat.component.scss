@@ -251,6 +251,19 @@
   padding: 12px 20px 20px;
 }
 
+.no-permission-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px 20px;
+  color: rgba(230,255,240,.35);
+  font-size: 13px;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; opacity: .5; }
+
+  strong { color: rgba(230,255,240,.5); }
+}
+
 .chat-input {
   flex: 1;
   padding: 10px 14px;

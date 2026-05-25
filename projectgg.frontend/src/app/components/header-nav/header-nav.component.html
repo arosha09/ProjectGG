@@ -27,6 +27,11 @@
       <span>{{ discordConnected() ? 'Discord' : 'Link Discord' }}</span>
     </a>
 
+    <a class="nav-ggchat-btn" routerLink="/gg-chat" title="GG Chat">
+      <img src="https://cdn.simpleicons.org/chatbot/00f0ff" alt="GG" class="nav-ggchat-icon" onerror="this.style.display='none'" />
+      <span>GG Chat</span>
+    </a>
+
     <div class="profile-trigger" *ngIf="userName()" (click)="profileToggle.emit()">
       <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
       <span class="user-name">{{ userName() }}</span>

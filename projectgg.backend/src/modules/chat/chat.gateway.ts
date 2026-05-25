@@ -26,13 +26,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     });
   }
 
-  handleConnection(client: Socket): void {
-    // Client connected — they'll receive broadcasts
-  }
-
+  handleConnection(client: Socket): void {}
   handleDisconnect(): void {}
 
   broadcastMessage(msg: any): void {
     this.server?.emit('message', msg);
+  }
+
+  broadcastServerEvent(event: string, data: any): void {
+    this.server?.emit(event, data);
   }
 }

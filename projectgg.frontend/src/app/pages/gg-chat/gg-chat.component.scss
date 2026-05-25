@@ -1,0 +1,171 @@
+@use 'sass:color';
+
+$bg-deepest: #0a0a0f;
+$bg-darker: #0e0e16;
+$bg-dark: #13131f;
+$bg-mid: #1a1a2e;
+$bg-surface: #20203a;
+$neon-cyan: #00f0ff;
+$neon-pink: #ff2d95;
+$neon-purple: #7b2dff;
+$neon-green: #00ff88;
+$neon-yellow: #ffd700;
+$text-primary: #e0e0ff;
+$text-muted: rgba(224,224,255,.45);
+$text-dim: rgba(224,224,255,.2);
+$border-glow: rgba(0,240,255,.12);
+$border-subtle: rgba(0,240,255,.06);
+
+:host { display: block; height: 100vh; overflow: hidden; }
+
+.gg-shell {
+  height: 100vh; background: $bg-deepest; color: $text-primary;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  display: flex; flex-direction: column;
+}
+
+.gg-layout { display: flex; flex: 1; overflow: hidden; }
+
+// ── SERVER LIST ────────────────────────────────────────────────
+.gg-servers {
+  width: 60px; flex-shrink: 0; background: $bg-darker;
+  border-right: 1px solid $border-subtle;
+  display: flex; flex-direction: column; align-items: center; padding: 8px 0;
+}
+
+.gg-servers-scroll {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 6px;
+  &::-webkit-scrollbar { width: 2px; }
+  &::-webkit-scrollbar-thumb { background: $border-glow; border-radius: 1px; }
+}
+
+.gg-server-icon {
+  width: 42px; height: 42px; border-radius: 50%; background: $bg-mid;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .2s cubic-bezier(.4,0,.2,1); position: relative;
+  &::before {
+    content: ''; position: absolute; left: -6px; top: 50%; width: 4px; height: 0;
+    background: $text-primary; border-radius: 0 3px 3px 0; transform: translateY(-50%); transition: height .2s;
+  }
+  &:hover { border-radius: 12px; background: $neon-purple; box-shadow: 0 0 12px rgba(123,45,255,.3); &::before { height: 20px; } }
+  &.active { border-radius: 12px; background: $neon-purple; box-shadow: 0 0 16px rgba(123,45,255,.4); &::before { height: 32px; background: $neon-cyan; } }
+}
+
+.gg-server-img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.gg-server-initial { font-size: 16px; font-weight: 800; color: $text-primary; text-transform: uppercase; }
+
+.gg-server-add { background: transparent; border: 2px dashed $border-glow; .gg-add-plus { color: $neon-cyan; font-size: 20px; } &:hover { border-color: $neon-cyan; background: rgba(0,240,255,.06); } }
+
+// ── CHANNEL LIST ──────────────────────────────────────────────
+.gg-channels {
+  width: 220px; flex-shrink: 0; background: $bg-dark;
+  border-right: 1px solid $border-subtle; display: flex; flex-direction: column;
+}
+
+.gg-channels-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 14px 10px; border-bottom: 1px solid $border-subtle;
+}
+
+.gg-channels-title { font-size: 14px; font-weight: 800; color: $text-primary; letter-spacing: .3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gg-ch-actions { background: none; border: none; color: $text-muted; cursor: pointer; padding: 2px; border-radius: 4px; display: flex; transition: all .15s; mat-icon { font-size: 16px; width: 16px; height: 16px; } &:hover { color: $neon-pink; background: rgba(255,45,149,.1); } }
+
+.gg-channels-scroll { flex: 1; overflow-y: auto; padding: 6px 6px; &::-webkit-scrollbar { width: 3px; } &::-webkit-scrollbar-thumb { background: $border-glow; border-radius: 2px; } }
+
+.gg-channel {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin: 1px 0; border-radius: 4px;
+  cursor: pointer; font-size: 13px; color: $text-muted; transition: all .12s;
+  .gg-ch-icon { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
+  .gg-ch-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &:hover { background: rgba(0,240,255,.04); color: $text-primary; }
+  &.active { background: rgba(123,45,255,.12); color: $neon-cyan; box-shadow: inset 2px 0 0 $neon-cyan; }
+}
+
+.gg-ch-delete { opacity: 0; background: none; border: none; color: $neon-pink; cursor: pointer; padding: 0; display: flex; transition: opacity .12s; mat-icon { font-size: 14px; width: 14px; height: 14px; } .gg-channel:hover & { opacity: 1; } &:hover { opacity: 1 !important; } }
+
+.gg-ch-live { width: 6px; height: 6px; border-radius: 50%; background: $neon-green; flex-shrink: 0; animation: pulse-green 1.5s ease-in-out infinite; }
+
+.gg-channel-add { border: 1px dashed $border-glow; margin-top: 4px; .gg-ch-icon { color: $neon-cyan; } .gg-ch-name { color: $text-muted; font-size: 12px; } &:hover { border-color: rgba(0,240,255,.2); background: rgba(0,240,255,.03); } }
+
+// ── USER BADGE ────────────────────────────────────────────────
+.gg-user-badge { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid $border-subtle; background: rgba(0,0,0,.15); flex-shrink: 0; }
+.gg-user-avatar { width: 30px; height: 30px; border-radius: 50%; background: $neon-purple; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+.gg-user-img { width: 100%; height: 100%; object-fit: cover; }
+.gg-user-text { font-size: 12px; font-weight: 800; color: #fff; text-transform: uppercase; }
+.gg-user-info { flex: 1; overflow: hidden; }
+.gg-user-name { font-size: 12px; font-weight: 700; color: $text-primary; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gg-no-server { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; text-align: center; mat-icon { font-size: 40px; width: 40px; height: 40px; color: $text-dim; } p { font-size: 13px; color: $text-muted; margin: 0; } }
+
+// ── MAIN PANEL ────────────────────────────────────────────────
+.gg-main { flex: 1; display: flex; flex-direction: column; background: $bg-deepest; }
+
+.gg-channel-header { display: flex; align-items: center; gap: 8px; padding: 14px 18px; border-bottom: 1px solid $border-subtle; .gg-ch-icon { font-size: 18px; width: 18px; height: 18px; color: $text-muted; } h2 { margin: 0; font-size: 15px; font-weight: 700; color: $text-primary; } }
+
+// ── MESSAGES ──────────────────────────────────────────────────
+.gg-messages { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; &::-webkit-scrollbar { width: 4px; } &::-webkit-scrollbar-track { background: transparent; } &::-webkit-scrollbar-thumb { background: $border-glow; border-radius: 2px; } }
+
+.gg-msg { display: flex; gap: 10px; padding: 4px 8px; border-radius: 4px; transition: background .1s; &:hover { background: rgba(255,255,255,.015); } }
+.gg-msg-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: $neon-purple; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.gg-msg-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.gg-msg-avatar-text { font-size: 12px; font-weight: 800; color: #fff; text-transform: uppercase; }
+.gg-msg-body { flex: 1; min-width: 0; }
+.gg-msg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.gg-msg-username { font-size: 14px; font-weight: 700; color: $neon-cyan; }
+.gg-msg-time { font-size: 11px; color: $text-dim; }
+.gg-msg-content { font-size: 14px; color: $text-primary; line-height: 1.45; word-break: break-word; }
+.gg-msg-empty { text-align: center; padding: 40px; color: $text-dim; font-size: 14px; font-style: italic; }
+
+// ── INPUT BAR ─────────────────────────────────────────────────
+.gg-input-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px 16px; }
+
+.gg-input { flex: 1; padding: 10px 14px; background: $bg-mid; border: 1px solid $border-glow; border-radius: 6px; color: $text-primary; font-size: 14px; font-family: inherit; outline: none; transition: border-color .2s, box-shadow .2s; &::placeholder { color: $text-dim; } &:focus { border-color: $neon-cyan; box-shadow: 0 0 8px rgba(0,240,255,.15); } &:disabled { opacity: .4; } }
+
+.gg-send-btn { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: none; border-radius: 6px; background: $neon-purple; color: #fff; cursor: pointer; transition: all .2s; flex-shrink: 0; mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:hover { box-shadow: 0 0 14px rgba(123,45,255,.4); background: color.adjust($neon-purple, $lightness: 5%); }
+  &:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; } }
+
+// ── VOICE PANEL ───────────────────────────────────────────────
+.gg-voice-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; h2 { margin: 0; font-size: 18px; color: $text-primary; } }
+.gg-voice-icon { font-size: 48px; width: 48px; height: 48px; color: $neon-cyan; }
+.gg-voice-controls { display: flex; gap: 10px; }
+.gg-voice-btn { display: flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+.gg-voice-join { background: $neon-green; color: $bg-deepest; &:hover { box-shadow: 0 0 14px rgba(0,255,136,.3); } }
+.gg-voice-mute { background: $neon-yellow; color: $bg-deepest; }
+.gg-voice-leave { background: $neon-pink; color: #fff; &:hover { box-shadow: 0 0 14px rgba(255,45,149,.3); } }
+.gg-voice-connecting { color: $neon-yellow; font-weight: 700; animation: pulse 1s infinite; }
+
+.gg-no-channel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: $text-dim; mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 12px; } p { font-size: 14px; margin: 0; } }
+
+// ── MEMBERS PANEL ─────────────────────────────────────────────
+.gg-members { width: 200px; flex-shrink: 0; background: $bg-dark; border-left: 1px solid $border-subtle; display: flex; flex-direction: column; }
+.gg-members-head { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: $text-muted; padding: 14px 14px 8px; border-bottom: 1px solid $border-subtle; }
+.gg-members-scroll { flex: 1; overflow-y: auto; padding: 4px 0; &::-webkit-scrollbar { width: 3px; } &::-webkit-scrollbar-thumb { background: $border-glow; border-radius: 2px; } }
+.gg-member { display: flex; align-items: center; gap: 8px; padding: 5px 12px; margin: 1px 4px; border-radius: 4px; cursor: default; transition: background .1s; &:hover { background: rgba(0,240,255,.03); } }
+.gg-member-avatar { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; background: $neon-purple; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.gg-member-img { width: 100%; height: 100%; object-fit: cover; }
+.gg-member-text { font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase; }
+.gg-member-info { flex: 1; overflow: hidden; }
+.gg-member-name { font-size: 13px; font-weight: 600; color: $text-primary; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.gg-member-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+.gg-role-owner { color: $neon-yellow; }
+.gg-role-admin { color: $neon-cyan; }
+
+// ── MODALS ────────────────────────────────────────────────────
+.gg-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.gg-modal { background: $bg-surface; border: 1px solid $border-glow; border-radius: 10px; padding: 24px; width: 360px; max-width: 90vw; box-shadow: 0 0 30px rgba(0,240,255,.08), 0 0 60px rgba(123,45,255,.06); }
+.gg-modal-title { font-size: 18px; font-weight: 800; color: $text-primary; margin: 0 0 4px; }
+.gg-modal-desc { font-size: 13px; color: $text-muted; margin: 0 0 14px; }
+.gg-modal-input { width: 100%; padding: 10px 12px; background: $bg-mid; border: 1px solid $border-glow; border-radius: 6px; color: $text-primary; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; margin-bottom: 14px; transition: border-color .2s, box-shadow .2s; &::placeholder { color: $text-dim; } &:focus { border-color: $neon-cyan; box-shadow: 0 0 8px rgba(0,240,255,.15); } }
+.gg-modal-type-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.gg-type-option { flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: $bg-mid; border: 1px solid $border-glow; border-radius: 6px; cursor: pointer; font-size: 13px; color: $text-muted; transition: all .15s; input { display: none; } mat-icon { font-size: 16px; width: 16px; height: 16px; } &.active { border-color: $neon-cyan; color: $neon-cyan; background: rgba(0,240,255,.06); } }
+.gg-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.gg-btn { padding: 8px 18px; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; font-family: inherit; &:disabled { opacity: .35; cursor: not-allowed; } }
+.gg-btn-primary { background: $neon-purple; color: #fff; &:hover:not(:disabled) { box-shadow: 0 0 12px rgba(123,45,255,.3); background: color.adjust($neon-purple, $lightness: 5%); } }
+.gg-btn-cancel { background: $bg-mid; color: $text-muted; &:hover { background: color.adjust($bg-mid, $lightness: 5%); color: $text-primary; } }
+.gg-loading-sm { text-align: center; padding: 20px; color: $text-dim; font-size: 12px; font-style: italic; }
+.gg-cyber-btn { padding: 8px 20px; background: $neon-purple; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; font-family: inherit; &:hover { box-shadow: 0 0 16px rgba(123,45,255,.4); transform: translateY(-1px); } }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@keyframes pulse-green { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,136,.5); } 50% { opacity: .7; box-shadow: 0 0 6px 2px rgba(0,255,136,.3); } }

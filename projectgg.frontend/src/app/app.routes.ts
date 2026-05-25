@@ -14,6 +14,7 @@ import { SpotifyCallbackComponent } from './pages/spotify-callback/spotify-callb
 import { YoutubeMusicCallbackComponent } from './pages/youtube-music-callback/youtube-music-callback.component';
 import { AppleMusicCallbackComponent } from './pages/apple-music-callback/apple-music-callback.component';
 import { ChatComponent } from './pages/chat/chat.component';
+import { GgChatComponent } from './pages/gg-chat/gg-chat.component';
 import { TasksComponent } from './pages/tasks/tasks.component';
 import { AuthGuard } from './services/auth.guard';
 
@@ -73,6 +74,11 @@ export const routes: Routes = [
   {
     path: 'chat',
     component: ChatComponent,
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'gg-chat',
+    component: GgChatComponent,
     canActivate: [AuthGuard]
   },
   {

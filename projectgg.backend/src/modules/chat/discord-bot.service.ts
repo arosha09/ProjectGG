@@ -278,7 +278,7 @@ export class DiscordBotService implements OnModuleInit {
     this._voiceMembers = members;
   }
 
-  private async storeMessage(data: {
+  private async storeInDb(data: {
     username: string;
     content: string;
     source: string;
@@ -306,6 +306,19 @@ export class DiscordBotService implements OnModuleInit {
     } catch (e) {
       this.logger.error('Failed to store message:', e);
     }
+  }
+
+  private async storeMessage(data: {
+    username: string;
+    content: string;
+    source: string;
+    discord_message_id?: string;
+    channel_id?: string;
+    channel_name?: string;
+    guild_name?: string;
+    channel_type?: string;
+  }): Promise<void> {
+    await this.storeInDb(data);
 
     if (this.onMessageCallback) {
       this.onMessageCallback({
@@ -339,6 +352,73 @@ export class DiscordBotService implements OnModuleInit {
       5: 'announcement', 13: 'stage', 15: 'forum', 16: 'media',
     };
     return labels[type] ?? 'text';
+  }
+
+  async backfillChannel(channelId: string, limit = 50): Promise<void> {
+    if (!this.client) return;
+    const guild = this.client.guilds.cache.get(this.guildId);
+    if (!guild) return;
+
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel || (channel.type !== 0 && channel.type !== 5)) return;
+
+    const MAX_TOTAL = 1000;
+    let fetched = 0;
+
+    try {
+      // Fetch in pages of 100, stop when we hit messages we already have
+      let lastId: string | undefined;
+      let hitExisting = false;
+
+      while (fetched < MAX_TOTAL && !hitExisting) {
+        const options: any = { limit: Math.min(100, limit) };
+        if (lastId) options.before = lastId;
+        const messages = await channel.messages.fetch(options);
+        if (messages.size === 0) break;
+
+        // Check which of these already exist in DB
+        const msgIds = messages.map((m: any) => m.id);
+        const { data: existing } = await this.supabase
+          .schema('projectgg')
+          .from('chat_messages')
+          .select('discord_message_id')
+          .in('discord_message_id', msgIds);
+
+        const existingIds = new Set((existing ?? []).map((r: any) => r.discord_message_id));
+
+        // Store in chronological order (messages.fetch returns newest first)
+        const reversed = Array.from(messages.values()).reverse();
+        for (const msg of reversed) {
+          const m: any = msg;
+          if (m.author.bot) continue;
+          if (existingIds.has(m.id)) {
+            hitExisting = true;
+            continue;
+          }
+          await this.storeInDb({
+            username: m.author.globalName ?? m.author.username,
+            content: m.content,
+            source: 'discord',
+            discord_message_id: m.id,
+            channel_id: channelId,
+            channel_name: channel.name,
+            guild_name: guild.name,
+            channel_type: this.channelTypeLabel(channel.type),
+          });
+          fetched++;
+        }
+
+        // Get the oldest message id for next page
+        const oldest = messages.last();
+        lastId = oldest?.id;
+      }
+
+      if (fetched > 0) {
+        this.logger.log(`Backfilled ${fetched} messages for channel ${channel.name} (${channelId})`);
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to backfill channel ${channelId}:`, e);
+    }
   }
 
   async sendToDiscord(content: string, channelId?: string): Promise<void> {
