@@ -68,7 +68,7 @@ export class DiscordBotService implements OnModuleInit {
     return this.client !== null && this.client.isReady();
   }
 
-  getGuildChannels(): GuildChannel[] {
+  getGuildChannels(allowedChannelIds?: Set<string>): GuildChannel[] {
     if (!this.client) return [];
     const guild = this.client.guilds.cache.get(this.guildId);
     if (!guild) return [];
@@ -79,7 +79,7 @@ export class DiscordBotService implements OnModuleInit {
     }
 
     return guild.channels.cache
-      .filter((ch: any) => ch.type !== 4)
+      .filter((ch: any) => ch.type !== 4 && (!allowedChannelIds || allowedChannelIds.has(ch.id)))
       .map((ch: any) => ({
         id: ch.id,
         name: ch.name,
@@ -138,17 +138,24 @@ export class DiscordBotService implements OnModuleInit {
     }
   }
 
+  private membersCache: { timestamp: number; data: any[] } | null = null;
+  private readonly MEMBERS_CACHE_TTL = 300_000; // 5 min
+
   async getGuildMembers(): Promise<{
     id: string; username: string; globalName: string | null;
     avatar: string | null; roles: { id: string; name: string; color: number }[];
     status: string; isBot: boolean;
   }[]> {
+    if (this.membersCache && Date.now() - this.membersCache.timestamp < this.MEMBERS_CACHE_TTL) {
+      return this.membersCache.data;
+    }
+
     if (!this.client) return [];
     const guild = this.client.guilds.cache.get(this.guildId);
     if (!guild) return [];
 
     try {
-      const members = await guild.members.fetch();
+      const members = await guild.members.fetch({ limit: 1000 });
       const presenceMap = new Map<string, string>();
       if (guild.presences?.cache) {
         for (const [, p] of guild.presences.cache) {
@@ -156,7 +163,7 @@ export class DiscordBotService implements OnModuleInit {
         }
       }
 
-      return members
+      const result = members
         .filter((m: any) => !m.user?.bot)
         .map((m: any) => ({
           id: m.id,
@@ -169,8 +176,12 @@ export class DiscordBotService implements OnModuleInit {
           status: presenceMap.get(m.id) ?? (m.presence?.status ?? 'offline'),
           isBot: m.user?.bot ?? false,
         }));
+
+      this.membersCache = { timestamp: Date.now(), data: result };
+      return result;
     } catch (e) {
       this.logger.warn('Failed to fetch guild members:', e);
+      if (this.membersCache) return this.membersCache.data;
       return [];
     }
   }
@@ -195,14 +206,19 @@ export class DiscordBotService implements OnModuleInit {
         ],
       });
 
-      this.client.on('clientReady', () => {
-        this.logger.log(`Discord bot logged in as ${this.client.user?.tag}`);
-        const guilds = this.client.guilds.cache.map((g: any) => `${g.name} (${g.id})`);
-        this.logger.log(`Watching guilds: ${guilds.join(', ')}`);
-
-        // Initial sync of voice states
-        this.syncVoiceStates();
+      // Wait for the client to be fully ready before returning
+      const ready = new Promise<void>((resolve) => {
+        this.client.once('ready', () => {
+          this.logger.log(`Discord bot logged in as ${this.client.user?.tag}`);
+          const guilds = this.client.guilds.cache.map((g: any) => `${g.name} (${g.id})`);
+          this.logger.log(`Watching guilds: ${guilds.join(', ')}`);
+          this.syncVoiceStates();
+          resolve();
+        });
       });
+
+      await this.client.login(this.token);
+      await ready;
 
       // --- Text messages from ALL channels ---
       this.client.on('messageCreate', async (message: any) => {
@@ -261,7 +277,6 @@ export class DiscordBotService implements OnModuleInit {
         }
       });
 
-      await this.client.login(this.token);
     } catch (e) {
       this.logger.error('Failed to start Discord bot:', e);
     }
@@ -382,6 +397,12 @@ export class DiscordBotService implements OnModuleInit {
 
     const channel = guild.channels.cache.get(channelId);
     if (!channel || (channel.type !== 0 && channel.type !== 5)) return;
+
+    const botMember = guild.members.me ?? await guild.members.fetch(this.client.user.id);
+    if (!botMember?.permissionsIn(channel.id).has('ViewChannel')) {
+      this.logger.warn(`Skipping backfill — no ViewChannel permission for ${channel.name} (${channelId})`);
+      return;
+    }
 
     const MAX_TOTAL = 1000;
     let fetched = 0;

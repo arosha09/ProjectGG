@@ -47,6 +47,10 @@ export class AuthService {
     return this.usersService.getToken();
   }
 
+  getRefreshToken(): string | null {
+    return this.usersService.getRefreshToken();
+  }
+
   getCurrentUser(): any {
     return this.usersService.getCurrentUser();
   }

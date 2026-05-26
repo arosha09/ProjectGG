@@ -1,1 +1,23 @@
-<router-outlet></router-outlet>
+<div class="app-root-shell" (contextmenu)="onContextMenu($event)">
+  <app-admin-nav
+    *ngIf="router.url.startsWith('/admin') && currentUser"
+  ></app-admin-nav>
+
+  <app-header-nav
+    *ngIf="!router.url.startsWith('/admin') && !router.url.startsWith('/login') && !router.url.startsWith('/register') && !router.url.startsWith('/home') && currentUser"
+    [currentStatus]="currentStatus"
+    [profileDropdownOpen]="profileDropdownOpen"
+    [userName]="currentUser?.username"
+    [avatarUrl]="currentUser?.avatar || getDefaultAvatar(currentUser?.gender)"
+    [isAdmin]="isAdmin"
+    [discordConnected]="discordConnected"
+    [isAuthLoading]="isAuthLoading"
+    (statusChange)="setStatus($event)"
+    (profileToggle)="toggleProfileDropdown()"
+    (logout)="logout()"
+  ></app-header-nav>
+
+  <div class="router-outlet-wrapper">
+    <router-outlet></router-outlet>
+  </div>
+</div>

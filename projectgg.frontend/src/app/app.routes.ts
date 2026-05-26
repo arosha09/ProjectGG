@@ -26,15 +26,18 @@ export const routes: Routes = [
   },
   {
     path: 'home',
-    component: Home
+    component: Home,
+    data: { hideDivider: true }
   },
   {
     path: 'login',
-    component: Login
+    component: Login,
+    data: { hideDivider: true }
   },
   {
     path: 'register',
-    component: Register
+    component: Register,
+    data: { hideDivider: true }
   },
   {
     path: 'dashboard',
@@ -54,22 +57,27 @@ export const routes: Routes = [
   {
     path: 'auth/steam/callback',
     component: SteamCallbackComponent,
+    data: { hideDivider: true }
   },
   {
     path: 'auth/discord/callback',
     component: DiscordCallbackComponent,
+    data: { hideDivider: true }
   },
   {
     path: 'auth/spotify/callback',
     component: SpotifyCallbackComponent,
+    data: { hideDivider: true }
   },
   {
     path: 'auth/youtube-music/callback',
     component: YoutubeMusicCallbackComponent,
+    data: { hideDivider: true }
   },
   {
     path: 'auth/apple-music/callback',
     component: AppleMusicCallbackComponent,
+    data: { hideDivider: true }
   },
   {
     path: 'chat',

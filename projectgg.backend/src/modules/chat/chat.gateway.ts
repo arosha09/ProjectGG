@@ -26,8 +26,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     });
   }
 
-  handleConnection(client: Socket): void {}
-  handleDisconnect(): void {}
+  handleConnection(client: Socket): void {
+    const userId = client.handshake.query.userId as string;
+    if (userId) {
+      client.join(`user:${userId}`);
+    }
+  }
+
+  handleDisconnect(client: Socket): void {
+    const userId = client.handshake.query.userId as string;
+    if (userId) {
+      client.leave(`user:${userId}`);
+    }
+  }
 
   broadcastMessage(msg: any): void {
     this.server?.emit('message', msg);
@@ -35,5 +46,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   broadcastServerEvent(event: string, data: any): void {
     this.server?.emit(event, data);
+  }
+
+  sendToUser(userId: string, event: string, data: any): void {
+    this.server?.to(`user:${userId}`).emit(event, data);
   }
 }

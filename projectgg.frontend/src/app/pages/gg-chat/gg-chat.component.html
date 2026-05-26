@@ -3,6 +3,17 @@
     <!-- SERVER LIST -->
     <aside class="gg-servers">
       <div class="gg-servers-scroll">
+        <div
+          class="gg-server-icon gg-dm-icon"
+          [class.active]="viewMode === 'dm'"
+          (click)="goToDms()"
+          title="Direct Messages"
+        >
+          <mat-icon class="gg-dm-svg">chat</mat-icon>
+        </div>
+
+        <div class="gg-server-divider"></div>
+
         @for (server of servers; track server.id) {
           <div
             class="gg-server-icon"
@@ -20,39 +31,158 @@
         <div class="gg-server-icon gg-server-add" (click)="openCreateServer()" title="Add Server">
           <span class="gg-server-initial gg-add-plus">+</span>
         </div>
+        <div class="gg-server-icon gg-server-join" (click)="showJoinServer = true" title="Join Server">
+          <mat-icon class="gg-server-join-icon">group_add</mat-icon>
+        </div>
       </div>
     </aside>
 
-    <!-- CHANNEL LIST -->
+    <!-- CHANNEL / DM LIST -->
     <aside class="gg-channels">
-      @if (selectedServer) {
+      @if (viewMode === 'dm') {
+        <!-- DM MODE -->
+        <div class="gg-channels-head">
+          <span class="gg-channels-title">Direct Messages</span>
+          <div class="gg-notif-bell-wrap" (click)="toggleNotifications(); $event.stopPropagation()">
+            <mat-icon class="gg-notif-bell">notifications</mat-icon>
+            @if (unreadCount > 0) {
+              <span class="gg-notif-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+            }
+          </div>
+        </div>
+
+        @if (showNotifications) {
+          <div class="gg-notif-panel" (click)="$event.stopPropagation()">
+            <div class="gg-notif-header">
+              <span>Notifications</span>
+              @if (unreadCount > 0) {
+                <button class="gg-notif-mark-read" (click)="markAllNotifRead()">Mark all read</button>
+              }
+            </div>
+            <div class="gg-notif-list">
+              @if (notifications.length === 0) {
+                <div class="gg-notif-empty">No notifications</div>
+              }
+              @for (n of notifications; track n.id) {
+                <div class="gg-notif-item" [class.unread]="!n.read" (click)="markNotifRead(n)">
+                  <div class="gg-notif-icon">
+                    @if (n.type === 'friend_request' || n.type === 'friend_accepted') {
+                      <mat-icon>person_add</mat-icon>
+                    } @else {
+                      <mat-icon>notifications</mat-icon>
+                    }
+                  </div>
+                  <div class="gg-notif-body">
+                    <div class="gg-notif-title">{{ n.title }}</div>
+                    <div class="gg-notif-text">{{ n.body }}</div>
+                  </div>
+                  <div class="gg-notif-time">{{ n.created_at | date:'short' }}</div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="gg-channels-scroll">
+          <div class="gg-dm-section-label">Friends</div>
+
+          <div class="gg-channel gg-friends-btn" (click)="showFriendsList = true">
+            <mat-icon class="gg-ch-icon">people</mat-icon>
+            <span class="gg-ch-name">Friends</span>
+            @if (pendingRequests.length > 0) {
+              <span class="gg-pending-badge">{{ pendingRequests.length }}</span>
+            }
+          </div>
+
+          <div class="gg-channel gg-add-friend-btn" (click)="openAddFriend()">
+            <mat-icon class="gg-ch-icon">person_add</mat-icon>
+            <span class="gg-ch-name">Add Friend</span>
+          </div>
+
+          @if (dmConversations.length > 0) {
+            <div class="gg-dm-section-label">Messages</div>
+            @for (conv of dmConversations; track conv.id) {
+              <div
+                class="gg-channel"
+                [class.active]="selectedDm?.id === conv.id"
+                (click)="selectDm(conv)"
+              >
+                <div class="gg-dm-avatar-sm">
+                  @if (conv.otherAvatar) {
+                    <img [src]="conv.otherAvatar" alt="" class="gg-dm-avatar-img-sm" />
+                  } @else {
+                    <span class="gg-dm-avatar-text-sm">{{ conv.otherUsername[0] }}</span>
+                  }
+                </div>
+                <span class="gg-ch-name">{{ conv.otherUsername }}</span>
+              </div>
+            }
+          } @else {
+            <div class="gg-dm-empty">No conversations yet</div>
+          }
+        </div>
+
+        <!-- USER BADGE -->
+        <div class="gg-user-badge">
+          <div class="gg-user-avatar">
+            @if (userAvatar()) {
+              <img [src]="userAvatar()" alt="" class="gg-user-img" />
+            } @else {
+              <span class="gg-user-text">{{ userInitial() }}</span>
+            }
+            <span class="gg-user-status-dot" [style.background]="statusColor()" title="{{ currentStatus }}"></span>
+          </div>
+          <div class="gg-user-info">
+            <span class="gg-user-name">{{ currentUser?.username ?? 'Unknown' }}</span>
+            <button class="gg-user-status-label" (click)="cycleStatus()" title="Click to change status">
+              {{ currentStatus }}
+            </button>
+          </div>
+        </div>
+      } @else if (selectedServer) {
+        <!-- SERVER MODE -->
         <div class="gg-channels-head">
           <span class="gg-channels-title">{{ selectedServer.name }}</span>
-          <button class="gg-ch-actions" (click)="deleteServer(selectedServer)" title="Delete Server">
-            <mat-icon>delete</mat-icon>
-          </button>
+          <div class="gg-server-dropdown-container">
+            <button class="gg-ch-actions" (click)="toggleServerDropdown()" title="Server Menu">
+              <mat-icon>expand_more</mat-icon>
+            </button>
+            @if (serverDropdownOpen) {
+              <div class="gg-server-dropdown" (click)="$event.stopPropagation()">
+                <button class="gg-dropdown-item" (click)="openInviteLinks(); closeServerDropdown()">
+                  <mat-icon>link</mat-icon> Invite
+                </button>
+                <button class="gg-dropdown-item" (click)="openServerSettings(); closeServerDropdown()">
+                  <mat-icon>settings</mat-icon> Settings
+                </button>
+              </div>
+            }
+          </div>
         </div>
 
         <div class="gg-channels-scroll">
           @if (channelLoading) {
             <div class="gg-loading-sm">Loading...</div>
           } @else {
-            @for (ch of channels; track ch.id) {
+              @for (ch of channels; track ch.id) {
               <div
                 class="gg-channel"
                 [class.active]="selectedChannel?.id === ch.id"
                 (click)="selectChannel(ch)"
               >
-                <mat-icon class="gg-ch-icon">{{ channelIcon(ch.type) }}</mat-icon>
+                <mat-icon class="gg-ch-icon">{{ isChannelPrivate(ch) ? 'lock' : channelIcon(ch.type) }}</mat-icon>
                 <span class="gg-ch-name">{{ ch.name }}</span>
                 @if (ch.type === 'voice' && selectedChannel?.id === ch.id && voiceConnected) {
                   <span class="gg-ch-live"></span>
                 }
+                <button class="gg-ch-settings" (click)="openChannelSettings(ch); $event.stopPropagation()" title="Channel Settings">
+                  <mat-icon>settings</mat-icon>
+                </button>
                 <button class="gg-ch-delete" (click)="deleteChannel(ch); $event.stopPropagation()" title="Delete">
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
-            }
+              }
           }
 
           <div class="gg-channel gg-channel-add" (click)="openCreateChannel()">
@@ -61,20 +191,71 @@
           </div>
         </div>
 
+        <div class="gg-user-status-panel">
+          <div class="gg-user-status-main">
+            <div class="gg-user-avatar">
+              @if (userAvatar()) {
+                <img [src]="userAvatar()" alt="" class="gg-user-img" />
+              } @else {
+                <span class="gg-user-text">{{ userInitial() }}</span>
+              }
+              <span
+                class="gg-user-status-dot"
+                [class.online]="currentStatus === 'online'"
+                [class.away]="currentStatus === 'away'"
+                [class.dnd]="currentStatus === 'dnd'"
+                [class.offline]="currentStatus === 'offline'"
+                [class.invisible]="currentStatus === 'invisible'"
+                title="Status: {{ currentStatus }}"
+              ></span>
+            </div>
+            <div class="gg-user-status-copy">
+              <span class="gg-user-name">{{ currentUser?.username ?? 'You' }}</span>
+              <select class="gg-status-select" [(ngModel)]="currentStatus" (change)="setStatus(currentStatus)">
+                @for (statusOption of statusOptions; track statusOption.id) {
+                  <option [value]="statusOption.id">{{ statusOption.label }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="gg-user-status-controls">
+            <button type="button" class="gg-voice-control-btn" [class.active]="voiceMuted" (click)="toggleVoiceMute()" title="{{ voiceMuted ? 'Unmute' : 'Mute' }}">
+              <mat-icon>{{ voiceMuted ? 'mic_off' : 'mic' }}</mat-icon>
+            </button>
+            <button type="button" class="gg-voice-control-btn" [class.active]="voiceDeafened" (click)="toggleVoiceDeaf()" title="{{ voiceDeafened ? 'Undeafen' : 'Deafen' }}">
+              <mat-icon>{{ voiceDeafened ? 'headset_off' : 'headset' }}</mat-icon>
+            </button>
+            @if (voiceConnected) {
+              <button type="button" class="gg-voice-control-btn gg-voice-connect" (click)="leaveVoice()" title="Leave Voice">
+                <mat-icon>call_end</mat-icon>
+              </button>
+            } @else {
+              <button type="button" class="gg-voice-control-btn gg-voice-connect" (click)="selectedChannel ? toggleVoice(selectedChannel) : null" [disabled]="!selectedChannel || selectedChannel.type !== 'voice'" title="Join Voice Channel">
+                <mat-icon>call</mat-icon>
+              </button>
+            }
+          </div>
+        </div>
+
         <!-- USER BADGE -->
         <div class="gg-user-badge">
           <div class="gg-user-avatar">
-            @if (currentUser?.avatar_url) {
-              <img [src]="currentUser?.avatar_url" alt="" class="gg-user-img" />
+            @if (userAvatar()) {
+              <img [src]="userAvatar()" alt="" class="gg-user-img" />
             } @else {
-              <span class="gg-user-text">{{ (currentUser?.username ?? '?')[0] }}</span>
+              <span class="gg-user-text">{{ userInitial() }}</span>
             }
+            <span class="gg-user-status-dot" [style.background]="statusColor()" title="{{ currentStatus }}"></span>
           </div>
           <div class="gg-user-info">
             <span class="gg-user-name">{{ currentUser?.username ?? 'Unknown' }}</span>
+            <button class="gg-user-status-label" (click)="cycleStatus()" title="Click to change status">
+              {{ currentStatus }}
+            </button>
           </div>
         </div>
       } @else {
+        <!-- NO SERVER -->
         <div class="gg-no-server">
           @if (serverLoading) {
             <div class="gg-loading-sm">Loading...</div>
@@ -89,18 +270,25 @@
 
     <!-- MAIN PANEL -->
     <main class="gg-main">
-      @if (selectedChannel && selectedChannel.type === 'text') {
+      <!-- DM CHAT -->
+      @if (viewMode === 'dm' && selectedDm) {
         <div class="gg-channel-header">
-          <mat-icon class="gg-ch-icon">tag</mat-icon>
-          <h2>{{ selectedChannel.name }}</h2>
+          <div class="gg-dm-avatar-sm gg-dm-header-avatar">
+            @if (selectedDm.otherAvatar) {
+              <img [src]="selectedDm.otherAvatar" alt="" class="gg-dm-avatar-img-sm" />
+            } @else {
+              <span class="gg-dm-avatar-text-sm">{{ selectedDm.otherUsername[0] }}</span>
+            }
+          </div>
+          <h2>{{ selectedDm.otherUsername }}</h2>
         </div>
 
-        <div class="gg-messages">
-          @for (msg of messages; track msg.id) {
+        <div class="gg-messages gg-dm-messages">
+          @for (msg of dmMessages; track msg.id) {
             <div class="gg-msg">
               <div class="gg-msg-avatar">
-                @if (avatarForUsername(msg.username)) {
-                  <img [src]="avatarForUsername(msg.username)" alt="" class="gg-msg-avatar-img" />
+                @if (msg.avatar_url) {
+                  <img [src]="msg.avatar_url" alt="" class="gg-msg-avatar-img" />
                 } @else {
                   <span class="gg-msg-avatar-text">{{ msg.username[0] }}</span>
                 }
@@ -111,6 +299,20 @@
                   <span class="gg-msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
                 </div>
                 <div class="gg-msg-content">{{ msg.content }}</div>
+                @if (msg.attachment_url) {
+                  <div class="gg-msg-attachment">
+                    @if (isVideoUrl(msg.attachment_url)) {
+                      <video class="gg-msg-attachment-video" controls preload="metadata">
+                        <source [src]="msg.attachment_url" />
+                      </video>
+                    } @else {
+                      <img [src]="msg.attachment_url" alt="" class="gg-msg-attachment-img" (click)="downloadFile(msg.attachment_url!)" />
+                    }
+                    <button class="gg-msg-download-btn" (click)="downloadFile(msg.attachment_url!)" title="Download">
+                      <mat-icon>open_in_new</mat-icon>
+                    </button>
+                  </div>
+                }
               </div>
             </div>
           } @empty {
@@ -118,34 +320,231 @@
           }
         </div>
 
-        <div class="gg-input-bar">
-          <input
-            class="gg-input"
-            type="text"
-            [(ngModel)]="newMessage"
-            placeholder="Message #{{ selectedChannel.name }}"
-            (keyup.enter)="send()"
-            [disabled]="sending"
-          />
-          <button class="gg-send-btn" (click)="send()" [disabled]="!newMessage.trim() || sending">
-            <mat-icon>send</mat-icon>
-          </button>
+        <div class="gg-input-bar-wrapper">
+          <div class="gg-input-toolbar">
+            <button class="gg-input-bar-btn" (click)="fileInput.click()" title="Upload file">
+              <mat-icon>attach_file</mat-icon>
+            </button>
+            <button class="gg-input-bar-btn" (click)="toggleGifPicker()" title="GIF picker">
+              <span>GIF</span>
+            </button>
+            <input #fileInput type="file" accept="image/*" (change)="handleFileInput($event)" hidden />
+            @if (uploadingFile) {
+              <span class="gg-uploading-indicator">Uploading...</span>
+            }
+            @if (pendingAttachmentUrl) {
+              <span class="gg-attachment-badge" (click)="removeAttachment()">
+                <mat-icon>attachment</mat-icon> 1 file
+                <mat-icon class="gg-attachment-remove">close</mat-icon>
+              </span>
+            }
+          </div>
+          <div class="gg-input-bar">
+            <div class="gg-input-row">
+              <textarea
+                class="gg-input"
+                [(ngModel)]="newMessage"
+                [placeholder]="placeholderText()"
+                (keydown.enter)="sendDm()"
+                [disabled]="sending"
+                rows="1"
+              ></textarea>
+              <button class="gg-send-btn" (click)="sendDm()" [disabled]="(!newMessage.trim() && !pendingAttachmentUrl) || sending">
+                <mat-icon>send</mat-icon>
+                SEND
+              </button>
+            </div>
+          </div>
+          @if (showGifPicker) {
+            <div class="gg-gif-picker" (click)="$event.stopPropagation()">
+              <div class="gg-gif-picker-head">
+                <input
+                  [(ngModel)]="gifSearchQuery"
+                  placeholder="Search GIFs..."
+                  (keyup.enter)="searchGifs()"
+                />
+              </div>
+              @if (gifSearching) {
+                <div class="gg-gif-loading">Searching...</div>
+              }
+              <div class="gg-gif-grid">
+                @for (gif of gifResults; track gif.id) {
+                  <div class="gg-gif-item" (click)="selectGif(gif)">
+                    <img [src]="gif.preview || gif.url" [alt]="gif.title" loading="lazy" />
+                  </div>
+                }
+              </div>
+            </div>
+          }
         </div>
-      } @else if (selectedChannel && selectedChannel.type === 'voice') {
-        <div class="gg-voice-panel">
-          <mat-icon class="gg-voice-icon">volume_up</mat-icon>
+      }
+
+      <!-- SERVER TEXT CHANNEL -->
+      @if (viewMode === 'server' && selectedChannel && selectedChannel.type === 'text') {
+        <div class="gg-channel-header">
+          <mat-icon class="gg-ch-icon">tag</mat-icon>
           <h2>{{ selectedChannel.name }}</h2>
+        </div>
+
+        <div class="gg-messages">
+          @for (msg of messages; track msg.id) {
+            <div
+              class="chat-msg message-item"
+              [class.msg-discord]="msg.source === 'discord'"
+              [class.msg-web]="msg.source === 'web'"
+              [class.msg-voice]="msg.channel_type === 'voice'"
+            >
+              @if (msg.username !== 'System') {
+                <div class="msg-avatar-col">
+                  <div class="msg-avatar-wrapper">
+                    @if (msg.avatar_url) {
+                      <img class="msg-avatar" [src]="msg.avatar_url" alt="" />
+                    } @else if (avatarForUsername(msg.username)) {
+                      <img class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" />
+                    } @else {
+                      <span class="msg-avatar-text">{{ msg.username[0] }}</span>
+                    }
+                  </div>
+                </div>
+              }
+              <div class="msg-body">
+                @if (msg.reply_to) {
+                  <div class="msg-reply-bar">
+                    <span class="reply-line"></span>
+                    <div class="reply-preview">
+                      <span class="reply-author">{{ getReplyAuthor(msg.reply_to) }}</span>
+                      <span class="reply-text">{{ getReplyPreview(msg.reply_to) }}</span>
+                    </div>
+                  </div>
+                }
+                <div class="msg-head">
+                  <span class="msg-username"
+                    [class.discord-user]="msg.source === 'discord'"
+                    [class.web-user]="msg.source === 'web'"
+                  >{{ msg.username }}</span>
+                  <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
+                </div>
+                <div class="msg-content" [class.msg-system]="msg.username === 'System'" [innerHTML]="highlightMentions(msg.content)"></div>
+                @if (msg.attachment_url) {
+                  <div class="msg-attachment">
+                    <img [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
+                  </div>
+                }
+                @if (msg.sticker_url) {
+                  <div class="msg-sticker">
+                    <img [src]="msg.sticker_url" class="sticker-img" />
+                  </div>
+                }
+                <div class="msg-actions">
+                  <button class="msg-action-btn" (click)="startReply(msg)" title="Reply">↩</button>
+                </div>
+              </div>
+            </div>
+          } @empty {
+            <div class="gg-msg-empty">No messages yet — start the conversation!</div>
+          }
+        </div>
+
+        <footer class="chat-footer-panel">
+          @if (selectedChannel && !canSendInChannel(selectedChannel.id)) {
+            <div class="no-permission-bar">
+              <mat-icon>lock</mat-icon>
+              <span>You don't have permission to send messages in <strong>#{{ selectedChannel.name }}</strong></span>
+            </div>
+          } @else {
+            @if (replyToMessage) {
+              <div class="reply-preview-bar">
+                <div class="reply-preview-info">
+                  <span class="reply-label">Replying to</span>
+                  <span class="reply-username">{{ replyToMessage.username }}</span>
+                  <span class="reply-content">{{ replyToMessage.content | slice:0:80 }}</span>
+                </div>
+                <button class="reply-cancel" (click)="cancelReply()">✕</button>
+              </div>
+            }
+            <div class="chat-input-toolbar">
+              <button mat-button class="chat-action-btn" (click)="fileInput.click()" title="Upload image">
+                <mat-icon>attach_file</mat-icon>
+              </button>
+              <button mat-button class="chat-action-btn" (click)="toggleGifPicker()" title="GIF">
+                <span>GIF</span>
+              </button>
+              <input #fileInput type="file" accept="image/*" (change)="uploadFile($event)" hidden />
+              @if (uploadingFile) {
+                <span class="uploading-indicator">Uploading...</span>
+              }
+            </div>
+            @if (showGifPicker) {
+              <div class="gif-picker">
+                <input class="gif-search" [(ngModel)]="gifQuery" (input)="searchGifs()" placeholder="Search GIFs..." />
+                <div class="gif-grid">
+                  @for (gif of gifResults; track gif.id) {
+                    <img [src]="gif.preview" (click)="selectGif(gif.url)" class="gif-item" />
+                  }
+                </div>
+              </div>
+            }
+            @if (showMentionAutocomplete) {
+              <div class="mention-autocomplete">
+                @for (m of filteredMentions; track m.id) {
+                  <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index">
+                    <img [src]="m.avatar || ''" class="mention-avatar" />
+                    <span class="mention-name">{{ m.username }}</span>
+                  </div>
+                }
+              </div>
+            }
+            <div class="chat-input-wrapper">
+              <textarea
+                class="chat-textarea"
+                [(ngModel)]="messageText"
+                (keydown)="onInputKeydown($event)"
+                (input)="onInputChange()"
+                placeholder="Message #{{ selectedChannel.name }}"
+                rows="1"
+              ></textarea>
+              <button mat-button (click)="sendMessage()" [disabled]="(!messageText.trim() && !pendingUpload && !gifToSend) || sending">
+                <mat-icon>send</mat-icon>
+                SEND
+              </button>
+            </div>
+          }
+        </footer>
+      }
+
+      <!-- VOICE CHANNEL -->
+      @if (viewMode === 'server' && selectedChannel && selectedChannel.type === 'voice') {
+        <div class="gg-voice-panel">
+          <div class="gg-voice-header">
+            <mat-icon class="gg-voice-icon">volume_up</mat-icon>
+            <h2>{{ selectedChannel.name }}</h2>
+            @if (voiceConnected) {
+              <span class="gg-voice-status-dot connected" title="Connected"></span>
+            } @else if (voiceConnecting) {
+              <span class="gg-voice-status-dot connecting" title="Connecting…"></span>
+            } @else {
+              <span class="gg-voice-status-dot disconnected" title="Disconnected"></span>
+            }
+          </div>
+
           <div class="gg-voice-controls">
             @if (voiceConnecting) {
-              <div class="gg-voice-connecting">Connecting...</div>
+              <div class="gg-voice-connecting">Connecting…</div>
             } @else if (voiceConnected) {
-              <button class="gg-voice-btn gg-voice-mute" (click)="toggleVoiceMute()">
+              <button class="gg-voice-btn gg-voice-mute"
+                      [class.active]="voiceMuted"
+                      (click)="toggleVoiceMute()"
+                      title="{{ voiceMuted ? 'Unmute' : 'Mute' }}">
                 <mat-icon>{{ voiceMuted ? 'mic_off' : 'mic' }}</mat-icon>
-                {{ voiceMuted ? 'Unmute' : 'Mute' }}
               </button>
-              <button class="gg-voice-btn gg-voice-leave" (click)="leaveVoice()">
+              <button class="gg-voice-btn gg-voice-deafen"
+                      [class.active]="voiceDeafened"
+                      (click)="toggleVoiceDeaf()"
+                      title="{{ voiceDeafened ? 'Undeafen' : 'Deafen' }}">
+                <mat-icon>{{ voiceDeafened ? 'headset_off' : 'headset' }}</mat-icon>
+              </button>
+              <button class="gg-voice-btn gg-voice-leave" (click)="leaveVoice()" title="Disconnect">
                 <mat-icon>call_end</mat-icon>
-                Disconnect
               </button>
             } @else {
               <button class="gg-voice-btn gg-voice-join" (click)="selectChannel(selectedChannel)">
@@ -154,18 +553,43 @@
               </button>
             }
           </div>
+
+          @if (voiceConnected && voiceMembers.length > 0) {
+            <div class="gg-voice-members">
+              <div class="gg-voice-members-head">
+                Voice Connected — {{ voiceMembers.length }}
+              </div>
+              <div class="gg-voice-members-list">
+                @for (vm of voiceMembers; track vm.userId) {
+                  <div class="gg-voice-member">
+                    <div class="gg-vm-avatar">
+                      @if (voiceMemberAvatar(vm.userId)) {
+                        <img [src]="voiceMemberAvatar(vm.userId)!" alt="" class="gg-vm-img" />
+                      } @else {
+                        <span class="gg-vm-text">{{ voiceMemberName(vm.userId)[0] }}</span>
+                      }
+                    </div>
+                    <span class="gg-vm-name">{{ voiceMemberName(vm.userId) }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
         </div>
-      } @else {
+      }
+
+      <!-- NO SELECTION -->
+      @if (!selectedDm && !selectedChannel && viewMode === 'dm') {
         <div class="gg-no-channel">
           <mat-icon>forum</mat-icon>
-          <p>Select a channel to start chatting</p>
+          <p>Select a conversation or start a new one</p>
         </div>
       }
     </main>
 
-    <!-- MEMBER LIST -->
-    <aside class="gg-members">
-      @if (selectedServer) {
+    <!-- MEMBER LIST (server only) -->
+    <aside class="gg-members" [class.gg-members-hidden]="viewMode === 'dm'">
+      @if (viewMode === 'server' && selectedServer) {
         <div class="gg-members-head">Members — {{ members.length }}</div>
         <div class="gg-members-scroll">
           @for (member of members; track member.user_id) {
@@ -174,16 +598,31 @@
                 @if (member.avatar_url) {
                   <img [src]="member.avatar_url" alt="" class="gg-member-img" />
                 } @else {
-                  <span class="gg-member-text">{{ member.user_id[0] }}</span>
+                  <span class="gg-member-text">{{ (member.username ?? member.user_id)[0] }}</span>
                 }
               </div>
               <div class="gg-member-info">
                 <span class="gg-member-name">{{ member.username ?? member.user_id }}</span>
-                @if (member.role !== 'member') {
-                  <span class="gg-member-role" [class.gg-role-owner]="member.role === 'owner'" [class.gg-role-admin]="member.role === 'admin'">
-                    {{ member.role }}
-                  </span>
-                }
+                <div class="gg-member-role-row">
+                  @if (member.roles.includes('owner')) {
+                    <span class="gg-member-role gg-role-owner">Owner</span>
+                  } @else if (member.roles.includes('admin')) {
+                    @if (!isSelf(member) && canManageRoles()) {
+                      <button class="gg-role-btn gg-role-admin" (click)="changeRole(member, 'moderator')" title="Demote to Moderator">Admin</button>
+                    } @else {
+                      <span class="gg-member-role gg-role-admin">Admin</span>
+                    }
+                  } @else if (member.roles.includes('moderator')) {
+                    @if (!isSelf(member) && canManageRoles()) {
+                      <button class="gg-role-btn gg-role-moderator" (click)="changeRole(member, 'member')" title="Demote to Member">Mod</button>
+                    } @else {
+                      <span class="gg-member-role gg-role-moderator">Mod</span>
+                    }
+                  }
+                  @if (!isSelf(member) && canKick() && !member.roles.includes('owner')) {
+                    <button class="gg-member-kick" (click)="confirmKick(member)" title="Kick">X</button>
+                  }
+                </div>
               </div>
             </div>
           }
@@ -235,9 +674,404 @@
             <mat-icon>volume_up</mat-icon> Voice
           </label>
         </div>
+        <div class="gg-modal-type-row">
+          <label class="gg-type-option" [class.active]="newChannelPrivate">
+            <input type="checkbox" [(ngModel)]="newChannelPrivate" />
+            <mat-icon>lock</mat-icon> Private
+          </label>
+        </div>
         <div class="gg-modal-actions">
           <button class="gg-btn gg-btn-cancel" (click)="showCreateChannel = false">Cancel</button>
           <button class="gg-btn gg-btn-primary" (click)="createChannel()" [disabled]="!newChannelName.trim()">Create</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- CHANNEL SETTINGS MODAL -->
+  @if (showChannelSettings && channelSettingsChannel) {
+    <div class="gg-overlay" (click)="showChannelSettings = false">
+      <div class="gg-modal" (click)="$event.stopPropagation()">
+        <h2 class="gg-modal-title">Channel Settings - #{{ channelSettingsChannel.name }}</h2>
+        <p class="gg-modal-desc">Select which roles can see this channel (leave empty for public)</p>
+        <div class="gg-channel-roles-list">
+          @for (role of availableRoles; track role) {
+            <label class="gg-role-option" [class.active]="channelSettingsRoles.includes(role)">
+              <input
+                type="checkbox"
+                [checked]="channelSettingsRoles.includes(role)"
+                (change)="toggleChannelRole(role)"
+              />
+              <span>{{ role }}</span>
+            </label>
+          }
+        </div>
+        <div class="gg-modal-actions">
+          <button class="gg-btn gg-btn-cancel" (click)="showChannelSettings = false">Cancel</button>
+          <button class="gg-btn gg-btn-primary" (click)="saveChannelSettings()">Save</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- SERVER SETTINGS MODAL -->
+  @if (showServerSettings && selectedServer) {
+    <div class="gg-overlay" (click)="showServerSettings = false">
+      <div class="gg-modal gg-modal-lg" (click)="$event.stopPropagation()">
+        <div class="gg-modal-header">
+          <h2 class="gg-modal-title">Server Settings</h2>
+          <button class="gg-modal-close" (click)="showServerSettings = false">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="gg-settings-scroll">
+          <!-- General Settings -->
+          <div class="gg-settings-section">
+            <h3 class="gg-settings-section-title">General</h3>
+
+            <div class="gg-server-settings-avatar">
+              @if (serverSettingsAvatarPreview || selectedServer.avatar_url) {
+                <img [src]="serverSettingsAvatarPreview || selectedServer.avatar_url" alt="" class="gg-server-settings-img" />
+              } @else {
+                <span class="gg-server-settings-initial">{{ serverInitial(selectedServer) }}</span>
+              }
+              <button class="gg-btn gg-btn-small" (click)="serverAvatarInput.click()">Change Icon</button>
+              <input #serverAvatarInput type="file" accept="image/*" style="display:none" (change)="handleServerAvatarInput($event)" />
+            </div>
+
+            <label class="gg-modal-label">Server Name</label>
+            <input
+              class="gg-modal-input"
+              [(ngModel)]="serverSettingsName"
+              placeholder="Server name"
+            />
+          </div>
+
+          <!-- Role Management -->
+          @if (canManageRoles()) {
+            <div class="gg-settings-section">
+              <h3 class="gg-settings-section-title">Role Management</h3>
+              <div class="gg-settings-members-list">
+                @for (member of members; track member.user_id) {
+                  <div class="gg-settings-member-row">
+                    <div class="gg-member-avatar-sm">
+                      @if (member.avatar_url) {
+                        <img [src]="member.avatar_url" alt="" class="gg-member-img-sm" />
+                      } @else {
+                        <span class="gg-member-text-sm">{{ (member.username ?? member.user_id)[0] }}</span>
+                      }
+                    </div>
+                    <span class="gg-settings-member-name">{{ member.username ?? member.user_id }}</span>
+                    @if (!isSelf(member) && isRoleHigher(member)) {
+                      <select
+                        class="gg-role-select"
+                        [value]="member.roles[0]"
+                        (change)="changeRole(member, $any($event.target).value)"
+                      >
+                        @for (r of availableRolesForSettings; track r) {
+                          <option [value]="r" [selected]="member.roles[0] === r">
+                            {{ r | titlecase }}
+                          </option>
+                        }
+                      </select>
+                    } @else {
+                      <span class="gg-member-role-tag" [class.gg-role-owner]="member.roles.includes('owner')" [class.gg-role-admin]="member.roles.includes('admin')" [class.gg-role-moderator]="member.roles.includes('moderator')">
+                        {{ member.roles[0] | titlecase }}
+                      </span>
+                    }
+                    @if (!isSelf(member) && canKick() && !member.roles.includes('owner')) {
+                      <button class="gg-member-kick-sm" (click)="confirmKick(member)" title="Kick">X</button>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Danger Zone -->
+          <div class="gg-settings-section gg-settings-danger">
+            <h3 class="gg-settings-section-title">Danger Zone</h3>
+            <p class="gg-settings-desc">Once you delete a server, there is no going back. Please be certain.</p>
+            <button class="gg-btn gg-btn-danger" (click)="confirmDelete(selectedServer)">Delete Server</button>
+          </div>
+        </div>
+
+        <div class="gg-modal-actions">
+          <button class="gg-btn gg-btn-primary" (click)="showServerSettings = false">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- FRIENDS LIST MODAL -->
+  @if (showFriendsList) {
+    <div class="gg-overlay" (click)="showFriendsList = false">
+      <div class="gg-modal gg-modal-lg" (click)="$event.stopPropagation()">
+        <div class="gg-modal-header">
+          <h2 class="gg-modal-title">Friends</h2>
+          <button class="gg-modal-close" (click)="showFriendsList = false">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="gg-friends-tabs">
+          <span class="gg-friends-tab active">All Friends ({{ friends.length }})</span>
+          @if (pendingRequests.length > 0) {
+            <span class="gg-friends-tab gg-friends-tab-pending">Pending ({{ pendingRequests.length }})</span>
+          }
+        </div>
+
+        <div class="gg-friends-scroll">
+          @for (friend of friends; track friend.id) {
+            <div class="gg-friend-row">
+              <div class="gg-dm-avatar-sm">
+                @if (friend.other_avatar) {
+                  <img [src]="friend.other_avatar" alt="" class="gg-dm-avatar-img-sm" />
+                } @else {
+                  <span class="gg-dm-avatar-text-sm">{{ friend.other_username[0] }}</span>
+                }
+              </div>
+              <div class="gg-friend-info">
+                <span class="gg-friend-name">{{ friend.other_username }}</span>
+              </div>
+              <div class="gg-friend-actions">
+                <button class="gg-friend-action-btn" (click)="startDmWithUser(friend.other_id)" title="Message">
+                  <mat-icon>chat</mat-icon>
+                </button>
+                <button class="gg-friend-action-btn gg-friend-action-remove" (click)="removeFriend(friend.id)" title="Remove">
+                  <mat-icon>person_remove</mat-icon>
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <div class="gg-friends-empty">No friends yet. Add some!</div>
+          }
+        </div>
+
+        @if (pendingRequests.length > 0) {
+          <div class="gg-friends-section-title">Pending Requests</div>
+          <div class="gg-friends-scroll">
+            @for (req of pendingRequests; track req.id) {
+              <div class="gg-friend-row">
+                <div class="gg-dm-avatar-sm">
+                  @if (req.other_avatar) {
+                    <img [src]="req.other_avatar" alt="" class="gg-dm-avatar-img-sm" />
+                  } @else {
+                    <span class="gg-dm-avatar-text-sm">{{ req.other_username[0] }}</span>
+                  }
+                </div>
+                <div class="gg-friend-info">
+                  <span class="gg-friend-name">{{ req.other_username }}</span>
+                </div>
+                <div class="gg-friend-actions">
+                  <button class="gg-friend-action-btn gg-friend-accept" (click)="acceptRequest(req.id)" title="Accept">
+                    <mat-icon>check</mat-icon>
+                  </button>
+                  <button class="gg-friend-action-btn gg-friend-action-remove" (click)="removeFriend(req.id)" title="Decline">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (sentRequests.length > 0) {
+          <div class="gg-friends-section-title">Sent Requests</div>
+          <div class="gg-friends-scroll">
+            @for (req of sentRequests; track req.id) {
+              <div class="gg-friend-row">
+                <div class="gg-dm-avatar-sm">
+                  @if (req.other_avatar) {
+                    <img [src]="req.other_avatar" alt="" class="gg-dm-avatar-img-sm" />
+                  } @else {
+                    <span class="gg-dm-avatar-text-sm">{{ req.other_username[0] }}</span>
+                  }
+                </div>
+                <div class="gg-friend-info">
+                  <span class="gg-friend-name">{{ req.other_username }}</span>
+                  <span class="gg-friend-status">Pending</span>
+                </div>
+                <div class="gg-friend-actions">
+                  <button class="gg-friend-action-btn gg-friend-action-remove" (click)="removeFriend(req.id)" title="Cancel">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- ADD FRIEND MODAL -->
+  @if (showAddFriend) {
+    <div class="gg-overlay" (click)="showAddFriend = false">
+      <div class="gg-modal gg-modal-lg" (click)="$event.stopPropagation()">
+        <div class="gg-modal-header">
+          <h2 class="gg-modal-title">Add Friend</h2>
+          <button class="gg-modal-close" (click)="showAddFriend = false">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <p class="gg-modal-desc">Search for users or enter a username to send a friend request</p>
+
+        <div class="gg-add-friend-search">
+          <input
+            class="gg-modal-input"
+            [(ngModel)]="searchQuery"
+            placeholder="Search users..."
+            (input)="searchUsers()"
+            autofocus
+          />
+        </div>
+
+        @if (searchingUsers) {
+          <div class="gg-loading-sm">Searching...</div>
+        }
+
+        @if (searchResults.length > 0) {
+          <div class="gg-friends-scroll gg-search-results">
+            @for (user of searchResults; track user.id) {
+              <div class="gg-friend-row">
+                <div class="gg-dm-avatar-sm">
+                  @if (user.avatar) {
+                    <img [src]="user.avatar" alt="" class="gg-dm-avatar-img-sm" />
+                  } @else {
+                    <span class="gg-dm-avatar-text-sm">{{ (user.username ?? '?')[0] }}</span>
+                  }
+                </div>
+                <div class="gg-friend-info">
+                  <span class="gg-friend-name">{{ user.username }}</span>
+                </div>
+                <button class="gg-friend-action-btn" (click)="sendFriendUsername = user.username; sendFriendRequest()" title="Add Friend">
+                  <mat-icon>person_add</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="gg-add-friend-divider">
+          <span>or enter username directly</span>
+        </div>
+
+        <div class="gg-add-friend-direct">
+          <input
+            class="gg-modal-input"
+            [(ngModel)]="sendFriendUsername"
+            placeholder="Enter exact username"
+            (keyup.enter)="sendFriendRequest()"
+          />
+          <button class="gg-btn gg-btn-primary" (click)="sendFriendRequest()" [disabled]="!sendFriendUsername.trim() || sendingRequest">
+            Send Request
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- JOIN SERVER MODAL -->
+  @if (showJoinServer) {
+    <div class="gg-overlay" (click)="showJoinServer = false">
+      <div class="gg-modal" (click)="$event.stopPropagation()">
+        <div class="gg-modal-header">
+          <h2 class="gg-modal-title">Join Server</h2>
+          <button class="gg-modal-close" (click)="showJoinServer = false">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <p class="gg-modal-desc">Enter an invite code to join a server</p>
+
+        <input
+          class="gg-modal-input"
+          [(ngModel)]="joinCode"
+          placeholder="Paste invite code"
+          (keyup.enter)="joinServerViaInvite()"
+          autofocus
+        />
+
+        @if (joinError) {
+          <div class="gg-invite-error">{{ joinError }}</div>
+        }
+
+        <div class="gg-modal-actions">
+          <button class="gg-btn gg-btn-cancel" (click)="showJoinServer = false">Cancel</button>
+          <button
+            class="gg-btn gg-btn-primary"
+            (click)="joinServerViaInvite()"
+            [disabled]="!joinCode.trim() || joinLoading"
+          >
+            {{ joinLoading ? 'Joining...' : 'Join Server' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- INVITE LINKS MODAL -->
+  @if (showInviteLinks) {
+    <div class="gg-overlay" (click)="closeInviteLinks()">
+      <div class="gg-modal gg-modal-sm" (click)="$event.stopPropagation()">
+        <div class="gg-modal-header">
+          <h2 class="gg-modal-title">Invite Links</h2>
+          <button class="gg-modal-close" (click)="closeInviteLinks()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="gg-modal-body">
+          @if (inviteLoading) {
+            <div class="gg-loading-sm">Loading...</div>
+          } @else {
+            @if (activeInvite) {
+              <div class="gg-invite-section">
+                <label class="gg-invite-label">Active Invite Link</label>
+                <div class="gg-invite-code-row">
+                  <input class="gg-modal-input gg-invite-input" [value]="inviteLinkUrl" readonly (click)="$event.target.select()" />
+                  <button class="gg-btn gg-btn-icon" (click)="copyInviteLink()" title="Copy">
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </div>
+                <div class="gg-invite-meta">
+                  <span>Code: <strong>{{ activeInvite.code }}</strong></span>
+                  <span>Uses: {{ activeInvite.use_count }}</span>
+                </div>
+                @if (copied) {
+                  <span class="gg-invite-copied">Copied!</span>
+                }
+              </div>
+            } @else {
+              <p class="gg-modal-desc">No active invite links. Generate one to invite people.</p>
+            }
+
+            <button class="gg-btn gg-btn-primary gg-invite-generate" (click)="generateInvite()">
+              <mat-icon>refresh</mat-icon>
+              {{ activeInvite ? 'Regenerate' : 'Generate' }} Invite Link
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- CYBER CONFIRM MODAL -->
+  @if (showConfirm) {
+    <div class="gg-overlay" (click)="cancelConfirm()">
+      <div class="gg-modal gg-modal-sm" (click)="$event.stopPropagation()">
+        <div class="gg-confirm-icon">
+          <mat-icon>warning</mat-icon>
+        </div>
+        <p class="gg-confirm-message">{{ confirmMessage }}</p>
+        <div class="gg-modal-actions">
+          @if (confirmShowCancel) {
+            <button class="gg-btn gg-btn-cancel" (click)="cancelConfirm()">{{ confirmCancelLabel }}</button>
+          }
+          <button class="gg-btn gg-btn-danger" (click)="executeConfirm()">{{ confirmLabel }}</button>
         </div>
       </div>
     </div>

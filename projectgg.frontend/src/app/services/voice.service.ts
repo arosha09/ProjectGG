@@ -2,6 +2,7 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
+import { StatusNotificationService } from './notification.service';
 
 @Injectable({ providedIn: 'root' })
 export class VoiceService implements OnDestroy {
@@ -17,11 +18,15 @@ export class VoiceService implements OnDestroy {
   // Callbacks
   onMemberJoined: ((userId: string) => void) | null = null;
   onMemberLeft: ((userId: string) => void) | null = null;
+  onExistingMembers: ((userIds: string[]) => void) | null = null;
   onAudioFrame: ((userId: string, audio: ArrayBuffer) => void) | null = null;
   onUserMuted: ((userId: string) => void) | null = null;
   onUserUnmuted: ((userId: string) => void) | null = null;
 
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly notification: StatusNotificationService,
+  ) {}
 
   get connected(): boolean {
     return this.isConnected;
@@ -40,24 +45,35 @@ export class VoiceService implements OnDestroy {
     });
 
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Connection timeout')), 15000);
+
       this.socket!.on('connect', async () => {
         try {
-          await this.setupAudio();
+          this.setupListeners();
+
           this.socket!.emit('join-channel', {
             guildId,
             channelId,
             userId: this.auth.getCurrentUser()?.id,
           });
+
+          const micOk = await this.setupAudio().then(() => true).catch(() => false);
+          if (!micOk) {
+            this.notification.triggerThemeAlert('Microphone access is required for voice chat. Please allow mic permissions.');
+          }
+
           this.isConnected = true;
           this.currentChannel = { guildId, channelId };
-          this.setupListeners();
+          clearTimeout(timeout);
           resolve();
         } catch (e) {
+          clearTimeout(timeout);
           reject(e);
         }
       });
 
       this.socket!.on('connect_error', (err) => {
+        clearTimeout(timeout);
         reject(err);
       });
     });
@@ -90,6 +106,10 @@ export class VoiceService implements OnDestroy {
 
     this.socket.on('member-left', (data: { userId: string }) => {
       this.onMemberLeft?.(data.userId);
+    });
+
+    this.socket.on('existing-members', (data: { members: { userId: string }[] }) => {
+      this.onExistingMembers?.(data.members.map(m => m.userId));
     });
 
     this.socket.on('audio-frame', (data: { userId: string; audio: ArrayBuffer }) => {

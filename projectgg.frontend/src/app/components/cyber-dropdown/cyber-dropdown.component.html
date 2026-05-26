@@ -1,5 +1,35 @@
 @if (isOpen) {
-  <div class="cyber-menu">
+  <div class="cyber-menu" [style.--dropdown-margin]="margin">
+    <!-- Status Menu Item (Expandable) -->
+    @if (currentStatus) {
+      <div class="status-menu-container">
+        <button 
+          class="cyber-menu-item status-item"
+          (click)="statusSubmenuOpen = !statusSubmenuOpen">
+          <span class="status-dot" [ngStyle]="{'--status-color': statusOptions.find(s => s.id === currentStatus)?.color || '#888888'}"></span>
+          <span class="status-label">{{ statusOptions.find(s => s.id === currentStatus)?.label || 'Status' }}</span>
+          <span class="menu-arrow" [class.expanded]="statusSubmenuOpen">›</span>
+        </button>
+
+        @if (statusSubmenuOpen) {
+          <div class="status-submenu">
+            @for (status of statusOptions; track status.id) {
+              <button 
+                class="status-submenu-item" 
+                [class.active]="currentStatus === status.id"
+                (click)="selectStatus(status.id); statusSubmenuOpen = false">
+                <span class="status-dot" [style.background]="status.color" [style.box-shadow]="'0 0 8px ' + status.color"></span>
+                <span class="status-label">{{ status.label }}</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="dropdown-divider"></div>
+    }
+
+    <!-- Menu Items -->
     @for (item of items; track item.label) {
       @if (!item.adminOnly || isAdmin) {
         @if (item.link) {

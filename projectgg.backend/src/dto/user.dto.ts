@@ -21,4 +21,7 @@ export class UserDto {
 
   @ApiProperty({ example: false })
   email_verified?: boolean;
+
+  @ApiPropertyOptional({ example: 'cyber' })
+  cursor_preference?: string;
 }

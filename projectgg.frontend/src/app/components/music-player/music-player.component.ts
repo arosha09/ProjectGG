@@ -29,7 +29,6 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
   readonly platformDefs: { id: string; name: string; slug: string }[] = [
     { id: 'spotify', name: 'Spotify', slug: 'spotify' },
     { id: 'youtube_music', name: 'YouTube Music', slug: 'youtubemusic' },
-    { id: 'apple_music', name: 'Apple Music', slug: 'applemusic' },
   ];
 
   constructor(

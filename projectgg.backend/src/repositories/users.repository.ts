@@ -11,6 +11,19 @@ export class UsersRepository {
         @Inject(SUPABASE_CLIENT) private readonly supabase: any,
     ) {}
 
+    // Sign a URL with proper per-segment encoding.
+    // Uses signed URLs (not public URLs) because the bucket isn't publicly readable.
+    private async signFileUrl(bucket: string, path: string, expiresIn = 315360000): Promise<string> {
+        const encoded = path.split('/').map(s => encodeURIComponent(s)).join('/');
+        const { data, error } = await this.supabase.storage
+            .from(bucket)
+            .createSignedUrl(encoded, expiresIn);
+        if (error) {
+            console.error(`signFileUrl error [${bucket}/${path}]:`, error.message);
+        }
+        return data?.signedUrl || '';
+    }
+
     async findById(params: { userId?: string; username?: string }): Promise<UserDto | null> {
         let query = this.supabase
             .schema('projectgg')
@@ -34,7 +47,7 @@ export class UsersRepository {
         return (data as UserDto) ?? null;
     }
 
-    async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean }): Promise<UserDto | null> {
+    async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean; cursor_preference?: string }): Promise<UserDto | null> {
         const { data, error } = await this.supabase
             .schema('projectgg')
             .from('users')
@@ -81,9 +94,10 @@ export class UsersRepository {
             throw new InternalServerErrorException(`Avatar upload failed: ${uploadError.message}`);
         }
 
+        const encodedUploadPath = filePath.split('/').map(s => encodeURIComponent(s)).join('/');
         const { data } = await this.supabase.storage
             .from(this.userFilesBucket)
-            .createSignedUrl(filePath, 604800);
+            .createSignedUrl(encodedUploadPath, 604800);
 
         return `user://${this.userFilesBucket}/${filePath}`;
     }
@@ -101,26 +115,62 @@ export class UsersRepository {
         }
     }
 
-    async getSystemAvatars(): Promise<{ filename: string; url: string }[]> {
-        const { data, error } = await this.supabase.storage
+    async getSystemAvatars(): Promise<{ category: string; avatars: { filename: string; url: string; path: string }[] }[]> {
+        const { data: rootItems, error: rootErr } = await this.supabase.storage
             .from(this.systemFilesBucket)
             .list('avatars');
 
-        if (error) {
-            throw new InternalServerErrorException(`List system avatars failed: ${error.message}`);
+        if (rootErr) {
+            throw new InternalServerErrorException(`List system avatars failed: ${rootErr.message}`);
         }
 
-        const avatars = (data || []).filter((f: any) => !f.name.startsWith('.'));
+        const categories: { name: string; path: string }[] = [];
+        const rootFiles: { filename: string; path: string }[] = [];
 
-        return avatars.map((f: any) => {
-            const { data: urlData } = this.supabase.storage
+        for (const item of (rootItems || [])) {
+            if (item.name.startsWith('.')) continue;
+            if (item.id === null) {
+                categories.push({ name: item.name, path: `avatars/${item.name}` });
+            } else {
+                rootFiles.push({ filename: item.name, path: `avatars/${item.name}` });
+            }
+        }
+
+        const result: { category: string; avatars: { filename: string; url: string; path: string }[] }[] = [];
+
+        const toSignedEntry = async (filename: string, filePath: string) => {
+            const url = await this.signFileUrl(this.systemFilesBucket, filePath);
+            return { filename, url, path: filePath };
+        };
+
+        if (rootFiles.length > 0) {
+            const entries = await Promise.all(rootFiles.map(f => toSignedEntry(f.filename, f.path)));
+            result.push({ category: '', avatars: entries });
+        }
+
+        for (const cat of categories) {
+            const { data: catFiles, error: catErr } = await this.supabase.storage
                 .from(this.systemFilesBucket)
-                .getPublicUrl(`avatars/${f.name}`);
-            return {
-                filename: f.name,
-                url: urlData?.publicUrl || '',
-            };
-        });
+                .list(cat.path);
+
+            if (catErr) continue;
+
+            const files = (catFiles || [])
+                .filter((f: any) => !f.name.startsWith('.') && f.id !== null)
+                .map((f: any) => ({ filename: f.name, path: `${cat.path}/${f.name}` }));
+
+            if (files.length > 0) {
+                const entries = await Promise.all(files.map(f => toSignedEntry(f.filename, f.path)));
+                result.push({ category: cat.name, avatars: entries });
+            }
+        }
+
+        return result;
+    }
+
+    async validateSystemAvatarPath(path: string): Promise<{ url: string } | null> {
+        const url = await this.signFileUrl(this.systemFilesBucket, path);
+        return url ? { url } : null;
     }
 
     async getUserAvatarUrl(userId: string): Promise<string | null> {
@@ -131,9 +181,10 @@ export class UsersRepository {
             const path = user.avatar.replace('user://', '');
             const bucket = this.userFilesBucket;
             const filePath = path.startsWith(`${bucket}/`) ? path.slice(bucket.length + 1) : path;
+            const encodedPath = filePath.split('/').map(s => encodeURIComponent(s)).join('/');
             const { data } = await this.supabase.storage
                 .from(bucket)
-                .createSignedUrl(filePath, 604800);
+                .createSignedUrl(encodedPath, 604800);
             return data?.signedUrl || null;
         }
 
@@ -141,10 +192,6 @@ export class UsersRepository {
             return user.avatar;
         }
 
-        const { data } = this.supabase.storage
-            .from(this.systemFilesBucket)
-            .getPublicUrl(`avatars/${user.avatar}`);
-
-        return data?.publicUrl || null;
+        return this.signFileUrl(this.systemFilesBucket, `avatars/${user.avatar}`);
     }
 }

@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { MatIconModule } from '@angular/material/icon';
 import { StatusMessageComponent } from '../../components/status-message/status-message.component';
@@ -13,7 +13,7 @@ import { StatusMessageComponent } from '../../components/status-message/status-m
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })
-export class Login {
+export class Login implements OnInit {
   email = '';
   password = '';
   loading = false;
@@ -25,8 +25,23 @@ export class Login {
   constructor(
     private readonly auth: AuthService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
   ) {}
+
+  ngOnInit(): void {
+    const expired = this.route.snapshot.queryParams['session_expired'];
+    if (expired === 'true') {
+      this.error = 'SESSION EXPIRED — Your session has timed out. Please log in again to continue.';
+      this.cdr.detectChanges();
+    } else if (expired === 'no_refresh') {
+      this.error = 'PLEASE SIGN IN — Your saved session needs to be refreshed. Sign in to create a persistent session.';
+      this.cdr.detectChanges();
+    } else if (expired === 'no_data') {
+      this.error = 'SESSION ERROR — Your profile data is incomplete. Please sign in to restore your session.';
+      this.cdr.detectChanges();
+    }
+  }
 
   submit(): void {
     if (!this.email || !this.password) {

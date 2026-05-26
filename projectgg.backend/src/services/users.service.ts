@@ -10,7 +10,7 @@ export class UsersService {
     return this.usersRepository.findById(params);
   }
 
-  async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean }): Promise<UserDto | null> {
+  async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean; cursor_preference?: string }): Promise<UserDto | null> {
     return this.usersRepository.updateProfile(userId, updates);
   }
 
@@ -22,8 +22,12 @@ export class UsersService {
     return this.usersRepository.deleteUserAvatar(userId);
   }
 
-  async getSystemAvatars(): Promise<{ filename: string; url: string }[]> {
+  async getSystemAvatars(): Promise<{ category: string; avatars: { filename: string; url: string; path: string }[] }[]> {
     return this.usersRepository.getSystemAvatars();
+  }
+
+  async validateSystemAvatarPath(path: string): Promise<{ url: string } | null> {
+    return this.usersRepository.validateSystemAvatarPath(path);
   }
 
   async getUserAvatarUrl(userId: string): Promise<string | null> {

@@ -1,18 +1,4 @@
 <section class="chat-shell">
-  <app-header-nav
-    [currentTheme]="'green'"
-    [currentStatus]="'online'"
-    [userName]="currentUser?.username ?? null"
-    [avatarUrl]="currentUser?.avatar_url ?? null"
-    [isAdmin]="(currentUser?.role === 'admin')"
-    [discordConnected]="discordLinked"
-    (themeChange)="handleThemeChange($event)"
-    (themeToggle)="handleThemeToggle()"
-    (statusChange)="handleStatusChange($event)"
-    (statusToggle)="handleStatusToggle()"
-    (profileToggle)="handleProfileToggle()"
-  ></app-header-nav>
-
   @if (checkingDiscord) {
     <div class="discord-gate">
       <div class="gate-spinner"></div>
@@ -21,7 +7,7 @@
   } @else if (!discordLinked) {
     <div class="discord-gate">
       <img src="https://cdn.simpleicons.org/discord/5865f2" alt="Discord" class="gate-discord-icon" />
-      <h2>Discord Required</h2>
+      <h2 class="glitch" data-text="DISCORD REQUIRED">Discord Required</h2>
       <p>Link your Discord account to access the chat.</p>
       <button class="gate-btn" (click)="linkDiscord()">
         <img src="https://cdn.simpleicons.org/discord/ffffff" alt="" class="gate-btn-icon" />
@@ -51,10 +37,11 @@
               @for (ch of group.channels; track ch.id) {
                 @if (canViewChannel(ch.id)) {
                   <div
-                    class="channel-item"
-                    [class.channel-active]="selectedChannel?.id === ch.id"
+                    class="channel-item channel-list-item"
+                    [class.active]="selectedChannel?.id === ch.id"
                     [class.channel-no-access]="!canSendInChannel(ch.id)"
                     (click)="selectChannel(ch)"
+                    (contextmenu)="onChannelContextMenu($event, ch)"
                   >
                     <mat-icon class="ch-icon">{{ channelIcon(ch.type) }}</mat-icon>
                     <span class="ch-name">{{ ch.name }}</span>
@@ -95,128 +82,137 @@
       <!-- MAIN CHAT AREA -->
       <main class="main-panel">
         @if (selectedChannel) {
-          <div class="channel-header">
-            <mat-icon class="ch-icon">{{ channelIcon(selectedChannel.type) }}</mat-icon>
-            <h2>{{ selectedChannel.name }}</h2>
-          </div>
+          <div class="chat-main-container">
 
-          <div class="chat-messages">
-            @for (msg of messages; track msg.id) {
-              <div class="chat-msg"
-                [class.msg-discord]="msg.source === 'discord'"
-                [class.msg-web]="msg.source === 'web'"
-                [class.msg-voice]="msg.channel_type === 'voice'"
-              >
-                @if (msg.username !== 'System') {
-                  <div class="msg-avatar-col">
-                    <div class="msg-avatar-wrapper">
-                      @if (msg.avatar_url) {
-                        <img class="msg-avatar" [src]="msg.avatar_url" alt="" />
-                      } @else if (avatarForUsername(msg.username)) {
-                        <img class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" />
-                      } @else {
-                        <span class="msg-avatar-text">{{ msg.username[0] }}</span>
+            <div class="channel-header">
+              <mat-icon class="ch-icon">{{ channelIcon(selectedChannel.type) }}</mat-icon>
+              <h2>{{ selectedChannel.name }}</h2>
+            </div>
+
+            <div class="chat-messages chat-messages-viewport">
+              @for (msg of messages; track msg.id) {
+                <div class="chat-msg message-item"
+                  [class.msg-discord]="msg.source === 'discord'"
+                  [class.msg-web]="msg.source === 'web'"
+                  [class.msg-voice]="msg.channel_type === 'voice'"
+                  (contextmenu)="onMsgContextMenu($event, msg)"
+                >
+                  @if (msg.username !== 'System') {
+                    <div class="msg-avatar-col">
+                      <div class="msg-avatar-wrapper">
+                        @if (msg.avatar_url) {
+                          <img class="msg-avatar" [src]="msg.avatar_url" alt="" />
+                        } @else if (avatarForUsername(msg.username)) {
+                          <img class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" />
+                        } @else {
+                          <span class="msg-avatar-text">{{ msg.username[0] }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
+                  <div class="msg-body">
+                    @if (msg.reply_to) {
+                      <div class="msg-reply-bar">
+                        <span class="reply-line"></span>
+                        <div class="reply-preview">
+                          <span class="reply-author">{{ getReplyAuthor(msg.reply_to) }}</span>
+                          <span class="reply-text">{{ getReplyPreview(msg.reply_to) }}</span>
+                        </div>
+                      </div>
+                    }
+                    <div class="msg-head">
+                      <span class="msg-username"
+                        [class.discord-user]="msg.source === 'discord'"
+                        [class.web-user]="msg.source === 'web'"
+                      >{{ msg.username }}</span>
+                      <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
+                    </div>
+                    <div class="msg-content" [class.msg-system]="msg.username === 'System'" [innerHTML]="highlightMentions(msg.content)"></div>
+                    @if (msg.attachment_url) {
+                      <div class="msg-attachment">
+                        <img [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
+                      </div>
+                    }
+                    @if (msg.sticker_url) {
+                      <div class="msg-sticker">
+                        <img [src]="msg.sticker_url" class="sticker-img" />
+                      </div>
+                    }
+                    <div class="msg-actions">
+                      <button class="msg-action-btn" (click)="startReply(msg)" title="Reply">↩</button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <footer class="chat-footer-panel">
+              @if (selectedChannel && !canSendInChannel(selectedChannel.id)) {
+                <div class="no-permission-bar">
+                  <mat-icon>lock</mat-icon>
+                  <span>You don't have permission to send messages in <strong>#{{ selectedChannel.name }}</strong></span>
+                </div>
+              } @else {
+                @if (replyToMessage) {
+                  <div class="reply-preview-bar">
+                    <div class="reply-preview-info">
+                      <span class="reply-label">Replying to</span>
+                      <span class="reply-username">{{ replyToMessage.username }}</span>
+                      <span class="reply-content">{{ replyToMessage.content | slice:0:80 }}</span>
+                    </div>
+                    <button class="reply-cancel" (click)="cancelReply()">✕</button>
+                  </div>
+                }
+                <div class="chat-input-toolbar">
+                  <button mat-button class="chat-action-btn" (click)="fileInput.click()" title="Upload image">
+                    <mat-icon>attach_file</mat-icon>
+                  </button>
+                  <button mat-button class="chat-action-btn" (click)="toggleGifPicker()" title="GIF">
+                    <span>GIF</span>
+                  </button>
+                  <input #fileInput type="file" accept="image/*" (change)="uploadFile($event)" hidden />
+                  @if (uploading) {
+                    <span class="uploading-indicator">Uploading...</span>
+                  }
+                </div>
+                @if (showGifPicker) {
+                  <div class="gif-picker">
+                    <input class="gif-search" [(ngModel)]="gifQuery" (input)="searchGifs()" placeholder="Search GIFs..." />
+                    <div class="gif-grid">
+                      @for (gif of gifResults; track gif.id) {
+                        <img [src]="gif.preview" (click)="selectGif(gif.url)" class="gif-item" />
                       }
                     </div>
                   </div>
                 }
-                <div class="msg-body">
-                  @if (msg.reply_to) {
-                    <div class="msg-reply-bar">
-                      <span class="reply-line"></span>
-                      <div class="reply-preview">
-                        <span class="reply-author">{{ getReplyAuthor(msg.reply_to) }}</span>
-                        <span class="reply-text">{{ getReplyPreview(msg.reply_to) }}</span>
+                @if (showMentionAutocomplete) {
+                  <div class="mention-autocomplete">
+                    @for (m of filteredMentions; track m.id) {
+                      <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index">
+                        <img [src]="m.avatar || ''" class="mention-avatar" />
+                        <span class="mention-name">{{ m.username }}</span>
                       </div>
-                    </div>
-                  }
-                  <div class="msg-head">
-                    <span class="msg-username"
-                      [class.discord-user]="msg.source === 'discord'"
-                      [class.web-user]="msg.source === 'web'"
-                    >{{ msg.username }}</span>
-                    <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
-                  </div>
-                  <div class="msg-content" [class.msg-system]="msg.username === 'System'" [innerHTML]="highlightMentions(msg.content)"></div>
-                  @if (msg.attachment_url) {
-                    <div class="msg-attachment">
-                      <img [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
-                    </div>
-                  }
-                  @if (msg.sticker_url) {
-                    <div class="msg-sticker">
-                      <img [src]="msg.sticker_url" class="sticker-img" />
-                    </div>
-                  }
-                  <div class="msg-actions">
-                    <button class="msg-action-btn" (click)="startReply(msg)" title="Reply">↩</button>
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-
-          @if (selectedChannel && !canSendInChannel(selectedChannel.id)) {
-            <div class="no-permission-bar">
-              <mat-icon>lock</mat-icon>
-              <span>You don't have permission to send messages in <strong>#{{ selectedChannel.name }}</strong></span>
-            </div>
-          } @else {
-            <div class="chat-input-area">
-              @if (replyToMessage) {
-                <div class="reply-preview-bar">
-                  <div class="reply-preview-info">
-                    <span class="reply-label">Replying to</span>
-                    <span class="reply-username">{{ replyToMessage.username }}</span>
-                    <span class="reply-content">{{ replyToMessage.content | slice:0:80 }}</span>
-                  </div>
-                  <button class="reply-cancel" (click)="cancelReply()">✕</button>
-                </div>
-              }
-              <div class="chat-input-toolbar">
-                <button class="toolbar-btn" (click)="fileInput.click()" title="Upload image">📎</button>
-                <button class="toolbar-btn" (click)="toggleGifPicker()" title="GIF">GIF</button>
-                <input #fileInput type="file" accept="image/*" (change)="uploadFile($event)" hidden />
-                @if (uploading) {
-                  <span class="uploading-indicator">Uploading...</span>
-                }
-              </div>
-              @if (showGifPicker) {
-                <div class="gif-picker">
-                  <input class="gif-search" [(ngModel)]="gifQuery" (input)="searchGifs()" placeholder="Search GIFs..." />
-                  <div class="gif-grid">
-                    @for (gif of gifResults; track gif.id) {
-                      <img [src]="gif.preview" (click)="selectGif(gif.url)" class="gif-item" />
                     }
                   </div>
+                }
+                <div class="chat-input-wrapper">
+                  <textarea
+                    class="chat-textarea"
+                    [(ngModel)]="messageText"
+                    (keydown)="onInputKeydown($event)"
+                    (input)="onInputChange()"
+                    placeholder="Message #{{ selectedChannel.name }}"
+                    rows="1"
+                  ></textarea>
+                  <button mat-button (click)="sendMessage()" [disabled]="!messageText.trim() && !pendingUpload && !gifToSend || sending">
+                    <mat-icon>send</mat-icon>
+                    SEND
+                  </button>
                 </div>
               }
-              @if (showMentionAutocomplete) {
-                <div class="mention-autocomplete">
-                  @for (m of filteredMentions; track m.id) {
-                    <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index">
-                      <img [src]="m.avatar || ''" class="mention-avatar" />
-                      <span class="mention-name">{{ m.username }}</span>
-                    </div>
-                  }
-                </div>
-              }
-              <div class="chat-input-row">
-                <textarea
-                  class="chat-textarea"
-                  [(ngModel)]="messageText"
-                  (keydown)="onInputKeydown($event)"
-                  (input)="onInputChange()"
-                  placeholder="Message #{{ selectedChannel.name }}"
-                  rows="1"
-                ></textarea>
-                <button class="chat-send-btn" (click)="sendMessage()" [disabled]="!messageText.trim() && !pendingUpload && !gifToSend || sending">
-                  <mat-icon>send</mat-icon>
-                </button>
-              </div>
-            </div>
-          }
+            </footer>
 
+          </div>
         } @else {
           <div class="no-channel">
             <mat-icon>forum</mat-icon>
@@ -292,6 +288,9 @@
       </aside>
     </div>
   }
+
+  <!-- Context Menu -->
+  <app-cyber-context-menu #ctxMenu></app-cyber-context-menu>
 
   @if (previewImageUrl) {
     <div class="image-overlay" (click)="closeImage()">

@@ -41,6 +41,11 @@ export class VoiceService {
   }
 
   async joinChannel(guildId: string, channelId: string): Promise<void> {
+    if (!guildId) {
+      this.logger.log(`Joined voice channel ${channelId} (GG Chat — no Discord guild)`);
+      return;
+    }
+
     if (this.connections.has(guildId)) {
       const existing = this.connections.get(guildId);
       if (existing.joinConfig.channelId === channelId) return;

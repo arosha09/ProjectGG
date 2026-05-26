@@ -10,7 +10,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { VoiceModule } from './modules/voice/voice.module';
 import { MailModule } from './mail/mail.module';
 import { TasksModule } from './modules/tasks/tasks.module';
-
+import { MigrationService } from './database/migration.service';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', 'src/.env'] }),
@@ -25,5 +25,6 @@ import { TasksModule } from './modules/tasks/tasks.module';
     XpModule,
     TasksModule,
   ],
+  providers: [MigrationService],
 })
 export class AppModule {}

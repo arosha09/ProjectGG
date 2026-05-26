@@ -1,6 +1,14 @@
 <section class="auth-shell">
+    <header class="homebar">
+      <div class="home-brand" routerLink="/home">
+        <img src="logo.ico" alt="Project GG Logo" class="brand-logo" />
+        <span>PROJECT GG</span>
+      </div>
+      <nav class="home-links">
+        <a routerLink="/login">Login</a>
+      </nav>
+    </header>
   <div class="auth-grid"></div>
-  <div class="scanline"></div>
   <div class="ambient-glow"></div>
 
   <div class="auth-card card fade-in-up">
@@ -110,7 +118,7 @@
         </div>
       </label>
 
-      <button class="btn btn-large" type="submit" [disabled]="loading">
+      <button class="btn btn-large btn-glow" type="submit" [disabled]="loading">
         <span class="btn-content">
           <span class="btn-spinner" [class.active]="loading"></span>
           {{ loading ? 'BUILDING PROFILE...' : 'JOIN PROJECT GG' }}

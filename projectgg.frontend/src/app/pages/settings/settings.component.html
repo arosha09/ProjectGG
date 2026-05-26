@@ -9,31 +9,35 @@
       <!-- Left Sidebar -->
       <aside class="settings-sidebar">
         <nav class="settings-nav">
-          <button 
-            class="nav-item" 
+          <button
+            class="nav-item"
             [class.active]="activeSection === 'profile'"
-            (click)="setActiveSection('profile')">
+            (click)="setActiveSection('profile')"
+          >
             <mat-icon>person</mat-icon>
             <span>Profile</span>
           </button>
-          <button 
-            class="nav-item" 
+          <button
+            class="nav-item"
             [class.active]="activeSection === 'password'"
-            (click)="setActiveSection('password')">
+            (click)="setActiveSection('password')"
+          >
             <mat-icon>lock</mat-icon>
             <span>Password</span>
           </button>
-          <button 
-            class="nav-item" 
+          <button
+            class="nav-item"
             [class.active]="activeSection === 'appearance'"
-            (click)="setActiveSection('appearance')">
+            (click)="setActiveSection('appearance')"
+          >
             <mat-icon>palette</mat-icon>
             <span>Appearance</span>
           </button>
-          <button 
-            class="nav-item" 
+          <button
+            class="nav-item"
             [class.active]="activeSection === 'connections'"
-            (click)="setActiveSection('connections')">
+            (click)="setActiveSection('connections')"
+          >
             <mat-icon>link</mat-icon>
             <span>Connections</span>
           </button>
@@ -51,21 +55,43 @@
             </div>
 
             <div class="panel-body">
-              @if (profileMessage) { <app-status-message [type]="profileMessageType" [message]="profileMessage" [dismissible]="false" /> }
+              @if (profileMessage) {
+                <app-status-message
+                  [type]="profileMessageType"
+                  [message]="profileMessage"
+                  [dismissible]="false"
+                />
+              }
               <div class="field">
                 <label class="field-label">Display Name</label>
-                <input class="field-input" type="text" [(ngModel)]="name" placeholder="Your display name" />
+                <input
+                  class="field-input"
+                  type="text"
+                  [(ngModel)]="name"
+                  placeholder="Your display name"
+                />
               </div>
 
               <div class="field">
                 <label class="field-label">Username</label>
-                <input class="field-input" type="text" [(ngModel)]="username" placeholder="Your username" />
+                <input
+                  class="field-input"
+                  type="text"
+                  [(ngModel)]="username"
+                  placeholder="Your username"
+                />
               </div>
 
               <div class="field">
                 <label class="field-label">Email</label>
                 <div class="email-input-wrap">
-                  <input class="field-input" [class.input-verified]="emailVerified" type="email" [(ngModel)]="email" placeholder="your@email.com" />
+                  <input
+                    class="field-input"
+                    [class.input-verified]="emailVerified"
+                    type="email"
+                    [(ngModel)]="email"
+                    placeholder="your@email.com"
+                  />
                   @if (emailVerified) {
                     <mat-icon class="verified-badge">check_circle</mat-icon>
                   }
@@ -76,12 +102,30 @@
                 <div class="email-verify-section">
                   @if (verificationSent) {
                     <div class="verify-sent-row">
-                      <span class="verify-sent-label"><mat-icon>forward_to_inbox</mat-icon> Verification sent</span>
-                      <button class="resend-link" (click)="resendVerification()" [disabled]="sendingVerification">Resend</button>
+                      <span class="verify-sent-label"
+                        ><mat-icon>forward_to_inbox</mat-icon> Verification sent</span
+                      >
+                      <button
+                        class="resend-link"
+                        (click)="resendVerification()"
+                        [disabled]="sendingVerification"
+                      >
+                        Resend
+                      </button>
                     </div>
                     <div class="code-verify-row">
-                      <input class="code-input" type="text" [(ngModel)]="verifyCode" placeholder="Code" maxlength="6" />
-                      <button class="cyber-btn code-btn" (click)="verifyWithCode()" [disabled]="submittingCode">
+                      <input
+                        class="code-input"
+                        type="text"
+                        [(ngModel)]="verifyCode"
+                        placeholder="Code"
+                        maxlength="6"
+                      />
+                      <button
+                        class="cyber-btn code-btn"
+                        (click)="verifyWithCode()"
+                        [disabled]="submittingCode"
+                      >
                         @if (submittingCode) {
                           <span class="btn-spinner"></span>
                         } @else {
@@ -90,11 +134,23 @@
                       </button>
                     </div>
                     @if (verifyMessage) {
-                      <app-status-message [type]="verifyMessageType" [message]="verifyMessage" [dismissible]="false" />
+                      <app-status-message
+                        [type]="verifyMessageType"
+                        [message]="verifyMessage"
+                        [dismissible]="false"
+                      />
                     }
                   } @else {
-                    <app-status-message type="warning" message="Email verification required" [dismissible]="false" />
-                    <button class="verify-send-btn" (click)="resendVerification()" [disabled]="sendingVerification">
+                    <app-status-message
+                      type="warning"
+                      message="Email verification required"
+                      [dismissible]="false"
+                    />
+                    <button
+                      class="verify-send-btn"
+                      (click)="resendVerification()"
+                      [disabled]="sendingVerification"
+                    >
                       @if (sendingVerification) {
                         <span class="btn-spinner"></span> SENDING...
                       } @else {
@@ -102,7 +158,11 @@
                       }
                     </button>
                     @if (verifyMessage) {
-                      <app-status-message [type]="verifyMessageType" [message]="verifyMessage" [dismissible]="false" />
+                      <app-status-message
+                        [type]="verifyMessageType"
+                        [message]="verifyMessage"
+                        [dismissible]="false"
+                      />
                     }
                   }
                 </div>
@@ -130,20 +190,39 @@
             <div class="panel-body">
               <div class="field">
                 <label class="field-label">Current Password</label>
-                <input class="field-input" type="password" [(ngModel)]="currentPassword" placeholder="Current password" />
+                <input
+                  class="field-input"
+                  type="password"
+                  [(ngModel)]="currentPassword"
+                  placeholder="Current password"
+                />
               </div>
 
               <div class="field">
                 <label class="field-label">New Password</label>
-                <input class="field-input" type="password" [(ngModel)]="newPassword" placeholder="New password (min 6 chars)" />
+                <input
+                  class="field-input"
+                  type="password"
+                  [(ngModel)]="newPassword"
+                  placeholder="New password (min 6 chars)"
+                />
               </div>
 
               <div class="field">
                 <label class="field-label">Confirm New Password</label>
-                <input class="field-input" type="password" [(ngModel)]="confirmPassword" placeholder="Confirm new password" />
+                <input
+                  class="field-input"
+                  type="password"
+                  [(ngModel)]="confirmPassword"
+                  placeholder="Confirm new password"
+                />
               </div>
 
-              <button class="cyber-btn btn-primary" (click)="changePassword()" [disabled]="changingPassword">
+              <button
+                class="cyber-btn btn-primary"
+                (click)="changePassword()"
+                [disabled]="changingPassword"
+              >
                 @if (changingPassword) {
                   <span class="btn-spinner"></span> CHANGING...
                 } @else {
@@ -163,24 +242,65 @@
             </div>
 
             <div class="panel-body">
-              @if (appearanceMessage) { <app-status-message [type]="appearanceMessageType" [message]="appearanceMessage" [dismissible]="false" /> }
+              @if (appearanceMessage) {
+                <app-status-message
+                  [type]="appearanceMessageType"
+                  [message]="appearanceMessage"
+                  [dismissible]="false"
+                />
+              }
               <div class="appearance-section">
                 <h3>Theme Color</h3>
                 <p class="section-desc">Choose your preferred color theme</p>
 
                 <div class="theme-grid">
                   @for (theme of availableThemes; track theme.id) {
-                    <button 
-                      class="theme-option" 
+                    <button
+                      class="theme-option"
                       [class.active]="currentTheme === theme.id"
-                      [style]="'--theme-color: ' + theme.color"
+                      [style]="'--theme-color: ' + (theme.color || customColor)"
                       (click)="changeTheme(theme.id)"
-                      [title]="theme.label">
+                      [title]="theme.label"
+                    >
                       <span class="theme-swatch"></span>
                       <span class="theme-label">{{ theme.label }}</span>
                     </button>
                   }
                 </div>
+                @if (customColorModalOpen) {
+                  <div class="custom-color-modal-overlay" (click)="closeCustomColorModal()">
+                    <div class="custom-color-modal" (click)="$event.stopPropagation()">
+                      <div class="modal-header">
+                        <h4>Custom Color</h4>
+                        <div class="modal-header-actions">
+                          <button class="modal-confirm-btn" (click)="confirmCustomColor()" title="Apply">
+                            <mat-icon>check</mat-icon>
+                          </button>
+                          <button class="modal-close-btn" (click)="closeCustomColorModal()" title="Cancel">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="modal-body">
+                        <div class="color-picker-row">
+                          <input
+                            type="color"
+                            class="cyber-color-input"
+                            [value]="customColor"
+                            (input)="onCustomColorChange($any($event.target).value)"
+                          />
+                          <input
+                            type="text"
+                            class="cyber-input"
+                            [value]="customColor"
+                            (input)="onCustomColorChange($any($event.target).value)"
+                            maxlength="7"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
               </div>
 
               <div class="appearance-section">
@@ -188,52 +308,93 @@
                 <p class="section-desc">Set your online status</p>
 
                 <div class="status-buttons">
-                  <button 
-                    class="status-btn status-online" 
+                  <button
+                    class="status-btn status-online"
                     [class.active]="currentStatus === 'online'"
-                    (click)="currentStatus = 'online'; setStatus('online')">
+                    (click)="currentStatus = 'online'; setStatus('online')"
+                  >
                     <span class="status-dot"></span> Online
                   </button>
-                  <button 
-                    class="status-btn status-away" 
+                  <button
+                    class="status-btn status-away"
                     [class.active]="currentStatus === 'away'"
-                    (click)="currentStatus = 'away'; setStatus('away')">
+                    (click)="currentStatus = 'away'; setStatus('away')"
+                  >
                     <span class="status-dot"></span> Away
                   </button>
-                  <button 
-                    class="status-btn status-offline" 
+                  <button
+                    class="status-btn status-offline"
                     [class.active]="currentStatus === 'offline'"
-                    (click)="currentStatus = 'offline'; setStatus('offline')">
+                    (click)="currentStatus = 'offline'; setStatus('offline')"
+                  >
                     <span class="status-dot"></span> Offline
                   </button>
-                  <button 
-                    class="status-btn status-invisible" 
+                  <button
+                    class="status-btn status-invisible"
                     [class.active]="currentStatus === 'invisible'"
-                    (click)="currentStatus = 'invisible'; setStatus('invisible')">
+                    (click)="currentStatus = 'invisible'; setStatus('invisible')"
+                  >
                     <span class="status-dot"></span> Invisible
                   </button>
                 </div>
               </div>
-              <div class="cursor-style-section-wrapper">
-                <h3>Cursor Style</h3>
-                <p class="section-desc">Choose your preferred cursor appearance</p>
+              <div class="cursors-panel">
+                <h3>Cursor Sets</h3>
+                <p class="section-desc">
+                  Choose one pointer set. The preview area below shows how each cursor style behaves
+                  before applying it.
+                </p>
 
-                <div class="cursor-options-grid">
-                  @for (cursor of customCursors; track cursor.id) {
-                    <button 
-                      class="cursor-btn" 
-                      [class.active]="selectedCursor === cursor.id"
-                      (click)="selectCursor(cursor.id)"
-                      [style]="'cursor: ' + cursor.url">
-                      {{ cursor.label }}
+                <div class="cursor-set-picker">
+                  <label class="field-label">Cursor set</label>
+                  <div class="cursor-selector-wrapper">
+                    <button
+                      class="cyber-btn"
+                      type="button"
+                      (click)="cursorSetDropdownOpen = !cursorSetDropdownOpen"
+                    >
+                      {{ previewCursorSet.label }}
+                      <mat-icon>arrow_drop_down</mat-icon>
+                    </button>
+                    <app-cyber-dropdown
+                      [items]="cursorSetItems"
+                      [isOpen]="cursorSetDropdownOpen"
+                      (itemSelect)="cursorSetDropdownOpen = false"
+                    ></app-cyber-dropdown>
+                  </div>
+                </div>
+
+                <div class="cursor-type-buttons">
+                  @for (type of previewCursorTypes; track type.id) {
+                    <button
+                      mat-button
+                      type="button"
+                      [class.active]="previewCursorType === type.id"
+                      (click)="previewCursorType = type.id"
+                    >
+                      {{ type.label }}
                     </button>
                   }
                 </div>
 
                 <div class="cursor-preview-area">
-                  <p>Move your cursor here to preview</p>
+                  <div
+                    class="cursor-preview-box"
+                    [style.cursor]="previewCursorSet.cursors[previewCursorType]"
+                  >
+                    <p>Move your cursor here to preview</p>
+                    <mat-label class="preview-type-label">{{ previewTypeLabel }}</mat-label>
+                  </div>
                 </div>
-              </div>            </div>
+
+                <div class="cursor-confirm-row">
+                  <button class="cyber-btn btn-primary" type="button" (click)="confirmCursorSet()">
+                    Confirm Cursor Set
+                  </button>
+                  <span class="cursor-current-label">Applied: {{ appliedCursorSet.label }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         }
 
@@ -252,11 +413,19 @@
                   @for (p of gamingPlatforms; track p.id) {
                     <div class="platform-row">
                       <div class="platform-info">
-                        <span class="platform-icon"><img class="platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" /></span>
+                        <span class="platform-icon"
+                          ><img
+                            class="platform-logo"
+                            [src]="getPlatformLogo(p.id)"
+                            alt="{{ p.name }}"
+                        /></span>
                         <div class="platform-meta">
                           <span class="platform-name">{{ p.name }}</span>
                           @if (getConnection(p.id); as conn) {
-                            <span class="platform-user">Connected as {{ conn.platform_username || conn.platform_user_id || '—' }}</span>
+                            <span class="platform-user"
+                              >Connected as
+                              {{ conn.platform_username || conn.platform_user_id || '—' }}</span
+                            >
                           } @else {
                             <span class="platform-user platform-not-linked">Not linked</span>
                           }
@@ -265,19 +434,45 @@
                       @if (p.id === 'steam') {
                         @if (getConnection('steam')) {
                           <div class="platform-actions">
-                            <button class="p-btn p-btn-import" (click)="importSteam()" [disabled]="importing">IMPORT</button>
-                            <button class="p-btn p-btn-danger" (click)="unlinkPlatform('steam')" [disabled]="linking">UNLINK</button>
+                            <button
+                              class="p-btn p-btn-import"
+                              (click)="importSteam()"
+                              [disabled]="importing"
+                            >
+                              IMPORT
+                            </button>
+                            <button
+                              class="p-btn p-btn-danger"
+                              (click)="unlinkPlatform('steam')"
+                              [disabled]="linking"
+                            >
+                              UNLINK
+                            </button>
                           </div>
                         } @else {
-                          <button class="p-btn p-btn-link" (click)="linkSteam()" [disabled]="linking">
+                          <button
+                            class="p-btn p-btn-link"
+                            (click)="linkSteam()"
+                            [disabled]="linking"
+                          >
                             <mat-icon>login</mat-icon> LINK
                           </button>
                         }
                       } @else {
                         @if (getConnection(p.id)) {
-                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform(p.id)" [disabled]="linking">UNLINK</button>
+                          <button
+                            class="p-btn p-btn-danger"
+                            (click)="unlinkPlatform(p.id)"
+                            [disabled]="linking"
+                          >
+                            UNLINK
+                          </button>
                         } @else {
-                          <button class="p-btn p-btn-link" (click)="openManualLink(p.id)" [disabled]="linking">
+                          <button
+                            class="p-btn p-btn-link"
+                            (click)="openManualLink(p.id)"
+                            [disabled]="linking"
+                          >
                             <mat-icon>add_link</mat-icon> LINK
                           </button>
                         }
@@ -293,11 +488,19 @@
                   @for (p of musicPlatforms; track p.id) {
                     <div class="platform-row">
                       <div class="platform-info">
-                        <span class="platform-icon"><img class="platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" /></span>
+                        <span class="platform-icon"
+                          ><img
+                            class="platform-logo"
+                            [src]="getPlatformLogo(p.id)"
+                            alt="{{ p.name }}"
+                        /></span>
                         <div class="platform-meta">
                           <span class="platform-name">{{ p.name }}</span>
                           @if (getConnection(p.id); as conn) {
-                            <span class="platform-user">Connected as {{ conn.platform_username || conn.platform_user_id || '—' }}</span>
+                            <span class="platform-user"
+                              >Connected as
+                              {{ conn.platform_username || conn.platform_user_id || '—' }}</span
+                            >
                           } @else {
                             <span class="platform-user platform-not-linked">Not linked</span>
                           }
@@ -305,25 +508,55 @@
                       </div>
                       @if (p.id === 'discord') {
                         @if (getConnection('discord')) {
-                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform('discord')" [disabled]="linking">UNLINK</button>
+                          <button
+                            class="p-btn p-btn-danger"
+                            (click)="unlinkPlatform('discord')"
+                            [disabled]="linking"
+                          >
+                            UNLINK
+                          </button>
                         } @else {
-                          <button class="p-btn p-btn-link" (click)="linkDiscord()" [disabled]="linking">
+                          <button
+                            class="p-btn p-btn-link"
+                            (click)="linkDiscord()"
+                            [disabled]="linking"
+                          >
                             <mat-icon>login</mat-icon> LINK
                           </button>
                         }
                       } @else if (p.id === 'spotify') {
                         @if (getConnection('spotify')) {
-                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform('spotify')" [disabled]="linking">UNLINK</button>
+                          <button
+                            class="p-btn p-btn-danger"
+                            (click)="unlinkPlatform('spotify')"
+                            [disabled]="linking"
+                          >
+                            UNLINK
+                          </button>
                         } @else {
-                          <button class="p-btn p-btn-link" (click)="linkSpotify()" [disabled]="linking">
+                          <button
+                            class="p-btn p-btn-link"
+                            (click)="linkSpotify()"
+                            [disabled]="linking"
+                          >
                             <mat-icon>login</mat-icon> LINK
                           </button>
                         }
                       } @else if (p.id === 'youtube_music') {
                         @if (getConnection('youtube_music')) {
-                          <button class="p-btn p-btn-danger" (click)="unlinkPlatform('youtube_music')" [disabled]="linking">UNLINK</button>
+                          <button
+                            class="p-btn p-btn-danger"
+                            (click)="unlinkPlatform('youtube_music')"
+                            [disabled]="linking"
+                          >
+                            UNLINK
+                          </button>
                         } @else {
-                          <button class="p-btn p-btn-link" (click)="linkYoutubeMusic()" [disabled]="linking">
+                          <button
+                            class="p-btn p-btn-link"
+                            (click)="linkYoutubeMusic()"
+                            [disabled]="linking"
+                          >
                             <mat-icon>login</mat-icon> LINK
                           </button>
                         }
@@ -337,9 +570,18 @@
 
               @if (manualPlatform) {
                 <div class="manual-link-row">
-                  <input class="field-input" type="text" [(ngModel)]="manualUsername" placeholder="Enter {{ getPlatformName(manualPlatform) }} username" />
+                  <input
+                    class="field-input"
+                    type="text"
+                    [(ngModel)]="manualUsername"
+                    placeholder="Enter {{ getPlatformName(manualPlatform) }} username"
+                  />
                   <div class="manual-link-actions">
-                    <button class="cyber-btn" (click)="confirmManualLink()" [disabled]="!manualUsername.trim()">
+                    <button
+                      class="cyber-btn"
+                      (click)="confirmManualLink()"
+                      [disabled]="!manualUsername.trim()"
+                    >
                       <mat-icon>check</mat-icon> CONFIRM
                     </button>
                     <button class="cyber-btn cyber-btn-cancel" (click)="cancelManualLink()">
@@ -350,7 +592,11 @@
               }
 
               @if (importResult) {
-                <div class="import-result" [class.import-ok]="!importError" [class.import-err]="importError">
+                <div
+                  class="import-result"
+                  [class.import-ok]="!importError"
+                  [class.import-err]="importError"
+                >
                   <mat-icon>{{ importError ? 'error' : 'cloud_download' }}</mat-icon>
                   <span>{{ importResult }}</span>
                 </div>

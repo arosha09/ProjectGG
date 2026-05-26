@@ -1,21 +1,24 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { Router, RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { Router } from '@angular/router';
 import { Socket } from 'socket.io-client';
 import { ChatService, ChatMessage } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { HeaderNavComponent } from '../../components/header-nav/header-nav.component';
 import { VoiceService } from '../../services/voice.service';
+import { ThemeService } from '../../services/theme.service';
+import { CyberContextMenuComponent, ContextMenuItem } from '../../components/cyber-context-menu/cyber-context-menu.component';
+import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
+import { StatusOption } from '../../components/status-selector/status-selector.component';
+import { CommonModule } from '@angular/common';
 
 interface GuildChannel {
   id: string; name: string; type: number;
-  typeLabel: string; position: number;
-  categoryId: string | null; categoryName: string | null;
+  position: number; categoryId: string | null; categoryName: string | null;
 }
 
 interface VoiceMember {
@@ -55,7 +58,7 @@ interface GuildMember {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, HeaderNavComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatCardModule, MatButtonModule, CyberContextMenuComponent],
   templateUrl: './chat.component.html',
   styleUrls: ['./chat.component.scss'],
 })
@@ -65,34 +68,38 @@ export class ChatComponent implements OnInit, OnDestroy {
   currentUser: any = null;
   loading = true;
 
+  // Theme
+  readonly theme: ThemeService;
+
   // Discord linking gate
   discordLinked = false;
   discordUsername: string | null = null;
   checkingDiscord = true;
 
-
-  // Server data
+  // Guild state
   channels: GuildChannel[] = [];
-  voiceMembers: VoiceMember[] = [];
   selectedChannel: GuildChannel | null = null;
+  voiceMembers: VoiceMember[] = [];
   messages: ChatMessage[] = [];
-  messageText = '';
-  sending = false;
   socket: Socket | null = null;
+  members: GuildMember[] = [];
+  userPermissions: UserPermissions | null = null;
+  permissionsLoading = false;
+  membersLoading = false;
 
-  // Reply
+  // Writing
+  messageText = '';
   replyToMessage: ChatMessage | null = null;
-
-  // File upload
   pendingUpload: File | null = null;
+  gifToSend: string | null = null;
+  sending = false;
   uploading = false;
 
   // GIF picker
   showGifPicker = false;
   gifQuery = '';
-  gifResults: { id: string; url: string; preview: string; title: string }[] = [];
-  gifSearchTimeout: any;
-  gifToSend: string | null = null;
+  gifResults: any[] = [];
+  gifSearchTimeout?: number;
 
   // Mention autocomplete
   showMentionAutocomplete = false;
@@ -108,13 +115,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   voiceMuted = false;
   voiceConnecting = false;
 
-  // Permissions
-  userPermissions: UserPermissions | null = null;
-  permissionsLoading = false;
-
-  // Members
-  members: GuildMember[] = [];
-  membersLoading = false;
+  // Context menu
+  @ViewChild('ctxMenu') ctxMenu: CyberContextMenuComponent | null = null;
 
   constructor(
     private readonly chatService: ChatService,
@@ -123,7 +125,19 @@ export class ChatComponent implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly voiceService: VoiceService,
-  ) {}
+    theme: ThemeService,
+  ) {
+    this.theme = theme;
+    this.updateViewportHeight();
+  }
+
+  // Measures the true visible viewport height, accounting for mobile browser
+  // chrome (address bar, soft keyboard) via visualViewport when available.
+  @HostListener('window:resize')
+  updateViewportHeight(): void {
+    const h = (window.visualViewport?.height ?? window.innerHeight);
+    document.documentElement.style.setProperty('--vh', `${h}px`);
+  }
 
   ngOnInit(): void {
     this.currentUser = this.auth.getCurrentUser();
@@ -132,7 +146,15 @@ export class ChatComponent implements OnInit, OnDestroy {
       return;
     }
     this.checkDiscord();
+
+    // visualViewport fires on mobile when the soft keyboard appears/hides
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', this._onVisualViewport);
+      window.visualViewport.addEventListener('scroll', this._onVisualViewport);
+    }
   }
+
+  private readonly _onVisualViewport = (): void => this.updateViewportHeight();
 
   private checkDiscord(): void {
     this.checkingDiscord = true;
@@ -380,12 +402,12 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.replyToMessage = null;
   }
 
-  getReplyAuthor(msgId: number): string {
+  getReplyAuthor(msgId: number | null | undefined): string {
     const msg = this.messages.find(m => m.id === msgId);
     return msg?.username ?? 'Unknown';
   }
 
-  getReplyPreview(msgId: number): string {
+  getReplyPreview(msgId: number | null | undefined): string {
     const msg = this.messages.find(m => m.id === msgId);
     return msg ? (msg.content?.slice(0, 80) ?? '') : '';
   }
@@ -532,21 +554,76 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.previewImageUrl = null;
   }
 
+  // ===== CONTEXT MENU =====
+
+  onMsgContextMenu(e: MouseEvent, msg: ChatMessage): void {
+    const items: ContextMenuItem[] = [
+      {
+        label: 'Reply', icon: 'reply',
+        action: () => this.startReply(msg),
+      },
+      {
+        label: 'Copy Message', icon: 'content_copy',
+        action: () => navigator.clipboard.writeText(msg.content).catch(() => {}),
+      },
+      { label: '', icon: '', action: () => {}, divider: true },
+      {
+        label: 'Copy ID', icon: 'fingerprint',
+        action: () => navigator.clipboard.writeText(String(msg.id)).catch(() => {}),
+      },
+    ];
+    if (msg.source === 'discord') {
+      items.push({
+        label: 'Copy Discord ID', icon: 'tag',
+        action: () => navigator.clipboard.writeText(msg.discord_message_id ?? String(msg.id)).catch(() => {}),
+      });
+    }
+    this.ctxMenu?.open(e, items, 'Message Actions');
+  }
+
+  onChannelContextMenu(e: MouseEvent, ch: GuildChannel): void {
+    const items: ContextMenuItem[] = [
+      {
+        label: 'Mark as Read', icon: 'done_all',
+        action: () => this.selectChannel(ch),
+      },
+      { label: '', icon: '', action: () => {}, divider: true },
+      {
+        label: 'Copy Channel ID', icon: 'link',
+        action: () => navigator.clipboard.writeText(ch.id).catch(() => {}),
+      },
+    ];
+    this.ctxMenu?.open(e, items, `#${ch.name}`);
+  }
+
+  // ===== THEME HANDLING =====
+
+  handleThemeChange(theme: ThemeOption): void {
+    this.theme.setTheme(theme);
+  }
+
+  handleCustomColorChange(color: string): void {
+    this.theme.setCustomColor(color);
+  }
+
+  handleThemeToggle(): void {}
+  handleStatusChange(status: StatusOption): void {}
+  handleStatusToggle(): void {}
+  handleProfileToggle(): void {}
+
   private scrollToBottom(): void {
     setTimeout(() => {
-      const el = document.querySelector('.chat-messages');
+      const el = document.querySelector('.chat-messages-viewport');
       if (el) el.scrollTop = el.scrollHeight;
     }, 50);
   }
 
-  handleThemeChange(theme: any): void {}
-  handleThemeToggle(): void {}
-  handleStatusChange(status: any): void {}
-  handleStatusToggle(): void {}
-  handleProfileToggle(): void {}
-
   ngOnDestroy(): void {
     this.chatService.disconnect();
     if (this.voiceConnected) this.leaveVoice();
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this._onVisualViewport);
+      window.visualViewport.removeEventListener('scroll', this._onVisualViewport);
+    }
   }
 }

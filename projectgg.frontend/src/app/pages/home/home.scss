@@ -20,7 +20,9 @@
 
 .home-shell {
 	position: relative;
-	min-height: 100vh;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
 	overflow: hidden;
 	background:
 		radial-gradient(circle at 10% 15%, rgba(var(--rgb-purple-r), var(--rgb-purple-g), var(--rgb-purple-b), 0.18), transparent 40%),
@@ -64,6 +66,69 @@
 	background: radial-gradient(circle, rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.15), transparent 60%);
 	pointer-events: none;
 	animation: float 8s ease-in-out infinite;
+}
+
+.homebar {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 20px 32px;
+	background: transparent;
+	border-bottom: none;
+}
+
+.home-brand {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	color: var(--rgb-purple);
+	font-weight: 700;
+	letter-spacing: 2px;
+	font-size: 14px;
+	text-transform: uppercase;
+	text-shadow: 0 0 8px rgba(var(--rgb-purple-r), var(--rgb-purple-g), var(--rgb-purple-b), 0.4);
+	cursor: pointer;
+	text-decoration: none;
+
+	.brand-logo {
+		width: 32px;
+		height: 32px;
+		animation: neon-flicker 3s infinite;
+	}
+}
+
+.home-links {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+
+	a {
+		color: rgba(255, 255, 255, 0.6);
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		font-size: 12px;
+		text-decoration: none;
+		transition: all 0.2s;
+
+		&:hover {
+			color: var(--rgb-red);
+			text-shadow: 0 0 8px var(--rgb-red);
+		}
+
+		&.home-cta {
+			color: var(--rgb-red);
+			text-shadow: 0 0 6px rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.5);
+			border: 1px solid rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.3);
+			padding: 6px 14px;
+
+			&:hover {
+				background: rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.1);
+				box-shadow: 0 0 12px rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.2);
+			}
+		}
+	}
 }
 
 .topbar,
@@ -123,7 +188,7 @@
 	grid-template-columns: 1.4fr 0.9fr;
 	gap: 48px;
 	align-items: center;
-	min-height: calc(100vh - 88px);
+	flex: 1;
 	padding: 0 32px;
 }
 
@@ -147,8 +212,14 @@
 	text-transform: uppercase;
 	color: var(--rgb-purple);
 	text-shadow: 0 0 10px rgba(var(--rgb-purple-r), var(--rgb-purple-g), var(--rgb-purple-b), 0.35);
-	margin: 16px 0 20px;
+	margin: 16px 0 40px;
 }
+
+.hero-copy{
+	margin-top: -60px;
+}
+
+
 
 .lede {
 	max-width: 60ch;

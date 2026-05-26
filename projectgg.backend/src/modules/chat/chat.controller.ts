@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, Req, UseGuards, Query, Inject,
+  Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, Query, Inject,
   UseInterceptors, UploadedFile, BadRequestException, HttpException, HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -29,10 +29,32 @@ export class ChatController {
   // LEGACY DISCORD ENDPOINTS (keep for backward compat)
   // ================================================================
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Get('chat/guild')
-  getGuild() {
+  async getGuild(@Req() req: any) {
+    let allowedChannelIds: Set<string> | undefined;
+
+    // Find the user's Discord connection to filter channels by permission
+    const { data: conn } = await this.supabase
+      .schema('projectgg')
+      .from('user_platform_connections')
+      .select('platform_user_id')
+      .eq('user_id', req.user.id)
+      .eq('platform', 'discord')
+      .single();
+
+    if (conn?.platform_user_id) {
+      const perms = await this.discordBot.getUserPermissions(conn.platform_user_id);
+      if (perms?.permissions) {
+        allowedChannelIds = new Set(
+          perms.permissions.filter(p => p.canView).map(p => p.channelId),
+        );
+      }
+    }
+
     return {
-      channels: this.discordBot.getGuildChannels(),
+      channels: this.discordBot.getGuildChannels(allowedChannelIds),
       voiceMembers: this.discordBot.voiceMembers,
       botReady: this.discordBot.isReady,
     };
@@ -74,7 +96,11 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Get('chat/members')
   async getMembers() {
-    return this.discordBot.getGuildMembers();
+    try {
+      return await this.discordBot.getGuildMembers();
+    } catch {
+      return [];
+    }
   }
 
   // DISCORD CHAT — MESSAGES (synced with Discord guild)
@@ -98,17 +124,19 @@ export class ChatController {
     @Req() req: any,
     @Body() body: { content: string; channel_id?: string; reply_to?: number; attachment_url?: string },
   ) {
-    const userId = Number(req.user.id);
-    const username = req.user.username ?? req.user.email ?? 'Unknown';
+    const userId = req.user.id;
+    const user = await this.chatService.findUserById(userId);
+    const username = user?.username ?? req.user.email ?? 'Unknown';
+    const avatarUrl = user?.avatar ?? null;
 
     const msg = await this.chatService.saveMessage(
-      userId, username, body.content, body.channel_id, undefined, body.reply_to, body.attachment_url,
+      userId, username, body.content, body.channel_id, avatarUrl, body.reply_to, body.attachment_url,
     );
 
     // Relay to Discord bot
     let discordContent = `**${username}**: ${body.content}`;
     if (body.attachment_url) discordContent += `\n${body.attachment_url}`;
-    this.discordBot.sendToDiscord(discordContent, body.channel_id);
+    this.discordBot.sendToDiscord(discordContent, body.channel_id).catch(() => {});
 
     this.chatGateway.broadcastMessage(msg);
     return msg;
@@ -220,9 +248,61 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Post('gg/servers')
   async createServer(@Req() req: any, @Body() body: { name: string }) {
-    if (!body.name?.trim()) throw new Error('Server name required');
+    if (!body.name?.trim()) throw new BadRequestException('Server name required');
     const server = await this.chatService.createServer(body.name.trim(), req.user.id);
     return server;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/servers/:id')
+  async updateServer(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { name?: string; avatar_url?: string },
+  ) {
+    const server = await this.chatService.updateServer(Number(id), req.user.id, body);
+    return server;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/upload-avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadServerAvatar(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { serverId: string },
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    const serverId = Number(body.serverId);
+    const server = await this.chatService.getServer(serverId);
+    if (!server) throw new BadRequestException('Server not found');
+    if (server.owner_id !== req.user.id) throw new BadRequestException('Not authorized');
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Allowed: jpeg, png, gif, webp');
+    }
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File too large (max 5MB)');
+    }
+
+    const ext = extname(file.originalname);
+    const filename = `server_avatar_${serverId}_${Date.now()}_${randomBytes(4).toString('hex')}${ext}`;
+    const fileBuffer = fs.readFileSync(file.path);
+    const { error: uploadError } = await this.supabase.storage
+      .from('chat_uploads')
+      .upload(filename, fileBuffer, { contentType: file.mimetype });
+    fs.unlinkSync(file.path);
+    if (uploadError) {
+      throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    const { data: { publicUrl } } = this.supabase.storage
+      .from('chat_uploads')
+      .getPublicUrl(filename);
+    return this.chatService.updateServer(serverId, req.user.id, { avatar_url: publicUrl });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -240,8 +320,8 @@ export class ChatController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('gg/servers/:serverId/channels')
-  async getChannels(@Param('serverId') serverId: string) {
-    return this.chatService.getChannels(Number(serverId));
+  async getChannels(@Req() req: any, @Param('serverId') serverId: string) {
+    return this.chatService.getChannels(Number(serverId), req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -250,9 +330,11 @@ export class ChatController {
   async createChannel(
     @Req() req: any,
     @Param('serverId') serverId: string,
-    @Body() body: { name: string; type: 'text' | 'voice' },
+    @Body() body: { name: string; type: 'text' | 'voice'; allowed_roles?: string[] },
   ) {
-    return this.chatService.createChannel(Number(serverId), body.name, body.type ?? 'text', req.user.id);
+    return this.chatService.createChannel(
+      Number(serverId), body.name, body.type ?? 'text', req.user.id, body.allowed_roles,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -260,6 +342,29 @@ export class ChatController {
   @Delete('gg/channels/:id')
   async deleteChannel(@Req() req: any, @Param('id') id: string) {
     await this.chatService.deleteChannel(Number(id), req.user.id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/channels/:id/roles')
+  async getChannelRoles(@Param('id') id: string) {
+    return this.chatService.getChannelRoles(Number(id));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/channels/:id/roles')
+  async setChannelRoles(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { roles: string[] },
+  ) {
+    const channelId = Number(id);
+    const { data: ch } = await this.supabase.schema('projectgg').from('gg_channels').select('server_id').eq('id', channelId).single();
+    if (!ch) throw new BadRequestException('Channel not found');
+    await this.chatService.requirePermission(ch.server_id, req.user.id, 'manage_channels');
+    await this.chatService.setChannelRoles(channelId, body.roles);
     return { success: true };
   }
 
@@ -290,6 +395,73 @@ export class ChatController {
     return { success: true };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/servers/:serverId/members/:memberId/roles')
+  async changeMemberRoles(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Param('memberId') memberId: string,
+    @Body() body: { roles: string[] },
+  ) {
+    await this.chatService.changeMemberRoles(
+      Number(serverId), memberId, body.roles, req.user.id,
+    );
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/members/:memberId/kick')
+  async kickMember(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    await this.chatService.kickMember(
+      Number(serverId), memberId, req.user.id,
+    );
+    return { success: true };
+  }
+
+  // ================================================================
+  // GG CHAT — INVITE LINKS
+  // ================================================================
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/invites')
+  async generateInvite(@Req() req: any, @Param('serverId') serverId: string) {
+    return this.chatService.generateInvite(Number(serverId), req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/servers/:serverId/invites')
+  async getServerInvites(@Req() req: any, @Param('serverId') serverId: string) {
+    return this.chatService.getServerInvites(Number(serverId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/invites/:inviteId/revoke')
+  async revokeInvite(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Param('inviteId') inviteId: string,
+  ) {
+    await this.chatService.revokeInvite(Number(inviteId), req.user.id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/invites/:code')
+  async joinViaInvite(@Req() req: any, @Param('code') code: string) {
+    const serverId = await this.chatService.joinViaInvite(code, req.user.id);
+    return { serverId };
+  }
+
   // ================================================================
   // GG CHAT — MESSAGES
   // ================================================================
@@ -309,15 +481,228 @@ export class ChatController {
     @Req() req: any,
     @Body() body: { content: string; channel_id: string; reply_to?: number; attachment_url?: string },
   ) {
-    const userId = req.user.id;
-    const username = req.user.username ?? req.user.email ?? 'Unknown';
-    const avatarUrl = req.user.avatar_url ?? null;
+    const userIdStr = req.user.id;
+    const user = await this.chatService.findUserById(userIdStr);
+    const username = user?.username ?? req.user.email ?? 'Unknown';
+    const avatarUrl = user?.avatar ?? null;
 
     const msg = await this.chatService.saveMessage(
-      Number(userId), username, body.content, body.channel_id, avatarUrl, body.reply_to, body.attachment_url,
+      req.user.id, username, body.content, body.channel_id, avatarUrl, body.reply_to, body.attachment_url,
     );
 
     this.chatGateway.broadcastMessage(msg);
     return msg;
+  }
+
+  // ================================================================
+  // GG CHAT — USER SEARCH
+  // ================================================================
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/users/search')
+  async searchUsers(@Req() req: any, @Query('q') q: string) {
+    if (!q || q.length < 1) return [];
+    return this.chatService.searchUsers(q, req.user.id);
+  }
+
+  // ================================================================
+  // GG CHAT — FRIENDS
+  // ================================================================
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/friends')
+  async getFriends(@Req() req: any) {
+    const userId = req.user.id;
+    const [accepted, pending, sent] = await Promise.all([
+      this.chatService.getFriends(userId),
+      this.chatService.getPendingRequests(userId),
+      this.chatService.getPendingSentRequests(userId),
+    ]);
+
+    const enrich = async (list: any[], field: string) => {
+      for (const item of list) {
+        const otherId = item.user_id === userId ? item.friend_id : item.user_id;
+        const other = await this.chatService.findUserById(otherId);
+        item[field] = other?.username ?? 'Unknown';
+        item.other_avatar = other?.avatar ?? null;
+        item.other_id = otherId;
+      }
+    };
+
+    await Promise.all([
+      enrich(accepted, 'other_username'),
+      enrich(pending, 'other_username'),
+      enrich(sent, 'other_username'),
+    ]);
+
+    return { accepted, pending, sent };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/friends/request')
+  async sendFriendRequest(
+    @Req() req: any,
+    @Body() body: { username: string },
+  ) {
+    if (!body.username?.trim()) throw new BadRequestException('Username required');
+    const result = await this.chatService.sendFriendRequest(req.user.id, body.username.trim());
+    const targetUser = await this.chatService.findUserById(result.friend_id);
+    const senderUser = await this.chatService.findUserById(req.user.id);
+    if (targetUser) {
+      this.chatGateway.sendToUser(targetUser.id, 'friend-request', {
+        id: result.id,
+        userId: req.user.id,
+        username: senderUser?.username ?? 'Unknown',
+      });
+      await this.chatService.createNotification(
+        targetUser.id, 'friend_request', 'New Friend Request',
+        `${senderUser?.username ?? 'Someone'} sent you a friend request`,
+        { requestId: result.id, fromUserId: req.user.id, fromUsername: senderUser?.username },
+      );
+      this.chatGateway.sendToUser(targetUser.id, 'notification', {});
+    }
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/friends/accept/:id')
+  async acceptFriendRequest(@Req() req: any, @Param('id') id: string) {
+    await this.chatService.acceptFriendRequest(req.user.id, Number(id));
+
+    const { data: reqData } = await this.supabase
+      .schema('projectgg')
+      .from('friends')
+      .select('*')
+      .eq('id', Number(id))
+      .single();
+
+    if (reqData) {
+      this.chatGateway.sendToUser(reqData.user_id, 'friend-accepted', {
+        friendId: req.user.id,
+      });
+      const accepter = await this.chatService.findUserById(req.user.id);
+      await this.chatService.createNotification(
+        reqData.user_id, 'friend_accepted', 'Friend Request Accepted',
+        `${accepter?.username ?? 'Someone'} accepted your friend request`,
+        { friendId: req.user.id, friendUsername: accepter?.username },
+      );
+      this.chatGateway.sendToUser(reqData.user_id, 'notification', {});
+    }
+
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/friends/:id')
+  async removeFriend(@Req() req: any, @Param('id') id: string) {
+    await this.chatService.removeFriend(req.user.id, Number(id));
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/friends/reject/:id')
+  async rejectFriendRequest(@Req() req: any, @Param('id') id: string) {
+    await this.chatService.rejectFriendRequest(req.user.id, Number(id));
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/friends/cancel/:id')
+  async cancelFriendRequest(@Req() req: any, @Param('id') id: string) {
+    await this.chatService.cancelFriendRequest(req.user.id, Number(id));
+    return { success: true };
+  }
+
+  // ================================================================
+  // GG CHAT — DM CONVERSATIONS
+  // ================================================================
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/dm/conversations')
+  async getDmConversations(@Req() req: any) {
+    return this.chatService.getDmConversations(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/dm/conversations')
+  async createDmConversation(
+    @Req() req: any,
+    @Body() body: { otherUserId: string },
+  ) {
+    return this.chatService.createDmConversation(req.user.id, body.otherUserId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/dm/history/:id')
+  async getDmHistory(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.chatService.getDmHistory(
+      Number(id),
+      limit ? Math.min(Number(limit), 100) : 50,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/dm/send')
+  async sendDmMessage(
+    @Req() req: any,
+    @Body() body: { content: string; conversation_id: number; reply_to?: number; attachment_url?: string },
+  ) {
+    const msg = await this.chatService.sendDmMessage(
+      req.user.id, body.content, body.conversation_id, body.reply_to, body.attachment_url,
+    );
+
+    const { data: members } = await this.supabase
+      .schema('projectgg')
+      .from('dm_conversation_members')
+      .select('user_id')
+      .eq('conversation_id', body.conversation_id)
+      .neq('user_id', req.user.id);
+
+    for (const m of members ?? []) {
+      this.chatGateway.sendToUser(m.user_id, 'dm-message', msg);
+    }
+
+    return msg;
+  }
+
+  // ================================================================
+  // NOTIFICATIONS
+  // ================================================================
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/notifications')
+  async getNotifications(@Req() req: any) {
+    return this.chatService.getNotifications(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/notifications/:id/read')
+  async markNotificationRead(@Param('id') id: string) {
+    await this.chatService.markNotificationRead(Number(id));
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/notifications/read-all')
+  async markAllNotificationsRead(@Req() req: any) {
+    await this.chatService.markAllNotificationsRead(req.user.id);
+    return { success: true };
   }
 }

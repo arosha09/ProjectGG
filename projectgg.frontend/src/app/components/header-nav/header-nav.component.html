@@ -1,30 +1,15 @@
-<header class="dashbar">
-  <div class="brand" routerLink="/dashboard">
+<header class="dashbar" [class.dashbar-public]="hideDivider">
+  <a class="brand" [routerLink]="hideDivider ? '/home' : '/dashboard'">
     <img src="logo.ico" alt="ProjectGG" class="brand-mark" />
     <span>PROJECT GG</span>
-  </div>
+  </a>
 
   <div class="dash-actions">
-    <app-theme-selector
-      [currentTheme]="currentTheme()"
-      [isOpen]="themeDropdownOpen()"
-      (themeChange)="themeChange.emit($event)"
-      (toggle)="themeToggle.emit()"
-    ></app-theme-selector>
-
-    <app-status-selector
-      [currentStatus]="currentStatus()"
-      [isOpen]="statusDropdownOpen()"
-      (statusChange)="statusChange.emit($event)"
-      (toggle)="statusToggle.emit()"
-    ></app-status-selector>
-
     <a class="nav-discord-btn"
-       [routerLink]="discordConnected() ? '/chat' : '/settings'"
-       [queryParams]="discordConnected() ? undefined : {highlight: 'discord'}"
+       routerLink="/chat"
        title="Discord Chat">
       <img src="https://cdn.simpleicons.org/discord/ffffff" alt="Discord" class="nav-discord-icon" />
-      <span>{{ discordConnected() ? 'Discord' : 'Link Discord' }}</span>
+      <span>Discord</span>
     </a>
 
     <a class="nav-ggchat-btn" routerLink="/gg-chat" title="GG Chat">
@@ -32,7 +17,14 @@
       <span>GG Chat</span>
     </a>
 
-    <div class="profile-trigger" *ngIf="userName()" (click)="profileToggle.emit()">
+    <div class="header-notif-wrap" (click)="toggleNotifications(); $event.stopPropagation()">
+      <mat-icon class="header-notif-bell">notifications</mat-icon>
+      @if (unreadCount > 0) {
+        <span class="header-notif-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+      }
+    </div>
+
+    <div class="profile-trigger" (click)="profileToggle.emit()">
       <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
       <span class="user-name">{{ userName() }}</span>
       <span class="trigger-arrow">▼</span>
@@ -42,37 +34,67 @@
       [items]="profileItems"
       [isOpen]="profileDropdownOpen()"
       [isAdmin]="isAdmin()"
+      [currentStatus]="currentStatus()"
+      (statusChange)="onStatusChange($event)"
+      margin="12px 20px 0 0"
     ></app-cyber-dropdown>
   </div>
   <button class="hamburger" (click)="toggleMobileMenu()" [class.active]="mobileMenuOpen">
     <span></span><span></span><span></span>
   </button>
+
+  @if (showNotifications) {
+    <div class="header-notif-panel" (click)="$event.stopPropagation()">
+      <div class="header-notif-header">
+        <span>Notifications</span>
+        @if (unreadCount > 0) {
+          <button class="header-notif-mark-read" (click)="markAllNotifRead()">Mark all read</button>
+        }
+      </div>
+      <div class="header-notif-list">
+        @if (notifications.length === 0) {
+          <div class="header-notif-empty">No notifications</div>
+        }
+        @for (n of notifications; track n.id) {
+          <div class="header-notif-item" [class.unread]="!n.read" (click)="markNotifRead(n)">
+            <div class="header-notif-icon">
+              @if (n.type === 'friend_request' || n.type === 'friend_accepted') {
+                <mat-icon>person_add</mat-icon>
+              } @else {
+                <mat-icon>notifications</mat-icon>
+              }
+            </div>
+            <div class="header-notif-body">
+              <div class="header-notif-title">{{ n.title }}</div>
+              <div class="header-notif-text">{{ n.body }}</div>
+            </div>
+            <div class="header-notif-time">{{ n.created_at | date:'short' }}</div>
+          </div>
+        }
+      </div>
+    </div>
+  }
 </header>
 
 <div class="mobile-menu" [class.open]="mobileMenuOpen">
-  <app-theme-selector
-    [currentTheme]="currentTheme()"
-    [isOpen]="themeDropdownOpen()"
-    (themeChange)="themeChange.emit($event); mobileMenuOpen = false"
-    (toggle)="themeToggle.emit()"
-  ></app-theme-selector>
+  @if (userName()) {
+    <div class="profile-trigger" (click)="profileToggle.emit(); mobileMenuOpen = false">
+      <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
+      <span class="user-name">{{ userName() }}</span>
+      <span class="trigger-arrow">▼</span>
+    </div>
 
-  <app-status-selector
-    [currentStatus]="currentStatus()"
-    [isOpen]="statusDropdownOpen()"
-    (statusChange)="statusChange.emit($event); mobileMenuOpen = false"
-    (toggle)="statusToggle.emit()"
-  ></app-status-selector>
-
-  <div class="profile-trigger" *ngIf="userName()" (click)="profileToggle.emit(); mobileMenuOpen = false">
-    <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
-    <span class="user-name">{{ userName() }}</span>
-    <span class="trigger-arrow">▼</span>
-  </div>
-
-  <app-cyber-dropdown
-    [items]="profileItems"
-    [isOpen]="profileDropdownOpen()"
-    [isAdmin]="isAdmin()"
-  ></app-cyber-dropdown>
+    <app-cyber-dropdown
+      [items]="profileItems"
+      [isOpen]="profileDropdownOpen()"
+      [isAdmin]="isAdmin()"
+      [currentStatus]="currentStatus()"
+      (statusChange)="onStatusChange($event); mobileMenuOpen = false"
+    ></app-cyber-dropdown>
+  } @else {
+    <nav class="topnav mobile-topnav">
+      <a class="nav-btn" routerLink="/login" (click)="mobileMenuOpen = false">Login</a>
+      <a class="nav-btn nav-cta" routerLink="/register" (click)="mobileMenuOpen = false">Join Arena</a>
+    </nav>
+  }
 </div>

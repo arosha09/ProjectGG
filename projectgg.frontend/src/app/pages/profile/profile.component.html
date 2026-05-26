@@ -45,6 +45,13 @@
         </div>
       </div>
     } @else {
+      @if (profileError) {
+        <div class="profile-error-banner">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ profileError }}</span>
+        </div>
+      }
+
       <mat-card class="profile-hero">
         <div class="hero-left">
           <div class="hero-avatar-row">
@@ -109,6 +116,12 @@
             <h3>Connected Accounts</h3>
           </div>
           <div class="info-body">
+            @if (connectionsError) {
+              <div class="profile-error-row">
+                <mat-icon>link_off</mat-icon>
+                <span>{{ connectionsError }}</span>
+              </div>
+            }
             @for (p of platforms; track p.id) {
               <div class="platform-badge-row">
                 <img class="platform-badge-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
@@ -203,25 +216,40 @@
             <button class="cyber-btn" type="button" (click)="fileInput.click()" [disabled]="avatarUploading">
               <mat-icon>upload</mat-icon> Upload
             </button>
-            <input #fileInput type="file" accept="image/*" hidden (change)="onAvatarUpload($event)" />
+            <input #fileInput type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/svg+xml,image/bmp,image/tiff,image/avif,image/x-icon" hidden (change)="onAvatarUpload($event)" />
             @if (currentUser?.avatar) {
               <button class="cyber-btn danger" type="button" (click)="onDeleteAvatar(); closeAvatarModal()">
                 <mat-icon>delete</mat-icon> Delete
               </button>
             }
           </div>
-          @if (systemAvatars.length) {
+          @if (avatarCategories.length) {
             <div class="modal-system-section">
-              <h4>System Avatars</h4>
+              <div class="modal-system-head">
+                <h4>System Avatars</h4>
+                <div class="avatar-category-select">
+                  <button class="category-trigger" type="button" (click)="categoryDropdownOpen = !categoryDropdownOpen">
+                    {{ selectedCategory || 'All' }}
+                    <mat-icon>arrow_drop_down</mat-icon>
+                  </button>
+                  <app-cyber-dropdown
+                    [items]="categoryItems"
+                    [isOpen]="categoryDropdownOpen"
+                    margin="8px 0 0 0"
+                  ></app-cyber-dropdown>
+                </div>
+              </div>
               <div class="modal-avatars-grid">
-                @for (av of systemAvatars; track av.filename) {
+                @for (av of activeSystemAvatars; track av.url) {
                   <img
                     class="system-avatar-opt"
+                    style="cursor: pointer"
                     [src]="av.url"
-                    [class.selected]="currentUser?.avatar?.includes(av.filename)"
-                    (click)="onSelectSystemAvatar(av.filename)"
+                    [class.selected]="currentUser?.avatar === av.url"
+                    (click)="onSelectSystemAvatar(av.path)"
                     [title]="av.filename"
                     alt="System avatar"
+                    loading="lazy"
                   />
                 }
               </div>

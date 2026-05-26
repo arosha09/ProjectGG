@@ -5,6 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { UsersService } from '../../services/users.service';
 import { RankDisplayComponent } from '../../components/rank-display/rank-display.component';
@@ -16,11 +18,12 @@ import { Game } from '../../models/game.model';
 import { TasksService } from '../../services/tasks.service';
 import { ThemeService } from '../../services/theme.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
+import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, RankDisplayComponent, DailyClaimComponent, RouterLink],
+  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, RankDisplayComponent, DailyClaimComponent, RouterLink, CyberDropdownComponent],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss'],
 })
@@ -29,13 +32,19 @@ export class ProfileComponent implements OnInit, OnDestroy {
   currentStatus: 'online' | 'away' | 'offline' | 'invisible' = 'online';
   statusDropdownOpen = false;
   profileDropdownOpen = false;
+  private destroy$ = new Subject<void>();
 
   userRank: UserRankDto | null = null;
   canClaim = false;
   claimLoading = false;
   loading = true;
 
-  systemAvatars: { filename: string; url: string }[] = [];
+  profileError = '';
+  connectionsError = '';
+
+  avatarCategories: { category: string; avatars: { filename: string; url: string; path: string }[] }[] = [];
+  selectedCategory = '';
+  categoryDropdownOpen = false;
   avatarUploading = false;
   avatarModalOpen = false;
   private systemAvatarsLoaded = false;
@@ -73,18 +82,31 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUser = this.auth.getCurrentUser();
+
     if (!this.auth.isAuthenticated()) {
       this.router.navigate(['/login']);
       return;
     }
+
     this.applySavedStatus();
+
+    this.auth.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
+      if (user) {
+        this.currentUser = user;
+        this.cdr.markForCheck();
+      }
+    });
+
     this.loadRankData();
     this.refreshProfile();
     this.loadConnections();
     this.loadCollectedGames();
   }
 
-  ngOnDestroy(): void {}
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
   // ── Theme (fully delegated to ThemeService) ────────────────────────────────
 
@@ -129,14 +151,14 @@ export class ProfileComponent implements OnInit, OnDestroy {
     if (this.currentUser?.avatar) return this.currentUser.avatar;
     const gender = this.currentUser?.gender?.toLowerCase();
     if (gender == null) return null;
-    if (gender === 'prefer not to say') return 'assets/unknown.png';
-    if (gender === 'male')   return 'assets/male.png';
-    if (gender === 'female') return 'assets/female.png';
-    return 'assets/unknown.png';
+    if (gender === 'prefer not to say') return 'assets/avatars/unknown.png';
+    if (gender === 'male')   return 'assets/avatars/male.png';
+    if (gender === 'female') return 'assets/avatars/female.png';
+    return 'assets/avatars/unknown.png';
   }
 
   get genderLabel(): string {
-    return this.currentUser?.gender ?? 'N/A';
+    return this.currentUser?.gender?.toUpperCase() ?? 'N/A';
   }
 
   get emailVerified(): boolean {
@@ -151,20 +173,36 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   openAvatarModal(): void {
     this.avatarModalOpen = true;
-    if (!this.systemAvatarsLoaded) this.loadSystemAvatars();
+    this.loadSystemAvatars();
   }
 
-  closeAvatarModal(): void { this.avatarModalOpen = false; }
-
   private loadSystemAvatars(): void {
-    this.http.get<{ filename: string; url: string }[]>(`${this.apiUrl}/users/avatar/system`).subscribe({
-      next: (avatars) => {
-        this.systemAvatars = avatars;
+    this.http.get<{ category: string; avatars: { filename: string; url: string; path: string }[] }[]>(`${this.apiUrl}/users/avatar/system?t=${Date.now()}`).subscribe({
+      next: (categories) => {
+        this.avatarCategories = categories;
+        this.selectedCategory = categories[0]?.category ?? '';
         this.systemAvatarsLoaded = true;
         this.cdr.markForCheck();
       },
       error: () => {},
     });
+  }
+
+  closeAvatarModal(): void { this.avatarModalOpen = false; }
+
+  get activeSystemAvatars(): { filename: string; url: string; path: string }[] {
+    const cat = this.avatarCategories.find(c => c.category === this.selectedCategory);
+    return cat?.avatars ?? [];
+  }
+
+  get categoryItems(): DropdownItem[] {
+    return this.avatarCategories.map(cat => ({
+      label: cat.category || 'All',
+      action: () => {
+        this.selectedCategory = cat.category;
+        this.categoryDropdownOpen = false;
+      },
+    }));
   }
 
   onAvatarUpload(event: Event): void {
@@ -185,8 +223,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
     });
   }
 
-  onSelectSystemAvatar(filename: string): void {
-    this.http.put<{ url: string }>(`${this.apiUrl}/users/avatar/select`, { filename }).subscribe({
+  onSelectSystemAvatar(path: string): void {
+    this.http.put<{ url: string }>(`${this.apiUrl}/users/avatar/select`, { path }).subscribe({
       next: (res) => {
         this.avatarModalOpen = false;
         this.currentUser = { ...this.currentUser, avatar: res.url };
@@ -212,6 +250,13 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   private loadRankData(): void {
     const userId = this.currentUser?.id;
+
+    if (!userId) {
+      this.loading = false;
+      this.cdr.markForCheck();
+      return;
+    }
+
     let rankDone = false;
     let claimDone = false;
 
@@ -246,9 +291,13 @@ export class ProfileComponent implements OnInit, OnDestroy {
       next: (profile) => {
         this.currentUser = { ...this.currentUser, ...profile };
         this.usersService.updateCurrentUser(this.currentUser);
+        this.profileError = '';
         this.cdr.markForCheck();
       },
-      error: () => {},
+      error: (err) => {
+        this.profileError = err.status === 401 ? 'Session expired. Please log in again.' : 'Failed to load profile data.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -257,9 +306,13 @@ export class ProfileComponent implements OnInit, OnDestroy {
       next: (conns) => {
         this.connections = conns;
         this.discordConnected = conns.some(c => c.platform === 'discord');
+        this.connectionsError = '';
         this.cdr.markForCheck();
       },
-      error: () => {},
+      error: () => {
+        this.connectionsError = 'Failed to load connected accounts.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -305,6 +358,6 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   logout(): void {
     this.auth.logout();
-    this.router.navigate(['/home']);
+    this.router.navigate(['/login']);
   }
 }

@@ -64,29 +64,24 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { guildId: string; channelId: string; userId: string },
   ): Promise<void> {
     const { guildId, channelId, userId } = data;
-
-    // Leave previous channel if any
     const prev = this.clients.get(client.id);
-    if (prev) {
-      this.removeClient(client.id, prev);
-      client.leave(prev.channelId);
-    }
+    if (prev) { this.removeClient(client.id, prev); client.leave(prev.channelId); }
 
-    // Join the voice channel via Discord bot
     await this.voiceService.joinChannel(guildId, channelId);
-
-    // Track client
     this.clients.set(client.id, { socketId: client.id, userId, guildId, channelId });
     client.join(channelId);
-
-    if (!this.channelMembers.has(channelId)) {
-      this.channelMembers.set(channelId, new Set());
-    }
+    if (!this.channelMembers.has(channelId)) this.channelMembers.set(channelId, new Set());
     this.channelMembers.get(channelId)!.add(client.id);
 
-    // Notify others
-    client.to(channelId).emit('member-joined', { userId });
+    // Send existing members to the newly joined client
+    const existingMembers = Array.from(this.channelMembers.get(channelId)!)
+      .map(sid => this.clients.get(sid))
+      .filter((c): c is VoiceClient => c !== undefined && c.socketId !== client.id);
+    if (existingMembers.length > 0) {
+      client.emit('existing-members', { members: existingMembers.map(m => ({ userId: m.userId })) });
+    }
 
+    client.to(channelId).emit('member-joined', { userId });
     this.logger.log(`User ${userId} joined voice channel ${channelId}`);
   }
 

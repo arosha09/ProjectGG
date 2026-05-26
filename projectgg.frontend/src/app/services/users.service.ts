@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -49,6 +49,7 @@ export class UsersService {
 
   login(payload: { email: string; password: string }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/auth/login`, payload).pipe(
+      timeout(30000),
       tap((response) => this.syncAuthState(response))
     );
   }

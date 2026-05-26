@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   HttpRequest,
   HttpHandler,
@@ -8,12 +8,14 @@ import {
 } from '@angular/common/http';
 import { Observable, throwError, BehaviorSubject } from 'rxjs';
 import { catchError, filter, take, switchMap } from 'rxjs/operators';
+import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
 @Injectable()
 export class JwtInterceptor implements HttpInterceptor {
   private isRefreshing = false;
   private refreshTokenSubject = new BehaviorSubject<string | null>(null);
+  private readonly router = inject(Router);
 
   constructor(private authService: AuthService) {}
 
@@ -36,6 +38,13 @@ export class JwtInterceptor implements HttpInterceptor {
 
   private handle401Error(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     if (!this.isRefreshing) {
+      if (!this.authService.getRefreshToken()) {
+        console.warn('[JwtInterceptor] No refresh token available, redirecting to login');
+        this.authService.logout();
+        this.router.navigate(['/login'], { queryParams: { session_expired: 'no_refresh' } });
+        return throwError(() => new Error('No refresh token'));
+      }
+
       this.isRefreshing = true;
       this.refreshTokenSubject.next(null);
       console.warn('[JwtInterceptor] Token expired, attempting refresh...');
@@ -51,12 +60,14 @@ export class JwtInterceptor implements HttpInterceptor {
           }
           console.warn('[JwtInterceptor] Refresh failed - no token in response');
           this.authService.logout();
+          this.router.navigate(['/login'], { queryParams: { session_expired: 'true' } });
           return throwError(() => new Error('Refresh failed'));
         }),
         catchError((err) => {
           console.warn('[JwtInterceptor] Refresh error:', err);
           this.isRefreshing = false;
           this.authService.logout();
+          this.router.navigate(['/login'], { queryParams: { session_expired: 'true' } });
           return throwError(() => err);
         })
       );

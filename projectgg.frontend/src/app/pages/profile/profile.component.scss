@@ -493,7 +493,7 @@
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: pointer !important;
   border: 2px solid transparent;
   transition: border-color .2s, box-shadow .2s;
   background: rgba(255,255,255,.03);
@@ -658,9 +658,28 @@
     text-transform: uppercase;
     letter-spacing: 1px;
     color: rgba(230,255,240,.5);
-    margin: 0 0 12px;
-    text-align: center;
+    margin: 0;
   }
+}
+
+.modal-system-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 12px;
+}
+
+.avatar-category-select {
+  position: relative;
+}
+
+.category-trigger {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+  color: rgba(230,255,240,.5); cursor: pointer; font-family: inherit;
+  transition: all .12s;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  &:hover { background: rgba(255,255,255,.06); color: #e9f9f3; }
 }
 
 .platform-badge-row {
@@ -698,6 +717,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+  cursor: pointer;
 }
 
 /* ========== COLLECTED GAMES ========== */
@@ -865,7 +885,47 @@
   .profile-grid {
     grid-template-columns: 1fr;
   }
-  .profile-hero {
+.profile-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  margin-bottom: 24px;
+  background: rgba(255,34,85,.08);
+  border: 1px solid rgba(255,34,85,.25);
+  border-radius: 6px;
+  color: #ff4477;
+  font-size: 13px;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: #ff4477;
+    flex-shrink: 0;
+  }
+}
+
+.profile-error-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(230,255,240,.4);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: rgba(230,255,240,.3);
+    flex-shrink: 0;
+  }
+}
+
+.profile-hero {
     flex-direction: column;
     text-align: center;
     gap: 16px;

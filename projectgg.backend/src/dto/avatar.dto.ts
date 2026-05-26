@@ -1,5 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class SystemAvatarItemDto {
+    @ApiProperty({ example: 'avatar_01.png' })
+    filename: string;
+
+    @ApiProperty({ example: 'https://.../system_files/avatars/anime/avatar_01.png' })
+    url: string;
+
+    @ApiProperty({ example: 'avatars/avatar_01.png' })
+    path: string;
+}
+
+export class SystemAvatarCategoryDto {
+    @ApiProperty({ example: 'anime' })
+    category: string;
+
+    @ApiProperty({ type: [SystemAvatarItemDto] })
+    avatars: SystemAvatarItemDto[];
+}
+
 export class SystemAvatarDto {
     @ApiProperty({ example: 'avatar_01.png' })
     filename: string;
@@ -46,6 +65,9 @@ export class ProfileDto {
 
     @ApiProperty({ example: false })
     email_verified?: boolean;
+
+    @ApiPropertyOptional({ example: 'cyber' })
+    cursor_preference?: string;
 }
 
 export class UpdateProfileDto {
@@ -66,6 +88,9 @@ export class UpdateProfileDto {
 
     @ApiPropertyOptional()
     avatar?: string;
+
+    @ApiPropertyOptional()
+    cursor_preference?: string;
 }
 
 export class VerifyEmailDto {

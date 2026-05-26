@@ -22,12 +22,6 @@
           <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/ffffff'" [alt]="p.name" class="mp-platform-icon" />
           <span>{{ p.name }}</span>
         </button>
-      } @else if (p.id === 'apple_music') {
-        <button class="mp-platform-btn mp-soon" disabled title="Coming soon">
-          <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/888'" [alt]="p.name" class="mp-platform-icon" />
-          <span>{{ p.name }}</span>
-          <span class="mp-soon-label">SOON</span>
-        </button>
       }
     }
   </div>
@@ -57,10 +51,10 @@
             <img [src]="currentlyPlaying.albumArt" alt="Album art" class="mp-album-art" />
           } @else {
             <div class="mp-album-art mp-placeholder-art">
-              <svg viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,230,118,0.3)" stroke-width="2"/>
-                <circle cx="50" cy="50" r="15" fill="rgba(0,230,118,0.2)"/>
-                <line x1="50" y1="35" x2="50" y2="15" stroke="#00e676" stroke-width="1.5" opacity="0.5"/>
+              <svg class="mp-placeholder-svg" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" fill="none" class="mp-placeholder-circle-outer" stroke-width="2"/>
+                <circle cx="50" cy="50" r="15" class="mp-placeholder-circle-inner"/>
+                <line x1="50" y1="35" x2="50" y2="15" class="mp-placeholder-line" stroke-width="1.5" opacity="0.5"/>
               </svg>
             </div>
           }

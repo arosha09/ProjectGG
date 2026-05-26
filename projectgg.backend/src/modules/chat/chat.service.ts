@@ -3,20 +3,21 @@ import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 
 export interface ChatMessage {
   id: number;
-  user_id: number | null;
+  user_id: string | number | null;
   username: string;
   content: string;
   source: string;
   channel_id?: string;
   channel_name?: string;
-  channel_type?: string;
   guild_name?: string;
+  channel_type?: string;
   avatar_url?: string;
   created_at: string;
-  reply_to?: number;
-  attachment_url?: string;
-  mentions?: string[];
-  replyToMessage?: ChatMessage | null;
+  reply_to?: number | null;
+  attachment_url?: string | null;
+  sticker_url?: string | null;
+  discord_message_id?: string | null;
+  [key: string]: any;
 }
 
 export interface GgServer {
@@ -34,15 +35,37 @@ export interface GgChannel {
   type: 'text' | 'voice';
   position: number;
   created_at: string;
+  allowed_roles?: string[];
 }
 
 export interface GgServerMember {
   server_id: number;
   user_id: string;
-  role: 'owner' | 'admin' | 'member';
+  roles: string[];
   joined_at: string;
   username?: string;
   avatar_url?: string;
+}
+
+export type Permission = 'manage_server' | 'manage_channels' | 'manage_messages' | 'manage_members' | 'kick_members';
+
+const ROLE_HIERARCHY: Record<string, number> = {
+  owner: 100,
+  admin: 80,
+  moderator: 60,
+  member: 0,
+};
+
+const ROLE_PERMISSIONS: Record<string, Permission[]> = {
+  owner: ['manage_server', 'manage_channels', 'manage_messages', 'manage_members', 'kick_members'],
+  admin: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members'],
+  moderator: ['manage_messages', 'kick_members'],
+  member: [],
+};
+
+function getHighestRoleLevel(roles: string[] | null): number {
+  if (!roles || roles.length === 0) return 0;
+  return Math.max(...roles.map(r => ROLE_HIERARCHY[r] ?? 0));
 }
 
 @Injectable()
@@ -82,14 +105,13 @@ export class ChatService {
   }
 
   async saveMessage(
-    userId: number,
+    userId: string | number,
     username: string,
     content: string,
     channelId?: string,
     avatarUrl?: string,
     replyTo?: number,
     attachmentUrl?: string,
-    mentions?: string[],
   ): Promise<ChatMessage> {
     const trimmed = content.trim();
     if (!trimmed) throw new BadRequestException('Message cannot be empty');
@@ -105,7 +127,6 @@ export class ChatService {
         avatar_url: avatarUrl ?? null,
         reply_to: replyTo ?? null,
         attachment_url: attachmentUrl ?? null,
-        mentions: mentions ?? null,
       })
       .select()
       .single();
@@ -143,18 +164,36 @@ export class ChatService {
     if (se) throw se;
 
     // Add owner as member
-    await this.db().from('gg_server_members').insert({
-      server_id: server.id,
-      user_id: ownerId,
-      role: 'owner',
-    });
+    {
+      const memberPayload = {
+        server_id: server.id,
+        user_id: ownerId,
+        joined_at: new Date().toISOString(),
+        roles: ['owner'],
+      };
+      let { error: me } = await this.db().from('gg_server_members').insert(memberPayload);
+      if (me?.code === 'PGRST204') {
+        // PostgREST schema cache stale after column migration — retry once
+        me = (await this.db().from('gg_server_members').insert(memberPayload)).error;
+      }
+      if (me) {
+        await this.db().from('gg_servers').delete().eq('id', server.id);
+        throw me;
+      }
+    }
 
     // Create default channels
-    await this.db().from('gg_channels').insert([
+    const { error: ce } = await this.db().from('gg_channels').insert([
       { server_id: server.id, name: 'general', type: 'text', position: 0 },
       { server_id: server.id, name: 'off-topic', type: 'text', position: 1 },
       { server_id: server.id, name: 'voice', type: 'voice', position: 2 },
     ]);
+    if (ce) {
+      // Cleanup server on channel creation failure
+      await this.db().from('gg_server_members').delete().eq('server_id', server.id);
+      await this.db().from('gg_servers').delete().eq('id', server.id);
+      throw ce;
+    }
 
     return server;
   }
@@ -172,20 +211,69 @@ export class ChatService {
     if (error) throw error;
   }
 
+  async updateServer(
+    serverId: number, userId: string, data: Partial<Pick<GgServer, 'name' | 'avatar_url'>>,
+  ): Promise<GgServer> {
+    const { data: server } = await this.db()
+      .from('gg_servers')
+      .select('owner_id')
+      .eq('id', serverId)
+      .single();
+    if (!server) throw new BadRequestException('Server not found');
+    if (server.owner_id !== userId) throw new BadRequestException('Only the owner can update this server');
+    const updateData: any = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
+    const { data: updated, error } = await this.db()
+      .from('gg_servers')
+      .update(updateData)
+      .eq('id', serverId)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
+  }
+
   // ===== CHANNELS =====
 
-  async getChannels(serverId: number): Promise<GgChannel[]> {
+  async getChannels(serverId: number, userId?: string): Promise<GgChannel[]> {
     const { data, error } = await this.db()
       .from('gg_channels')
       .select('*')
       .eq('server_id', serverId)
       .order('position', { ascending: true });
     if (error) throw error;
-    return data ?? [];
+    let channels: GgChannel[] = data ?? [];
+
+    // Attach allowed_roles and filter private channels
+    const { data: chRoles } = await this.db()
+      .from('gg_channel_allowed_roles')
+      .select('channel_id, role')
+      .in('channel_id', channels.map(c => c.id));
+    const roleMap = new Map<number, string[]>();
+    for (const cr of chRoles ?? []) {
+      if (!roleMap.has(cr.channel_id)) roleMap.set(cr.channel_id, []);
+      roleMap.get(cr.channel_id)!.push(cr.role);
+    }
+
+    channels = channels.map(ch => ({ ...ch, allowed_roles: roleMap.get(ch.id) ?? [] }));
+
+    if (userId) {
+      const userRoles = await this.getMemberRoles(serverId, userId);
+      channels = channels.filter(ch => {
+        if (!ch.allowed_roles || ch.allowed_roles.length === 0) return true;
+        if (!userRoles || userRoles.length === 0) return false;
+        return ch.allowed_roles.some(r => userRoles.includes(r));
+      });
+    }
+
+    return channels;
   }
 
-  async createChannel(serverId: number, name: string, type: 'text' | 'voice', userId: string): Promise<GgChannel> {
-    await this.requireServerAccess(serverId, userId);
+  async createChannel(
+    serverId: number, name: string, type: 'text' | 'voice', userId: string, allowedRoles?: string[],
+  ): Promise<GgChannel> {
+    await this.requirePermission(serverId, userId, 'manage_channels');
     const { data: channels } = await this.db()
       .from('gg_channels')
       .select('position')
@@ -199,13 +287,36 @@ export class ChatService {
       .select()
       .single();
     if (error) throw error;
-    return data;
+
+    if (allowedRoles && allowedRoles.length > 0) {
+      await this.setChannelRoles(data.id, allowedRoles);
+    }
+
+    return { ...data, allowed_roles: allowedRoles ?? [] };
+  }
+
+  async getChannelRoles(channelId: number): Promise<string[]> {
+    const { data } = await this.db()
+      .from('gg_channel_allowed_roles')
+      .select('role')
+      .eq('channel_id', channelId);
+    return (data ?? []).map((r: any) => r.role);
+  }
+
+  async setChannelRoles(channelId: number, roles: string[]): Promise<void> {
+    await this.db().from('gg_channel_allowed_roles').delete().eq('channel_id', channelId);
+    if (roles.length > 0) {
+      const { error } = await this.db().from('gg_channel_allowed_roles').insert(
+        roles.map(r => ({ channel_id: channelId, role: r })),
+      );
+      if (error) throw error;
+    }
   }
 
   async deleteChannel(channelId: number, userId: string): Promise<void> {
     const { data: ch } = await this.db().from('gg_channels').select('server_id').eq('id', channelId).single();
     if (!ch) throw new BadRequestException('Channel not found');
-    await this.requireServerAccess(ch.server_id, userId);
+    await this.requirePermission(ch.server_id, userId, 'manage_channels');
     const { error } = await this.db().from('gg_channels').delete().eq('id', channelId);
     if (error) throw error;
   }
@@ -218,7 +329,24 @@ export class ChatService {
       .select('*')
       .eq('server_id', serverId);
     if (error) throw error;
-    return data ?? [];
+    const members = data ?? [];
+    if (members.length === 0) return [];
+
+    const userIds = members.map(m => m.user_id);
+    const { data: users } = await this.db()
+      .from('users')
+      .select('id, username, avatar, gender')
+      .in('id', userIds);
+    const userMap = new Map<string, any>((users ?? []).map((u: any) => [u.id, u]));
+
+    return members.map(m => {
+      const user = userMap.get(m.user_id);
+      return {
+        ...m,
+        username: user?.username ?? m.username ?? m.user_id,
+        avatar_url: user ? this.resolveAvatar(user.avatar, user.gender) : null,
+      };
+    });
   }
 
   async joinServer(serverId: number, userId: string): Promise<void> {
@@ -228,10 +356,19 @@ export class ChatService {
       .eq('server_id', serverId)
       .eq('user_id', userId)
       .single();
-    if (existing) return; // already a member
-    const { error } = await this.db()
+    if (existing) return;
+    const memberPayload = {
+      server_id: serverId,
+      user_id: userId,
+      joined_at: new Date().toISOString(),
+      roles: ['member'],
+    };
+    let { error } = await this.db()
       .from('gg_server_members')
-      .insert({ server_id: serverId, user_id: userId, role: 'member' });
+      .insert(memberPayload);
+    if (error?.code === 'PGRST204') {
+      error = (await this.db().from('gg_server_members').insert(memberPayload)).error;
+    }
     if (error) throw error;
   }
 
@@ -247,10 +384,496 @@ export class ChatService {
   private async requireServerAccess(serverId: number, userId: string): Promise<void> {
     const { data } = await this.db()
       .from('gg_server_members')
-      .select('role')
+      .select('roles')
       .eq('server_id', serverId)
       .eq('user_id', userId)
       .single();
     if (!data) throw new BadRequestException('Not a member of this server');
+  }
+
+  async getMemberRoles(serverId: number, userId: string): Promise<string[] | null> {
+    const { data } = await this.db()
+      .from('gg_server_members')
+      .select('roles')
+      .eq('server_id', serverId)
+      .eq('user_id', userId)
+      .single();
+    return data?.roles ?? null;
+  }
+
+  hasPermission(roles: string[] | null, permission: Permission): boolean {
+    if (!roles || roles.length === 0) return false;
+    return roles.some(r => ROLE_PERMISSIONS[r]?.includes(permission) ?? false);
+  }
+
+  async requirePermission(serverId: number, userId: string, permission: Permission): Promise<void> {
+    const { data } = await this.db()
+      .from('gg_server_members')
+      .select('roles')
+      .eq('server_id', serverId)
+      .eq('user_id', userId)
+      .single();
+    if (!data) throw new BadRequestException('Not a member of this server');
+    if (!this.hasPermission(data.roles, permission)) {
+      throw new BadRequestException(`Missing permission: ${permission}`);
+    }
+  }
+
+  async changeMemberRoles(serverId: number, targetUserId: string, newRoles: string[], requesterId: string): Promise<void> {
+    await this.requirePermission(serverId, requesterId, 'manage_members');
+    if (newRoles.some(r => !['admin', 'moderator', 'member'].includes(r))) {
+      throw new BadRequestException('Invalid role. Allowed: admin, moderator, member');
+    }
+    const requesterRoles = await this.getMemberRoles(serverId, requesterId);
+    const targetRoles = await this.getMemberRoles(serverId, targetUserId);
+    if (!targetRoles) throw new BadRequestException('Target user not found in server');
+    if (targetRoles.includes('owner')) throw new BadRequestException('Cannot change owner roles');
+    if (getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)) {
+      throw new BadRequestException('Cannot change roles of someone with equal or higher rank');
+    }
+    const { error } = await this.db()
+      .from('gg_server_members')
+      .update({ roles: newRoles })
+      .eq('server_id', serverId)
+      .eq('user_id', targetUserId);
+    if (error) throw error;
+  }
+
+  async kickMember(serverId: number, targetUserId: string, requesterId: string): Promise<void> {
+    await this.requirePermission(serverId, requesterId, 'kick_members');
+    if (targetUserId === requesterId) throw new BadRequestException('Cannot kick yourself');
+    const targetRoles = await this.getMemberRoles(serverId, targetUserId);
+    if (!targetRoles) throw new BadRequestException('User not found in server');
+    if (targetRoles.includes('owner')) throw new BadRequestException('Cannot kick the owner');
+    const requesterRoles = await this.getMemberRoles(serverId, requesterId);
+    if (getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)) {
+      throw new BadRequestException('Cannot kick someone with equal or higher rank');
+    }
+    const { error } = await this.db()
+      .from('gg_server_members')
+      .delete()
+      .eq('server_id', serverId)
+      .eq('user_id', targetUserId);
+    if (error) throw error;
+  }
+
+  // ================================================================
+  // INVITE LINKS
+  // ================================================================
+
+  async generateInvite(serverId: number, userId: string): Promise<any> {
+    await this.requirePermission(serverId, userId, 'manage_server');
+
+    const crypto = require('crypto');
+    const code = crypto.randomBytes(4).toString('hex');
+
+    // Revoke all previous non-revoked invites for this server
+    await this.db()
+      .from('invite_links')
+      .update({ revoked: true })
+      .eq('server_id', serverId)
+      .eq('revoked', false);
+
+    const { data, error } = await this.db()
+      .from('invite_links')
+      .insert({ server_id: serverId, code, created_by: userId })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getServerInvites(serverId: number): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('invite_links')
+      .select('*')
+      .eq('server_id', serverId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async revokeInvite(inviteId: number, userId: string): Promise<void> {
+    const { data: invite } = await this.db()
+      .from('invite_links')
+      .select('server_id')
+      .eq('id', inviteId)
+      .single();
+    if (!invite) throw new BadRequestException('Invite not found');
+    await this.requirePermission(invite.server_id, userId, 'manage_server');
+
+    const { error } = await this.db()
+      .from('invite_links')
+      .update({ revoked: true })
+      .eq('id', inviteId);
+    if (error) throw error;
+  }
+
+  async joinViaInvite(code: string, userId: string): Promise<number> {
+    const { data: invite } = await this.db()
+      .from('invite_links')
+      .select('*')
+      .eq('code', code)
+      .single();
+    if (!invite) throw new BadRequestException('Invalid invite code');
+    if (invite.revoked) throw new BadRequestException('Invite link has been revoked');
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      throw new BadRequestException('Invite link has expired');
+    }
+    if (invite.max_uses && invite.use_count >= invite.max_uses) {
+      throw new BadRequestException('Invite link has reached max uses');
+    }
+
+    await this.joinServer(invite.server_id, userId);
+
+    // Increment use count
+    await this.db()
+      .from('invite_links')
+      .update({ use_count: invite.use_count + 1 })
+      .eq('id', invite.id);
+
+    return invite.server_id;
+  }
+
+  // ================================================================
+  // FRIENDS
+  // ================================================================
+
+  private resolveAvatar(avatar: string | null, gender: string | null): string {
+    if (avatar) return avatar;
+    const g = gender?.toLowerCase();
+    if (g === 'male') return '/assets/avatars/male.png';
+    if (g === 'female') return '/assets/avatars/female.png';
+    return '/assets/avatars/unknown.png';
+  }
+
+  async findUserById(id: string): Promise<any> {
+    const { data, error } = await this.db()
+      .from('users')
+      .select('id, username, avatar, name, gender')
+      .eq('id', id)
+      .single();
+    if (error) return null;
+    return { ...data, avatar: this.resolveAvatar(data.avatar, data.gender) };
+  }
+
+  async searchUsers(query: string, excludeUserId: string): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('users')
+      .select('id, username, avatar, name, gender')
+      .ilike('username', `%${query}%`)
+      .neq('id', excludeUserId)
+      .limit(20);
+    if (error) throw error;
+    return (data ?? []).map(u => ({ ...u, avatar: this.resolveAvatar(u.avatar, u.gender) }));
+  }
+
+  async sendFriendRequest(userId: string, friendUsername: string): Promise<any> {
+    const { data: friend } = await this.db()
+      .from('users')
+      .select('id')
+      .eq('username', friendUsername)
+      .single();
+    if (!friend) throw new BadRequestException('User not found');
+    if (friend.id === userId) throw new BadRequestException('Cannot add yourself');
+
+    const { data: existing } = await this.db()
+      .from('friends')
+      .select('*')
+      .or(`and(user_id.eq.${userId},friend_id.eq.${friend.id}),and(user_id.eq.${friend.id},friend_id.eq.${userId})`)
+      .maybeSingle();
+    if (existing) {
+      if (existing.status === 'accepted') throw new BadRequestException('Already friends');
+      if (existing.status === 'pending') throw new BadRequestException('Friend request already sent');
+      throw new BadRequestException('Cannot send friend request');
+    }
+
+    const { data, error } = await this.db()
+      .from('friends')
+      .insert({ user_id: userId, friend_id: friend.id, status: 'pending', action_user_id: userId })
+      .select()
+      .single();
+    if (error) throw error;
+
+    return { ...data, friendUsername: friendUsername };
+  }
+
+  async acceptFriendRequest(userId: string, friendId: number): Promise<void> {
+    const { data } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('id', friendId)
+      .single();
+    if (!data) throw new BadRequestException('Friend request not found');
+    if (data.friend_id !== userId) throw new BadRequestException('Not your request');
+
+    const { error } = await this.db()
+      .from('friends')
+      .update({ status: 'accepted' })
+      .eq('id', friendId);
+    if (error) throw error;
+  }
+
+  async removeFriend(userId: string, friendRowId: number): Promise<void> {
+    const { data } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('id', friendRowId)
+      .single();
+    if (!data) throw new BadRequestException('Friend not found');
+    if (data.user_id !== userId && data.friend_id !== userId) {
+      throw new BadRequestException('Not your friend');
+    }
+    const { error } = await this.db()
+      .from('friends')
+      .delete()
+      .eq('id', friendRowId);
+    if (error) throw error;
+  }
+
+  async getFriends(userId: string): Promise<any[]> {
+    const { data: asUser, error: err1 } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'accepted');
+    if (err1) throw err1;
+    const { data: asFriend, error: err2 } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('friend_id', userId)
+      .eq('status', 'accepted');
+    if (err2) throw err2;
+    return [...(asUser ?? []), ...(asFriend ?? [])];
+  }
+
+  async getPendingRequests(userId: string): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('friend_id', userId)
+      .eq('status', 'pending');
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async getPendingSentRequests(userId: string): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  // ================================================================
+  // DM CONVERSATIONS
+  // ================================================================
+
+  async getDmConversations(userId: string): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('dm_conversation_members')
+      .select('conversation_id, dm_conversations(*)')
+      .eq('user_id', userId);
+    if (error) throw error;
+
+    const conversations = (data ?? []).map((m: any) => m.dm_conversations).filter(Boolean);
+
+    for (const conv of conversations) {
+      const { data: members } = await this.db()
+        .from('dm_conversation_members')
+        .select('user_id')
+        .eq('conversation_id', conv.id)
+        .neq('user_id', userId);
+      conv.otherUserId = members?.[0]?.user_id ?? null;
+      if (conv.otherUserId) {
+        const other = await this.findUserById(conv.otherUserId);
+        conv.otherUsername = other?.username ?? 'Unknown';
+        conv.otherAvatar = other?.avatar ?? null;
+      }
+
+      const { data: lastMsg } = await this.db()
+        .from('chat_messages')
+        .select('content, created_at')
+        .eq('channel_id', `dm_${conv.id}`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      conv.lastMessage = lastMsg?.[0]?.content ?? null;
+      conv.lastMessageAt = lastMsg?.[0]?.created_at ?? null;
+    }
+
+    conversations.sort((a: any, b: any) => {
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return conversations;
+  }
+
+  async createDmConversation(userId: string, otherUserId: string): Promise<any> {
+    if (userId === otherUserId) throw new BadRequestException('Cannot DM yourself');
+
+    const { data: existing } = await this.db()
+      .from('dm_conversation_members')
+      .select('conversation_id')
+      .eq('user_id', userId);
+    const userConvIds = (existing ?? []).map((m: any) => m.conversation_id);
+
+    if (userConvIds.length > 0) {
+      const { data: otherMember } = await this.db()
+        .from('dm_conversation_members')
+        .select('conversation_id')
+        .in('conversation_id', userConvIds)
+        .eq('user_id', otherUserId)
+        .maybeSingle();
+      if (otherMember) {
+        const { data: conv } = await this.db()
+          .from('dm_conversations')
+          .select('*')
+          .eq('id', otherMember.conversation_id)
+          .single();
+        return conv;
+      }
+    }
+
+    const { data: conv, error: ce } = await this.db()
+      .from('dm_conversations')
+      .insert({ type: 'dm' })
+      .select()
+      .single();
+    if (ce) throw ce;
+
+    await this.db().from('dm_conversation_members').insert([
+      { conversation_id: conv.id, user_id: userId },
+      { conversation_id: conv.id, user_id: otherUserId },
+    ]);
+
+    return conv;
+  }
+
+  async getDmHistory(conversationId: number, limit = 50): Promise<ChatMessage[]> {
+    const channelId = `dm_${conversationId}`;
+    let query = this.db().from('chat_messages').select('*').eq('channel_id', channelId);
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+    if (error) throw error;
+    const messages = (data ?? []).reverse() as ChatMessage[];
+
+    const replyToIds = messages.map(m => m.reply_to).filter((id): id is number => id != null);
+    if (replyToIds.length > 0) {
+      const { data: parentMessages } = await this.db()
+        .from('chat_messages')
+        .select('*')
+        .in('id', replyToIds);
+      const parentMap = new Map<number, ChatMessage>((parentMessages ?? []).map(m => [m.id, m as ChatMessage]));
+      for (const msg of messages) {
+        if (msg.reply_to != null) {
+          msg.replyToMessage = parentMap.get(msg.reply_to) ?? null;
+        }
+      }
+    }
+
+    return messages;
+  }
+
+  async sendDmMessage(
+    userId: string,
+    content: string,
+    conversationId: number,
+    replyTo?: number,
+    attachmentUrl?: string,
+  ): Promise<ChatMessage> {
+    const user = userId ? await this.findUserById(userId) : null;
+    const username = user?.username ?? 'Unknown';
+    const avatarUrl = user?.avatar ?? null;
+    const channelId = `dm_${conversationId}`;
+
+    const trimmed = content.trim();
+    if (!trimmed) throw new BadRequestException('Message cannot be empty');
+    if (trimmed.length > 500) throw new BadRequestException('Message too long (max 500)');
+
+    const { data, error } = await this.db()
+      .from('chat_messages')
+      .insert({
+        user_id: null,
+        username,
+        content: trimmed,
+        source: 'web',
+        channel_id: channelId,
+        avatar_url: avatarUrl,
+        reply_to: replyTo ?? null,
+        attachment_url: attachmentUrl ?? null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  // ===== NOTIFICATIONS =====
+
+  async createNotification(
+    userId: string, type: string, title: string, body?: string, data?: any,
+  ): Promise<any> {
+    const { data: notif, error } = await this.db()
+      .from('notifications')
+      .insert({ user_id: userId, type, title, body: body ?? '', data: data ?? null })
+      .select()
+      .single();
+    if (error) throw error;
+    return notif;
+  }
+
+  async getNotifications(userId: string): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async markNotificationRead(notificationId: number): Promise<void> {
+    const { error } = await this.db()
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', notificationId);
+    if (error) throw error;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    const { error } = await this.db()
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', userId)
+      .eq('read', false);
+    if (error) throw error;
+  }
+
+  // ===== FRIEND REQUEST REJECT / CANCEL =====
+
+  async rejectFriendRequest(userId: string, requestId: number): Promise<void> {
+    const { data } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+    if (!data) throw new BadRequestException('Friend request not found');
+    if (data.friend_id !== userId) throw new BadRequestException('Not your request');
+    await this.db().from('friends').delete().eq('id', requestId);
+  }
+
+  async cancelFriendRequest(userId: string, requestId: number): Promise<void> {
+    const { data } = await this.db()
+      .from('friends')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+    if (!data) throw new BadRequestException('Friend request not found');
+    if (data.user_id !== userId) throw new BadRequestException('Not your request');
+    await this.db().from('friends').delete().eq('id', requestId);
   }
 }

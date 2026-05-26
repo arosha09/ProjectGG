@@ -9,7 +9,7 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
   ParseUUIDPipe,
-  UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
@@ -36,7 +36,7 @@ export class XpController {
     @Query('user_id', new ParseUUIDPipe({ optional: true })) userId?: string,
   ): Promise<UserRankDto> {
     const uid = userId || req.user?.id;
-    if (!uid) throw new UnauthorizedException('Provide user_id query param or authenticate');
+    if (!uid) throw new BadRequestException('Provide user_id query param or authenticate');
     return this.xpService.getUserRank(uid);
   }
 
@@ -59,7 +59,7 @@ export class XpController {
     @Query('user_id', new ParseUUIDPipe({ optional: true })) userId?: string,
   ): Promise<CanClaimDailyDto> {
     const uid = userId || req.user?.id;
-    if (!uid) throw new UnauthorizedException('Provide user_id query param or authenticate');
+    if (!uid) throw new BadRequestException('Provide user_id query param or authenticate');
     return this.xpService.canClaimDaily(uid);
   }
 

@@ -1,18 +1,16 @@
 <section class="home-shell">
+    <header class="homebar">
+      <div class="home-brand" routerLink="/home">
+        <img src="logo.ico" alt="Project GG Logo" class="brand-logo" />
+        <span>PROJECT GG</span>
+      </div>
+      <nav class="home-links">
+        <a routerLink="/login">Login</a>
+        <a routerLink="/register" class="home-cta">Join Arena</a>
+      </nav>
+    </header>
 	<div class="home-grid"></div>
-	<div class="scanline"></div>
 	<div class="ambient-glow"></div>
-
-	<header class="topbar fade-in-up">
-		<div class="brand">
-			<img src="logo.ico" alt="ProjectGG" class="brand-mark" />
-			<span>PROJECT GG</span>
-		</div>
-		<nav class="topnav">
-			<a routerLink="/login">Login</a>
-			<a routerLink="/register" class="cta-link">Join Arena</a>
-		</nav>
-	</header>
 
 	<main class="hero container">
 		<div class="hero-copy">
@@ -22,7 +20,7 @@
 				Your ultimate gaming command center. Curate your library, track your collection, and flex your legendary profile.
 			</p>
 			<div class="hero-actions fade-in-up" style="animation-delay: 0.6s">
-				<a routerLink="/register" class="btn btn-large btn-glow">Start Playing</a>
+				<a routerLink="/register" class="btn btn-secondary btn-large">Start Playing</a>
 				<a routerLink="/login" class="btn btn-secondary btn-large">Connect</a>
 			</div>
 			<div class="hero-stats fade-in-up" style="animation-delay: 0.8s">
@@ -49,7 +47,6 @@
 				<li>Unlock achievements & rank up</li>
 			</ul>
 			<div class="status-row">
-				<span class="status status-online">Live</span>
 				<span class="pulse-dot"></span>
 				<span>Ready to play</span>
 			</div>

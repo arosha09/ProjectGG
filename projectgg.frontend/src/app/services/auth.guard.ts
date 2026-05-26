@@ -9,10 +9,17 @@ export class AuthGuard implements CanActivate {
   constructor(private authService: AuthService, private router: Router) {}
 
   canActivate(): boolean {
-    if (this.authService.isAuthenticated()) {
-      return true;
+    if (!this.authService.isAuthenticated()) {
+      this.router.navigate(['/login']);
+      return false;
     }
-    this.router.navigate(['/login']);
-    return false;
+
+    if (!this.authService.getRefreshToken()) {
+      this.authService.logout();
+      this.router.navigate(['/login'], { queryParams: { session_expired: 'no_refresh' } });
+      return false;
+    }
+
+    return true;
   }
 }

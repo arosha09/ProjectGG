@@ -1,16 +1,247 @@
 @import '@angular/material/prebuilt-themes/pink-bluegrey.css';
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Electrolize&family=VT323&family=Rajdhani:wght@400;600;700&display=swap');
 
-/* ============================================================
-   CYBERPUNK 2077 — Dark Theme
-   ============================================================ */
+/* Home Navigation Bar */
+.nav-shell {
+  display: block;
+  --rgb-red: #ff1744;
+  --rgb-red-r: 255; --rgb-red-g: 23; --rgb-red-b: 68;
+  --rgb-green: #00ff88;
+  --rgb-green-r: 0; --rgb-green-g: 255; --rgb-green-b: 136;
+  --rgb-blue: #00ccff;
+  --rgb-blue-r: 0; --rgb-blue-g: 204; --rgb-blue-b: 255;
+  --rgb-purple: #aa44ff;
+  --rgb-purple-r: 170; --rgb-purple-g: 68; --rgb-purple-b: 255;
+  --rgb-cyan: #00ffcc;
+  --rgb-cyan-r: 0; --rgb-cyan-g: 255; --rgb-cyan-b: 204;
+
+  --color-primary: var(--rgb-green);
+  --color-primary-r: 0; --color-primary-g: 255; --color-primary-b: 136;
+  --color-accent: var(--rgb-cyan);
+  --color-accent-r: 0; --color-accent-g: 255; --color-accent-b: 204;
+  --bg-darker: #05070f;
+  --transition-fast: 0.2s ease;
+
+  position: relative;
+  background:
+    radial-gradient(circle at 10% 15%, rgba(var(--rgb-purple-r), var(--rgb-purple-g), var(--rgb-purple-b), 0.18), transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(var(--rgb-cyan-r), var(--rgb-cyan-g), var(--rgb-cyan-b), 0.14), transparent 30%),
+    radial-gradient(circle at 20% 80%, rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.18), transparent 40%),
+    radial-gradient(circle at 70% 50%, rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.08), transparent 30%),
+    var(--bg-darker);
+}
+
+.nav-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.5;
+  animation: grid-pan 24s linear infinite;
+  pointer-events: none;
+}
+
+.nav-ambient-glow {
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 60%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(var(--rgb-red-r), var(--rgb-red-g), var(--rgb-red-b), 0.15), transparent 60%);
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+
+.homebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  font-family: 'Share Tech Mono', monospace;
+  position: relative;
+  z-index: 1;
+}
+
+.home-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+  color: var(--rgb-purple);
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(var(--rgb-purple-r), var(--rgb-purple-g), var(--rgb-purple-b), 0.4);
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    transition: all var(--transition-fast);
+    animation: neon-flicker 3s infinite;
+  }
+
+  span {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    
+    .brand-logo {
+      filter: drop-shadow(0 0 10px rgba(170, 68, 255, 0.5));
+    }
+
+    span {
+      text-shadow: 0 0 16px rgba(var(--rgb-purple-r), var(--rgb-purple-g), var(--rgb-purple-b), 0.6);
+    }
+  }
+}
+
+.home-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  a {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    position: relative;
+
+    &:hover {
+      color: var(--rgb-red);
+      text-shadow: 0 0 8px var(--rgb-red);
+    }
+
+    &.home-cta {
+      color: var(--rgb-red) !important;
+      text-shadow: 0 0 6px var(--rgb-red);
+      border: none;
+      background: none;
+      padding: 0;
+      border-radius: 0;
+      box-shadow: none;
+
+      &::after {
+        display: none;
+      }
+
+      &:hover {
+        text-shadow: 0 0 12px var(--rgb-red);
+      }
+    }
+  }
+}
+
+/* Animations included in home-nav - ensure they exist in styles.scss */
+/* Add them here if they don't already exist */
+
+@media (max-width: 960px) {
+  .homebar {
+    padding: 20px 20px;
+  }
+
+  .home-brand {
+    gap: 8px;
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+    }
+
+    span {
+      font-size: 16px;
+    }
+  }
+
+  .home-links {
+    gap: 12px;
+
+    a {
+      font-size: 11px;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .homebar {
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 20px;
+  }
+
+  .home-brand {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .home-links {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+
+    a {
+      font-size: 11px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .homebar {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .home-brand {
+    gap: 8px;
+
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+    }
+
+    span {
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+  }
+
+  .home-links {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+
+    a {
+      flex: 1;
+      text-align: center;
+      padding: 0;
+      font-size: 10px;
+    }
+  }
+}
+
 
 :root {
   /* Neon Palette */
   --neon-cyan: #00f0ff;
   --neon-cyan-r: 0; --neon-cyan-g: 240; --neon-cyan-b: 255;
-  --neon-pink: #ff2d95;
-  --neon-pink-r: 255; --neon-pink-g: 45; --neon-pink-b: 149;
+  --neon-red: #ff1744;
+  --neon-red-r: 255; --neon-red-g: 23; --neon-red-b: 68;
   --neon-purple: #7b2dff;
   --neon-purple-r: 123; --neon-purple-g: 45; --neon-purple-b: 255;
   --neon-green: #00ff88;
@@ -23,7 +254,7 @@
   --color-primary-r: var(--neon-cyan-r);
   --color-primary-g: var(--neon-cyan-g);
   --color-primary-b: var(--neon-cyan-b);
-  --color-secondary: var(--neon-pink);
+  --color-secondary: var(--neon-red);
   --color-accent: var(--neon-cyan);
   --color-accent-r: var(--neon-cyan-r);
   --color-accent-g: var(--neon-cyan-g);
@@ -59,7 +290,7 @@
 
   /* Shadows & Glows */
   --glow-cyan: 0 0 10px rgba(0, 240, 255, 0.3), 0 0 20px rgba(0, 240, 255, 0.1);
-  --glow-pink: 0 0 10px rgba(255, 45, 149, 0.3), 0 0 20px rgba(255, 45, 149, 0.1);
+  --glow-red: 0 0 10px rgba(255, 23, 68, 0.3), 0 0 20px rgba(255, 23, 68, 0.1);
   --glow-purple: 0 0 10px rgba(123, 45, 255, 0.3), 0 0 20px rgba(123, 45, 255, 0.1);
   --glow-green: 0 0 10px rgba(0, 255, 136, 0.3), 0 0 20px rgba(0, 255, 136, 0.1);
 
@@ -172,27 +403,27 @@ html[data-theme="blue"] {
    3. SYSTEM THEME COLOR ENFORCEMENT (Nukes the Green)
    ========================================================================== */
 
-/* Target the specific "Now Playing" and status badges glitching green */
+/* Target the specific "Now Playing" and status badges using red accent */
 .now-playing-card,
 .card-online,
 .status-success,
 .service-status-active,
 div[class*="playing"],
 div[class*="online"] {
-    /* Hard override any green borders or success colors to match your red/pink accent */
-    border: 1px solid rgba(255, 45, 149, 0.4) !important;
+    /* Hard override any green borders or success colors to match your red accent */
+    border: 1px solid rgba(255, 23, 68, 0.4) !important;
     background: rgba(13, 17, 26, 0.4) !important;
-    box-shadow: 0 0 10px rgba(255, 45, 149, 0.15) !important;
+    box-shadow: 0 0 10px rgba(255, 23, 68, 0.15) !important;
 }
 
-/* Force text labels that are stuck on green to use the theme red */
+/* Force text labels that are stuck on green to use the red theme */
 .status-label,
 .now-playing-title,
 .user-status-text,
 span[style*="color: var(--rgb-green)"],
 span[style*="#00ff88"] {
-    color: var(--neon-pink, #ff2d95) !important;
-    text-shadow: 0 0 8px rgba(255, 45, 149, 0.6) !important;
+    color: var(--neon-red, #ff1744) !important;
+    text-shadow: 0 0 8px rgba(255, 23, 68, 0.6) !important;
 }
 html::-webkit-scrollbar, body::-webkit-scrollbar {
     display: none !important;
@@ -376,12 +607,12 @@ a:hover::after {
 .btn-secondary {
   border-color: var(--color-secondary);
   color: var(--color-secondary);
-  box-shadow: 0 0 10px rgba(255, 45, 149, 0.15);
+  box-shadow: 0 0 10px rgba(255, 23, 68, 0.15);
 }
 .btn-secondary:hover {
-  box-shadow: 0 0 20px var(--neon-pink), inset 0 0 30px rgba(255, 45, 149, 0.1);
+  box-shadow: 0 0 20px var(--neon-red), inset 0 0 30px rgba(255, 23, 68, 0.1);
   border-color: var(--color-secondary);
-  text-shadow: 0 0 10px var(--neon-pink);
+  text-shadow: 0 0 10px var(--neon-red);
 }
 
 .btn-large { padding: 16px 48px; font-size: 15px; }
@@ -471,15 +702,15 @@ button[type="submit"]:hover {
 }
 
 .btn-submit-secondary {
-    border-color: var(--neon-pink);
-    color: var(--neon-pink);
-    text-shadow: 0 0 8px rgba(255, 45, 149, 0.6);
+    border-color: var(--neon-red);
+    color: var(--neon-red);
+    text-shadow: 0 0 8px rgba(255, 23, 68, 0.6);
 }
 
 .btn-submit-secondary:hover {
-    background: var(--neon-pink);
+    background: var(--neon-red);
     color: #ffffff;
-    box-shadow: 0 0 25px var(--neon-pink);
+    box-shadow: 0 0 25px var(--neon-red);
 }
 
 /* ===== CARDS ===== */
@@ -730,7 +961,7 @@ button[type="submit"]:hover {
   opacity: 0.7;
 }
 .glitch::before {
-  color: var(--neon-pink);
+  color: var(--neon-red);
   animation: glitch-shift 3s infinite linear alternate-reverse;
   clip-path: inset(20% 0 60% 0);
 }
@@ -871,9 +1102,9 @@ aside::-webkit-scrollbar {
 .mat-mdc-raised-button,
 .mat-mdc-outlined-button,
 .chat-footer-panel button {
-    background-color: rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.05) !important;
-    border: 1px solid rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.2) !important;
-    color: var(--neon-pink) !important;
+    background-color: rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.05) !important;
+    border: 1px solid rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.2) !important;
+    color: var(--neon-red) !important;
     border-radius: 4px !important;
     font-family: 'Share Tech Mono', monospace !important;
     font-size: 13px !important;
@@ -890,8 +1121,8 @@ aside::-webkit-scrollbar {
 .mat-mdc-raised-button:hover,
 .mat-mdc-outlined-button:hover,
 .chat-footer-panel button:hover {
-    background-color: rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.15) !important;
-    border-color: var(--neon-pink) !important;
+    background-color: rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.15) !important;
+    border-color: var(--neon-red) !important;
     color: #ffffff !important;
 }
 
@@ -905,8 +1136,8 @@ aside::-webkit-scrollbar {
 .status-success,
 div[class*="playing"],
 div[class*="online"] {
-    border: 1px solid rgba(255, 45, 149, 0.4) !important;
-    box-shadow: 0 0 10px rgba(255, 45, 149, 0.1) !important;
+    border: 1px solid rgba(255, 23, 68, 0.4) !important;
+    box-shadow: 0 0 10px rgba(255, 23, 68, 0.1) !important;
 }
 
 /* Force text labels that are stuck on green to use the theme red */
@@ -914,8 +1145,8 @@ div[class*="online"] {
 .now-playing-title,
 span[style*="color: var(--rgb-green)"],
 span[style*="#00ff88"] {
-    color: var(--neon-pink, #ff2d95) !important;
-    text-shadow: 0 0 8px rgba(255, 45, 149, 0.5) !important;
+    color: var(--neon-red, #ff1744) !important;
+    text-shadow: 0 0 8px rgba(255, 23, 68, 0.5) !important;
 }
 
 /* ==========================================================================
@@ -923,7 +1154,7 @@ span[style*="#00ff88"] {
    ========================================================================== */
 .chat-input-wrapper {
     background: rgba(13, 17, 26, 0.8) !important;
-    border: 1px solid rgba(255, 45, 149, 0.3) !important;
+    border: 1px solid rgba(255, 23, 68, 0.3) !important;
     border-radius: 4px !important;
     display: flex;
     align-items: center;
@@ -931,8 +1162,8 @@ span[style*="#00ff88"] {
 }
 
 .chat-input-wrapper:focus-within {
-    border-color: var(--neon-pink, #ff2d95) !important;
-    box-shadow: 0 0 10px rgba(255, 45, 149, 0.15) !important;
+    border-color: var(--neon-red, #ff1744) !important;
+    box-shadow: 0 0 10px rgba(255, 23, 68, 0.15) !important;
 }
 
 /* ==========================================================================
@@ -941,7 +1172,7 @@ span[style*="#00ff88"] {
 :root, :host {
     /* Hard overrides to decouple green from cyan completely */
     --neon-cyan: #00f3ff !important;   /* Pure electric neon cyan */
-    --neon-pink: #ff2d95 !important;   /* Theme Red/Pink accent color */
+    --neon-red: #ff1744 !important;   /* Theme Red accent color */
     --neon-green: #00ff88 !important;  /* Strictly reserved for specific success states */
     
     /* Background matrix configurations */
@@ -962,12 +1193,12 @@ span.theme-label-cyan {
    ========================================================================== */
 /* Framing wrapper for the Cursor Style options container block */
 .cursor-style-section-wrapper {
-    border: 1px solid rgba(255, 45, 149, 0.2) !important; /* Matches active Red theme border */
+    border: 1px solid rgba(255, 23, 68, 0.2) !important; /* Matches active red theme border */
     background: var(--bg-card-surface) !important;
     border-radius: 4px !important;
     padding: 20px !important;
     margin-top: 16px !important;
-    box-shadow: 0 0 15px rgba(255, 45, 149, 0.05) !important;
+    box-shadow: 0 0 15px rgba(255, 23, 68, 0.05) !important;
 }
 
 /* Flatten and normalize those raw HTML button options into cyberpunk tabs */
@@ -979,8 +1210,8 @@ span.theme-label-cyan {
 
 .cursor-options-grid button, 
 .cursor-style-section-wrapper .cursor-btn {
-    background: rgba(255, 45, 149, 0.03) !important;
-    border: 1px solid rgba(255, 45, 149, 0.2) !important;
+    background: rgba(255, 23, 68, 0.03) !important;
+    border: 1px solid rgba(255, 23, 68, 0.2) !important;
     color: #ffffff !important;
     font-family: 'Share Tech Mono', monospace !important;
     font-size: 12px !important;
@@ -995,16 +1226,16 @@ span.theme-label-cyan {
 /* Active Highlight/Hover profile states matching the Dashboard layout */
 .cursor-options-grid button.active,
 .cursor-options-grid button:hover {
-    background: rgba(255, 45, 149, 0.15) !important;
-    border-color: var(--neon-pink) !important;
-    color: var(--neon-pink) !important;
-    box-shadow: 0 0 8px rgba(255, 45, 149, 0.2) !important;
+    background: rgba(255, 23, 68, 0.15) !important;
+    border-color: var(--neon-red) !important;
+    color: var(--neon-red) !important;
+    box-shadow: 0 0 8px rgba(255, 23, 68, 0.2) !important;
 }
 
 /* Preview pad container height normalization to prevent viewport cutoff */
 .cursor-preview-area {
     height: 80px !important;
-    border: 1px dashed rgba(255, 45, 149, 0.15) !important;
+    border: 1px dashed rgba(255, 23, 68, 0.15) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -1019,8 +1250,8 @@ span.theme-label-cyan {
    ========================================================================== */
 .mat-mdc-snack-bar-container {
     --mdc-snackbar-container-color: #0d111a !important;
-    border: 1px solid var(--neon-pink) !important;
-    box-shadow: 0 0 20px rgba(255, 45, 149, 0.25) !important;
+    border: 1px solid var(--neon-red) !important;
+    box-shadow: 0 0 20px rgba(255, 23, 68, 0.25) !important;
 }
 
 .mat-mdc-snack-bar-label {
@@ -1036,7 +1267,7 @@ span.theme-label-cyan {
 select.sort-dropdown,
 .mat-mdc-select.sort-dropdown {
     background: rgba(13, 17, 26, 0.85) !important;
-    border: 1px solid rgba(255, 45, 149, 0.2) !important; /* Soft crimson frame line */
+    border: 1px solid rgba(255, 23, 68, 0.2) !important; /* Soft crimson frame line */
     color: #ffffff !important;
     font-family: 'Share Tech Mono', monospace !important;
     font-size: 13px !important;
@@ -1051,8 +1282,8 @@ select.sort-dropdown,
 select.sort-dropdown:hover,
 select.sort-dropdown:focus,
 .mat-mdc-select.sort-dropdown:hover {
-    border-color: var(--neon-pink, #ff2d95) !important;
-    box-shadow: 0 0 12px rgba(255, 45, 149, 0.25) !important;
+    border-color: var(--neon-red, #ff1744) !important;
+    box-shadow: 0 0 12px rgba(255, 23, 68, 0.25) !important;
 }
 
 
@@ -1094,10 +1325,10 @@ button.gg-chat-btn:hover {
 button[id*="sync"],
 .now-playing-card button,
 .body-action-btn {
-    /* Forced to inherit the exact flat, bright crimson LINK asset design */
-    background: rgba(255, 45, 149, 0.05) !important; 
-    border: 1px solid rgba(255, 45, 149, 0.3) !important; 
-    color: var(--neon-pink, #ff2d95) !important;
+    /* Forced to inherit the exact flat, bright red accent design */
+    background: rgba(255, 23, 68, 0.05) !important; 
+    border: 1px solid rgba(255, 23, 68, 0.3) !important; 
+    color: var(--neon-red, #ff1744) !important;
     font-family: 'Share Tech Mono', monospace !important;
     font-size: 12px !important;
     font-weight: 500 !important;
@@ -1113,8 +1344,8 @@ button[id*="sync"],
 button[id*="sync"]:hover,
 .now-playing-card button:hover,
 .body-action-btn:hover {
-    background: rgba(255, 45, 149, 0.15) !important;
-    border-color: var(--neon-pink, #ff2d95) !important;
+    background: rgba(255, 23, 68, 0.15) !important;
+    border-color: var(--neon-red, #ff1744) !important;
     color: #ffffff !important;
 }
 

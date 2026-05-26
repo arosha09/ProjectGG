@@ -24,11 +24,27 @@ export class CyberDropdownComponent {
   @Input() isAdmin = false;
   @Input() avatarUrl: string | null = null;
   @Input() userName: string | null = null;
+  @Input() currentStatus: string | null = null;
+  @Input() margin = '0';
   @Output() itemSelect = new EventEmitter<DropdownItem>();
+  @Output() statusChange = new EventEmitter<string>();
+
+  statusSubmenuOpen = false;
+
+  statusOptions = [
+    { id: 'online', label: 'Online', color: '#00ff88' },
+    { id: 'away', label: 'Away', color: '#ffd700' },
+    { id: 'offline', label: 'Offline', color: '#ff5f6d' },
+    { id: 'invisible', label: 'Invisible', color: '#888888' },
+  ];
 
   selectItem(item: DropdownItem) {
     if (item.action) item.action();
     this.itemSelect.emit(item);
+  }
+
+  selectStatus(status: string) {
+    this.statusChange.emit(status);
   }
 
   handleAvatarError(event: Event): void {

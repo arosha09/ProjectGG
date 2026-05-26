@@ -36,16 +36,54 @@ export class ThemeService {
 
     if (theme === 'custom') {
       const color = this.customColor();
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+
       root.setAttribute('data-theme', 'custom');
       root.style.setProperty('--color-primary', color);
+      root.style.setProperty('--color-primary-r', String(r));
+      root.style.setProperty('--color-primary-g', String(g));
+      root.style.setProperty('--color-primary-b', String(b));
+      root.style.setProperty('--color-accent', color);
+      root.style.setProperty('--color-accent-r', String(r));
+      root.style.setProperty('--color-accent-g', String(g));
+      root.style.setProperty('--color-accent-b', String(b));
       root.style.setProperty('--accent-color', color);
-      root.style.setProperty('--glow-cyan', `0 0 10px ${color}4d, 0 0 20px ${color}1a`);
+      root.style.setProperty('--accent-color-r', String(r));
+      root.style.setProperty('--accent-color-g', String(g));
+      root.style.setProperty('--accent-color-b', String(b));
+      root.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.18)`);
+      root.style.setProperty('--border-color', `rgba(${r}, ${g}, ${b}, 0.12)`);
+      root.style.setProperty('--border-accent', `rgba(${r}, ${g}, ${b}, 0.25)`);
+      root.style.setProperty('--text-primary', this.lighten(color, 85));
+      root.style.setProperty('--glow-cyan', `0 0 10px rgba(${r}, ${g}, ${b}, 0.3), 0 0 20px rgba(${r}, ${g}, ${b}, 0.1)`);
     } else {
       root.setAttribute('data-theme', theme);
-      root.style.removeProperty('--color-primary');
-      root.style.removeProperty('--accent-color');
-      root.style.removeProperty('--glow-cyan');
+      this.clearCustom();
     }
+  }
+
+  private clearCustom(): void {
+    const root = document.documentElement;
+    const props = [
+      '--color-primary', '--color-primary-r', '--color-primary-g', '--color-primary-b',
+      '--color-accent', '--color-accent-r', '--color-accent-g', '--color-accent-b',
+      '--accent-color', '--accent-color-r', '--accent-color-g', '--accent-color-b',
+      '--accent-glow', '--border-color', '--border-accent', '--text-primary',
+      '--glow-cyan',
+    ];
+    for (const p of props) root.style.removeProperty(p);
+  }
+
+  private lighten(hex: string, percent: number): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    const lr = Math.min(255, r + Math.round((255 - r) * percent / 100));
+    const lg = Math.min(255, g + Math.round((255 - g) * percent / 100));
+    const lb = Math.min(255, b + Math.round((255 - b) * percent / 100));
+    return `rgb(${lr}, ${lg}, ${lb})`;
   }
 
   private save(): void {

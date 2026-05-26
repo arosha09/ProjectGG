@@ -18,7 +18,7 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { AuthRepository } from 'src/auth/auth.repository';
 import { UsersService } from 'src/services/users.service';
-import { UpdateProfileDto, ProfileDto, SystemAvatarDto, UserAvatarDto } from '../dto/avatar.dto';
+import { UpdateProfileDto, ProfileDto, SystemAvatarDto, SystemAvatarCategoryDto, UserAvatarDto } from '../dto/avatar.dto';
 import { UserDto } from '../dto/user.dto';
 
 @ApiTags('Users')
@@ -63,6 +63,7 @@ export class UsersController {
       avatar: avatarUrl || undefined,
       created_at: user.created_at,
       email_verified: user.email_verified ?? false,
+      cursor_preference: user.cursor_preference || 'cyber',
     };
   }
 
@@ -161,7 +162,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('avatar/system')
-  async getSystemAvatars(): Promise<SystemAvatarDto[]> {
+  async getSystemAvatars(): Promise<SystemAvatarCategoryDto[]> {
     return this.usersService.getSystemAvatars();
   }
 
@@ -170,12 +171,12 @@ export class UsersController {
   @Put('avatar/select')
   async selectSystemAvatar(
     @Req() req: any,
-    @Body() body: { filename: string },
+    @Body() body: { path: string },
   ): Promise<UserAvatarDto> {
     const userId = req.user.id;
-    const avatars = await this.usersService.getSystemAvatars();
-    const avatar = avatars.find((a) => a.filename === body.filename);
+    if (!body.path) throw new BadRequestException('path is required');
 
+    const avatar = await this.usersService.validateSystemAvatarPath(body.path);
     if (!avatar) {
       throw new BadRequestException('Avatar not found');
     }
@@ -183,5 +184,23 @@ export class UsersController {
     await this.usersService.updateProfile(userId, { avatar: avatar.url });
 
     return { url: avatar.url, is_system_avatar: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Put('cursor')
+  async updateCursorPreference(
+    @Req() req: any,
+    @Body() body: { cursor_preference: string },
+  ): Promise<{ cursor_preference: string }> {
+    const userId = req.user.id;
+    const { cursor_preference } = body;
+
+    if (!cursor_preference || typeof cursor_preference !== 'string') {
+      throw new BadRequestException('cursor_preference is required');
+    }
+
+    await this.usersService.updateProfile(userId, { cursor_preference });
+    return { cursor_preference };
   }
 }
