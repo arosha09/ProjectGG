@@ -40,7 +40,7 @@ export class PlatformConnectionsService {
   // Temporary state store for OAuth flows
   private readonly stateStore = new Map<
     string,
-    { userId: string; expiresAt: Date }
+    { userId: string; expiresAt: Date; redirectUri?: string }
   >();
 
   constructor(
@@ -493,18 +493,22 @@ export class PlatformConnectionsService {
   // ============================================================
   // SPOTIFY OAUTH2
   // ============================================================
-  getSpotifyAuthUrl(userId: string): { url: string } {
+  getSpotifyAuthUrl(userId: string, frontendOrigin?: string): { url: string } {
     this.cleanupExpiredStates();
     const state = crypto.randomUUID();
+    const redirectUri = frontendOrigin
+      ? `${frontendOrigin}/auth/spotify/callback`
+      : `${this.frontendUrl}/auth/spotify/callback`;
+
     this.stateStore.set(state, {
       userId,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      redirectUri,
     });
 
     if (!this.spotifyClientId)
       throw new BadRequestException('Spotify client ID not configured');
 
-    const redirectUri = `${this.frontendUrl}/auth/spotify/callback`;
     const params = new URLSearchParams({
       client_id: this.spotifyClientId,
       redirect_uri: redirectUri,
@@ -529,6 +533,7 @@ export class PlatformConnectionsService {
     }
     this.stateStore.delete(state);
     const userId = stateData.userId;
+    const redirectUri = stateData.redirectUri || `${this.frontendUrl}/auth/spotify/callback`;
 
     if (!this.spotifyClientId || !this.spotifyClientSecret)
       throw new BadRequestException('Spotify client not configured');
@@ -540,7 +545,7 @@ export class PlatformConnectionsService {
     const tokenBody = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: `${this.frontendUrl}/auth/spotify/callback`,
+      redirect_uri: redirectUri,
     });
 
     let tokenRes: Response;
@@ -565,18 +570,28 @@ export class PlatformConnectionsService {
 
     const tokenData: any = await tokenRes.json();
     const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      console.error('Spotify token response missing access token', tokenData);
+      throw new BadRequestException('Spotify token exchange failed');
+    }
 
     let userRes: Response;
     try {
       userRes = await fetch('https://api.spotify.com/v1/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+        },
       });
     } catch {
       throw new BadRequestException('Failed to fetch Spotify profile');
     }
 
-    if (!userRes.ok)
+    if (!userRes.ok) {
+      const errorText = await userRes.text();
+      console.error('Spotify profile fetch error:', userRes.status, errorText);
       throw new BadRequestException('Failed to fetch Spotify profile');
+    }
 
     const spotifyUser: any = await userRes.json();
 

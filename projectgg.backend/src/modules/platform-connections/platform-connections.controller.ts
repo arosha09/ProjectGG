@@ -86,7 +86,8 @@ export class PlatformConnectionsController {
   @ApiBearerAuth('access-token')
   @Get('spotify/auth-url')
   getSpotifyAuthUrl(@Req() req: any) {
-    return this.service.getSpotifyAuthUrl(req.user.id);
+    const origin = req.headers?.origin as string | undefined;
+    return this.service.getSpotifyAuthUrl(req.user.id, origin);
   }
 
   @UseGuards(JwtAuthGuard)

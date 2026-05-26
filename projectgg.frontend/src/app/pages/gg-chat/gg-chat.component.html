@@ -211,13 +211,19 @@
             </div>
             <div class="gg-user-status-copy">
               <span class="gg-user-name">{{ currentUser?.username ?? 'You' }}</span>
-              <select class="gg-status-select" [(ngModel)]="currentStatus" (change)="setStatus(currentStatus)">
-                @for (statusOption of statusOptions; track statusOption.id) {
-                  <option [value]="statusOption.id">{{ statusOption.label }}</option>
-                }
-              </select>
+              <button type="button" class="gg-user-status-trigger" (click)="statusDropdownOpen = !statusDropdownOpen">
+                <span>{{ statusOptions.find(s => s.id === currentStatus)?.label || 'Status' }}</span>
+                <mat-icon>arrow_drop_down</mat-icon>
+              </button>
             </div>
           </div>
+          <app-cyber-dropdown
+            [isOpen]="statusDropdownOpen"
+            [currentStatus]="currentStatus"
+            margin="8px 0 0 0"
+            (statusChange)="setStatus($event)"
+            (itemSelect)="statusDropdownOpen = false"
+          ></app-cyber-dropdown>
           <div class="gg-user-status-controls">
             <button type="button" class="gg-voice-control-btn" [class.active]="voiceMuted" (click)="toggleVoiceMute()" title="{{ voiceMuted ? 'Unmute' : 'Mute' }}">
               <mat-icon>{{ voiceMuted ? 'mic_off' : 'mic' }}</mat-icon>
@@ -234,24 +240,6 @@
                 <mat-icon>call</mat-icon>
               </button>
             }
-          </div>
-        </div>
-
-        <!-- USER BADGE -->
-        <div class="gg-user-badge">
-          <div class="gg-user-avatar">
-            @if (userAvatar()) {
-              <img [src]="userAvatar()" alt="" class="gg-user-img" />
-            } @else {
-              <span class="gg-user-text">{{ userInitial() }}</span>
-            }
-            <span class="gg-user-status-dot" [style.background]="statusColor()" title="{{ currentStatus }}"></span>
-          </div>
-          <div class="gg-user-info">
-            <span class="gg-user-name">{{ currentUser?.username ?? 'Unknown' }}</span>
-            <button class="gg-user-status-label" (click)="cycleStatus()" title="Click to change status">
-              {{ currentStatus }}
-            </button>
           </div>
         </div>
       } @else {

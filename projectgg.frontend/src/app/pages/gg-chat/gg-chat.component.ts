@@ -14,11 +14,12 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { VoiceService } from '../../services/voice.service';
 import { ThemeService } from '../../services/theme.service';
+import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
 
 @Component({
   selector: 'app-gg-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, CyberDropdownComponent],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
 })
@@ -143,6 +144,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   notifications: AppNotification[] = [];
   unreadCount = 0;
   showNotifications = false;
+  statusDropdownOpen = false;
 
   constructor(
     private readonly chatService: ChatService,

@@ -99,6 +99,20 @@ export class MigrationService implements OnModuleInit {
             ON projectgg.notifications (user_id, read, created_at DESC);
         `);
         this.logger.log('Migration 007 (notifications) applied');
+
+        // Migration 008: Grant service_role privileges on projectgg schema objects
+        await client.query(`
+          DO $$ BEGIN
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA projectgg TO service_role;
+            GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA projectgg TO service_role;
+            GRANT USAGE ON SCHEMA projectgg TO service_role;
+          EXCEPTION WHEN undefined_table THEN
+            RAISE NOTICE 'projectgg schema tables do not exist yet, skipping service role grants';
+          WHEN undefined_object THEN
+            RAISE NOTICE 'projectgg schema sequences do not exist yet, skipping service role grants';
+          END $$;
+        `);
+        this.logger.log('Migration 008 (service_role privileges) applied');
       } finally {
         client.release();
         await pool.end();

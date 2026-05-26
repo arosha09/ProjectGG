@@ -848,6 +848,24 @@
   min-width: 0;
 }
 
+.gg-user-status-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.gg-user-status-trigger:hover {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.15);
+}
+
 .gg-status-select {
   width: 100%;
   border: 1px solid rgba(255,255,255,0.08);
