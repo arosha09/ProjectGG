@@ -2,87 +2,131 @@
   <div class="mp-header">
     <div class="mp-header-left">
       <span class="mp-title">NOW PLAYING</span>
-      @if (selectedPlatform && currentlyPlaying) {
+      @if (isPlaying) {
         <span class="mp-pulse-dot"></span>
       }
     </div>
-    @if (availablePlatforms.some(p => p.connected)) {
-      <button class="mp-add-btn" (click)="connectPlatform('music')" title="Link another service">+</button>
-    }
   </div>
 
   <div class="mp-platforms">
-    @for (p of availablePlatforms; track p.id) {
-      @if (p.connected) {
-        <button
-          class="mp-platform-btn"
-          [class.active]="p.id === selectedPlatform"
-          (click)="selectPlatform(p.id)"
-        >
+    @for (p of platformDefs; track p.id) {
+      @if (p.comingSoon) {
+        <span class="mp-platform-btn mp-soon">
           <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/ffffff'" [alt]="p.name" class="mp-platform-icon" />
           <span>{{ p.name }}</span>
-        </button>
+          <span class="mp-soon-label">SOON</span>
+        </span>
+      } @else {
+        <span class="mp-platform-btn active">
+          <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/ffffff'" [alt]="p.name" class="mp-platform-icon" />
+          <span>{{ p.name }}</span>
+        </span>
       }
     }
   </div>
 
-  @if (!availablePlatforms.some(p => p.connected)) {
-    <div class="mp-connect-prompt">
-      <p>Connect a music service</p>
-      <button class="mp-connect-btn" (click)="connectPlatform('music')">LINK</button>
-    </div>
-  }
+  <div class="mp-search-wrap">
+    <svg class="mp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+    </svg>
+    <input
+      class="mp-search-input"
+      type="text"
+      placeholder="Search for music..."
+      [(ngModel)]="searchQuery"
+      (input)="onSearchInput()"
+      (focus)="onSearchFocus()"
+      (blur)="onSearchBlur()"
+    />
+    @if (searching) {
+      <span class="mp-search-spinner"></span>
+    }
+  </div>
 
-  @if (loading) {
-    <div class="mp-loading">
-      <span class="mp-spinner"></span>
-    </div>
-  }
-
-  @if (error) {
-    <div class="mp-error">{{ error }}</div>
-  }
-
-  @if (!loading && !error && availablePlatforms.some(p => p.connected)) {
-    <div class="mp-now-playing">
-      @if (currentlyPlaying) {
-        <div class="mp-album-art-wrap">
-          @if (currentlyPlaying.albumArt) {
-            <img [src]="currentlyPlaying.albumArt" alt="Album art" class="mp-album-art" />
+  @if (showResults && searchResults.length > 0) {
+    <div class="mp-search-results">
+      @for (item of searchResults; track item.videoId) {
+        <button class="mp-result-item" (click)="selectTrack(item)" type="button">
+          @if (item.thumbnail) {
+            <img [src]="item.thumbnail" alt="" class="mp-result-thumb" loading="lazy" />
           } @else {
-            <div class="mp-album-art mp-placeholder-art">
-              <svg class="mp-placeholder-svg" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" fill="none" class="mp-placeholder-circle-outer" stroke-width="2"/>
-                <circle cx="50" cy="50" r="15" class="mp-placeholder-circle-inner"/>
-                <line x1="50" y1="35" x2="50" y2="15" class="mp-placeholder-line" stroke-width="1.5" opacity="0.5"/>
-              </svg>
-            </div>
+            <div class="mp-result-thumb mp-result-thumb-placeholder"></div>
           }
-        </div>
-
-        <div class="mp-track-info">
-          <p class="mp-track-name">{{ currentlyPlaying.name }}</p>
-          <p class="mp-track-artist">{{ currentlyPlaying.artist }}</p>
-        </div>
-
-        <div class="mp-progress-wrap">
-          <div class="mp-progress-bar">
-            <div class="mp-progress-fill" [style.width.%]="currentlyPlaying.progress ?? 0"></div>
+          <div class="mp-result-info">
+            <span class="mp-result-title">{{ item.title }}</span>
+            <span class="mp-result-artist">{{ item.artist }}</span>
           </div>
-          <div class="mp-progress-time">
-            <span>{{ currentlyPlaying.currentTime || '0:00' }}</span>
-            <span>{{ currentlyPlaying.duration || '0:00' }}</span>
-          </div>
-        </div>
-      } @else {
-        <p class="mp-nothing">Nothing playing</p>
+          <svg class="mp-result-play" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="8,5 19,12 8,19"/>
+          </svg>
+        </button>
       }
+    </div>
+  }
 
+  @if (selectedTrack) {
+    <div class="mp-now-playing">
+      <div class="mp-album-art-wrap">
+        @if (selectedTrack.thumbnail) {
+          <img [src]="selectedTrack.thumbnail" alt="Album art" class="mp-album-art" />
+        } @else {
+          <div class="mp-album-art mp-placeholder-art">
+            <svg viewBox="0 0 100 100" class="mp-placeholder-svg">
+              <circle cx="50" cy="50" r="40" fill="none" class="mp-placeholder-circle-outer" stroke-width="2"/>
+              <circle cx="50" cy="50" r="15" class="mp-placeholder-circle-inner"/>
+              <line x1="50" y1="35" x2="50" y2="15" class="mp-placeholder-line" stroke-width="1.5" opacity="0.5"/>
+            </svg>
+          </div>
+        }
+      </div>
+
+      <div class="mp-track-info">
+        <p class="mp-track-name">{{ selectedTrack.title }}</p>
+        <p class="mp-track-artist">{{ selectedTrack.artist }}</p>
+      </div>
+
+      <div class="mp-controls">
+        <button class="mp-ctrl-btn" (click)="skipTrack(-1)" [disabled]="searchResults.length === 0" type="button" title="Previous">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="mp-play-btn" (click)="togglePlay()" type="button" title="{{ isPlaying ? 'Pause' : 'Play' }}">
+          @if (isPlaying) {
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          } @else {
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>
+          }
+        </button>
+        <button class="mp-ctrl-btn" (click)="skipTrack(1)" [disabled]="searchResults.length === 0" type="button" title="Next">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+
+      <div class="mp-progress-wrap">
+        <div class="mp-progress-bar" (click)="seek($event)">
+          <div class="mp-progress-fill" [style.width.%]="progress"></div>
+        </div>
+        <div class="mp-progress-time">
+          <span>{{ formatTime(currentTime) }}</span>
+          <span>{{ formatTime(duration) }}</span>
+        </div>
+      </div>
+    </div>
+
+    @if (isPlaying) {
       <div class="mp-visualizer">
         @for (bar of [1,2,3,4,5,6,7,8]; track bar) {
           <div class="mp-bar" [style.--i]="bar"></div>
         }
       </div>
+    }
+  } @else {
+    <div class="mp-empty">
+      <svg class="mp-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+      </svg>
+      <p>Search for any song to start listening</p>
     </div>
   }
+
+  <div id="youtube-player" class="mp-youtube-hidden"></div>
 </section>

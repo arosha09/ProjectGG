@@ -144,8 +144,9 @@ export class SettingsComponent implements OnInit {
 
   musicPlatforms = [
     { id: 'discord', name: 'Discord' },
-    { id: 'spotify', name: 'Spotify' },
     { id: 'youtube_music', name: 'YouTube Music' },
+    { id: 'spotify', name: 'Spotify' },
+    { id: 'apple_music', name: 'Apple Music' },
   ];
 
   get platforms() {

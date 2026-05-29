@@ -534,13 +534,7 @@
                             UNLINK
                           </button>
                         } @else {
-                          <button
-                            class="p-btn p-btn-link"
-                            (click)="linkSpotify()"
-                            [disabled]="linking"
-                          >
-                            <mat-icon>login</mat-icon> LINK
-                          </button>
+                          <span class="p-badge soon">COMING SOON</span>
                         }
                       } @else if (p.id === 'youtube_music') {
                         @if (getConnection('youtube_music')) {

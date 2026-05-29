@@ -1639,3 +1639,102 @@
 .gg-notif-time {
   font-size: 10px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; margin-top: 2px;
 }
+
+/* ==========================================================================
+   RESPONSIVE — GG CHAT LAYOUT
+   ========================================================================== */
+@media (max-width: 1200px) {
+  .gg-channels { width: 200px; }
+  .gg-members { width: 180px; }
+}
+
+@media (max-width: 992px) {
+  .gg-members { display: none; }
+
+  .gg-servers { width: 48px; }
+  .gg-server-icon { width: 34px; height: 34px; }
+  .gg-server-initial { font-size: 13px; }
+
+  .gg-messages { padding: 8px 12px; }
+  .gg-input-bar { padding: 8px 12px; }
+
+  .gg-channel-header { padding: 10px 14px; }
+  .gg-channel-header h2 { font-size: 13px; }
+}
+
+@media (max-width: 768px) {
+  .gg-channels {
+    position: absolute;
+    left: 60px;
+    top: 0;
+    bottom: 0;
+    z-index: 50;
+    width: 220px;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+    transition: transform 0.2s ease;
+    transform: translateX(-100%);
+  }
+
+  .gg-channels.open {
+    transform: translateX(0);
+  }
+
+  .gg-servers { width: 44px; }
+  .gg-server-icon { width: 30px; height: 30px; }
+  .gg-server-initial { font-size: 11px; }
+  .gg-servers-scroll { gap: 4px; }
+
+  .gg-msg { padding: 3px 6px; gap: 8px; }
+  .gg-msg-avatar { width: 28px; height: 28px; }
+  .gg-msg-avatar-text { font-size: 10px; }
+  .gg-msg-username { font-size: 13px; }
+  .gg-msg-content { font-size: 13px; }
+  .gg-msg-attachment { max-width: 100%; }
+
+  .gg-input-bar { padding: 6px 10px; }
+  .gg-input { font-size: 13px; }
+
+  .gg-gif-picker { width: calc(100% - 16px); left: 8px; }
+  .gg-gif-grid { gap: 3px; }
+  .gg-gif-item { width: calc(33.33% - 2px); }
+
+  .gg-voice-panel { padding: 16px; }
+  .gg-voice-icon { font-size: 36px; width: 36px; height: 36px; }
+
+  .gg-modal { width: calc(100% - 16px); padding: 16px; }
+  .gg-modal-lg { width: calc(100% - 16px); }
+
+  .gg-channels-head { padding: 10px; }
+  .gg-channels-title { font-size: 12px; }
+  .gg-channel { padding: 5px 8px; font-size: 12px; }
+
+  .gg-user-badge { padding: 8px; }
+  .gg-user-name { font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+  .gg-servers { width: 36px; }
+  .gg-server-icon { width: 24px; height: 24px; }
+  .gg-server-initial { font-size: 9px; }
+  .gg-channels { left: 36px; }
+
+  .gg-msg { flex-direction: column; gap: 2px; padding: 4px; }
+  .gg-msg-avatar { display: none; }
+  .gg-msg-head { flex-wrap: wrap; gap: 4px; }
+
+  .gg-messages { padding: 6px 8px; }
+  .gg-input-bar { padding: 4px 8px; }
+  .gg-input-row { padding: 2px 8px; }
+  .gg-input { font-size: 12px; padding: 6px 2px; }
+
+  .gg-channel-header { padding: 8px 10px; }
+  .gg-channel-header h2 { font-size: 12px; }
+  .gg-channel-header .gg-ch-icon { font-size: 14px; width: 14px; height: 14px; }
+
+  .gg-channels-head { padding: 8px; }
+  .gg-voice-panel { padding: 12px; }
+  .gg-voice-controls { flex-wrap: wrap; justify-content: center; }
+
+  .gg-friend-row { flex-wrap: wrap; gap: 6px; }
+  .gg-friend-actions { width: 100%; justify-content: flex-end; }
+}

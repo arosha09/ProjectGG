@@ -35,6 +35,7 @@ export class PlatformConnectionsService {
   private readonly appleMusicServiceId: string;
   private readonly appleMusicPrivateKey: string;
   private readonly frontendUrl: string;
+  private readonly youtubeApiKey: string;
   private _tableSchema: string | null = null;
 
   // Temporary state store for OAuth flows
@@ -69,6 +70,8 @@ export class PlatformConnectionsService {
       configService.get<string>('APPLE_MUSIC_PRIVATE_KEY') ?? '';
     this.frontendUrl =
       configService.get<string>('FRONTEND_URL') ?? 'http://localhost:4200';
+    this.youtubeApiKey =
+      configService.get<string>('YOUTUBE_API_KEY') ?? '';
   }
 
   private cleanupExpiredStates(): void {
@@ -1057,6 +1060,46 @@ export class PlatformConnectionsService {
   // ============================================================
   async getYoutubeMusicCurrentlyPlaying(userId: string): Promise<any> {
     return null;
+  }
+
+  // ============================================================
+  // YOUTUBE DATA API — Music Search (Free, No OAuth)
+  // ============================================================
+  async searchYoutubeTracks(query: string): Promise<any[]> {
+    if (!query?.trim()) return [];
+    if (!this.youtubeApiKey) return [];
+
+    try {
+      const url = new URL('https://www.googleapis.com/youtube/v3/search');
+      url.searchParams.set('part', 'snippet');
+      url.searchParams.set('q', query);
+      url.searchParams.set('type', 'video');
+      url.searchParams.set('videoCategoryId', '10');
+      url.searchParams.set('maxResults', '15');
+      url.searchParams.set('key', this.youtubeApiKey);
+
+      const res = await fetch(url.toString());
+      if (!res.ok) {
+        console.error('YouTube search error:', res.status, await res.text());
+        return [];
+      }
+
+      const data: any = await res.json();
+      return (data?.items ?? []).map((item: any) => ({
+        videoId: item.id?.videoId ?? '',
+        title: item.snippet?.title ?? 'Unknown',
+        artist: item.snippet?.channelTitle ?? 'Unknown',
+        thumbnail: item.snippet?.thumbnails?.high?.url
+          ?? item.snippet?.thumbnails?.medium?.url
+          ?? item.snippet?.thumbnails?.default?.url
+          ?? null,
+        channelId: item.snippet?.channelId ?? '',
+        publishedAt: item.snippet?.publishedAt ?? '',
+      }));
+    } catch (err) {
+      console.error('YouTube search fetch error:', err);
+      return [];
+    }
   }
 
   // ============================================================

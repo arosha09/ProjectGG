@@ -105,6 +105,13 @@ export class PlatformConnectionsController {
   // ============================================================
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
+  @Get('youtube/search')
+  async searchYoutubeTracks(@Query('q') query: string) {
+    return this.service.searchYoutubeTracks(query);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Get('youtube-music/auth-url')
   getYoutubeMusicAuthUrl(@Req() req: any) {
     return this.service.getYoutubeMusicAuthUrl(req.user.id);

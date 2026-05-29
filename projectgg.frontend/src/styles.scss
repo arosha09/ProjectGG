@@ -1398,3 +1398,238 @@ a.btn-sync::after,
     position: relative !important;
     overflow: hidden !important;
 }
+
+/* ==========================================================================
+    LOW-END DEVICE / REDUCED-MOTION OVERRIDES
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  body::after {
+    display: none !important;
+  }
+
+  .nav-grid, .nav-ambient-glow,
+  .dashboard-shell::after,
+  .gg-shell::after,
+  .chat-main-container::after,
+  .auth-grid, .ambient-glow,
+  .tasks-shell::before,
+  .settings-shell {
+    animation: none !important;
+  }
+
+  .scanline { display: none !important; }
+
+  .card::before, .card::after,
+  .hero-card h1::before, .hero-card h1::after,
+  .glitch::before, .glitch::after,
+  .glitch-text::before, .glitch-text::after,
+  .owned-card::before, .owned-card::after,
+  .task-card::before,
+  .auth-card::before,
+  .modal-card::before {
+    animation: none !important;
+  }
+
+  .card:hover, .btn:hover, .owned-card:hover,
+  .stat-card:hover, .hero-card:hover, .task-card:hover {
+    transform: none !important;
+  }
+
+  .hero-card { box-shadow: none !important; }
+
+  h1, h2, h3, h4, h5, h6 {
+    text-shadow: none !important;
+  }
+
+  .btn, .btn:hover { box-shadow: none !important; }
+  .card, .card:hover { box-shadow: none !important; }
+
+  .discord-cta-card,
+  .profile-hero, .info-card, .stats-card,
+  .meta-card, .meta-block,
+  .owned-card, .series-panel-inline,
+  .settings-sidebar .settings-nav,
+  .settings-content .settings-panel {
+    box-shadow: none !important;
+  }
+
+  .hero-card h1 { text-shadow: none !important; }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .hero-avatar-wrap { box-shadow: none !important; }
+
+  .modal-overlay, .image-overlay,
+  .custom-color-modal-overlay,
+  .gg-overlay,
+  .avatar-modal-backdrop {
+    backdrop-filter: none !important;
+  }
+
+  .hero-panel, .auth-card {
+    backdrop-filter: none !important;
+  }
+
+  .now-playing-card,
+  .card-online,
+  .status-success,
+  div[class*="playing"],
+  div[class*="online"] {
+    box-shadow: none !important;
+  }
+
+  .meta-value {
+    text-shadow: none !important;
+  }
+
+  .discord-cta-btn:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* ==========================================================================
+    ENHANCED RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 1400px) {
+  .hero { padding: 0 24px; }
+  .profile-main, .settings-main { padding: 32px 16px; }
+  .homebar { padding: 20px 24px; }
+}
+
+@media (max-width: 1200px) {
+  .hero { gap: 32px; }
+  .hero-stats { gap: 12px; }
+}
+
+@media (max-width: 1024px) {
+  .profile-grid { grid-template-columns: 1fr; }
+  .collection-grid { grid-template-columns: repeat(4, 1fr); }
+  .games-grid, .owned-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+}
+
+@media (max-width: 820px) {
+  .collection-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-card { padding: 16px; }
+}
+
+@media (max-width: 600px) {
+  .container { padding: 0 12px; }
+
+  .homebar {
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .home-brand {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .home-links {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .home-links a {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 0 16px;
+  }
+
+  .hero-copy { margin-top: 0; }
+  .hero-copy h1 { font-size: clamp(1.8rem, 8vw, 2.8rem); }
+
+  .hero-stats { grid-template-columns: 1fr; }
+  .hero-actions { flex-direction: column; }
+
+  .h1, h1 { font-size: 1.5rem; }
+  .h2, h2 { font-size: 1.3rem; }
+
+  .btn { padding: 10px 20px; font-size: 12px; }
+  .btn-large { padding: 12px 28px; }
+
+  .profile-main { padding: 16px 12px; }
+
+  .settings-main { padding-left: 8px; padding-right: 8px; }
+  .settings-header h1 { font-size: 20px; }
+  .settings-panel .panel-header { padding: 12px; }
+  .settings-panel .panel-body { padding: 12px; gap: 12px; }
+  .platform-row { flex-direction: column; gap: 10px; }
+  .platform-actions { width: 100%; justify-content: flex-end; }
+  .settings-sidebar .settings-nav { gap: 4px; }
+  .settings-sidebar .settings-nav .nav-item { padding: 10px 12px; font-size: 12px; }
+
+  .theme-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .cursor-options-grid { flex-wrap: wrap; }
+
+  .profile-hero { padding: 20px 16px !important; }
+  .hero-avatar-row { flex-direction: column; gap: 12px; }
+  .hero-left h1 { font-size: clamp(1.4rem, 6vw, 1.8rem); }
+  .profile-meta { gap: 8px; }
+  .meta-block { min-width: 0; padding: 10px 12px; }
+  .meta-value { font-size: 16px; }
+
+  .collection-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .collection-item-info { padding: 6px 8px; }
+  .collection-game-name { font-size: 10px; }
+
+  .stats-grid { grid-template-columns: 1fr; }
+  .info-card, .stats-card { padding: 16px !important; }
+
+  .task-card { padding: 16px !important; }
+  .task-card-top { flex-direction: column; gap: 10px; }
+  .task-icon-wrap { width: 36px; height: 36px; }
+  .task-complete-btn { width: 100%; justify-content: center; }
+
+  .discord-cta-card { flex-direction: column; text-align: center; padding: 16px; }
+  .discord-cta-btn { width: 100%; justify-content: center; }
+
+  .section-head h2 { font-size: 18px; }
+  .section-head { margin: 24px 0 12px; }
+
+  .hero-card { padding: 20px 16px !important; flex-direction: column; gap: 16px; }
+  .hero-card h1 { font-size: clamp(1.2rem, 5vw, 1.6rem); }
+  .hero-left { width: 100%; text-align: center; align-items: center; }
+  .profile-meta { flex-wrap: wrap; }
+
+  .search-filter-bar { flex-direction: column; align-items: stretch; }
+  .search-input-wrap { max-width: 100%; }
+  .sort-select { width: 100%; }
+  .sort-trigger { width: 100%; min-width: 0; }
+
+  .games-grid, .owned-grid { grid-template-columns: 1fr; gap: 12px; }
+  .series-games-grid { grid-template-columns: 1fr; }
+  .series-panel-inline { padding: 16px; }
+  .series-panel-head { flex-direction: column; gap: 8px; }
+  .series-toggle { width: 100%; }
+
+  .footer-content { flex-direction: column; text-align: center; gap: 12px; }
+
+  .auth-card { width: calc(100% - 24px); margin: 16px auto; padding: 24px 16px; }
+  .auth-card h1 { font-size: 1.4rem; }
+  .homebar { padding: 12px 16px; }
+
+  .modal-card { width: calc(100% - 24px); padding: 20px; }
+  .avatar-modal { width: calc(100% - 16px); min-width: 0; padding: 16px; }
+  .modal-avatars-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+
+  .admin-dashboard-shell { padding: 16px; }
+  .admin-sync-shell { padding: 16px; }
+}
