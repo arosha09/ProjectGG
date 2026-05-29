@@ -127,6 +127,23 @@ export class PlatformConnectionsController {
     return this.service.handleYoutubeMusicCallback(body.state, body.code);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('youtube/playlists')
+  async getYoutubePlaylists(@Req() req: any) {
+    return this.service.getYoutubePlaylists(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('youtube/playlists/:playlistId/tracks')
+  async getYoutubePlaylistTracks(
+    @Req() req: any,
+    @Param('playlistId') playlistId: string,
+  ) {
+    return this.service.getYoutubePlaylistTracks(req.user.id, playlistId);
+  }
+
   // ============================================================
   // APPLE MUSIC
   // ============================================================

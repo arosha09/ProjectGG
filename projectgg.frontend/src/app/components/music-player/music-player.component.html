@@ -1,132 +1,251 @@
-<section class="music-player-card">
-  <div class="mp-header">
-    <div class="mp-header-left">
-      <span class="mp-title">NOW PLAYING</span>
-      @if (isPlaying) {
-        <span class="mp-pulse-dot"></span>
-      }
-    </div>
-  </div>
-
-  <div class="mp-platforms">
-    @for (p of platformDefs; track p.id) {
-      @if (p.comingSoon) {
-        <span class="mp-platform-btn mp-soon">
-          <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/ffffff'" [alt]="p.name" class="mp-platform-icon" />
-          <span>{{ p.name }}</span>
-          <span class="mp-soon-label">SOON</span>
-        </span>
-      } @else {
-        <span class="mp-platform-btn active">
-          <img [src]="'https://cdn.simpleicons.org/' + p.slug + '/ffffff'" [alt]="p.name" class="mp-platform-icon" />
-          <span>{{ p.name }}</span>
-        </span>
-      }
-    }
-  </div>
-
-  <div class="mp-search-wrap">
-    <svg class="mp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-    </svg>
-    <input
-      class="mp-search-input"
-      type="text"
-      placeholder="Search for music..."
-      [(ngModel)]="searchQuery"
-      (input)="onSearchInput()"
-      (focus)="onSearchFocus()"
-      (blur)="onSearchBlur()"
-    />
-    @if (searching) {
-      <span class="mp-search-spinner"></span>
-    }
-  </div>
-
-  @if (showResults && searchResults.length > 0) {
-    <div class="mp-search-results">
-      @for (item of searchResults; track item.videoId) {
-        <button class="mp-result-item" (click)="selectTrack(item)" type="button">
-          @if (item.thumbnail) {
-            <img [src]="item.thumbnail" alt="" class="mp-result-thumb" loading="lazy" />
+@if (expanded) {
+  <div class="cyber-player-backdrop" (click)="collapse()"></div>
+  <div class="cyber-player-expanded">
+    <div class="cyber-player-expanded-inner" (click)="$event.stopPropagation()">
+      <div class="cyber-now-playing">
+        <div class="cyber-art-container">
+          @if (track?.thumbnail) {
+            <img [src]="track!.thumbnail" alt="Album art" class="cyber-album-art" />
+            <div class="cyber-art-glow"></div>
           } @else {
-            <div class="mp-result-thumb mp-result-thumb-placeholder"></div>
+            <div class="cyber-album-art cyber-art-placeholder">
+              <mat-icon class="cyber-placeholder-icon">music_note</mat-icon>
+            </div>
           }
-          <div class="mp-result-info">
-            <span class="mp-result-title">{{ item.title }}</span>
-            <span class="mp-result-artist">{{ item.artist }}</span>
-          </div>
-          <svg class="mp-result-play" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="8,5 19,12 8,19"/>
-          </svg>
-        </button>
-      }
-    </div>
-  }
+          <!-- @if (isPlaying) {
+            <div class="cyber-visualizer-ring">
+              @for (bar of [1,2,3,4,5,6,7,8,9,10,11,12]; track bar) {
+                <div class="cyber-ring-bar" [style.--i]="bar"></div>
+              }
+            </div>
+          } -->
+        </div>
 
-  @if (selectedTrack) {
-    <div class="mp-now-playing">
-      <div class="mp-album-art-wrap">
-        @if (selectedTrack.thumbnail) {
-          <img [src]="selectedTrack.thumbnail" alt="Album art" class="mp-album-art" />
-        } @else {
-          <div class="mp-album-art mp-placeholder-art">
-            <svg viewBox="0 0 100 100" class="mp-placeholder-svg">
-              <circle cx="50" cy="50" r="40" fill="none" class="mp-placeholder-circle-outer" stroke-width="2"/>
-              <circle cx="50" cy="50" r="15" class="mp-placeholder-circle-inner"/>
-              <line x1="50" y1="35" x2="50" y2="15" class="mp-placeholder-line" stroke-width="1.5" opacity="0.5"/>
-            </svg>
+        <div class="cyber-track-info">
+          <span class="cyber-track-title">{{ track?.title || 'No track selected' }}</span>
+        </div>
+
+        <div class="cyber-progress-section">
+          <div class="cyber-progress-bar" (click)="seek($event)">
+            <div class="cyber-progress-fill" [style.width.%]="progress"></div>
+            <div class="cyber-progress-thumb" [style.left.%]="progress"></div>
+          </div>
+          <div class="cyber-progress-time">
+            <span>{{ formatTime(currentTime) }}</span>
+            <span>{{ formatTime(duration) }}</span>
+          </div>
+        </div>
+
+        <div class="cyber-controls">
+          <button class="cyber-ctrl-btn" (click)="previous()" type="button" title="Previous">
+            <mat-icon>skip_previous</mat-icon>
+          </button>
+          <button class="cyber-play-btn" (click)="togglePlay()" type="button">
+            <mat-icon>{{ isPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+          </button>
+          <button class="cyber-ctrl-btn" (click)="next()" type="button" title="Next">
+            <mat-icon>skip_next</mat-icon>
+          </button>
+        </div>
+
+        <!-- @if (isPlaying) {
+          <div class="cyber-visualizer">
+            @for (bar of [1,2,3,4,5,6,7,8,9,10]; track bar) {
+              <div class="cyber-viz-bar" [style.--i]="bar"></div>
+            }
+          </div>
+        } -->
+      </div>
+
+      <div class="cyber-search-section">
+        <div class="cyber-search-wrap">
+          <mat-icon class="cyber-search-icon">search</mat-icon>
+          <input
+            class="cyber-search-input"
+            type="text"
+            placeholder="Search for music..."
+            [(ngModel)]="searchQuery"
+            (input)="onSearchInput()"
+            (focus)="onSearchFocus()"
+          />
+          @if (searching) {
+            <span class="cyber-search-spinner"></span>
+          }
+        </div>
+
+        @if (showResults && searchResults.length > 0) {
+          <div class="cyber-results-list">
+            @for (item of searchResults; track item.videoId) {
+              <button class="cyber-result-item" (click)="selectTrack(item)" type="button">
+                @if (item.thumbnail) {
+                  <img [src]="item.thumbnail" alt="" class="cyber-result-thumb" loading="lazy" />
+                } @else {
+                  <div class="cyber-result-thumb cyber-result-thumb-empty">
+                    <mat-icon>music_note</mat-icon>
+                  </div>
+                }
+                <div class="cyber-result-info">
+                  <span class="cyber-result-title">{{ item.title }}</span>
+                  <span class="cyber-result-artist">{{ item.artist }}</span>
+                </div>
+                <mat-icon class="cyber-result-play-icon">play_circle</mat-icon>
+              </button>
+            }
           </div>
         }
       </div>
 
-      <div class="mp-track-info">
-        <p class="mp-track-name">{{ selectedTrack.title }}</p>
-        <p class="mp-track-artist">{{ selectedTrack.artist }}</p>
-      </div>
+      @if (queue.length > 0) {
+        <div class="cyber-queue-section">
+          <div class="cyber-queue-header">
+            <mat-icon class="cyber-queue-icon">queue_music</mat-icon>
+            <span class="cyber-queue-title">Queue</span>
+            <span class="cyber-queue-count">{{ queue.length }} tracks</span>
+            <button class="cyber-playlist-save-btn" (click)="saveAsPlaylist()" type="button" title="Save as Playlist">
+              <mat-icon>playlist_add</mat-icon>
+            </button>
+          </div>
+          <div class="cyber-queue-list">
+            @for (qTrack of queue; track qTrack.videoId; let i = $index) {
+              <div class="cyber-queue-item" [class.active]="i === queueIndex" (click)="skipTo(i)">
+                @if (qTrack.thumbnail) {
+                  <img [src]="qTrack.thumbnail" alt="" class="cyber-queue-thumb" />
+                } @else {
+                  <div class="cyber-queue-thumb cyber-queue-thumb-empty">
+                    <mat-icon>music_note</mat-icon>
+                  </div>
+                }
+                <div class="cyber-queue-info">
+                  <span class="cyber-queue-name">{{ qTrack.title }}</span>
+                  <span class="cyber-queue-artist">{{ qTrack.artist }}</span>
+                </div>
+                @if (i === queueIndex) {
+                  <div class="cyber-queue-playing">
+                    @for (b of [1,2,3]; track b) {
+                      <div class="cyber-mini-bar" [style.--i]="b"></div>
+                    }
+                  </div>
+                }
+                <button class="cyber-queue-remove" (click)="removeFromQueue(i, $event)" type="button">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
 
-      <div class="mp-controls">
-        <button class="mp-ctrl-btn" (click)="skipTrack(-1)" [disabled]="searchResults.length === 0" type="button" title="Previous">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-        </button>
-        <button class="mp-play-btn" (click)="togglePlay()" type="button" title="{{ isPlaying ? 'Pause' : 'Play' }}">
-          @if (isPlaying) {
-            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      @if (showSaveInput) {
+        <div class="cyber-save-playlist-form">
+          <input
+            class="cyber-save-input"
+            type="text"
+            placeholder="Playlist name..."
+            [(ngModel)]="savePlaylistName"
+            (keyup.enter)="confirmSavePlaylist()"
+            (keyup.escape)="cancelSavePlaylist()"
+            autofocus
+          />
+          <button class="cyber-save-confirm" (click)="confirmSavePlaylist()" type="button" title="Save">
+            <mat-icon>check</mat-icon>
+          </button>
+          <button class="cyber-save-cancel" (click)="cancelSavePlaylist()" type="button" title="Cancel">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      }
+
+      <div class="cyber-playlists-section">
+        <div class="cyber-playlists-header">
+          <mat-icon class="cyber-playlists-icon">library_music</mat-icon>
+          <span class="cyber-playlists-title">Playlists</span>
+          <div class="cyber-playlists-tabs">
+            <button
+              class="cyber-playlists-tab"
+              [class.active]="playlistsTab === 'saved'"
+              (click)="switchPlaylistsTab('saved')"
+              type="button"
+            >Saved</button>
+            <button
+              class="cyber-playlists-tab"
+              [class.active]="playlistsTab === 'youtube'"
+              (click)="switchPlaylistsTab('youtube')"
+              type="button"
+            >YouTube</button>
+          </div>
+        </div>
+
+        @if (playlistsTab === 'saved') {
+          @if (playlists.length > 0) {
+            <div class="cyber-playlists-list">
+              @for (pl of playlists; track pl.name) {
+                <div class="cyber-playlist-item">
+                  <div class="cyber-playlist-info" (click)="loadPlaylist(pl.name)">
+                    <span class="cyber-playlist-name">{{ pl.name }}</span>
+                    <span class="cyber-playlist-tracks">{{ pl.tracks.length }} tracks</span>
+                  </div>
+                  <button class="cyber-playlist-play-btn" (click)="loadPlaylist(pl.name)" type="button" title="Play">
+                    <mat-icon>play_arrow</mat-icon>
+                  </button>
+                  <button class="cyber-playlist-del-btn" (click)="deletePlaylist(pl.name)" type="button" title="Delete">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
           } @else {
-            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>
+            <div class="cyber-playlists-empty">
+              <span>No saved playlists yet</span>
+            </div>
           }
-        </button>
-        <button class="mp-ctrl-btn" (click)="skipTrack(1)" [disabled]="searchResults.length === 0" type="button" title="Next">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-        </button>
-      </div>
+        }
 
-      <div class="mp-progress-wrap">
-        <div class="mp-progress-bar" (click)="seek($event)">
-          <div class="mp-progress-fill" [style.width.%]="progress"></div>
-        </div>
-        <div class="mp-progress-time">
-          <span>{{ formatTime(currentTime) }}</span>
-          <span>{{ formatTime(duration) }}</span>
-        </div>
-      </div>
-    </div>
-
-    @if (isPlaying) {
-      <div class="mp-visualizer">
-        @for (bar of [1,2,3,4,5,6,7,8]; track bar) {
-          <div class="mp-bar" [style.--i]="bar"></div>
+        @if (playlistsTab === 'youtube') {
+          @if (loadingYoutubePlaylists) {
+            <div class="cyber-playlists-loading">
+              <span class="cyber-search-spinner"></span>
+              <span>Loading YouTube playlists...</span>
+            </div>
+          } @else if (youtubePlaylists.length > 0) {
+            <div class="cyber-playlists-list">
+              @for (pl of youtubePlaylists; track pl.id) {
+                <div class="cyber-playlist-item">
+                  <div class="cyber-playlist-info" (click)="loadYoutubePlaylist(pl.id)">
+                    <span class="cyber-playlist-name">{{ pl.title }}</span>
+                    <span class="cyber-playlist-tracks">{{ pl.trackCount }} tracks</span>
+                  </div>
+                  <button class="cyber-playlist-play-btn" (click)="loadYoutubePlaylist(pl.id)" type="button" title="Play">
+                    <mat-icon>play_arrow</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="cyber-playlists-empty">
+              <span>Connect YouTube Music in Settings to see your playlists</span>
+            </div>
+          }
         }
       </div>
-    }
-  } @else {
-    <div class="mp-empty">
-      <svg class="mp-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-      </svg>
-      <p>Search for any song to start listening</p>
-    </div>
-  }
 
-  <div id="youtube-player" class="mp-youtube-hidden"></div>
-</section>
+      <div class="cyber-platforms-section">
+        <span class="cyber-platforms-label">Platforms</span>
+        <div class="cyber-platforms-row">
+          @for (p of platformDefs; track p.id) {
+            @if (p.comingSoon) {
+              <span class="cyber-platform-tag cyber-platform-soon">
+                {{ p.name }}
+                <span class="cyber-platform-badge">SOON</span>
+              </span>
+            } @else {
+              <span class="cyber-platform-tag cyber-platform-active">
+                <mat-icon>check_circle</mat-icon>
+                {{ p.name }}
+              </span>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}

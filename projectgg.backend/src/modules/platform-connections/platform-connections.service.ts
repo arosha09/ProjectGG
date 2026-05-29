@@ -1072,11 +1072,17 @@ export class PlatformConnectionsService {
     try {
       const url = new URL('https://www.googleapis.com/youtube/v3/search');
       url.searchParams.set('part', 'snippet');
-      url.searchParams.set('q', query);
       url.searchParams.set('type', 'video');
       url.searchParams.set('videoCategoryId', '10');
+      url.searchParams.set('videoDuration', 'medium');
       url.searchParams.set('maxResults', '15');
       url.searchParams.set('key', this.youtubeApiKey);
+
+      // Boost music relevance by appending " music" to the query
+      const boosted = query.trim().toLowerCase().endsWith(' music')
+        ? query.trim()
+        : `${query.trim()} music`;
+      url.searchParams.set('q', boosted);
 
       const res = await fetch(url.toString());
       if (!res.ok) {
@@ -1085,19 +1091,176 @@ export class PlatformConnectionsService {
       }
 
       const data: any = await res.json();
+      const blocklist = ['trailer', 'gameplay', 'tutorial', 'review', 'reaction', 'podcast', 'interview', 'lofi', 'remix', 'instrumental'];
+      const isMusic = (title: string) => {
+        const lower = title.toLowerCase();
+        return !blocklist.some(w => lower.includes(w));
+      };
+
+      return (data?.items ?? [])
+        .filter((item: any) => isMusic(item.snippet?.title ?? ''))
+        .map((item: any) => ({
+          videoId: item.id?.videoId ?? '',
+          title: item.snippet?.title ?? 'Unknown',
+          artist: item.snippet?.channelTitle ?? 'Unknown',
+          thumbnail: item.snippet?.thumbnails?.high?.url
+            ?? item.snippet?.thumbnails?.medium?.url
+            ?? item.snippet?.thumbnails?.default?.url
+            ?? null,
+          channelId: item.snippet?.channelId ?? '',
+          publishedAt: item.snippet?.publishedAt ?? '',
+        }));
+    } catch (err) {
+      console.error('YouTube search fetch error:', err);
+      return [];
+    }
+  }
+
+  // ============================================================
+  // YOUTUBE — User Playlists (via OAuth)
+  // ============================================================
+  async getYoutubeAccessToken(userId: string): Promise<string | null> {
+    try {
+      const db = await this.pc();
+      const { data: conn } = await db
+        .select('*')
+        .eq('user_id', userId)
+        .eq('platform', 'youtube_music')
+        .single();
+
+      if (!conn?.access_token) return null;
+
+      let token = conn.access_token;
+      const refreshTokenValue = conn.refresh_token;
+
+      // Test if token works
+      const testRes = await fetch(
+        'https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (testRes.ok) return token;
+
+      // Token expired — try refresh
+      if (refreshTokenValue && this.googleClientId && this.googleClientSecret) {
+        const body = new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshTokenValue,
+          client_id: this.googleClientId,
+          client_secret: this.googleClientSecret,
+        });
+
+        const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        });
+
+        if (refreshRes.ok) {
+          const refreshData: any = await refreshRes.json();
+          token = refreshData.access_token;
+
+          const db2 = await this.pc();
+          await db2
+            .update({ access_token: token })
+            .eq('user_id', userId)
+            .eq('platform', 'youtube_music');
+
+          return token;
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getYoutubePlaylists(userId: string): Promise<any[]> {
+    const token = await this.getYoutubeAccessToken(userId);
+    if (!token) return [];
+
+    try {
+      const url = new URL('https://www.googleapis.com/youtube/v3/playlists');
+      url.searchParams.set('part', 'snippet,contentDetails');
+      url.searchParams.set('mine', 'true');
+      url.searchParams.set('maxResults', '50');
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return [];
+      const data: any = await res.json();
+
       return (data?.items ?? []).map((item: any) => ({
-        videoId: item.id?.videoId ?? '',
-        title: item.snippet?.title ?? 'Unknown',
-        artist: item.snippet?.channelTitle ?? 'Unknown',
+        id: item.id,
+        title: item.snippet?.title ?? 'Untitled',
+        description: item.snippet?.description ?? '',
         thumbnail: item.snippet?.thumbnails?.high?.url
           ?? item.snippet?.thumbnails?.medium?.url
           ?? item.snippet?.thumbnails?.default?.url
           ?? null,
-        channelId: item.snippet?.channelId ?? '',
-        publishedAt: item.snippet?.publishedAt ?? '',
+        trackCount: item.contentDetails?.itemCount ?? 0,
+        channelTitle: item.snippet?.channelTitle ?? '',
       }));
     } catch (err) {
-      console.error('YouTube search fetch error:', err);
+      console.error('YouTube playlists fetch error:', err);
+      return [];
+    }
+  }
+
+  async getYoutubePlaylistTracks(
+    userId: string,
+    playlistId: string,
+  ): Promise<any[]> {
+    const token = await this.getYoutubeAccessToken(userId);
+    if (!token) return [];
+
+    try {
+      const tracks: any[] = [];
+      let pageToken = '';
+
+      // Fetch up to 200 tracks (4 pages of 50)
+      for (let i = 0; i < 4; i++) {
+        const url = new URL(
+          'https://www.googleapis.com/youtube/v3/playlistItems',
+        );
+        url.searchParams.set('part', 'snippet,contentDetails');
+        url.searchParams.set('playlistId', playlistId);
+        url.searchParams.set('maxResults', '50');
+        if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+        const res = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) break;
+        const data: any = await res.json();
+
+        for (const item of data?.items ?? []) {
+          const snippet = item.snippet;
+          const contentDetails = item.contentDetails;
+          if (!snippet) continue;
+
+          tracks.push({
+            videoId: contentDetails?.videoId ?? snippet.resourceId?.videoId ?? '',
+            title: snippet.title ?? 'Unknown',
+            artist: snippet.channelTitle ?? 'Unknown',
+            thumbnail: snippet.thumbnails?.high?.url
+              ?? snippet.thumbnails?.medium?.url
+              ?? snippet.thumbnails?.default?.url
+              ?? null,
+          });
+        }
+
+        pageToken = data?.nextPageToken ?? '';
+        if (!pageToken) break;
+      }
+
+      return tracks.filter((t) => t.videoId);
+    } catch (err) {
+      console.error('YouTube playlist tracks fetch error:', err);
       return [];
     }
   }

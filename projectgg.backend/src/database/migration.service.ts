@@ -113,6 +113,29 @@ export class MigrationService implements OnModuleInit {
           END $$;
         `);
         this.logger.log('Migration 008 (service_role privileges) applied');
+
+        // Migration 009: User playlists
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS projectgg.user_playlists (
+            id BIGSERIAL PRIMARY KEY,
+            user_id UUID NOT NULL,
+            name TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_user_playlists_user ON projectgg.user_playlists (user_id);
+
+          CREATE TABLE IF NOT EXISTS projectgg.user_playlist_tracks (
+            id BIGSERIAL PRIMARY KEY,
+            playlist_id BIGINT NOT NULL REFERENCES projectgg.user_playlists(id) ON DELETE CASCADE,
+            video_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT NOT NULL,
+            thumbnail TEXT,
+            position INT NOT NULL DEFAULT 0
+          );
+          CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON projectgg.user_playlist_tracks (playlist_id);
+        `);
+        this.logger.log('Migration 009 (user playlists) applied');
       } finally {
         client.release();
         await pool.end();

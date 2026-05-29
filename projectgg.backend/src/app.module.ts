@@ -10,6 +10,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { VoiceModule } from './modules/voice/voice.module';
 import { MailModule } from './mail/mail.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { MusicModule } from './modules/music/music.module';
 import { MigrationService } from './database/migration.service';
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MigrationService } from './database/migration.service';
     MailModule,
     XpModule,
     TasksModule,
+    MusicModule,
   ],
   providers: [MigrationService],
 })

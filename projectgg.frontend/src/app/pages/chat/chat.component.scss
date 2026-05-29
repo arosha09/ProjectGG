@@ -738,19 +738,19 @@
 
 .gif-search {
   width: 100%;
-  background: rgba(0, 0, 0, 0.4) !important;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-primary) !important;
-  font-family: 'Rajdhani', sans-serif !important;
-  font-size: 13px !important;
-  padding: 8px 12px !important;
-  outline: none !important;
-  border-radius: 3px !important;
+  background: var(--bg-mid);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  border-radius: 3px;
   margin-bottom: 8px;
   letter-spacing: 0.5px;
 
   &::placeholder { color: var(--text-muted); }
-  &:focus { border-color: var(--color-primary) !important; }
+  &:focus { border-color: var(--color-primary); }
 }
 
 .gif-grid {

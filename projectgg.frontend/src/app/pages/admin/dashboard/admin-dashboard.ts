@@ -6,14 +6,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { AuthService } from '../../../services/auth.service';
 import { GamesService } from '../../../services/games.service';
-import { AdminNavComponent } from '../../../components/admin-nav/admin-nav.component';
 import { GameSearchResultComponent } from '../../../components/game-search-result/game-search-result.component';
 import { StatusMessageComponent } from '../../../components/status-message/status-message.component';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, AdminNavComponent, GameSearchResultComponent, StatusMessageComponent],
+  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, GameSearchResultComponent, StatusMessageComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss'],
 })

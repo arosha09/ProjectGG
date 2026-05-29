@@ -27,18 +27,16 @@
 			</mat-card>
 		}
 
-		<app-music-player [platformConnections]="musicConnections"></app-music-player>
-
 		<section class="section-head">
 			<h2>Game library</h2>
 			<p>Collect em all!</p>
 		</section>
 
-		<div class="search-filter-bar">
-			<div class="search-input-wrap">
-				<mat-icon class="search-icon">search</mat-icon>
+		<div class="cyber-search-section">
+			<div class="cyber-search-wrap">
+				<mat-icon class="cyber-search-icon">search</mat-icon>
 				<input
-					class="search-input"
+					class="cyber-search-input"
 					type="text"
 					placeholder="Search games..."
 					[(ngModel)]="searchQuery"
@@ -48,7 +46,7 @@
 					<button class="search-clear" type="button" (click)="clearSearch()"><mat-icon>close</mat-icon></button>
 				}
 				@if (searching) {
-					<span class="search-spinner"></span>
+					<span class="cyber-search-spinner"></span>
 				}
 			</div>
 			<div class="sort-select">
@@ -62,12 +60,6 @@
 					(itemSelect)="sortDropdownOpen = false"
 				></app-cyber-dropdown>
 			</div>
-			@if (isAdmin) {
-				<a class="sync-link" routerLink="/admin/sync">
-					<mat-icon class="sync-link-icon">sync</mat-icon>
-					SYNC
-				</a>
-			}
 		</div>
 
 		<app-skeleton *ngIf="loading"></app-skeleton>

@@ -1,11 +1,12 @@
 import { Component, input, output, signal, effect, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, NavigationEnd, ActivatedRoute } from '@angular/router';
-import { Subscription, filter, map } from 'rxjs';
+import { Subscription, Subject, filter, map, takeUntil } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 import { CyberDropdownComponent, DropdownItem } from '../cyber-dropdown/cyber-dropdown.component';
 import { ChatService, AppNotification } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
+import { MusicPlayerService, Track } from '../../services/music-player.service';
 import { Socket } from 'socket.io-client';
 
 @Component({
@@ -18,6 +19,7 @@ import { Socket } from 'socket.io-client';
 export class HeaderNavComponent implements OnInit, OnDestroy {
   mobileMenuOpen = false;
   hideDivider = false;
+  private destroy$ = new Subject<void>();
   private routerSub?: Subscription;
   readonly currentStatus = input<string | null>(null);
   readonly profileDropdownOpen = input(false);
@@ -26,6 +28,14 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
   readonly isAdmin = input(false);
   readonly discordConnected = input(false);
   readonly isAuthLoading = input(false);
+
+  // Dynamic island music state
+  musicTrack: Track | null = null;
+  musicPlaying = false;
+  musicShuffle = false;
+  musicRepeat: 'off' | 'all' | 'one' = 'off';
+  musicVolume = 0.8;
+  musicProgress = 0;
 
   readonly statusChange = output<string>();
   readonly profileToggle = output<void>();
@@ -51,6 +61,7 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
     private readonly activatedRoute: ActivatedRoute,
     private readonly chatService: ChatService,
     private readonly auth: AuthService,
+    public readonly musicService: MusicPlayerService,
   ) {
     effect(() => {
       this.displayAvatar.set(this.avatarUrl() ?? '/assets/avatars/unknown.png');
@@ -58,6 +69,12 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.musicService.track$.pipe(takeUntil(this.destroy$)).subscribe(t => this.musicTrack = t);
+    this.musicService.playing$.pipe(takeUntil(this.destroy$)).subscribe(p => this.musicPlaying = p);
+    this.musicService.prog$.pipe(takeUntil(this.destroy$)).subscribe(p => this.musicProgress = p);
+    this.musicService.shuffleObs$.pipe(takeUntil(this.destroy$)).subscribe(s => this.musicShuffle = s);
+    this.musicService.repeatObs$.pipe(takeUntil(this.destroy$)).subscribe(r => this.musicRepeat = r);
+    this.musicService.volumeObs$.pipe(takeUntil(this.destroy$)).subscribe(v => this.musicVolume = v);
     this.routerSub = this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       map(() => this.activatedRoute),
@@ -73,6 +90,8 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.routerSub?.unsubscribe();
     this.socket?.off('notification', this._notifHandler);
   }
@@ -141,5 +160,21 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
 
   onStatusChange(status: string): void {
     this.statusChange.emit(status as any);
+  }
+
+  private prevVolume = 0.8;
+
+  onVolumeChange(event: Event): void {
+    const val = parseFloat((event.target as HTMLInputElement).value);
+    this.musicService.setVolume(val);
+  }
+
+  toggleMute(): void {
+    if (this.musicVolume > 0) {
+      this.prevVolume = this.musicVolume;
+      this.musicService.setVolume(0);
+    } else {
+      this.musicService.setVolume(this.prevVolume);
+    }
   }
 }

@@ -6,6 +6,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { AuthService } from './services/auth.service';
 import { HeaderNavComponent } from './components/header-nav/header-nav.component';
 import { AdminNavComponent } from './components/admin-nav/admin-nav.component';
+import { MusicPlayerComponent } from './components/music-player/music-player.component';
 import { environment } from '../environments/environment';
 import { ThemeService } from './services/theme.service';
 import { CursorService } from './services/cursor.service';
@@ -13,7 +14,7 @@ import { CursorService } from './services/cursor.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, HeaderNavComponent, AdminNavComponent],
+  imports: [CommonModule, RouterOutlet, HeaderNavComponent, AdminNavComponent, MusicPlayerComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

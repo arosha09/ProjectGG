@@ -1,237 +1,200 @@
-import { Component, Input, OnInit, OnDestroy, AfterViewInit, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { environment } from '../../../environments/environment';
-import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
-
-interface TrackResult {
-  videoId: string;
-  title: string;
-  artist: string;
-  thumbnail: string | null;
-}
+import { MatIconModule } from '@angular/material/icon';
+import { Subject, takeUntil } from 'rxjs';
+import { MusicPlayerService, Track, Playlist, YoutubePlaylist } from '../../services/music-player.service';
 
 @Component({
   selector: 'app-music-player',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   templateUrl: './music-player.component.html',
   styleUrls: ['./music-player.component.scss'],
 })
-export class MusicPlayerComponent implements OnInit, OnDestroy, AfterViewInit {
-  @Input() platformConnections: any[] = [];
-
+export class MusicPlayerComponent implements OnInit, OnDestroy {
   searchQuery = '';
-  searchResults: TrackResult[] = [];
-  selectedTrack: TrackResult | null = null;
+  private readonly destroy$ = new Subject<void>();
+
+  track: Track | null = null;
   isPlaying = false;
+  progress = 0;
   currentTime = 0;
   duration = 0;
-  progress = 0;
+  searchResults: Track[] = [];
   searching = false;
   showResults = false;
-  playerReady = false;
-  apiLoaded = false;
-
-  private player: any = null;
-  private readonly destroy$ = new Subject<void>();
-  private readonly apiUrl = environment.apiUrl;
-  private readonly searchSubject = new Subject<string>();
-  private progressInterval: ReturnType<typeof setInterval> | null = null;
+  expanded = false;
+  queue: Track[] = [];
+  queueIndex = -1;
+  playlists: Playlist[] = [];
+  youtubePlaylists: YoutubePlaylist[] = [];
+  loadingYoutubePlaylists = false;
+  showSaveInput = false;
+  savePlaylistName = '';
+  playlistsTab: 'saved' | 'youtube' = 'saved';
 
   readonly platformDefs = [
-    { id: 'youtube', name: 'YouTube', slug: 'youtube', comingSoon: false },
-    { id: 'spotify', name: 'Spotify', slug: 'spotify', comingSoon: true },
+    { id: 'youtube', name: 'YouTube', slug: 'youtube', active: true },
+    { id: 'spotify', name: 'Spotify', slug: 'spotify', active: false, comingSoon: true },
+    { id: 'apple_music', name: 'Apple Music', slug: 'apple', active: false, comingSoon: true },
   ];
 
   constructor(
-    private readonly http: HttpClient,
+    public readonly music: MusicPlayerService,
     private readonly router: Router,
-    private readonly ngZone: NgZone,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.searchSubject.pipe(
-      debounceTime(400),
-      distinctUntilChanged(),
-      takeUntil(this.destroy$),
-    ).subscribe(query => {
-      if (query.trim()) this.doSearch(query);
-    });
-  }
+    this.music.loadYouTubeAPI();
 
-  ngAfterViewInit(): void {
-    this.loadYouTubeAPI();
+    this.music.track$.pipe(takeUntil(this.destroy$)).subscribe(t => {
+      this.track = t;
+      this.cdr.markForCheck();
+    });
+    this.music.playing$.pipe(takeUntil(this.destroy$)).subscribe(p => {
+      this.isPlaying = p;
+      this.cdr.markForCheck();
+    });
+    this.music.prog$.pipe(takeUntil(this.destroy$)).subscribe(p => {
+      this.progress = p;
+      this.cdr.markForCheck();
+    });
+    this.music.time$.pipe(takeUntil(this.destroy$)).subscribe(t => {
+      this.currentTime = t;
+      this.cdr.markForCheck();
+    });
+    this.music.dur$.pipe(takeUntil(this.destroy$)).subscribe(d => {
+      this.duration = d;
+      this.cdr.markForCheck();
+    });
+    this.music.results$.pipe(takeUntil(this.destroy$)).subscribe(r => { this.searchResults = r; });
+    this.music.searching$.pipe(takeUntil(this.destroy$)).subscribe(s => { this.searching = s; });
+    this.music.showRes$.pipe(takeUntil(this.destroy$)).subscribe(s => { this.showResults = s; });
+    this.music.expandedObs$.pipe(takeUntil(this.destroy$)).subscribe(expanded => {
+      this.expanded = expanded;
+      if (expanded) {
+        this.music.loadPlaylists();
+        this.music.loadYoutubePlaylists();
+      }
+    });
+    this.music.queueObs$.pipe(takeUntil(this.destroy$)).subscribe(q => this.queue = q);
+    this.music.queueIdx$.pipe(takeUntil(this.destroy$)).subscribe(i => this.queueIndex = i);
+    this.music.playlistsObs$.pipe(takeUntil(this.destroy$)).subscribe(p => this.playlists = p);
+    this.music.youtubePlaylistsObs$.pipe(takeUntil(this.destroy$)).subscribe(p => this.youtubePlaylists = p);
+    this.music.loadingYoutubePlaylistsObs$.pipe(takeUntil(this.destroy$)).subscribe(l => this.loadingYoutubePlaylists = l);
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.clearProgressInterval();
-    if (this.player) {
-      try { this.player.destroy(); } catch { /* ignore */ }
-    }
-  }
-
-  private loadYouTubeAPI(): void {
-    if ((window as any).YT?.Player) {
-      this.apiLoaded = true;
-      return;
-    }
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    document.body.appendChild(tag);
-    (window as any).onYouTubeIframeAPIReady = () => {
-      this.ngZone.run(() => { this.apiLoaded = true; });
-    };
   }
 
   onSearchInput(): void {
-    this.searchSubject.next(this.searchQuery);
+    this.music.search(this.searchQuery);
   }
 
   onSearchFocus(): void {
     if (this.searchResults.length > 0) {
-      this.showResults = true;
+      this.music.showResultsPanel();
     }
   }
 
-  onSearchBlur(): void {
-    setTimeout(() => { this.showResults = false; }, 200);
-  }
-
-  private doSearch(query: string): void {
-    this.searching = true;
-    this.http.get<any[]>(`${this.apiUrl}/platform/youtube/search`, {
-      params: { q: query },
-    }).subscribe({
-      next: (results) => {
-        this.searchResults = results;
-        this.showResults = results.length > 0;
-        this.searching = false;
-      },
-      error: () => {
-        this.searchResults = [];
-        this.searching = false;
-      },
-    });
-  }
-
-  selectTrack(track: TrackResult): void {
-    this.selectedTrack = track;
-    this.showResults = false;
+  selectTrack(track: Track): void {
     this.searchQuery = '';
-
-    if (!this.apiLoaded) return;
-
-    if (this.player) {
-      this.player.loadVideoById(track.videoId);
-    } else {
-      this.createPlayer(track.videoId);
-    }
-  }
-
-  private createPlayer(videoId: string): void {
-    if (!(window as any).YT?.Player) return;
-    this.playerReady = false;
-    this.player = new (window as any).YT.Player('youtube-player', {
-      height: '0',
-      width: '0',
-      videoId,
-      playerVars: {
-        autoplay: 1,
-        modestbranding: 1,
-        rel: 0,
-        controls: 0,
-      },
-      events: {
-        onReady: () => {
-          this.ngZone.run(() => { this.playerReady = true; });
-          if (this.player) this.player.playVideo();
-        },
-        onStateChange: (event: any) => this.ngZone.run(() => this.onPlayerStateChange(event)),
-      },
-    });
-  }
-
-  private onPlayerStateChange(event: any): void {
-    const YT = (window as any).YT;
-    switch (event.data) {
-      case YT?.PlayerState?.PLAYING:
-        this.isPlaying = true;
-        try { this.duration = this.player?.getDuration() ?? 0; } catch { /* ignore */ }
-        this.startProgressInterval();
-        break;
-      case YT?.PlayerState?.PAUSED:
-        this.isPlaying = false;
-        break;
-      case YT?.PlayerState?.ENDED:
-      case YT?.PlayerState?.CUED:
-        this.isPlaying = false;
-        this.clearProgressInterval();
-        this.progress = 0;
-        this.currentTime = 0;
-        break;
-    }
+    this.searchResults = [];
+    this.music.playTrack(track);
   }
 
   togglePlay(): void {
-    if (!this.player || !this.selectedTrack) return;
-    if (this.isPlaying) {
-      this.player.pauseVideo();
-    } else {
-      this.player.playVideo();
-    }
+    this.music.togglePlay();
   }
 
   seek(event: MouseEvent): void {
-    if (!this.player || !this.duration) return;
-    const bar = (event.currentTarget as HTMLElement);
+    const bar = event.currentTarget as HTMLElement;
     const rect = bar.getBoundingClientRect();
     const ratio = (event.clientX - rect.left) / rect.width;
-    const time = ratio * this.duration;
-    this.player.seekTo(time, true);
+    this.music.seek(Math.max(0, Math.min(1, ratio)));
   }
 
-  skipTrack(direction: number): void {
-    const idx = this.searchResults.findIndex(t => t.videoId === this.selectedTrack?.videoId);
-    const next = idx + direction;
-    if (next >= 0 && next < this.searchResults.length) {
-      this.selectTrack(this.searchResults[next]);
+  next(): void {
+    this.music.next();
+  }
+
+  previous(): void {
+    this.music.previous();
+  }
+
+  skipTo(index: number): void {
+    this.music.skipToIndex(index);
+  }
+
+  removeFromQueue(index: number, event: Event): void {
+    event.stopPropagation();
+    this.music.removeFromQueue(index);
+  }
+
+  saveAsPlaylist(): void {
+    if (!this.queue.length) return;
+    this.savePlaylistName = '';
+    this.showSaveInput = true;
+  }
+
+  confirmSavePlaylist(): void {
+    if (this.savePlaylistName.trim()) {
+      this.music.savePlaylist(this.savePlaylistName.trim());
     }
+    this.showSaveInput = false;
+    this.savePlaylistName = '';
   }
 
-  private startProgressInterval(): void {
-    this.clearProgressInterval();
-    this.progressInterval = setInterval(() => {
-      if (this.player && this.isPlaying) {
-        try {
-          this.currentTime = this.player.getCurrentTime();
-          this.duration = this.player.getDuration();
-          this.progress = this.duration > 0 ? (this.currentTime / this.duration) * 100 : 0;
-        } catch { /* ignore */ }
-      }
-    }, 1000);
+  cancelSavePlaylist(): void {
+    this.showSaveInput = false;
+    this.savePlaylistName = '';
   }
 
-  private clearProgressInterval(): void {
-    if (this.progressInterval) {
-      clearInterval(this.progressInterval);
-      this.progressInterval = null;
-    }
+  loadPlaylist(name: string): void {
+    this.music.loadPlaylist(name);
   }
 
-  formatTime(seconds: number): string {
-    if (!seconds || !isFinite(seconds) || seconds < 0) return '0:00';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  deletePlaylist(name: string): void {
+    this.music.deletePlaylist(name);
+  }
+
+  loadYoutubePlaylist(playlistId: string): void {
+    this.music.loadYoutubePlaylistTracks(playlistId);
+  }
+
+  switchPlaylistsTab(tab: 'saved' | 'youtube'): void {
+    this.playlistsTab = tab;
+  }
+
+  toggleExpanded(): void {
+    this.music.toggleExpanded();
+  }
+
+  collapse(): void {
+    this.music.collapse();
   }
 
   connectPlatform(platform: string): void {
     this.router.navigate(['/settings'], { queryParams: { highlight: platform } });
+  }
+
+  formatTime(seconds: number): string {
+    return this.music.formatTime(seconds);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && this.expanded) {
+      this.collapse();
+    }
+    if (e.key === ' ' && this.expanded && !(e.target as HTMLElement).closest('input, textarea')) {
+      e.preventDefault();
+      this.togglePlay();
+    }
   }
 }

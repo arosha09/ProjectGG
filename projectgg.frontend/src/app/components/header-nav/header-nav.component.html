@@ -4,6 +4,75 @@
     <span>PROJECT GG</span>
   </a>
 
+  @if (musicTrack) {
+    <div class="mini-player">
+      <div class="mini-player-art" (click)="musicService.toggleExpanded()">
+        @if (musicTrack.thumbnail) {
+          <img [src]="musicTrack.thumbnail" alt="" class="mini-player-thumb" />
+        } @else {
+          <div class="mini-player-thumb-placeholder">
+            <mat-icon>music_note</mat-icon>
+          </div>
+        }
+      </div>
+
+      @if (musicPlaying) {
+        <div class="mini-viz">
+          @for (b of [1,2,3,4,5]; track b) {
+            <div class="mini-viz-bar" [style.--i]="b"></div>
+          }
+        </div>
+      }
+
+      <div class="mini-player-info" (click)="musicService.toggleExpanded()">
+        <span class="mini-player-title">{{ musicTrack.title }}</span>
+      </div>
+
+      <div class="mini-player-controls">
+        <button class="mini-ctrl" (click)="musicService.toggleShuffle()" [class.active]="musicShuffle" type="button" title="Shuffle">
+          <mat-icon>shuffle</mat-icon>
+        </button>
+        <button class="mini-ctrl" (click)="musicService.previous()" type="button" title="Previous">
+          <mat-icon>skip_previous</mat-icon>
+        </button>
+        <button class="mini-play" (click)="musicService.togglePlay()" type="button">
+          <mat-icon>{{ musicPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+        </button>
+        <button class="mini-ctrl" (click)="musicService.next()" type="button" title="Next">
+          <mat-icon>skip_next</mat-icon>
+        </button>
+        <button class="mini-ctrl" (click)="musicService.cycleRepeat()" [class.active]="musicRepeat !== 'off'" type="button" title="Repeat">
+          @if (musicRepeat === 'one') {
+            <mat-icon>repeat_one</mat-icon>
+          } @else {
+            <mat-icon>repeat</mat-icon>
+          }
+        </button>
+      </div>
+
+      <div class="mini-volume-wrap">
+        <button class="mini-ctrl" (click)="toggleMute()" type="button" title="Volume">
+          @if (musicVolume === 0) {
+            <mat-icon>volume_off</mat-icon>
+          } @else if (musicVolume < 0.5) {
+            <mat-icon>volume_down</mat-icon>
+          } @else {
+            <mat-icon>volume_up</mat-icon>
+          }
+        </button>
+        <input
+          class="mini-volume-slider"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          [value]="musicVolume"
+          (input)="onVolumeChange($event)"
+        />
+      </div>
+    </div>
+  }
+
   <div class="dash-actions">
     <a class="nav-discord-btn"
        routerLink="/chat"
@@ -16,6 +85,11 @@
       <img src="https://cdn.simpleicons.org/chatbot/00f0ff" alt="GG" class="nav-ggchat-icon" onerror="this.style.display='none'" />
       <span>GG Chat</span>
     </a>
+
+    <button class="nav-music-btn" (click)="musicService.toggleExpanded()" type="button" title="Music Player">
+      <mat-icon class="nav-music-icon">headphones</mat-icon>
+      <span>Music</span>
+    </button>
 
     <div class="header-notif-wrap" (click)="toggleNotifications(); $event.stopPropagation()">
       <mat-icon class="header-notif-bell">notifications</mat-icon>

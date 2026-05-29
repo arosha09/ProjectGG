@@ -299,10 +299,10 @@
 .sync-search-input {
   width: 100%;
   padding: 10px 36px 10px 14px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.06);
+  background: var(--bg-mid);
+  border: 1px solid rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.25);
   border-radius: 6px;
-  color: #e9f9f3;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 500;
   outline: none;
@@ -311,12 +311,12 @@
 }
 
 .sync-search-input::placeholder {
-  color: rgba(200,216,208,.3);
+  color: rgba(230, 255, 240, 0.5);
 }
 
 .sync-search-input:focus {
-  border-color: #ff2255;
-  box-shadow: 0 0 12px rgba(255,34,85,.12);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 16px rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.25);
 }
 
 .sync-search-clear {
@@ -326,7 +326,7 @@
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: rgba(200,216,208,.4);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -336,7 +336,7 @@
 }
 
 .sync-search-clear:hover {
-  color: #e9f9f3;
+  color: var(--text-primary);
 }
 
 .sync-search-clear mat-icon {

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,10 +15,8 @@ import { SkeletonComponent } from '../../components/skeleton/skeleton.component'
 import { GameCardComponent } from '../../components/game-card/game-card.component';
 import { PaginatorComponent } from '../../components/paginator/paginator.component';
 import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
-import { MusicPlayerComponent } from '../../components/music-player/music-player.component';
 import { ThemeService } from '../../services/theme.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
-import { StatusOption } from '../../components/status-selector/status-selector.component';
 
 type SeriesGroup = {
   name: string;
@@ -39,9 +37,7 @@ type LibraryItem =
     SkeletonComponent,
     GameCardComponent,
     PaginatorComponent,
-    MusicPlayerComponent,
     FormsModule,
-    RouterLink,
     CyberDropdownComponent,
   ],
   templateUrl: './dashboard.html',
@@ -82,7 +78,6 @@ export class Dashboard implements OnInit, OnDestroy {
   ];
   discordConnected = false;
   connectionsLoaded = false;
-  musicConnections: any[] = [];
   private readonly apiUrl = environment.apiUrl;
 
   constructor(
@@ -282,9 +277,6 @@ export class Dashboard implements OnInit, OnDestroy {
       next: (conns) => {
         this.discordConnected = conns.some(c => c.platform === 'discord');
         this.connectionsLoaded = true;
-        this.musicConnections = conns.filter(c =>
-          ['spotify', 'youtube_music', 'apple_music'].includes(c.platform)
-        );
         this.cdr.markForCheck();
       },
       error: () => { this.connectionsLoaded = true; },

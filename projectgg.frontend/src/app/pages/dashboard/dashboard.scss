@@ -197,66 +197,93 @@
 /* ==========================================================================
    SEARCH ENGINE THEME ALIGNMENT
    ========================================================================== */
-.search-filter-bar {
-  display: flex; align-items: center; gap: 12px; margin-top: 16px;
+.cyber-search-section {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
-.search-input-wrap {
-  position: relative; 
-  flex: 1; 
-  max-width: 360px;
+.cyber-search-wrap {
+  position: relative;
+  margin-bottom: 0;
+  width: min(100%, 360px);
+  flex: 1 1 360px;
 }
 
-.search-icon {
-  position: absolute; 
-  left: 12px; 
-  top: 50%; 
+.sort-select {
+  flex: 0 0 auto;
+}
+
+.cyber-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
   transform: translateY(-50%);
-  font-size: 16px; 
-  width: 16px; 
-  height: 16px;
-  color: var(--accent-color, rgba(255, 45, 149, 0.4)) !important;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
   pointer-events: none;
-  z-index: 1;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
-.search-input {
-  width: 100%; padding: 10px 36px 10px 34px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.08); border-radius: 6px;
-  color: #e9f9f3; font-size: 13px; font-weight: 500;
-  outline: none; transition: border-color .2s, box-shadow .2s; box-sizing: border-box;
+.cyber-search-input {
+  width: 100%;
+  padding: 10px 36px 10px 40px;
+  background: var(--bg-mid);
+  border: 1px solid rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.25);
+  border-radius: 8px;
+  border-color: #000 !important;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+
+  &::placeholder { color: rgba(230, 255, 240, 0.5); }
+
+  &:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 16px rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.25);
+  }
 }
 
-.search-input::placeholder { color: rgba(230,255,240,.3); }
+.cyber-search-spinner {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.15);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: cyberSpin 0.6s linear infinite;
+}
+
+.search-input::placeholder { color: var(--accent-mid); }
 
 .search-input:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 12px var(--accent-glow);
-}
-
-.search-input::placeholder { color: var(--text-muted); }
-
-.search-input:focus {
-  border-color: var(--accent-color) !important;
-  box-shadow: 0 0 14px var(--accent-glow, rgba(255, 45, 149, 0.4)) !important;
+  box-shadow: 0 0 16px rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.25);
 }
 
 .search-input-wrap:focus-within {
   .search-icon {
-    color: var(--accent-color) !important;
+    color: var(--accent-color);
     text-shadow: 0 0 8px var(--accent-glow);
   }
 }
 
 .search-clear {
   position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: var(--accent-color, rgba(255, 45, 149, 0.4));
-  cursor: pointer; padding: 0; line-height: 1;
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; padding: 0; line-height: 1; transition: color .2s;
 }
 
-.search-clear:hover { color: #e9f9f3; }
+.search-clear:hover { color: var(--text-primary); }
 
 .search-spinner {
   position: absolute; right: 36px; top: 50%; transform: translateY(-50%);
@@ -430,6 +457,8 @@
 }
 
 .game-desc.text-clamp {
+  /* standard property for compatibility */
+  line-clamp: 3;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden; text-overflow: ellipsis;
   font-size: 13px !important; color: rgba(230,255,240,.7);
@@ -616,5 +645,19 @@
   }
   .hero-card {
     padding: 20px 16px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  .cyber-search-wrap {
+    max-width: 100%;
+  }
+
+  .cyber-search-section {
+    flex-wrap: wrap;
+  }
+
+  .sort-select {
+    width: auto;
   }
 }

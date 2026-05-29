@@ -6,12 +6,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { GamesService } from '../../../services/games.service';
 import { AuthService } from '../../../services/auth.service';
-import { AdminNavComponent } from '../../../components/admin-nav/admin-nav.component';
 
 @Component({
   selector: 'app-admin-sync',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, AdminNavComponent],
+  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule],
   templateUrl: './admin-sync.html',
   styleUrls: ['./admin-sync.scss'],
 })

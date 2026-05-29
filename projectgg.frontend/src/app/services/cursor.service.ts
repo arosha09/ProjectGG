@@ -128,15 +128,14 @@ export class CursorService {
     const el = this.renderer.createElement('style');
     el.id = 'cursor-set-styles';
     el.innerHTML = `
-      :root {
+      html, body {
         cursor: ${set.cursors['default']};
       }
       *, *::before, *::after {
         cursor: inherit;
       }
-      a, button, [role="button"], input[type="submit"], input[type="button"],
+      a[href], button, [role="button"], input[type="submit"], input[type="button"],
       .mat-mdc-button-base, .mdc-button, .clickable,
-      mat-icon, .mat-icon,
       .gg-server-icon, .gg-channel, .gg-dm-icon,
       .gg-friends-btn, .gg-add-friend-btn,
       .gg-friend-row, .gg-type-option,
@@ -144,11 +143,16 @@ export class CursorService {
       [onclick] {
         cursor: ${set.cursors['pointer']} !important;
       }
-      input, textarea, [contenteditable] {
+      input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+      textarea,
+      [contenteditable],
+      [contenteditable="true"],
+      [contenteditable="plaintext-only"] {
         cursor: ${set.cursors['text']} !important;
       }
       input::-webkit-credentials-auto-fill-button,
-      input::-webkit-contacts-auto-fill-button {
+      input::-webkit-contacts-auto-fill-button,
+      input::-webkit-autofill-button {
         cursor: ${set.cursors['pointer']} !important;
       }
       .mat-form-field-wrapper, .mat-mdc-text-field-wrapper,
@@ -158,18 +162,13 @@ export class CursorService {
       .mat-input-element {
         cursor: inherit;
       }
-      input::-webkit-credentials-auto-fill-button,
-      input::-webkit-contacts-auto-fill-button,
-      input::-webkit-autofill-button {
-        cursor: ${set.cursors['pointer']} !important;
-      }
       .loading, [aria-busy="true"] {
         cursor: ${set.cursors['wait']} !important;
       }
       .busy {
         cursor: ${set.cursors['busy']} !important;
       }
-      [title]:not(button):not(a):not(input):not(textarea):not([role="button"]):not(mat-icon):not(.mat-icon):not(.gg-server-icon):not(.gg-channel):not(.gg-dm-icon):not(.gg-friends-btn):not(.gg-add-friend-btn):not(.gg-friend-row):not(.gg-type-option):not(.gg-modal-close):not(.gg-friend-action-btn), .help {
+      [title]:not(a):not(button):not(input):not(textarea):not(select):not([role="button"]):not(.mat-mdc-button-base):not(.mdc-button):not(.gg-server-icon):not(.gg-channel):not(.gg-dm-icon):not(.gg-friends-btn):not(.gg-add-friend-btn):not(.gg-friend-row):not(.gg-type-option):not(.gg-modal-close):not(.gg-friend-action-btn), .help {
         cursor: ${set.cursors['help']} !important;
       }
       .crosshair {
