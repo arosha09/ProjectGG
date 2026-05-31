@@ -15,6 +15,7 @@ import { CursorService, CursorSet, CursorType } from '../../services/cursor.serv
 import { DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
 import { CyberDropdownComponent } from '../../components/cyber-dropdown/cyber-dropdown.component';
 import { StatusMessageComponent } from '../../components/status-message/status-message.component';
+import { UserStatusService, UserStatus } from '../../services/user-status.service';
 import { environment } from '../../../environments/environment';
 
 interface PlatformConn {
@@ -49,7 +50,7 @@ export class SettingsComponent implements OnInit {
   currentTheme: 'green' | 'red' | 'yellow' | 'blue' | 'custom' = 'green';
   customColor = '#00f0ff';
   customColorModalOpen = false;
-  currentStatus: 'online' | 'away' | 'offline' | 'invisible' = 'online';
+  currentStatus: UserStatus = 'online';
   themeDropdownOpen = false;
   statusDropdownOpen = false;
   profileDropdownOpen = false;
@@ -123,6 +124,7 @@ export class SettingsComponent implements OnInit {
   appearanceMessageType: 'success' | 'error' = 'success';
 
   saving = false;
+  loading = true;
   changingPassword = false;
   sendingVerification = false;
   verificationSent = false;
@@ -173,6 +175,7 @@ export class SettingsComponent implements OnInit {
     private readonly games: GamesService,
     private readonly cursor: CursorService,
     private readonly themeService: ThemeService,
+    private readonly userStatus: UserStatusService,
   ) {}
 
   ngOnInit(): void {
@@ -183,9 +186,14 @@ export class SettingsComponent implements OnInit {
     }
     this.previewCursorSetId = this.cursor.currentSetId;
     this.applySavedTheme();
-    this.applySavedStatus();
+    this.currentStatus = this.userStatus.currentStatus;
     this.populateForm();
     this.refreshProfile();
+
+    this.userStatus.currentStatus$.subscribe((status) => {
+      this.currentStatus = status;
+      this.cdr.markForCheck();
+    });
 
     // Check for callback results / highlight in query params
     this.route.queryParams.subscribe((params) => {
@@ -241,9 +249,13 @@ export class SettingsComponent implements OnInit {
         this.currentUser = { ...this.currentUser, ...profile };
         this.usersService.updateCurrentUser(this.currentUser);
         this.populateForm();
+        this.loading = false;
         this.cdr.markForCheck();
       },
-      error: () => {},
+      error: () => {
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -596,21 +608,10 @@ export class SettingsComponent implements OnInit {
     }
   }
 
-  setStatus(status: 'online' | 'away' | 'offline' | 'invisible'): void {
+  setStatus(status: UserStatus): void {
     this.currentStatus = status;
     this.statusDropdownOpen = false;
-    try {
-      localStorage.setItem('projectgg:status', status);
-    } catch {}
-  }
-
-  private applySavedStatus(): void {
-    try {
-      const saved = localStorage.getItem('projectgg:status') as any;
-      if (saved === 'online' || saved === 'away' || saved === 'offline' || saved === 'invisible') {
-        this.currentStatus = saved;
-      }
-    } catch {}
+    this.userStatus.setStatus(status);
   }
 
   toggleThemeDropdown(): void {

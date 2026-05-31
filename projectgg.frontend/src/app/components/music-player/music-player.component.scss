@@ -900,3 +900,55 @@
   .cyber-play-btn { width: 44px; height: 44px; }
   .cyber-play-btn mat-icon { font-size: 24px; width: 24px; height: 24px; }
 }
+
+/* ===== SKELETON ===== */
+.cyber-playlists-sk {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.sk-pl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.03);
+}
+
+.sk-pl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sk-pl-name {
+  height: 10px;
+  width: 120px;
+  border-radius: 2px;
+  background: rgba(255,255,255,.08);
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+.sk-pl-count {
+  height: 8px;
+  width: 60px;
+  border-radius: 2px;
+  background: rgba(255,255,255,.05);
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+.sk-pl-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.06);
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skPulse {
+  0%, 100% { opacity: .5; }
+  50% { opacity: 1; }
+}

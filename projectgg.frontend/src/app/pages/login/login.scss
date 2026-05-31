@@ -299,9 +299,9 @@ input:disabled {
 	width: min(100%, 480px);
 	padding: 32px;
 	background: rgba(5, 7, 15, 0.95);
-	border: 2px solid rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.5);
+	border: 2px solid rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.5);
 	box-shadow:
-		0 0 50px rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.4),
+		0 0 50px rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.4),
 		inset 0 0 60px rgba(var(--neon-purple-r), var(--neon-purple-g), var(--neon-purple-b), 0.1);
 	animation: scaleIn .3s ease;
 }
@@ -326,9 +326,9 @@ input:disabled {
 .modal-badge {
 	display: inline-block;
 	padding: 4px 14px;
-	background: rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.12);
-	border: 1px solid rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.25);
-	color: var(--neon-pink);
+	background: rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.12);
+	border: 1px solid rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.25);
+	color: var(--neon-red);
 	font-size: 11px;
 	font-weight: 800;
 	letter-spacing: 2px;
@@ -380,8 +380,8 @@ input:disabled {
 }
 
 .modal-btn-admin:hover {
-	border-color: var(--neon-pink);
-	box-shadow: 0 0 16px rgba(var(--neon-pink-r), var(--neon-pink-g), var(--neon-pink-b), 0.08);
+	border-color: var(--neon-red);
+	box-shadow: 0 0 16px rgba(var(--neon-red-r), var(--neon-red-g), var(--neon-red-b), 0.08);
 }
 
 .modal-btn-icon {

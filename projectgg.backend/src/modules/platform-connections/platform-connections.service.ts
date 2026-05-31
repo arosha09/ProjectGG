@@ -11,6 +11,7 @@ export interface PlatformConnection {
   id: number;
   user_id: string;
   platform: string;
+  type?: string;
   platform_user_id: string | null;
   platform_username: string | null;
   access_token: string | null;
@@ -128,6 +129,7 @@ export class PlatformConnectionsService {
       {
         user_id: userId,
         platform,
+        type: 'accounts',
         platform_username: username,
         connected_at: new Date().toISOString(),
       },
@@ -202,6 +204,7 @@ export class PlatformConnectionsService {
         {
           user_id: userId,
           platform: 'steam',
+          type: 'accounts',
           platform_user_id: steamId,
           platform_username: profile?.personaname ?? null,
           connected_at: new Date().toISOString(),
@@ -442,6 +445,7 @@ export class PlatformConnectionsService {
         {
           user_id: userId,
           platform: 'discord',
+          type: 'accounts',
           platform_user_id: discordUser.id,
           platform_username: discordUser.global_name ?? discordUser.username,
           access_token: accessToken,
@@ -604,6 +608,7 @@ export class PlatformConnectionsService {
         {
           user_id: userId,
           platform: 'spotify',
+          type: 'music',
           platform_user_id: spotifyUser.id,
           platform_username: spotifyUser.display_name ?? spotifyUser.id,
           access_token: accessToken,
@@ -733,6 +738,7 @@ export class PlatformConnectionsService {
         {
           user_id: userId,
           platform: 'youtube_music',
+          type: 'music',
           platform_user_id: platformUserId,
           platform_username: platformUsername,
           access_token: accessToken,
@@ -903,6 +909,7 @@ export class PlatformConnectionsService {
         {
           user_id: userId,
           platform: 'apple_music',
+          type: 'music',
           platform_user_id: platformUserId,
           platform_username: platformUsername,
           access_token: userToken,

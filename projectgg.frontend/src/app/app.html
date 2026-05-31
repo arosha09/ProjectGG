@@ -1,4 +1,8 @@
 <div class="app-root-shell" (contextmenu)="onContextMenu($event)">
+  <div class="app-status-message-wrap">
+    <ng-container #statusHost></ng-container>
+  </div>
+
   <app-admin-nav
     *ngIf="router.url.startsWith('/admin') && currentUser"
   ></app-admin-nav>

@@ -1,0 +1,239 @@
+<div class="gf-shell" [class.gf-embedded]="!standalone">
+  @if (standalone) {
+    <header class="gf-header">
+      <button class="ss-back" (click)="goBack()">
+        <mat-icon>arrow_back</mat-icon>
+        <span>Back</span>
+      </button>
+      <h1 class="gf-title">Friends</h1>
+    </header>
+  }
+
+  <nav class="gf-tabs">
+    <button class="gf-tab" [class.active]="tab === 'all'" (click)="tab = 'all'">
+      All Friends ({{ friends.length }})
+    </button>
+    <button class="gf-tab" [class.active]="tab === 'pending'" (click)="tab = 'pending'">
+      Pending
+      @if (pendingRequests.length > 0) {
+        <span class="gf-badge">{{ pendingRequests.length }}</span>
+      }
+    </button>
+    <button class="gf-tab" [class.active]="tab === 'blocked'" (click)="tab = 'blocked'">
+      Blocked
+      @if (blockedUsers.length > 0) {
+        <span class="gf-badge">{{ blockedUsers.length }}</span>
+      }
+    </button>
+    <button class="gf-tab" [class.active]="tab === 'add'" (click)="tab = 'add'">
+      Add Friend
+    </button>
+  </nav>
+
+  <main class="gf-content">
+    <!-- ALL FRIENDS -->
+    @if (tab === 'all') {
+      @if (loading) {
+        <div class="gf-skeleton-list gf-skeleton-center">
+          @for (_ of [1,2,3]; track _) {
+            <div class="gf-sk-row">
+              <div class="gf-sk-avatar"></div>
+              <div class="gf-sk-line gf-sk-w70"></div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="gf-list">
+        @for (friend of friends; track friend.id) {
+          <div class="gf-row">
+            <div class="gf-avatar">
+              <img [src]="resolveAvatar(friend, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+              <span class="gf-user-status-dot"
+                [class.online]="friendStatus(friend) === 'online'"
+                [class.away]="friendStatus(friend) === 'away'"
+                [class.dnd]="friendStatus(friend) === 'dnd'"
+                [class.invisible]="friendStatus(friend) === 'invisible'"
+              ></span>
+            </div>
+            <div class="gf-info">
+              <span class="gf-name">{{ friend.other_username }}</span>
+              <span class="gf-friend-status-text" style="display: block;">{{ friendStatus(friend) }}</span>
+            </div>
+            <div class="gf-actions">
+              <button class="gf-action-btn" (click)="onStartDm(friend.other_id)" title="Message">
+                <mat-icon>chat</mat-icon>
+              </button>
+              <button class="gf-action-btn gf-action-remove" (click)="removeFriend(friend.id)" title="Remove">
+                <mat-icon>person_remove</mat-icon>
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="gf-empty">No friends yet. Go to the Add Friend tab to find some!</div>
+        }
+        </div>
+      }
+    }
+
+    <!-- PENDING -->
+    @if (tab === 'pending') {
+      @if (loading) {
+        <div class="gf-skeleton-list gf-skeleton-center">
+          @for (_ of [1,2,3]; track _) {
+            <div class="gf-sk-row">
+              <div class="gf-sk-avatar"></div>
+              <div class="gf-sk-line gf-sk-w70"></div>
+            </div>
+          }
+        </div>
+      } @else if (pendingRequests.length > 0) {
+        <div class="gf-section-title">Incoming Requests</div>
+        <div class="gf-list">
+          @for (req of pendingRequests; track req.id) {
+            <div class="gf-row">
+              <div class="gf-avatar">
+                <img [src]="resolveAvatar(req, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+              </div>
+              <div class="gf-info">
+                <span class="gf-name">{{ req.other_username }}</span>
+              </div>
+              <div class="gf-actions">
+                <button class="gf-action-btn gf-accept" (click)="acceptRequest(req.id)" title="Accept">
+                  <mat-icon>check</mat-icon>
+                </button>
+                <button class="gf-action-btn gf-action-remove" (click)="removeFriend(req.id)" title="Decline">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      @if (!loading && sentRequests.length > 0) {
+        <div class="gf-section-title">Sent Requests</div>
+        <div class="gf-list">
+          @for (req of sentRequests; track req.id) {
+            <div class="gf-row">
+              <div class="gf-avatar">
+                <img [src]="resolveAvatar(req, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+              </div>
+              <div class="gf-info">
+                <span class="gf-name">{{ req.other_username }}</span>
+                <span class="gf-status">Pending</span>
+              </div>
+              <div class="gf-actions">
+                <button class="gf-action-btn gf-action-remove" (click)="removeFriend(req.id)" title="Cancel">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      @if (!loading && pendingRequests.length === 0 && sentRequests.length === 0) {
+        <div class="gf-empty">No pending requests.</div>
+      }
+    }
+
+    <!-- BLOCKED -->
+    @if (tab === 'blocked') {
+      @if (loading) {
+        <div class="gf-skeleton-list gf-skeleton-center">
+          @for (_ of [1,2,3]; track _) {
+            <div class="gf-sk-row">
+              <div class="gf-sk-avatar"></div>
+              <div class="gf-sk-line gf-sk-w70"></div>
+            </div>
+          }
+        </div>
+      } @else if (blockedUsers.length > 0) {
+        <div class="gf-list">
+          @for (user of blockedUsers; track user.id) {
+            <div class="gf-row">
+              <div class="gf-avatar">
+                <img [src]="resolveAvatar(user, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+              </div>
+              <div class="gf-info">
+                <span class="gf-name">{{ user.other_username }}</span>
+                <span class="gf-status">Blocked</span>
+              </div>
+              <div class="gf-actions">
+                <button class="gf-action-btn gf-accept" (click)="unblockUser(user.other_id)" title="Unblock">
+                  <mat-icon>person_add</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="gf-empty">No blocked users.</div>
+      }
+    }
+    @if (tab === 'add') {
+      <section class="gf-add-section">
+        <p class="gf-desc">Search for users or enter a username to send a friend request</p>
+
+        <div class="gf-search">
+          <input
+            class="gf-input"
+            [(ngModel)]="searchQuery"
+            placeholder="Search users..."
+            (input)="searchUsers()"
+            autofocus
+          />
+        </div>
+
+        @if (searchingUsers) {
+          <div class="gf-skeleton-list">
+            @for (_ of [1,2,3]; track _) {
+              <div class="gf-sk-row">
+                <div class="gf-sk-avatar"></div>
+                <div class="gf-sk-line gf-sk-w70"></div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (searchResults.length > 0) {
+          <div class="gf-list gf-search-results">
+            @for (user of searchResults; track user.id) {
+              <div class="gf-row">
+                <div class="gf-avatar">
+                  <img [src]="resolveAvatar(user, 'avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+                </div>
+                <div class="gf-info">
+                  <span class="gf-name">{{ user.username }}</span>
+                </div>
+                <button class="gf-action-btn" (click)="sendFriendRequest(user.username)" title="Add Friend">
+                  <mat-icon>person_add</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="gf-divider">
+          <span>or enter username directly</span>
+        </div>
+
+        <div class="gf-direct">
+          <input
+            class="gf-input"
+            [(ngModel)]="sendFriendUsername"
+            placeholder="Enter exact username"
+            (keyup.enter)="sendFriendRequest()"
+          />
+          <button class="gf-btn gf-btn-primary" (click)="sendFriendRequest()" [disabled]="!sendFriendUsername.trim() || sendingRequest">
+            Send Request
+          </button>
+        </div>
+
+        @if (friendRequestSuccess) {
+          <app-status-message [message]="friendRequestSuccess" [type]="friendRequestSuccessType"></app-status-message>
+        }
+      </section>
+    }
+  </main>
+</div>

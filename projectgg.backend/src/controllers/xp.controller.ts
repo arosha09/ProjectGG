@@ -23,11 +23,15 @@ import {
   AwardCustomXpDto,
   LeaderboardEntryDto,
 } from 'src/dto/xp/xp.dto';
+import { ChatGateway } from 'src/modules/chat/chat.gateway';
 
 @ApiTags('XP')
 @Controller('xp')
 export class XpController {
-  constructor(private readonly xpService: XpService) {}
+  constructor(
+    private readonly xpService: XpService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   @Get('rank')
   @ApiQuery({ name: 'user_id', type: String, required: false, example: 'uuid' })
@@ -49,7 +53,10 @@ export class XpController {
     @Body() body: DailyClaimRequestDto,
   ): Promise<DailyClaimDto> {
     const userId = body.user_id || req.user.id;
-    return this.xpService.awardDailyLogin(userId);
+    const result = await this.xpService.awardDailyLogin(userId);
+    this.chatGateway.sendToUser(userId, 'xp-update', { userId });
+    this.chatGateway.broadcastServerEvent('xp-update', { userId });
+    return result;
   }
 
   @Get('can-claim-daily')
@@ -72,12 +79,15 @@ export class XpController {
     @Body() body: AwardCustomXpDto,
   ): Promise<XpResultDto> {
     const userId = body.user_id || req.user.id;
-    return this.xpService.awardCustomXp(
+    const result = await this.xpService.awardCustomXp(
       userId,
       body.xp,
       body.source,
       body.source_id,
     );
+    this.chatGateway.sendToUser(userId, 'xp-update', { userId });
+    this.chatGateway.broadcastServerEvent('xp-update', { userId });
+    return result;
   }
 
   @Get('leaderboard')

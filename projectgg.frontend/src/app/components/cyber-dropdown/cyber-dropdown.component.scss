@@ -1,3 +1,11 @@
+.cyber-dropdown-host,
+:host {
+  position: relative;
+  display: block;
+  z-index: 10000;
+  pointer-events: auto;
+}
+
 .cyber-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -11,9 +19,11 @@
   border: 2px solid var(--border-color, rgba(0, 240, 255, 0.3));
   border-radius: 2px;
   box-shadow: 0 0 30px rgba(0, 240, 255, 0.15), inset 0 0 20px rgba(0, 240, 255, 0.02);
-  z-index: 200;
+  z-index: 5000;
   padding: 8px 0;
   animation: menuIn 0.2s ease-out;
+  pointer-events: auto;
+  isolation: isolate;
 }
 
 @keyframes menuIn {
@@ -203,6 +213,9 @@
   margin: 4px 8px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 
   mat-icon {
     font-size: 16px;

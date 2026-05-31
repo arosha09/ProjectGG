@@ -252,11 +252,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   get dndMembers(): GuildMember[] {
-    return this.members.filter(m => m.status === 'dnd');
-  }
-
-  get offlineMembers(): GuildMember[] {
-    return this.members.filter(m => m.status === 'offline');
+    return this.members.filter(m => m.status === 'dnd' || m.status === 'offline');
   }
 
   memberAvatar(member: GuildMember): string {

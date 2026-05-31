@@ -99,7 +99,10 @@
     </div>
 
     <div class="profile-trigger" (click)="profileToggle.emit()">
-      <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
+      <div class="header-av-sk-wrap">
+        <div class="header-nav-sk"></div>
+        <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+      </div>
       <span class="user-name">{{ userName() }}</span>
       <span class="trigger-arrow">▼</span>
     </div>
@@ -153,7 +156,10 @@
 <div class="mobile-menu" [class.open]="mobileMenuOpen">
   @if (userName()) {
     <div class="profile-trigger" (click)="profileToggle.emit(); mobileMenuOpen = false">
-      <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" />
+      <div class="header-av-sk-wrap">
+        <div class="header-nav-sk"></div>
+        <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+      </div>
       <span class="user-name">{{ userName() }}</span>
       <span class="trigger-arrow">▼</span>
     </div>

@@ -55,7 +55,14 @@
             </div>
 
             <div class="panel-body">
-              @if (profileMessage) {
+              @if (loading) {
+                <div class="sk-settings">
+                  <div class="sk-field"><div class="sk-label w-30"></div><div class="sk-input"></div></div>
+                  <div class="sk-field"><div class="sk-label w-25"></div><div class="sk-input"></div></div>
+                  <div class="sk-field"><div class="sk-label w-20"></div><div class="sk-input"></div></div>
+                  <div class="sk-btn w-30"></div>
+                </div>
+              } @else {
                 <app-status-message
                   [type]="profileMessageType"
                   [message]="profileMessage"
@@ -166,15 +173,15 @@
                     }
                   }
                 </div>
-              }
 
-              <button class="cyber-btn btn-primary" (click)="saveProfile()" [disabled]="saving">
-                @if (saving) {
-                  <span class="btn-spinner"></span> SAVING...
-                } @else {
-                  <mat-icon>save</mat-icon> SAVE PROFILE
-                }
-              </button>
+                <button class="cyber-btn btn-primary" (click)="saveProfile()" [disabled]="saving">
+                  @if (saving) {
+                    <span class="btn-spinner"></span> SAVING...
+                  } @else {
+                    <mat-icon>save</mat-icon> SAVE PROFILE
+                  }
+                </button>
+              }
             </div>
           </div>
         }
@@ -323,11 +330,11 @@
                     <span class="status-dot"></span> Away
                   </button>
                   <button
-                    class="status-btn status-offline"
-                    [class.active]="currentStatus === 'offline'"
-                    (click)="currentStatus = 'offline'; setStatus('offline')"
+                    class="status-btn status-dnd"
+                    [class.active]="currentStatus === 'dnd'"
+                    (click)="currentStatus = 'dnd'; setStatus('dnd')"
                   >
-                    <span class="status-dot"></span> Offline
+                    <span class="status-dot"></span> Do Not Disturb
                   </button>
                   <button
                     class="status-btn status-invisible"

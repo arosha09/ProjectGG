@@ -45,6 +45,7 @@ export interface GgServerMember {
   joined_at: string;
   username?: string;
   avatar_url?: string;
+  status?: string;
 }
 
 export type Permission = 'manage_server' | 'manage_channels' | 'manage_messages' | 'manage_members' | 'kick_members';
@@ -335,16 +336,18 @@ export class ChatService {
     const userIds = members.map(m => m.user_id);
     const { data: users } = await this.db()
       .from('users')
-      .select('id, username, avatar, gender')
+      .select('id, username, avatar, gender, status, sys_status')
       .in('id', userIds);
     const userMap = new Map<string, any>((users ?? []).map((u: any) => [u.id, u]));
 
     return members.map(m => {
       const user = userMap.get(m.user_id);
+      const status = user?.status ?? user?.sys_status ?? 'invisible';
       return {
         ...m,
         username: user?.username ?? m.username ?? m.user_id,
         avatar_url: user ? this.resolveAvatar(user.avatar, user.gender) : null,
+        status,
       };
     });
   }
@@ -550,7 +553,7 @@ export class ChatService {
   async findUserById(id: string): Promise<any> {
     const { data, error } = await this.db()
       .from('users')
-      .select('id, username, avatar, name, gender')
+      .select('id, username, avatar, name, gender, status, sys_status')
       .eq('id', id)
       .single();
     if (error) return null;
@@ -560,7 +563,7 @@ export class ChatService {
   async searchUsers(query: string, excludeUserId: string): Promise<any[]> {
     const { data, error } = await this.db()
       .from('users')
-      .select('id, username, avatar, name, gender')
+      .select('id, username, avatar, name, gender, status, sys_status')
       .ilike('username', `%${query}%`)
       .neq('id', excludeUserId)
       .limit(20);
@@ -691,6 +694,7 @@ export class ChatService {
         const other = await this.findUserById(conv.otherUserId);
         conv.otherUsername = other?.username ?? 'Unknown';
         conv.otherAvatar = other?.avatar ?? null;
+        conv.otherStatus = other?.status ?? other?.sys_status ?? 'invisible';
       }
 
       const { data: lastMsg } = await this.db()
@@ -875,5 +879,97 @@ export class ChatService {
     if (!data) throw new BadRequestException('Friend request not found');
     if (data.user_id !== userId) throw new BadRequestException('Not your request');
     await this.db().from('friends').delete().eq('id', requestId);
+  }
+
+  // ================================================================
+  // BLOCKING
+  // ================================================================
+
+  async blockUser(userId: string, blockUserId: string): Promise<void> {
+    if (userId === blockUserId) throw new BadRequestException('Cannot block yourself');
+    
+    const { error: insertError } = await this.db()
+      .from('blocked_users')
+      .insert({ user_id: userId, blocked_user_id: blockUserId });
+    if (insertError) {
+      if (insertError.code === '23505') {
+        // Already blocked, that's fine
+        return;
+      }
+      throw insertError;
+    }
+  }
+
+  async unblockUser(userId: string, blockUserId: string): Promise<void> {
+    const { error } = await this.db()
+      .from('blocked_users')
+      .delete()
+      .eq('user_id', userId)
+      .eq('blocked_user_id', blockUserId);
+    if (error) throw error;
+  }
+
+  async getBlockedUsers(userId: string): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('blocked_users')
+      .select('blocked_user_id')
+      .eq('user_id', userId);
+    if (error) throw error;
+    
+    const blockedUserIds = (data ?? []).map((r: any) => r.blocked_user_id);
+    if (blockedUserIds.length === 0) return [];
+
+    const { data: users, error: userError } = await this.db()
+      .from('users')
+      .select('id, username, avatar, status, sys_status')
+      .in('id', blockedUserIds);
+    if (userError) throw userError;
+
+    return (users ?? []).map((u: any) => ({
+      id: u.id,
+      other_id: u.id,
+      other_username: u.username,
+      other_avatar: u.avatar,
+      status: u.status,
+    }));
+  }
+
+  // ================================================================
+  // DM OPERATIONS
+  // ================================================================
+
+  async deleteDmConversation(userId: string, conversationId: number): Promise<void> {
+    // Verify user is part of this conversation
+    const { data: member } = await this.db()
+      .from('dm_conversation_members')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .single();
+
+    if (!member) throw new BadRequestException('Not part of this conversation');
+
+    // Delete the conversation member entry
+    const { error: deleteError } = await this.db()
+      .from('dm_conversation_members')
+      .delete()
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId);
+
+    if (deleteError) throw deleteError;
+
+    // Check if there are any remaining members
+    const { data: remainingMembers } = await this.db()
+      .from('dm_conversation_members')
+      .select('*')
+      .eq('conversation_id', conversationId);
+
+    // If no members left, delete the conversation
+    if (!remainingMembers || remainingMembers.length === 0) {
+      await this.db()
+        .from('dm_conversations')
+        .delete()
+        .eq('id', conversationId);
+    }
   }
 }

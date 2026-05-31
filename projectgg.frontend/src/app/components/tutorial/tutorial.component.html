@@ -1,0 +1,35 @@
+<div class="tutorial-overlay">
+  <div #tutorialCard class="tutorial-card floating" [attr.data-step]="currentStep.id">
+    <div class="arrow" aria-hidden="true"></div>
+    <div class="tutorial-header">
+      <h3>Welcome to ProjectGG — Quick Tour</h3>
+      <p class="sub">Complete the short tour to earn <strong>+20 XP</strong> and get familiar with core features.</p>
+    </div>
+
+    <div class="tutorial-body">
+      <aside class="step-list">
+        <ul>
+          <li *ngFor="let s of steps; let i = index" [class.active]="i === current" [class.done]="s.done" (click)="goTo(i)">
+            <span class="idx">{{ i + 1 }}</span>
+            <span class="title">{{ s.title }}</span>
+            <mat-icon *ngIf="s.done" class="done-icon">check_circle</mat-icon>
+          </li>
+        </ul>
+        <div class="progress">Progress: {{ progressPercent }}%</div>
+      </aside>
+
+      <section class="step-detail">
+        <h4>{{ currentStep.title }}</h4>
+        <p class="desc">{{ currentStep.description }}</p>
+        <div class="controls">
+          <button class="btn-ghost" (click)="prev()" [disabled]="current === 0">Previous</button>
+          <button class="btn-primary" (click)="next()" [disabled]="!currentStep.done">{{ current < steps.length - 1 ? 'Next' : 'Mark Done' }}</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="tutorial-footer">
+      <button class="btn-complete" (click)="finish()" [disabled]="steps.some(s => !s.done)">Complete Tutorial (+20 XP)</button>
+    </div>
+  </div>
+</div>

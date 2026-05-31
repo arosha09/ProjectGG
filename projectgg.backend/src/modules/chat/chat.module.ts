@@ -12,6 +12,6 @@ import { supabaseProvider } from 'src/config/supabase.provider';
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, DiscordBotService, supabaseProvider],
-  exports: [ChatService],
+  exports: [ChatService, ChatGateway],
 })
 export class ChatModule {}

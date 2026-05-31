@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener, ViewChild, ViewContainerRef, ComponentRef, effect, Injector } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -10,6 +10,9 @@ import { MusicPlayerComponent } from './components/music-player/music-player.com
 import { environment } from '../environments/environment';
 import { ThemeService } from './services/theme.service';
 import { CursorService } from './services/cursor.service';
+import { StatusMessageComponent } from './components/status-message/status-message.component';
+import { StatusNotificationService } from './services/notification.service';
+import { UserStatusService } from './services/user-status.service';
 
 @Component({
   selector: 'app-root',
@@ -21,9 +24,12 @@ import { CursorService } from './services/cursor.service';
 export class App implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly apiUrl = environment.apiUrl;
+  private statusMessageRef: ComponentRef<StatusMessageComponent> | null = null;
+
+  @ViewChild('statusHost', { read: ViewContainerRef, static: true })
+  private readonly statusHost!: ViewContainerRef;
 
   currentUser: any = null;
-  currentStatus: string = 'online';
   profileDropdownOpen = false;
   isAdmin = false;
   discordConnected = false;
@@ -36,14 +42,49 @@ export class App implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private theme: ThemeService,
     private cursor: CursorService,
+    private readonly injector: Injector,
+    private readonly userStatus: UserStatusService,
+    public readonly statusNotification: StatusNotificationService,
   ) {}
 
+  get currentStatus(): string {
+    return this.userStatus.currentStatus;
+  }
+
   ngOnInit(): void {
+    this.profileDropdownOpen = false;
     this.cursor.init();
+    this.userStatus.initialize();
+    effect(() => {
+      const message = this.statusNotification.message();
+      const type = this.statusNotification.type();
+
+      if (!this.statusHost) return;
+
+      if (!message) {
+        this.statusHost.clear();
+        this.statusMessageRef = null;
+        return;
+      }
+
+      if (!this.statusMessageRef) {
+        this.statusHost.clear();
+        this.statusMessageRef = this.statusHost.createComponent(StatusMessageComponent);
+        this.statusMessageRef.instance.dismiss.subscribe(() => this.statusNotification.clear());
+      }
+
+      this.statusMessageRef.setInput('type', type);
+      this.statusMessageRef.setInput('message', message);
+      this.statusMessageRef.setInput('dismissible', true);
+      this.cdr.markForCheck();
+    }, { injector: this.injector });
+
     this.auth.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
       this.isAuthLoading = false;
       this.currentUser = user;
       this.isAdmin = user?.role === 'admin';
+      this.profileDropdownOpen = false;
+      this.userStatus.syncFromUser(user);
       this.cdr.markForCheck();
     });
     this.applySavedStatus();
@@ -56,19 +97,11 @@ export class App implements OnInit, OnDestroy {
   }
 
   setStatus(status: string): void {
-    this.currentStatus = status;
-    try {
-      localStorage.setItem('projectgg:status', status);
-    } catch {}
+    this.userStatus.setStatus(status as any);
   }
 
   private applySavedStatus(): void {
-    try {
-      const saved = localStorage.getItem('projectgg:status') as any;
-      if (saved === 'online' || saved === 'away' || saved === 'offline' || saved === 'invisible') {
-        this.currentStatus = saved;
-      }
-    } catch {}
+    // handled by UserStatusService
   }
 
   toggleProfileDropdown(): void {

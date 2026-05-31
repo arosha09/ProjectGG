@@ -120,6 +120,17 @@ export class GamesService {
     return this.http.post(`${this.apiUrl}/games/sync/${code}`, null, { params });
   }
 
+  getMissingSeries(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiUrl}/games/sync/missing-series`);
+  }
+
+  uploadSeriesCover(name: string, file: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('file', file, file.name);
+    return this.http.post(`${this.apiUrl}/games/sync/series-cover`, fd);
+  }
+
   searchExternal(query: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/games/sync/search/external`, {
       params: { q: query },

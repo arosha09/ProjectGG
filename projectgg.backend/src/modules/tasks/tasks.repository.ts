@@ -42,13 +42,13 @@ export class TasksRepository {
   }
 
   async getCollectedGames(userId: string, page = 1, pageSize = 12): Promise<any[]> {
-    const { data, error } = await this.supabase.rpc('get_user_collected_games', {
+    const { data, error } = await this.supabase.rpc('get_user_collection', {
       in_user_id: userId,
-      in_page_number: page,
+      in_page: page,
       in_page_size: pageSize,
     });
     if (error) {
-      throw new InternalServerErrorException(`get_user_collected_games failed: ${error.message}`);
+      throw new InternalServerErrorException(`get_user_collection failed: ${error.message}`);
     }
     return data || [];
   }

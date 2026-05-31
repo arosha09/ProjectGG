@@ -1,0 +1,234 @@
+<div class="ss-shell">
+  <div class="ss-layout">
+    <nav class="ss-nav">
+      <div class="ss-nav-head">
+        <button class="ss-back" (click)="goBack()">
+          <mat-icon>arrow_back</mat-icon>
+          <span>Back to Chat</span>
+        </button>
+        <h1 class="ss-nav-title">Server Settings</h1>
+      </div>
+      <div class="ss-nav-items">
+        <button class="ss-nav-item" [class.active]="tab === 'overview'" (click)="tab = 'overview'">
+          <mat-icon>settings</mat-icon> Overview
+        </button>
+        <button class="ss-nav-item" [class.active]="tab === 'roles'" (click)="tab = 'roles'">
+          <mat-icon>admin_panel_settings</mat-icon> Roles
+        </button>
+        <button class="ss-nav-item" [class.active]="tab === 'members'" (click)="tab = 'members'">
+          <mat-icon>people</mat-icon> Members
+        </button>
+        <button class="ss-nav-item" [class.active]="tab === 'channels'" (click)="tab = 'channels'">
+          <mat-icon>tag</mat-icon> Channels
+        </button>
+      </div>
+    </nav>
+
+    <main class="ss-content">
+      @if (loading) {
+        <div class="gg-skeleton-list">
+          @for (_ of [1,2,3]; track _) {
+            <div class="gg-sk-setting">
+              <div class="gg-sk-line gg-sk-w80"></div>
+              <div class="gg-sk-line gg-sk-w40"></div>
+            </div>
+          }
+        </div>
+      } @else {
+
+        <!-- OVERVIEW -->
+        @if (tab === 'overview') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Server Name</h2>
+            @if (editingServer) {
+              <div class="ss-edit-row">
+                <input class="ss-input" [(ngModel)]="editServerName" placeholder="Server name" (keyup.enter)="editingServer = false" />
+                <button class="ss-btn ss-btn-primary" (click)="editingServer = false">Save</button>
+                <button class="ss-btn" (click)="editingServer = false">Cancel</button>
+              </div>
+            } @else {
+              <div class="ss-info-row">
+                <span class="ss-info-value">{{ serverId }}</span>
+                @if (isOwner) {
+                  <button class="ss-btn" (click)="editingServer = true">Edit</button>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="ss-section">
+            <h2 class="ss-section-title">Stats</h2>
+            <div class="ss-stats-row">
+              <div class="ss-stat">
+                <span class="ss-stat-num">{{ members.length }}</span>
+                <span class="ss-stat-label">Members</span>
+              </div>
+              <div class="ss-stat">
+                <span class="ss-stat-num">{{ channels.length }}</span>
+                <span class="ss-stat-label">Channels</span>
+              </div>
+              <div class="ss-stat">
+                <span class="ss-stat-num">{{ roles.length }}</span>
+                <span class="ss-stat-label">Roles</span>
+              </div>
+            </div>
+          </section>
+        }
+
+        <!-- ROLES -->
+        @if (tab === 'roles') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Server Roles</h2>
+            <p class="ss-muted">Create roles to organize your members and control permissions.</p>
+
+            <div class="ss-role-create">
+              <input class="ss-input ss-input-sm" [(ngModel)]="newRoleName" placeholder="New role name..." (keyup.enter)="createRole()" />
+              <input type="color" class="ss-color-picker" [(ngModel)]="newRoleColor" />
+              <button class="ss-btn ss-btn-primary" (click)="createRole()" [disabled]="!newRoleName.trim()">Create</button>
+            </div>
+
+            <div class="ss-role-list">
+              @for (role of roles; track role.name) {
+                <div class="ss-role-card" [class.owner]="role.name === 'owner'">
+                  @if (editingRole === role) {
+                    <div class="ss-role-edit">
+                      <div class="ss-role-edit-head">
+                        <input class="ss-input ss-input-sm" [(ngModel)]="editRoleName" placeholder="Role name" />
+                        <input type="color" class="ss-color-picker" [(ngModel)]="editRoleColor" />
+                        <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="saveEditRole()">Save</button>
+                        <button class="ss-btn ss-btn-sm" (click)="cancelEditRole()">Cancel</button>
+                      </div>
+                      <div class="ss-permissions-grid">
+                        @for (perm of allPermissions; track perm.id) {
+                          <label class="ss-perm-toggle" [class.active]="hasPermission(perm.id, editRolePermissions)">
+                            <input type="checkbox" [checked]="hasPermission(perm.id, editRolePermissions)" (change)="togglePermission(perm.id, editRolePermissions)" />
+                            <span class="ss-perm-label">{{ perm.label }}</span>
+                            <span class="ss-perm-desc">{{ perm.desc }}</span>
+                          </label>
+                        }
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="ss-role-row">
+                      <span class="ss-role-dot" [style.background]="role.color || 'var(--color-primary)'"></span>
+                      <span class="ss-role-name">{{ role.name }}</span>
+                      @if (role.is_owner) {
+                        <span class="ss-badge ss-badge-owner">Owner</span>
+                      }
+                      <span class="ss-role-perm-count">{{ (role.permissions ?? []).length }} permissions</span>
+                      <div class="ss-role-actions">
+                        <button class="ss-btn ss-btn-sm" (click)="startEditRole(role)" title="Edit">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        @if (role.name !== 'owner') {
+                          <button class="ss-btn ss-btn-danger ss-btn-sm" (click)="deleteRole(role.name)" title="Delete">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                    @if (editingRole !== role) {
+                      <div class="ss-role-perms-preview">
+                        @for (perm of role.permissions ?? []; track perm) {
+                          <span class="ss-perm-tag">{{ perm }}</span>
+                        }
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- MEMBERS -->
+        @if (tab === 'members') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Members — {{ members.length }}</h2>
+            <div class="ss-member-list">
+              @for (member of members; track member.user_id) {
+                <div class="ss-member-card">
+                  <div class="ss-member-left">
+                    <div class="ss-member-avatar">
+                      @if (member.avatar_url) {
+                        <img [src]="member.avatar_url" alt="" />
+                      } @else {
+                        <span>{{ getUsername(member.user_id)[0] }}</span>
+                      }
+                    </div>
+                    <div class="ss-member-info">
+                      <span class="ss-member-name">{{ getUsername(member.user_id) }}</span>
+                      <div class="ss-member-roles">
+                        @for (r of $any(member).roles ?? []; track r) {
+                          <span class="ss-role-tag" [style.--tag-color]="getRoleColor(r)">{{ r }}</span>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  @if (isOwner && !$any(member).roles?.includes('owner')) {
+                    <div class="ss-member-actions">
+                      @for (role of roles; track role.name) {
+                        @if (role.name !== 'owner') {
+                          <button class="ss-role-tag-sm" [class.assigned]="hasRole(member, role.name)" [style.--tag-color]="role.color || 'var(--color-primary)'" (click)="assignRole(member, role.name)">
+                            {{ role.name }}
+                          </button>
+                        }
+                      }
+                      <button class="ss-btn ss-btn-danger ss-btn-sm" (click)="kickMember(member)">Kick</button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- CHANNELS -->
+        @if (tab === 'channels') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Channels — {{ channels.length }}</h2>
+            <div class="ss-channel-list">
+              @for (ch of channels; track ch.id) {
+                <div class="ss-channel-card">
+                  <mat-icon class="ss-ch-icon">{{ ch.type === 'voice' ? 'volume_up' : 'tag' }}</mat-icon>
+                  <span class="ss-ch-name">{{ ch.name }}</span>
+                  <span class="ss-ch-type">{{ ch.type }}</span>
+                  @if (editingChannelRoles?.ch === ch) {
+                    <div class="ss-channel-roles-edit">
+                      <span class="ss-muted-sm">Allowed roles:</span>
+                      <div class="ss-ch-role-toggles">
+                        @for (role of roles; track role.name) {
+                          @if (role.name !== 'owner') {
+                            <label class="ss-ch-role-tag" [class.active]="$any(editingChannelRoles).roles.includes(role.name)"
+                              [style.--tag-color]="role.color || 'var(--color-primary)'">
+                              <input type="checkbox"
+                                [checked]="$any(editingChannelRoles).roles.includes(role.name)"
+                                (change)="toggleChannelRole(role.name)" />
+                              {{ role.name }}
+                            </label>
+                          }
+                        }
+                      </div>
+                      <div class="ss-ch-role-actions">
+                        <button class="ss-btn ss-btn-sm" (click)="cancelEditChannelRoles()">Cancel</button>
+                        <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="saveChannelRoles()">Save</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <button class="ss-btn ss-btn-sm" (click)="startEditChannelRoles(ch)" title="Edit roles">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    @if (($any(ch).allowed_roles ?? []).length > 0) {
+                      <span class="ss-ch-roles-badge">{{ $any(ch).allowed_roles.length }} role(s)</span>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+      }
+    </main>
+  </div>
+</div>

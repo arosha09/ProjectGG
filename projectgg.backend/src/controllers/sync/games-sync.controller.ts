@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards, Req, UseInterceptors, UploadedFile, ForbiddenException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiQuery, ApiBody, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { GamesSyncService } from 'src/services/sync/games-sync.service';
@@ -23,14 +24,6 @@ export class GamesSyncController {
     const isForce = force === 'true';
     const brokenOnly = broken === 'true';
     return this.syncService.getSyncQueue(isForce, q, brokenOnly);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @Post(':code')
-  async syncGame(@Param('code') code: string, @Query('name') name?: string): Promise<SyncResultDto> {
-    const gameName = name || code;
-    return this.syncService.syncGame(code, gameName);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -99,5 +92,33 @@ export class GamesSyncController {
     @Param('column') column: string,
   ): Promise<{ locked_columns: string[] }> {
     return this.syncService.toggleLock(code, column, false);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('missing-series')
+  async getMissingSeries(@Req() req: any): Promise<string[]> {
+    if (!req.user || req.user.role !== 'admin') throw new ForbiddenException('admin required');
+    return this.syncService.getMissingSeries();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('series-cover')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadSeriesCover(@Req() req: any, @Body('name') name: string, @UploadedFile() file: Express.Multer.File): Promise<{ success: boolean }> {
+    if (!req.user || req.user.role !== 'admin') throw new ForbiddenException('admin required');
+    if (!name) throw new ForbiddenException('name is required');
+    if (!file) throw new ForbiddenException('file is required');
+    await this.syncService.uploadSeriesCover(name, file.buffer, file.mimetype, file.originalname);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post(':code')
+  async syncGame(@Param('code') code: string, @Query('name') name?: string): Promise<SyncResultDto> {
+    const gameName = name || code;
+    return this.syncService.syncGame(code, gameName);
   }
 }

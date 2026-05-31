@@ -68,7 +68,7 @@ export interface ContextMenuItem {
     }
     .ctx-item:hover:not(:disabled) { background: rgba(0,240,255,.06); color: var(--text-primary); border-left-color: var(--color-primary); }
     .ctx-item:disabled { opacity: .3; cursor: default; }
-    .ctx-danger:hover:not(:disabled) { background: rgba(255,45,149,.08); color: var(--neon-pink); border-left-color: var(--neon-pink); }
+    .ctx-danger:hover:not(:disabled) { background: rgba(255,45,149,.08); color: var(--neon-red); border-left-color: var(--neon-red); }
     .ctx-item-icon { font-size: 16px; width: 16px; height: 16px; opacity: .5; }
     .ctx-divider { height: 1px; background: rgba(0,240,255,.06); margin: 3px 10px; }
     @keyframes ctxIn { from { opacity: 0; transform: scale(.95) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }

@@ -1,11 +1,13 @@
 @if (isOpen) {
-  <div class="cyber-menu" [style.--dropdown-margin]="margin">
+  <div class="cyber-menu" [style.--dropdown-margin]="margin" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
     <!-- Status Menu Item (Expandable) -->
     @if (currentStatus) {
       <div class="status-menu-container">
         <button 
           class="cyber-menu-item status-item"
-          (click)="statusSubmenuOpen = !statusSubmenuOpen">
+          type="button"
+          (mousedown)="$event.stopPropagation()"
+          (click)="$event.stopPropagation(); statusSubmenuOpen = !statusSubmenuOpen">
           <span class="status-dot" [ngStyle]="{'--status-color': statusOptions.find(s => s.id === currentStatus)?.color || '#888888'}"></span>
           <span class="status-label">{{ statusOptions.find(s => s.id === currentStatus)?.label || 'Status' }}</span>
           <span class="menu-arrow" [class.expanded]="statusSubmenuOpen">›</span>
@@ -16,8 +18,10 @@
             @for (status of statusOptions; track status.id) {
               <button 
                 class="status-submenu-item" 
+                type="button"
                 [class.active]="currentStatus === status.id"
-                (click)="selectStatus(status.id); statusSubmenuOpen = false">
+                (mousedown)="$event.stopPropagation()"
+                (click)="$event.stopPropagation(); selectStatus(status.id); statusSubmenuOpen = false">
                 <span class="status-dot" [style.background]="status.color" [style.box-shadow]="'0 0 8px ' + status.color"></span>
                 <span class="status-label">{{ status.label }}</span>
               </button>
@@ -33,12 +37,12 @@
     @for (item of items; track item.label) {
       @if (!item.adminOnly || isAdmin) {
         @if (item.link) {
-          <a class="cyber-menu-item" [routerLink]="item.link" (click)="itemSelect.emit(item)">
+          <a class="cyber-menu-item" [routerLink]="item.link" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); itemSelect.emit(item)">
             @if (item.icon) { <mat-icon>{{item.icon}}</mat-icon> }
             {{ item.label }}
           </a>
         } @else {
-          <button class="cyber-menu-item" type="button" (click)="selectItem(item)">
+          <button class="cyber-menu-item" type="button" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); selectItem(item)">
             @if (item.icon) { <mat-icon>{{item.icon}}</mat-icon> }
             {{ item.label }}
           </button>

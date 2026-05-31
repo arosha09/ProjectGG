@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,6 +17,10 @@ import { PaginatorComponent } from '../../components/paginator/paginator.compone
 import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
 import { ThemeService } from '../../services/theme.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
+import { UserStatusService, UserStatus } from '../../services/user-status.service';
+import { ChatService } from '../../services/chat.service';
+import { CardDrawComponent } from '../../components/card-draw/card-draw.component';
+import { CardCollectionComponent } from '../../components/card-collection/card-collection.component';
 
 type SeriesGroup = {
   name: string;
@@ -39,6 +43,9 @@ type LibraryItem =
     PaginatorComponent,
     FormsModule,
     CyberDropdownComponent,
+    CardDrawComponent,
+    CardCollectionComponent,
+    RouterLink,
   ],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
@@ -59,7 +66,7 @@ export class Dashboard implements OnInit, OnDestroy {
   loading = true;
   error = '';
   currentTheme: 'green' | 'red' | 'yellow' | 'blue' = 'green';
-  currentStatus: 'online' | 'away' | 'offline' | 'invisible' = 'online';
+  currentStatus: UserStatus = 'online';
   themeDropdownOpen = false;
   statusDropdownOpen = false;
   profileDropdownOpen = false;
@@ -69,40 +76,91 @@ export class Dashboard implements OnInit, OnDestroy {
   searchQuery = '';
   searchResults: Game[] | null = null;
   searching = false;
-  sortOption: 'name' | 'release' | 'timeline' = 'name';
+
+  // UI state
+  connectionsLoaded = false;
+  discordConnected = false;
   sortDropdownOpen = false;
-  readonly sortItems: DropdownItem[] = [
+  sortItems: DropdownItem[] = [
     { label: 'Name', action: () => this.onSortChange('name') },
     { label: 'Release', action: () => this.onSortChange('release') },
     { label: 'Timeline', action: () => this.onSortChange('timeline') },
   ];
-  discordConnected = false;
-  connectionsLoaded = false;
-  private readonly apiUrl = environment.apiUrl;
+  sortOption: 'name' | 'release' | 'timeline' = 'name';
+  apiUrl = environment.apiUrl;
+
+  // Card collection
+  cardStats: any = null;
+  cards: any[] = [];
+  showCardDraw = false;
+  cardDrawTickets: any[] = [];
+  recentDrawCode: string | null = null;
+  
+  // ... (keep existing properties)
 
   constructor(
+    private readonly router: Router,
+    private readonly http: HttpClient,
     private readonly auth: AuthService,
     private readonly games: GamesService,
-    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
-    private readonly http: HttpClient,
     private readonly themeService: ThemeService,
+    private readonly userStatus: UserStatusService,
+    private readonly chatService: ChatService,
   ) {}
 
   ngOnInit(): void {
-    this.currentUser = this.auth.getCurrentUser();
-
     if (!this.auth.isAuthenticated()) {
       this.router.navigate(['/login']);
       return;
     }
 
-    this.loadData();
-    this.loadConnections();
+    // Subscribe to authentication state changes
+    this.auth.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+      this.currentUser = user;
+      if (user) {
+        this.loadData();
+        this.loadConnections();
+        this.loadCardStats();
+        this.loadCardCollection();
+      }
+    });
+
+    // Fallback if already set
+    this.currentUser = this.auth.getCurrentUser();
+    if (this.currentUser) {
+        this.loadData();
+        this.loadConnections();
+        this.loadCardStats();
+        this.loadCardCollection();
+    }
+
     this.applySavedTheme();
-    this.applySavedStatus();
+    this.currentStatus = this.userStatus.currentStatus;
+    this.userStatus.currentStatus$.subscribe((status) => {
+      this.currentStatus = status;
+      this.cdr.markForCheck();
+    });
   }
 
+  loadCardCollection(): void {
+    const userId = this.currentUser?.id ?? this.currentUser?.sub;
+    if (!userId) return;
+    this.chatService.getCardCollection().subscribe({
+      next: (cards) => { this.cards = cards; this.cdr.markForCheck(); },
+      error: () => { this.cards = []; this.cdr.markForCheck(); }
+    });
+  }
+
+  toggleFavorite(gameCode: string): void {
+    this.chatService.toggleCardFavorite(gameCode).subscribe({
+      next: (isFavorite) => {
+        const card = this.cards.find(c => c.game_code === gameCode);
+        if (card) card.is_favorite = isFavorite;
+        this.cdr.markForCheck();
+      }
+    });
+  }
   setTheme(theme: 'green' | 'red' | 'yellow' | 'blue'): void {
     this.currentTheme = theme;
     this.themeDropdownOpen = false;
@@ -128,25 +186,10 @@ export class Dashboard implements OnInit, OnDestroy {
     this.profileDropdownOpen = false;
   }
 
-  setStatus(status: 'online' | 'away' | 'offline' | 'invisible'): void {
+  setStatus(status: UserStatus): void {
     this.currentStatus = status;
     this.statusDropdownOpen = false;
-    try {
-      localStorage.setItem('projectgg:status', status);
-    } catch (e) {
-      console.warn('Could not persist status:', e);
-    }
-  }
-
-  private applySavedStatus(): void {
-    try {
-      const saved = localStorage.getItem('projectgg:status') as any;
-      if (saved === 'online' || saved === 'away' || saved === 'offline' || saved === 'invisible') {
-        this.currentStatus = saved;
-      }
-    } catch (e) {
-      // ignore
-    }
+    this.userStatus.setStatus(status);
   }
 
   toggleStatusDropdown(): void {
@@ -211,10 +254,50 @@ export class Dashboard implements OnInit, OnDestroy {
     const colors: Record<string, string> = {
       online: '#00ff99',
       away: '#ffd24d',
-      offline: '#8c96a8',
+      dnd: '#8c96a8',
       invisible: '#b36bff',
     };
     return colors[status] || colors['online'];
+  }
+
+  // ===== CARD COLLECTION =====
+
+  loadCardStats(): void {
+    this.chatService.getCollectionStats().subscribe({
+      next: (stats) => { this.cardStats = stats; this.cdr.markForCheck(); },
+      error: () => {},
+    });
+  }
+
+  openCardDraw(): void {
+    this.showCardDraw = true;
+    this.chatService.getDrawTickets().subscribe({
+      next: (tickets) => { this.cardDrawTickets = tickets; this.cdr.markForCheck(); },
+    });
+  }
+
+  triggerDailyDraw(drawComp: any): void {
+    drawComp?.startDailyDraw();
+  }
+
+  triggerTicketDraw(drawComp: any): void {
+    const ticket = this.cardDrawTickets[0];
+    if (ticket) {
+      drawComp?.startTicketDraw(ticket.id);
+      this.cardDrawTickets = this.cardDrawTickets.filter(t => t.id !== ticket.id);
+    }
+  }
+
+  onDrawComplete(result?: { card?: { game_code?: string } }): void {
+    this.recentDrawCode = result?.card?.game_code ?? null;
+    this.loadCardStats();
+    this.loadCardCollection();
+    if (this.recentDrawCode) {
+      setTimeout(() => {
+        this.recentDrawCode = null;
+        this.cdr.markForCheck();
+      }, 5000);
+    }
   }
 
   ngOnDestroy(): void {
@@ -256,7 +339,7 @@ export class Dashboard implements OnInit, OnDestroy {
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (userId) {
       this.games
-        .getUserGames(String(userId), this.currentPage, this.pageSize)
+        .getUserGames(String(userId), 1, 1000)
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (games) => {
@@ -336,7 +419,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   private refreshUserGames(userId: string): void {
     this.games
-      .getUserGames(userId, this.currentPage, this.pageSize)
+      .getUserGames(userId, 1, 1000)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (games) => {
@@ -539,7 +622,9 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   isAdded(gameCode: string): boolean {
-    return this.userGames.some((game) => game.code === gameCode);
+    if (this.userGames && this.userGames.some((game) => game.code === gameCode)) return true;
+    if (this.cards && this.cards.some((card: any) => card.game_code === gameCode)) return true;
+    return false;
   }
 
   get isAdmin(): boolean {
@@ -547,7 +632,7 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get allowCollection(): boolean {
-    return this.isAdmin;
+    return !!this.currentUser;
   }
 
   getDefaultAvatar(gender?: string): string {

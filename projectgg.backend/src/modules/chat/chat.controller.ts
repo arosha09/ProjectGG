@@ -174,11 +174,16 @@ export class ChatController {
       throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const { data: { publicUrl } } = this.supabase.storage
+    // Use signed URL
+    const { data: signedData, error: signError } = await this.supabase.storage
       .from('chat_uploads')
-      .getPublicUrl(filename);
+      .createSignedUrl(filename, 315360000);
 
-    return { url: publicUrl };
+    if (signError || !signedData?.signedUrl) {
+      throw new HttpException(signError?.message ?? 'Failed to sign URL', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return { url: signedData.signedUrl };
   }
 
   private readonly fallbackGifs = [
@@ -537,6 +542,19 @@ export class ChatController {
       enrich(sent, 'other_username'),
     ]);
 
+    const applyPresence = async (list: any[]) => {
+      for (const item of list) {
+        const other = await this.chatService.findUserById(item.other_id);
+        item.status = other?.status ?? other?.sys_status ?? 'invisible';
+      }
+    };
+
+    await Promise.all([
+      applyPresence(accepted),
+      applyPresence(pending),
+      applyPresence(sent),
+    ]);
+
     return { accepted, pending, sent };
   }
 
@@ -677,6 +695,41 @@ export class ChatController {
     }
 
     return msg;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/dm/conversations/:id')
+  async deleteDmConversation(@Req() req: any, @Param('id') id: string) {
+    await this.chatService.deleteDmConversation(req.user.id, Number(id));
+    return { success: true };
+  }
+
+  // ================================================================
+  // BLOCKING
+  // ================================================================
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/users/block/:userId')
+  async blockUser(@Req() req: any, @Param('userId') userId: string) {
+    await this.chatService.blockUser(req.user.id, userId);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/users/unblock/:userId')
+  async unblockUser(@Req() req: any, @Param('userId') userId: string) {
+    await this.chatService.unblockUser(req.user.id, userId);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/users/blocked')
+  async getBlockedUsers(@Req() req: any) {
+    return this.chatService.getBlockedUsers(req.user.id);
   }
 
   // ================================================================

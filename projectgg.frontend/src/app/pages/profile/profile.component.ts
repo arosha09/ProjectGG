@@ -19,6 +19,8 @@ import { TasksService } from '../../services/tasks.service';
 import { ThemeService } from '../../services/theme.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
 import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
+import { UserStatusService, UserStatus } from '../../services/user-status.service';
+import { ChatService } from '../../services/chat.service';
 
 @Component({
   selector: 'app-profile',
@@ -29,18 +31,25 @@ import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dro
 })
 export class ProfileComponent implements OnInit, OnDestroy {
   currentUser: any = null;
-  currentStatus: 'online' | 'away' | 'offline' | 'invisible' = 'online';
+  currentStatus: UserStatus = 'online';
   statusDropdownOpen = false;
   profileDropdownOpen = false;
   private destroy$ = new Subject<void>();
 
   userRank: UserRankDto | null = null;
+  // debug
+  debugMode = false;
+  debugData: any = { profile: null, connections: null, rank: null, showcase: null, collectedGames: null, collectionStats: null };
   canClaim = false;
   claimLoading = false;
   loading = true;
 
   profileError = '';
   connectionsError = '';
+
+  // Card showcase
+  showcaseCards: any[] = [];
+  collectionStats: any = null;
 
   avatarCategories: { category: string; avatars: { filename: string; url: string; path: string }[] }[] = [];
   selectedCategory = '';
@@ -78,6 +87,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
     private readonly http: HttpClient,
     private readonly tasksService: TasksService,
     readonly themeService: ThemeService,  // readonly so template can read themeService.currentTheme()
+    private readonly userStatus: UserStatusService,
+    private readonly chatService: ChatService,
   ) {}
 
   ngOnInit(): void {
@@ -88,7 +99,12 @@ export class ProfileComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.applySavedStatus();
+    this.currentStatus = this.userStatus.currentStatus;
+
+    this.userStatus.currentStatus$.subscribe((status) => {
+      this.currentStatus = status;
+      this.cdr.markForCheck();
+    });
 
     this.auth.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       if (user) {
@@ -97,15 +113,23 @@ export class ProfileComponent implements OnInit, OnDestroy {
       }
     });
 
-    this.loadRankData();
+    const socket = this.chatService.connect();
+    socket.on('xp-update', (data: { userId: string }) => {
+      if (data.userId === this.currentUser?.id) {
+        this.loadRankData();
+      }
+    });
+
     this.refreshProfile();
     this.loadConnections();
     this.loadCollectedGames();
+    this.loadShowcase();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.chatService.connect().off('xp-update');
   }
 
   // ── Theme (fully delegated to ThemeService) ────────────────────────────────
@@ -120,19 +144,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   // ── Status ─────────────────────────────────────────────────────────────────
 
-  setStatus(status: 'online' | 'away' | 'offline' | 'invisible'): void {
+  setStatus(status: UserStatus): void {
     this.currentStatus = status;
     this.statusDropdownOpen = false;
-    try { localStorage.setItem('projectgg:status', status); } catch {}
-  }
-
-  private applySavedStatus(): void {
-    try {
-      const saved = localStorage.getItem('projectgg:status') as any;
-      if (['online', 'away', 'offline', 'invisible'].includes(saved)) {
-        this.currentStatus = saved;
-      }
-    } catch {}
+    this.userStatus.setStatus(status);
   }
 
   toggleStatusDropdown(): void {
@@ -265,13 +280,13 @@ export class ProfileComponent implements OnInit, OnDestroy {
     };
 
     this.xpService.getUserRank(userId).subscribe({
-      next:  (rank) => { this.userRank = rank; rankDone = true; checkDone(); },
-      error: ()     => { this.userRank = null; rankDone = true; checkDone(); },
+      next:  (rank) => { this.userRank = rank; this.debugData.rank = rank; rankDone = true; checkDone(); },
+      error: ()     => { this.userRank = null; this.debugData.rank = null; rankDone = true; checkDone(); },
     });
 
     this.xpService.canClaimDaily(userId).subscribe({
-      next:  (res) => { this.canClaim = res.can_claim; claimDone = true; checkDone(); },
-      error: ()    => { this.canClaim = false;         claimDone = true; checkDone(); },
+      next:  (res) => { this.canClaim = res.can_claim; this.debugData.canClaim = res; claimDone = true; checkDone(); },
+      error: ()    => { this.canClaim = false; this.debugData.canClaim = null;         claimDone = true; checkDone(); },
     });
   }
 
@@ -292,10 +307,13 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.currentUser = { ...this.currentUser, ...profile };
         this.usersService.updateCurrentUser(this.currentUser);
         this.profileError = '';
+        this.debugData.profile = profile;
+        this.loadRankData();
         this.cdr.markForCheck();
       },
       error: (err) => {
         this.profileError = err.status === 401 ? 'Session expired. Please log in again.' : 'Failed to load profile data.';
+        this.loading = false;
         this.cdr.markForCheck();
       },
     });
@@ -307,6 +325,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.connections = conns;
         this.discordConnected = conns.some(c => c.platform === 'discord');
         this.connectionsError = '';
+        this.debugData.connections = conns;
         this.cdr.markForCheck();
       },
       error: () => {
@@ -319,12 +338,25 @@ export class ProfileComponent implements OnInit, OnDestroy {
   loadCollectedGames(): void {
     this.collectedGamesLoading = true;
     this.tasksService.getCollectedGames(this.collectedGamesPage, this.pageSize).subscribe({
-      next:  (games) => { this.collectedGames = games; this.collectedGamesLoading = false; this.cdr.markForCheck(); },
+      next:  (games) => { this.collectedGames = games; this.debugData.collectedGames = games; this.collectedGamesLoading = false; this.cdr.markForCheck(); },
       error: ()      => { this.collectedGamesLoading = false; this.cdr.markForCheck(); },
     });
   }
 
   get collectedGameCount(): number { return this.collectedGames.length; }
+
+  // ===== CARD SHOWCASE =====
+
+  loadShowcase(): void {
+    if (!this.currentUser) return;
+    const userId = this.currentUser.id;
+    this.chatService.getUserShowcase(userId).subscribe({
+      next: (cards) => { this.showcaseCards = cards; this.debugData.showcase = cards; this.cdr.markForCheck(); },
+    });
+    this.chatService.getCollectionStats().subscribe({
+      next: (stats) => { this.collectionStats = stats; this.debugData.collectionStats = stats; this.cdr.markForCheck(); },
+    });
+  }
 
   getConnection(platform: string): any {
     return this.connections.find(c => c.platform === platform);

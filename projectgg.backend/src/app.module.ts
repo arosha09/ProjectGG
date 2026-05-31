@@ -11,7 +11,7 @@ import { VoiceModule } from './modules/voice/voice.module';
 import { MailModule } from './mail/mail.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { MusicModule } from './modules/music/music.module';
-import { MigrationService } from './database/migration.service';
+import { CardCollectionModule } from './modules/card-collection/card-collection.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', 'src/.env'] }),
@@ -26,7 +26,7 @@ import { MigrationService } from './database/migration.service';
     XpModule,
     TasksModule,
     MusicModule,
+    CardCollectionModule,
   ],
-  providers: [MigrationService],
 })
 export class AppModule {}

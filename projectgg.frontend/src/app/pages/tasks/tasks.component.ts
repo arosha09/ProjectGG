@@ -8,6 +8,7 @@ import { TasksService, Task } from '../../services/tasks.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { UserStatusService, UserStatus } from '../../services/user-status.service';
 
 @Component({
   selector: 'app-tasks',
@@ -19,7 +20,7 @@ import { environment } from '../../../environments/environment';
 export class TasksComponent implements OnInit {
   currentUser: any = null;
   currentTheme: ThemeOption = 'green';
-  currentStatus: 'online' | 'away' | 'offline' | 'invisible' = 'online';
+  currentStatus: UserStatus = 'online';
   themeDropdownOpen = false;
   statusDropdownOpen = false;
   profileDropdownOpen = false;
@@ -38,6 +39,7 @@ export class TasksComponent implements OnInit {
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly http: HttpClient,
+    private readonly userStatus: UserStatusService,
   ) {}
 
   ngOnInit(): void {
@@ -47,7 +49,11 @@ export class TasksComponent implements OnInit {
       return;
     }
     this.applySavedTheme();
-    this.applySavedStatus();
+    this.currentStatus = this.userStatus.currentStatus;
+    this.userStatus.currentStatus$.subscribe((status) => {
+      this.currentStatus = status;
+      this.cdr.markForCheck();
+    });
     this.loadData();
   }
 
@@ -122,17 +128,10 @@ export class TasksComponent implements OnInit {
     this.profileDropdownOpen = false;
   }
 
-  setStatus(status: 'online' | 'away' | 'offline' | 'invisible'): void {
+  setStatus(status: UserStatus): void {
     this.currentStatus = status;
     this.statusDropdownOpen = false;
-    localStorage.setItem('projectgg:status', status);
-  }
-
-  private applySavedStatus(): void {
-    try {
-      const saved = localStorage.getItem('projectgg:status') as any;
-      if (['online', 'away', 'offline', 'invisible'].includes(saved)) this.currentStatus = saved;
-    } catch {}
+    this.userStatus.setStatus(status);
   }
 
   toggleStatusDropdown(): void {

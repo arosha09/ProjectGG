@@ -15,10 +15,11 @@ export class GamesController {
     @Post('add-user-games')
     @ApiBody({ type: AddUserGameDto })
     async addUserGame(@Req() req: any, @Body() userGame: AddUserGameDto): Promise<void> {
-        if (req.user.role !== 'admin') {
-            throw new ForbiddenException('Only admins can directly add games');
-        }
-        return this.gamesService.addUserGame(userGame);
+        const targetUserId = req.user.role === 'admin' ? userGame.in_user_id : req.user.id;
+        return this.gamesService.addUserGame({
+            ...userGame,
+            in_user_id: targetUserId,
+        });
     }
 
     @Get('get-all-games')
@@ -53,10 +54,8 @@ export class GamesController {
         @Query('user_id', new ParseUUIDPipe()) userId: string,
         @Query('game_code') gameCode: string,
     ): Promise<boolean> {
-        if (req.user.role !== 'admin') {
-            throw new ForbiddenException('Only admins can directly remove games');
-        }
-        return this.gamesService.removeUserGame(userId, gameCode);
+        const targetUserId = req.user.role === 'admin' ? userId : req.user.id;
+        return this.gamesService.removeUserGame(targetUserId, gameCode);
     }
 
     @Get('search')

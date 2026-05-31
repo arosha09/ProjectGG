@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener, ElementRef, NO_ERRORS_SCHEMA } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { RouterModule } from '@angular/router';
 import { Router } from '@angular/router';
 import { Socket } from 'socket.io-client';
 import {
@@ -15,11 +16,22 @@ import { environment } from '../../../environments/environment';
 import { VoiceService } from '../../services/voice.service';
 import { ThemeService } from '../../services/theme.service';
 import { CyberDropdownComponent, DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
+import { GgChatFriendsComponent } from '../gg-chat-friends/gg-chat-friends.component';
+import { UserStatusService, UserStatus } from '../../services/user-status.service';
+import { UsersService } from '../../services/users.service';
+import { XpService } from '../../services/xp.service';
+import { MemberListComponent } from './member-list/member-list.component';
+import { ServerListComponent } from './server-list/server-list.component';
+import { ChannelListComponent } from './channel-list/channel-list.component';
+import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
+import { CardTradingComponent } from '../../components/card-trading/card-trading.component';
+import { CyberEmojiPickerComponent } from '../../components/cyber-emoji-picker/cyber-emoji-picker.component';
 
 @Component({
   selector: 'app-gg-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, CyberDropdownComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, CardTradingComponent, CyberEmojiPickerComponent],
+  schemas: [NO_ERRORS_SCHEMA],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
 })
@@ -27,12 +39,12 @@ export class GgChatComponent implements OnInit, OnDestroy {
   private readonly apiUrl = environment.apiUrl;
 
   currentUser: any = null;
-  currentStatus: string = 'online';
+  currentStatus: UserStatus = 'online';
   loading = true;
   socket: Socket | null = null;
 
   // View mode
-  viewMode: 'dm' | 'server' = 'dm';
+  viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' = 'dm';
 
   // Servers
   servers: GgServer[] = [];
@@ -40,6 +52,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
   serverLoading = false;
   showCreateServer = false;
   newServerName = '';
+  newServerAvatarPreview: string | null = null;
+  newServerAvatarFile: File | null = null;
+  createServerView: 'pick' | 'create' | 'join' = 'pick';
+  creatingServer = false;
 
   // Channels
   channels: GgChannel[] = [];
@@ -58,6 +74,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   // Messages (server channels)
   messages: ChatMessage[] = [];
+  messagesLoading = false;
   newMessage = '';
   sending = false;
 
@@ -100,6 +117,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   // Members
   members: GgServerMember[] = [];
+  membersLoading = false;
 
   // Voice
   voiceConnected = false;
@@ -107,15 +125,19 @@ export class GgChatComponent implements OnInit, OnDestroy {
   voiceMuted = false;
   voiceDeafened = false;
   voiceConnecting = false;
-  voiceMembers: { userId: string }[] = [];
+  voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
+  speakingUsers = new Set<string>();
 
   // DM
   dmConversations: DmConversation[] = [];
+  dmLoading = true;
   friends: FriendUser[] = [];
   pendingRequests: FriendUser[] = [];
   sentRequests: FriendUser[] = [];
+  blockedUsers: FriendUser[] = [];
   selectedDm: DmConversation | null = null;
   dmMessages: ChatMessage[] = [];
+  dmMessagesLoading = false;
   showFriendsList = false;
   showAddFriend = false;
   searchQuery = '';
@@ -130,6 +152,29 @@ export class GgChatComponent implements OnInit, OnDestroy {
   activeInvite: any = null;
   inviteLinkUrl = '';
   copied = false;
+
+  // UI toggles
+  profileMenuOpen = false;
+  dmOptionsOpen = false;
+  profileUser: any = null;
+  profileFavorites: any[] = [];
+  profileFavoritesLoading = false;
+  profileFavoritesError = '';
+  profileConnections: any[] = [];
+  profileAccounts: any[] = [];
+  profileMusic: any[] = [];
+  memberStatuses: Record<string, string> = {};
+
+  // Context menu
+  contextMenu: { x: number; y: number; msg: ChatMessage } | null = null;
+
+  // Emoji picker popup (reactions)
+  emojiPickerMsg: ChatMessage | null = null;
+  emojiPickerPos = { x: 0, y: 0 };
+
+  // Edit message
+  editingMessageId: number | null = null;
+  editingContent = '';
 
   // Join server
   showJoinServer = false;
@@ -146,6 +191,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
   showNotifications = false;
   statusDropdownOpen = false;
 
+  // Confirmation
+  confirmData: { message: string, action: () => void, confirmLabel: string, cancelLabel: string, showCancel: boolean } | null = null;
+
   constructor(
     private readonly chatService: ChatService,
     private readonly auth: AuthService,
@@ -155,6 +203,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     private readonly voiceService: VoiceService,
     readonly theme: ThemeService,
     private readonly el: ElementRef,
+    private readonly userStatus: UserStatusService,
+    private readonly usersService: UsersService,
+    private readonly xpService: XpService,
   ) {}
 
   ngOnInit(): void {
@@ -163,18 +214,19 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.router.navigate(['/login']);
       return;
     }
-    try {
-      const saved = localStorage.getItem('projectgg:status') as any;
-      if (saved === 'online' || saved === 'away' || saved === 'offline' || saved === 'invisible') {
-        this.currentStatus = saved;
-      }
-    } catch {}
+    this.currentStatus = this.userStatus.currentStatus;
+    this.userStatus.currentStatus$.subscribe((status: UserStatus) => {
+      this.currentStatus = status;
+      this.cdr.markForCheck();
+    });
+    this.viewMode = 'dm';
     this.loadServers();
     this.loadDmData();
     this.loadNotifications();
     this.connectSocket();
   }
 
+  // ===== DATA LOADING =====
   // ===== DATA LOADING =====
 
   private loadDmData(): void {
@@ -183,12 +235,22 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   private loadDmConversations(): void {
+    this.dmLoading = true;
     this.chatService.getDmConversations().subscribe({
       next: (data) => {
         this.dmConversations = data;
-        if (!this.selectedDm && data.length > 0) {
-          this.selectDm(data[0]);
+        const newStatuses = { ...this.memberStatuses };
+        for (const conv of data ?? []) {
+          if (conv?.otherUserId && conv?.otherStatus) {
+            newStatuses[String(conv.otherUserId)] = conv.otherStatus;
+          }
         }
+        this.memberStatuses = newStatuses;
+        this.dmLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.dmLoading = false;
         this.cdr.markForCheck();
       },
     });
@@ -200,8 +262,26 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.friends = data.accepted;
         this.pendingRequests = data.pending;
         this.sentRequests = data.sent;
+        const newStatuses = { ...this.memberStatuses };
+        for (const friend of [...(data.accepted ?? []), ...(data.pending ?? []), ...(data.sent ?? [])]) {
+          if (friend?.other_id && friend?.status) {
+            newStatuses[String(friend.other_id)] = friend.status;
+          }
+        }
+        this.memberStatuses = newStatuses;
+        this.loadBlockedUsers();
         this.cdr.markForCheck();
       },
+    });
+  }
+
+  private loadBlockedUsers(): void {
+    this.chatService.getBlockedUsers().subscribe({
+      next: (data: FriendUser[]) => {
+        this.blockedUsers = data;
+        this.cdr.markForCheck();
+      },
+      error: (err) => console.error('Error loading blocked users:', err),
     });
   }
 
@@ -229,10 +309,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.selectedServer = null;
     this.selectedChannel = null;
     this.messages = [];
-    this.selectedDm = this.dmConversations[0] ?? null;
-    if (this.selectedDm) {
-      this.loadDmMessages(this.selectedDm.id);
-    }
+    this.selectedDm = null;
+  }
+
+  openFriendsView(): void {
+    this.viewMode = 'friends';
+    this.selectedServer = null;
+    this.selectedChannel = null;
+    this.selectedDm = null;
+    this.messages = [];
+    this.dmMessages = [];
+    this.dmOptionsOpen = false;
+    this.serverDropdownOpen = false;
   }
 
   selectServer(server: GgServer): void {
@@ -246,22 +334,33 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.loadMembers(server.id);
   }
 
+  // Open the create/join server UI
   openCreateServer(): void {
+    this.viewMode = 'create-server';
+    this.selectedServer = null;
+    this.selectedChannel = null;
+    this.selectedDm = null;
+    this.messages = [];
+    this.dmMessages = [];
+    this.createServerView = 'pick';
     this.showCreateServer = true;
-    this.newServerName = '';
+    this.serverDropdownOpen = false;
+    this.cdr.markForCheck();
   }
-
   createServer(): void {
     const name = this.newServerName.trim();
     if (!name) return;
+    this.creatingServer = true;
     this.chatService.createServer(name).subscribe({
       next: (server) => {
         this.servers = [...this.servers, server];
-        this.showCreateServer = false;
+        this.creatingServer = false;
+        this.viewMode = 'server';
         this.selectServer(server);
         this.cdr.markForCheck();
       },
       error: (err) => {
+        this.creatingServer = false;
         console.error(err);
         this.showCyberAlert(err.error?.message ?? 'Failed to create server');
       },
@@ -376,10 +475,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  isChannelPrivate(channel: GgChannel): boolean {
-    return (channel.allowed_roles?.length ?? 0) > 0;
-  }
-
   deleteChannel(channel: GgChannel): void {
     if (!confirm(`Delete #${channel.name}?`)) return;
     this.chatService.deleteChannel(channel.id).subscribe({
@@ -395,18 +490,21 @@ export class GgChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  channelIcon(type: string): string {
-    return type === 'voice' ? 'volume_up' : 'tag';
-  }
-
   // ===== MESSAGES (Server) =====
 
   private loadMessages(channelId: number): void {
+    this.messagesLoading = true;
     this.http.get<ChatMessage[]>(`${this.apiUrl}/gg/history?channel=${channelId}&limit=50`).subscribe({
       next: (msgs) => {
         this.messages = msgs;
+        this.messagesLoading = false;
+        this.loadReactionsForMessages(msgs, 'server');
         this.cdr.markForCheck();
-        this.scrollToBottom();
+        this.scrollToBottom(true);
+      },
+      error: () => {
+        this.messagesLoading = false;
+        this.cdr.markForCheck();
       },
     });
   }
@@ -423,7 +521,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.replyToMessage = null;
         this.sending = false;
         this.cdr.markForCheck();
-        this.scrollToBottom();
+        this.scrollToBottom(true);
       },
       error: () => { this.sending = false; this.cdr.markForCheck(); },
     });
@@ -522,10 +620,17 @@ export class GgChatComponent implements OnInit, OnDestroy {
     window.open(url, '_blank');
   }
 
-  private scrollToBottom(): void {
+  private scrollToBottom(force = false): void {
     setTimeout(() => {
-      const el = document.querySelector('.gg-messages, .gg-dm-messages');
-      if (el) el.scrollTop = el.scrollHeight;
+      const el = document.querySelector('.gg-messages, .gg-dm-messages') as HTMLElement | null;
+      if (!el) return;
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+      if (!force && !nearBottom) return;
+      try {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      } catch {
+        el.scrollTop = el.scrollHeight;
+      }
     }, 50);
   }
 
@@ -604,8 +709,24 @@ export class GgChatComponent implements OnInit, OnDestroy {
   // ===== MEMBERS =====
 
   private loadMembers(serverId: number): void {
+    this.membersLoading = true;
     this.chatService.getServerMembers(serverId).subscribe({
-      next: (data) => { this.members = data; this.cdr.markForCheck(); },
+      next: (data) => {
+        this.members = data ?? [];
+        const seededStatuses = { ...this.memberStatuses };
+        for (const member of this.members) {
+          const memberId = String(member.user_id ?? '');
+          if (!memberId) continue;
+          seededStatuses[memberId] = member.status ?? seededStatuses[memberId] ?? 'invisible';
+        }
+        this.memberStatuses = seededStatuses;
+        this.membersLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.membersLoading = false;
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -743,41 +864,23 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   // ===== CYBER CONFIRM / ALERT =====
 
-  showConfirm = false;
-  confirmMessage = '';
-  confirmAction: (() => void) | null = null;
-  confirmLabel = 'Confirm';
-  confirmCancelLabel = 'Cancel';
-  confirmShowCancel = true;
-
   showCyberConfirm(message: string, action: () => void, confirmLabel = 'Confirm', cancelLabel = 'Cancel'): void {
-    this.confirmMessage = message;
-    this.confirmAction = action;
-    this.confirmLabel = confirmLabel;
-    this.confirmCancelLabel = cancelLabel;
-    this.confirmShowCancel = true;
-    this.showConfirm = true;
+    this.confirmData = { message, action, confirmLabel, cancelLabel, showCancel: true };
   }
 
   showCyberAlert(message: string): void {
-    this.confirmMessage = message;
-    this.confirmAction = null;
-    this.confirmLabel = 'OK';
-    this.confirmShowCancel = false;
-    this.showConfirm = true;
+    this.confirmData = { message, action: () => { this.confirmData = null; }, confirmLabel: 'OK', cancelLabel: '', showCancel: false };
   }
 
   executeConfirm(): void {
-    if (this.confirmAction) {
-      this.confirmAction();
-      this.confirmAction = null;
+    if (this.confirmData?.action) {
+      this.confirmData.action();
     }
-    this.showConfirm = false;
+    this.confirmData = null;
   }
 
   cancelConfirm(): void {
-    this.showConfirm = false;
-    this.confirmAction = null;
+    this.confirmData = null;
   }
 
   copyInviteLink(): void {
@@ -884,25 +987,28 @@ export class GgChatComponent implements OnInit, OnDestroy {
   private async joinVoice(channel: GgChannel): Promise<void> {
     this.voiceConnecting = true;
     this.voiceMembers = [];
+        this.speakingUsers.clear();
+      this.speakingUsers.clear();
     this.cdr.markForCheck();
     try {
       const currentUserId = this.auth.getCurrentUser()?.id;
-      this.voiceMembers = currentUserId ? [{ userId: currentUserId }] : [];
+      this.voiceMembers = currentUserId ? [{ userId: currentUserId, muted: false, deafened: false }] : [];
 
-      this.voiceService.onMemberJoined = (userId) => {
+      this.voiceService.onMemberJoined = (userId, _channelId, muted, deafened) => {
         if (!this.voiceMembers.find(m => m.userId === userId)) {
-          this.voiceMembers = [...this.voiceMembers, { userId }];
+          this.voiceMembers = [...this.voiceMembers, { userId, muted, deafened }];
           this.cdr.markForCheck();
         }
       };
       this.voiceService.onMemberLeft = (userId) => {
         this.voiceMembers = this.voiceMembers.filter(m => m.userId !== userId);
+          this.speakingUsers.delete(userId);
         this.cdr.markForCheck();
       };
-      this.voiceService.onExistingMembers = (userIds) => {
-        for (const uid of userIds) {
-          if (!this.voiceMembers.find(m => m.userId === uid)) {
-            this.voiceMembers = [...this.voiceMembers, { userId: uid }];
+      this.voiceService.onExistingMembers = (members) => {
+        for (const member of members) {
+          if (!this.voiceMembers.find(m => m.userId === member.userId)) {
+            this.voiceMembers = [...this.voiceMembers, member];
           }
         }
         this.cdr.markForCheck();
@@ -929,6 +1035,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceMembers = [];
     this.voiceService.onMemberJoined = null;
     this.voiceService.onMemberLeft = null;
+    this.voiceService.onUserSpeaking = null;
+    this.voiceService.onUserStoppedSpeaking = null;
   }
 
   toggleVoiceMute(): void {
@@ -974,8 +1082,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.chatService.getDmHistory(conversationId, 50).subscribe({
       next: (msgs) => {
         this.dmMessages = msgs;
+        this.loadReactionsForMessages(msgs, 'dm');
         this.cdr.markForCheck();
-        this.scrollToBottom();
+        this.scrollToBottom(true);
       },
     });
   }
@@ -991,7 +1100,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.pendingAttachmentUrl = null;
         this.sending = false;
         this.cdr.markForCheck();
-        this.scrollToBottom();
+        this.scrollToBottom(true);
         this.selectedDm!.lastMessage = msg.content;
         this.selectedDm!.lastMessageAt = msg.created_at;
       },
@@ -1080,11 +1189,35 @@ export class GgChatComponent implements OnInit, OnDestroy {
   private connectSocket(): void {
     this.socket = this.chatService.connect();
 
+    this.socket.on('user-status', (payload: any) => {
+      const userId = String(payload?.userId ?? payload?.user_id ?? '');
+      const isSelf = userId && this.currentUser?.id && String(userId) === String(this.currentUser.id);
+      const resolvedStatus = isSelf
+        ? (payload?.sys_status ?? payload?.status ?? payload?.visibleStatus)
+        : (payload?.status ?? payload?.visibleStatus ?? payload?.sys_status);
+
+      if (userId && resolvedStatus) {
+        this.memberStatuses = { ...this.memberStatuses, [userId]: resolvedStatus };
+
+        const member = this.members.find(m => String(m.user_id) === userId);
+        if (member) {
+          member.status = resolvedStatus;
+          this.members = [...this.members];
+        }
+      }
+
+      if (isSelf && resolvedStatus) {
+        this.currentStatus = resolvedStatus;
+      }
+
+      this.cdr.markForCheck();
+    });
+
     this.socket.on('message', (msg: ChatMessage) => {
       if (this.viewMode === 'server' && this.selectedChannel && msg.channel_id === String(this.selectedChannel.id)) {
         this.messages = [...this.messages, msg];
         this.cdr.markForCheck();
-        this.scrollToBottom();
+        this.scrollToBottom(true);
       }
     });
 
@@ -1093,7 +1226,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       if (this.viewMode === 'dm' && this.selectedDm && convId === this.selectedDm.id) {
         this.dmMessages = [...this.dmMessages, msg];
         this.cdr.markForCheck();
-        this.scrollToBottom();
+        this.scrollToBottom(true);
       }
       const conv = this.dmConversations.find(c => c.id === convId);
       if (conv) {
@@ -1157,6 +1290,20 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   @HostListener('document:click', ['$event'])
   handleDocumentClick(event: MouseEvent): void {
+    if (this.contextMenu) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.cyber-context-menu')) {
+        this.closeContextMenu();
+      }
+    }
+
+    if (this.emojiPickerMsg) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.emoji-picker-popup') && !target.closest('.emoji-picker-popup-backdrop')) {
+        this.closeEmojiPicker();
+      }
+    }
+
     if (this.serverDropdownOpen) {
       const target = event.target as HTMLElement;
       if (!this.el.nativeElement.contains(target) || !target.closest('.gg-server-dropdown-container')) {
@@ -1169,7 +1316,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown.escape')
   handleEscape(): void {
     if (this.showGifPicker) { this.showGifPicker = false; this.cdr.markForCheck(); }
-    if (this.showConfirm) { this.cancelConfirm(); this.cdr.markForCheck(); }
+    if (this.confirmData) { this.cancelConfirm(); this.cdr.markForCheck(); }
+    if (this.contextMenu) { this.closeContextMenu(); this.cdr.markForCheck(); }
+    if (this.emojiPickerMsg) { this.closeEmojiPicker(); this.cdr.markForCheck(); }
     if (this.serverDropdownOpen) { this.closeServerDropdown(); this.cdr.markForCheck(); }
     if (this.showServerSettings) { this.showServerSettings = false; this.cdr.markForCheck(); }
     if (this.showCreateServer) { this.showCreateServer = false; this.cdr.markForCheck(); }
@@ -1178,6 +1327,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
     if (this.showAddFriend) { this.showAddFriend = false; this.cdr.markForCheck(); }
     if (this.showInviteLinks) { this.closeInviteLinks(); this.cdr.markForCheck(); }
     if (this.showJoinServer) { this.showJoinServer = false; this.cdr.markForCheck(); }
+  }
+
+  @HostListener('window:blur')
+  handleWindowBlur(): void {
+    if (this.contextMenu) {
+      this.closeContextMenu();
+      this.cdr.markForCheck();
+    }
+    if (this.emojiPickerMsg) {
+      this.closeEmojiPicker();
+      this.cdr.markForCheck();
+    }
   }
 
   // ===== UTILITY =====
@@ -1207,42 +1368,514 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   setStatus(status: string): void {
-    this.currentStatus = status;
-    try { localStorage.setItem('projectgg:status', status); } catch {}
+    this.userStatus.setStatus(status as UserStatus);
   }
 
-  statusColor(): string {
+  // ===== DM STATUS HELPERS =====
+
+  dmStatus(otherUserId: string): string {
+    return this.memberStatuses[otherUserId] ?? 'invisible';
+  }
+
+  dmFriendStatus(): string {
+    if (!this.selectedDm) return 'invisible';
+    return this.memberStatuses[this.selectedDm.otherUserId] ?? 'invisible';
+  }
+
+  toggleDmVoice(): void {
+    // DM voice call placeholder — wire to VoiceService as needed
+  }
+
+  showUserProfile(conv: DmConversation | null): void {
+    if (!conv) return;
+    const c = conv as any;
+    this.openProfile({
+      id: c.otherUserId,
+      username: c.otherUsername,
+      avatar_url: c.otherAvatar ?? c.avatar_url ?? null,
+    });
+  }
+
+  getDmOptions(): DropdownItem[] {
+    const isBlocked = this.selectedDm && this.blockedUsers.some(u => u.other_id === this.selectedDm!.otherUserId);
+    
+    const options: DropdownItem[] = [
+      {
+        label: isBlocked ? 'Unblock User' : 'Block User',
+        icon: isBlocked ? 'person_add' : 'block',
+        action: () => this.toggleBlockUser(this.selectedDm?.otherUserId || ''),
+      },
+      {
+        label: `Delete for me and ${this.selectedDm?.otherUsername}`,
+        icon: 'delete_forever',
+        action: () => this.deleteForBoth(),
+      },
+      {
+        label: 'Delete for me',
+        icon: 'delete',
+        action: () => this.deleteForMe(),
+      },
+    ];
+    
+    return options;
+  }
+
+  handleDmOption(item: DropdownItem): void {
+    item.action?.();
+    this.dmOptionsOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  toggleBlockUser(userId: string): void {
+    const isBlocked = this.blockedUsers.some(u => u.other_id === userId);
+    
+    if (isBlocked) {
+      this.chatService.unblockUser(userId).subscribe({
+        next: () => {
+          this.blockedUsers = this.blockedUsers.filter(u => u.other_id !== userId);
+          this.dmOptionsOpen = false;
+        },
+        error: (err) => console.error('Error unblocking user:', err),
+      });
+    } else {
+      this.chatService.blockUser(userId).subscribe({
+        next: () => {
+          const friend = this.friends.find(f => f.other_id === userId);
+          if (friend) {
+            friend.blocked = true;
+            this.blockedUsers.push(friend);
+          }
+          this.dmOptionsOpen = false;
+        },
+        error: (err) => console.error('Error blocking user:', err),
+      });
+    }
+  }
+
+  deleteForBoth(): void {
+    if (!this.selectedDm) return;
+    
+    this.showCyberConfirm(
+      `Delete this conversation with ${this.selectedDm.otherUsername} for both of you?`,
+      () => {
+        this.chatService.deleteDmConversation(this.selectedDm!.id).subscribe({
+          next: () => {
+            this.dmConversations = this.dmConversations.filter(c => c.id !== this.selectedDm?.id);
+            this.selectedDm = null;
+            this.dmMessages = [];
+            this.dmOptionsOpen = false;
+            this.viewMode = 'friends';
+            this.cdr.markForCheck();
+          },
+          error: (err) => console.error('Error deleting conversation:', err),
+        });
+      },
+      'Delete',
+      'Cancel'
+    );
+  }
+
+  deleteForMe(): void {
+    if (!this.selectedDm) return;
+    
+    this.showCyberConfirm(
+      `Delete this conversation for you only?`,
+      () => {
+        this.chatService.deleteDmConversation(this.selectedDm!.id).subscribe({
+          next: () => {
+            this.dmConversations = this.dmConversations.filter(c => c.id !== this.selectedDm?.id);
+            this.selectedDm = null;
+            this.dmMessages = [];
+            this.dmOptionsOpen = false;
+            this.viewMode = 'friends';
+            this.cdr.markForCheck();
+          },
+          error: (err) => console.error('Error deleting conversation:', err),
+        });
+      },
+      'Delete',
+      'Cancel'
+    );
+  }
+
+  // ===== VOICE CHANNEL USERS =====
+
+
+
+  // ===== EDIT MESSAGE =====
+
+  startEdit(msg: ChatMessage): void {
+    this.editingMessageId = msg.id ?? null;
+    this.editingContent = msg.content ?? '';
+  }
+
+  saveEdit(): void {
+    if (this.editingMessageId == null) return;
+    const content = this.editingContent.trim();
+    if (!content) return;
+    const isServer = this.viewMode === 'server';
+    const req = isServer
+      ? this.http.patch<ChatMessage>(`${this.apiUrl}/gg/messages/${this.editingMessageId}`, { content })
+      : this.http.patch<ChatMessage>(`${this.apiUrl}/gg/dm/messages/${this.editingMessageId}`, { content });
+    req.subscribe({
+      next: (updated) => {
+        if (isServer) {
+          this.messages = this.messages.map(m => m.id === updated.id ? updated : m);
+        } else {
+          this.dmMessages = this.dmMessages.map(m => m.id === updated.id ? updated : m);
+        }
+        this.cancelEdit();
+        this.cdr.markForCheck();
+      },
+      error: (err) => this.showCyberAlert(err.error?.message ?? 'Failed to edit message'),
+    });
+  }
+
+  cancelEdit(): void {
+    this.editingMessageId = null;
+    this.editingContent = '';
+  }
+
+  deleteMessage(msg: ChatMessage): void {
+    const isServer = this.viewMode === 'server';
+    const req = isServer
+      ? this.http.delete(`${this.apiUrl}/gg/messages/${msg.id}`)
+      : this.http.delete(`${this.apiUrl}/gg/dm/messages/${msg.id}`);
+    req.subscribe({
+      next: () => {
+        if (isServer) {
+          this.messages = this.messages.filter(m => m.id !== msg.id);
+        } else {
+          this.dmMessages = this.dmMessages.filter(m => m.id !== msg.id);
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => this.showCyberAlert(err.error?.message ?? 'Failed to delete message'),
+    });
+  }
+
+  // ===== CONTEXT MENU =====
+
+  openContextMenu(event: MouseEvent, msg: ChatMessage): void {
+    event.preventDefault();
+    this.contextMenu = { x: event.clientX, y: event.clientY, msg };
+    this.cdr.markForCheck();
+  }
+
+  closeContextMenu(): void {
+    this.contextMenu = null;
+  }
+
+  openEmojiPickerFromCtx(event: MouseEvent, msg: ChatMessage): void {
+    event.stopPropagation();
+    this.emojiPickerMsg = msg;
+    this.emojiPickerPos = { x: event.clientX, y: event.clientY + 5 };
+    this.closeContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  openEmojiPickerFromBar(msg: ChatMessage, event: MouseEvent): void {
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.emojiPickerMsg = msg;
+    this.emojiPickerPos = { x: rect.left, y: rect.top - 10 };
+    this.cdr.markForCheck();
+  }
+
+  closeEmojiPicker(): void {
+    this.emojiPickerMsg = null;
+  }
+
+  onEmojiPickerSelect(emoji: string): void {
+    if (!this.emojiPickerMsg) return;
+    this.toggleReaction(this.emojiPickerMsg, emoji);
+    this.closeEmojiPicker();
+  }
+
+  // ===== AVATAR HELPERS =====
+
+  defaultAvatar(): string {
+    return 'assets/default-avatar.png';
+  }
+
+  onAvatarError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    if (img) img.src = this.defaultAvatar();
+  }
+
+  resolveAvatar(user: any, ...keys: string[]): string {
+    if (!user) return this.defaultAvatar();
+    for (const key of keys) {
+      if (user[key]) return user[key];
+    }
+    return this.defaultAvatar();
+  }
+
+  // ===== VOICE MEMBER HELPERS =====
+
+  voiceMemberSpeaking(userId: string): boolean {
+    return this.speakingUsers.has(userId);
+  }
+
+  voiceMemberMuted(userId: string): boolean {
+    return this.voiceMembers.find(m => m.userId === userId)?.muted ?? false;
+  }
+
+  voiceMemberDeafened(userId: string): boolean {
+    return this.voiceMembers.find(m => m.userId === userId)?.deafened ?? false;
+  }
+
+  memberStatus(userId: string): string {
+    const mapped = this.memberStatuses[userId];
+    if (mapped) return mapped;
+    const member = this.members.find(m => String(m.user_id) === String(userId));
+    return member?.status ?? 'invisible';
+  }
+
+  tierColor(tier?: string): string {
     const colors: Record<string, string> = {
-      online: '#00ff88', away: '#ffd700', offline: '#ff5f6d', invisible: '#888',
+      common: '#8c96a8', uncommon: '#00e676', rare: '#5fb6ff',
+      epic: '#aa44ff',   legendary: '#ffd700',
     };
-    return colors[this.currentStatus] || '#888';
+    return colors[tier ?? 'common'] || '#8c96a8';
   }
 
-  readonly statusOptions = [
-    { id: 'online', label: 'Online', icon: '●' },
-    { id: 'away', label: 'Away', icon: '●' },
-    { id: 'offline', label: 'Offline', icon: '●' },
-    { id: 'invisible', label: 'Invisible', icon: '●' },
-  ];
-
-  cycleStatus(): void {
-    const idx = this.statusOptions.findIndex(s => s.id === this.currentStatus);
-    const next = this.statusOptions[(idx + 1) % this.statusOptions.length];
-    this.setStatus(next.id);
+  getPlatformLogo(id: string): string {
+    const slugs: Record<string, string> = {
+      steam: 'steam', discord: 'discord', gog: 'gogdotcom', epic: 'epicgames',
+      ubisoft: 'ubisoft', ea: 'ea', spotify: 'spotify',
+      youtube_music: 'youtubemusic', apple_music: 'applemusic',
+    };
+    return `https://cdn.simpleicons.org/${slugs[id] ?? id}/ffffff`;
   }
 
-  placeholderText(): string {
-    if (this.selectedDm) return `Message @${this.selectedDm.otherUsername}`;
-    if (this.selectedChannel) return `Message #${this.selectedChannel.name}`;
-    return 'Message';
+  // ===== PROFILE VIEW =====
+
+  openProfile(user: any): void {
+    this.profileUser = user;
+    this.profileFavorites = [];
+    this.profileFavoritesError = '';
+    this.profileFavoritesLoading = false;
+    this.profileConnections = [];
+    this.viewMode = 'profile';
+    const userId = String(user?.otherUserId ?? user?.id ?? '');
+    if (userId) {
+      // fetch full user details (display name, platforms, etc.)
+      this.usersService.getUserDetails(userId).subscribe({
+        next: (details) => {
+          if (details) {
+            this.profileUser = { ...this.profileUser, ...details };
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => { /* ignore, keep minimal profile */ },
+      });
+
+      // fetch rank info
+      this.xpService.getUserRank(userId).subscribe({
+        next: (rank) => {
+          if (rank) this.profileUser = { ...this.profileUser, rank };
+          this.cdr.markForCheck();
+        },
+        error: () => {},
+      });
+
+      // fetch connections (try with user_id param; backend may need update)
+      this.http.get<any[]>(`${this.apiUrl}/platform/connections?user_id=${userId}`).subscribe({
+        next: (conns) => {
+          this.profileConnections = conns ?? [];
+          this.profileAccounts = (this.profileConnections ?? []).filter(c => (c.type || 'accounts') === 'accounts');
+          this.profileMusic = (this.profileConnections ?? []).filter(c => (c.type || '') === 'music');
+          this.cdr.markForCheck();
+        },
+        error: () => { this.profileConnections = []; this.profileAccounts = []; this.profileMusic = []; },
+      });
+
+      this.loadProfileFavorites(userId);
+    }
   }
 
-  trackById(_: number, item: any): number {
-    return item.id;
+  closeProfile(): void {
+    this.profileUser = null;
+    this.profileFavorites = [];
+    this.profileFavoritesError = '';
+    this.profileFavoritesLoading = false;
+    this.profileConnections = [];
+    this.viewMode = this.selectedServer ? 'server' : 'dm';
+  }
+
+  private loadProfileFavorites(userId: string): void {
+    this.profileFavoritesLoading = true;
+    this.chatService.getUserShowcase(userId).subscribe({
+      next: (cards) => {
+        this.profileFavorites = (cards ?? []).slice(0, 10);
+        this.profileFavoritesLoading = false;
+        this.profileFavoritesError = '';
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.profileFavorites = [];
+        this.profileFavoritesLoading = false;
+        this.profileFavoritesError = err?.error?.message || 'Failed to load favorites';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  profileStatus(): string {
+    if (!this.profileUser) return 'invisible';
+    return this.memberStatuses[this.profileUser.id ?? this.profileUser.otherUserId] ?? 'invisible';
+  }
+
+  handleFriendsDm(userId: string | any): void {
+    this.closeProfile();
+    this.startDmWithUser(typeof userId === 'string' ? userId : String(userId));
+  }
+
+  // ===== CREATE SERVER FLOW =====
+
+  showCreateForm(): void {
+    this.createServerView = 'create';
+    this.newServerName = '';
+    this.newServerAvatarPreview = null;
+    this.newServerAvatarFile = null;
+  }
+
+  openJoinServer(): void {
+    this.createServerView = 'join';
+    this.joinCode = '';
+    this.joinError = '';
+  }
+
+  backToPick(): void {
+    this.createServerView = 'pick';
+  }
+
+  onServerAvatarSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+    this.newServerAvatarFile = input.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.newServerAvatarPreview = reader.result as string;
+      this.cdr.markForCheck();
+    };
+    reader.readAsDataURL(this.newServerAvatarFile);
+  }
+
+  // ===== REACTIONS =====
+
+  messageReactions: Record<string, Record<string, { count: number; userIds: string[] }>> = {};
+
+  reactionEmojis = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎮', '⭐'];
+
+  getReactionKey(msgId: number, source: string): string {
+    return `${source}:${msgId}`;
+  }
+
+  getReactions(msgId: number, source: string): { emoji: string; count: number; userIds: string[] }[] {
+    const key = this.getReactionKey(msgId, source);
+    const reactions = this.messageReactions[key];
+    if (!reactions) return [];
+    return Object.entries(reactions).map(([emoji, data]) => ({ emoji, ...data }));
+  }
+
+  hasReacted(msgId: number, source: string, emoji: string): boolean {
+    const key = this.getReactionKey(msgId, source);
+    const reactions = this.messageReactions[key]?.[emoji];
+    return reactions?.userIds?.some(id => String(id) === String(this.currentUser?.id)) ?? false;
+  }
+
+  toggleReaction(msg: ChatMessage, emoji: string): void {
+    const source = this.viewMode === 'dm' ? 'dm' : 'server';
+    if (this.hasReacted(msg.id!, source, emoji)) {
+      this.chatService.removeMessageReaction(msg.id!, source, emoji).subscribe({
+        next: () => this.loadReactionsForMessage(msg.id!, source),
+      });
+    } else {
+      this.chatService.addMessageReaction(msg.id!, source, emoji).subscribe({
+        next: () => this.loadReactionsForMessage(msg.id!, source),
+      });
+    }
+  }
+
+  onContextEmoji(emoji: string): void {
+    if (!this.contextMenu) return;
+    this.toggleReaction(this.contextMenu.msg, emoji);
+    this.closeContextMenu();
+  }
+
+  private loadReactionsForMessage(msgId: number, source: string): void {
+    this.chatService.getMessageReactions([msgId], source).subscribe({
+      next: (data) => {
+        const key = this.getReactionKey(msgId, source);
+        const grouped: Record<string, { count: number; userIds: string[] }> = {};
+        for (const r of data) {
+          grouped[r.emoji] = { count: r.count, userIds: r.user_ids || [] };
+        }
+        this.messageReactions[key] = grouped;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  loadReactionsForMessages(msgs: ChatMessage[], source: string): void {
+    const ids = msgs.map(m => m.id).filter((id): id is number => id != null);
+    if (ids.length === 0) return;
+    this.chatService.getMessageReactions(ids, source).subscribe({
+      next: (data) => {
+        for (const r of data) {
+          const key = this.getReactionKey(r.message_id, source);
+          if (!this.messageReactions[key]) this.messageReactions[key] = {};
+          this.messageReactions[key][r.emoji] = { count: r.count, userIds: r.user_ids || [] };
+        }
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  // ===== CARD COLLECTION (DM TRADE ONLY) =====
+
+  showCardTrading = false;
+  cardTrades: any[] = [];
+
+  openCardTrading(): void {
+    this.showCardTrading = true;
+    this.chatService.getCardTrades().subscribe({
+      next: (trades) => { this.cardTrades = trades; this.cdr.markForCheck(); },
+    });
+  }
+
+  acceptCardTrade(tradeId: number): void {
+    this.chatService.acceptCardTrade(tradeId).subscribe({
+      next: () => { this.openCardTrading(); },
+    });
+  }
+
+  rejectCardTrade(tradeId: number): void {
+    this.chatService.rejectCardTrade(tradeId).subscribe({ next: () => this.openCardTrading() });
+  }
+
+  cancelCardTrade(tradeId: number): void {
+    this.chatService.cancelCardTrade(tradeId).subscribe({ next: () => this.openCardTrading() });
+  }
+
+  formatPlatformName(platform: string): string {
+    const names: { [key: string]: string } = {
+      discord: 'Discord',
+      steam: 'Steam',
+      twitch: 'Twitch',
+      youtube: 'YouTube',
+      youtube_music: 'YouTube Music',
+      spotify: 'Spotify',
+      github: 'GitHub',
+      twitter: 'Twitter',
+      reddit: 'Reddit',
+    };
+    return names[platform] || platform.charAt(0).toUpperCase() + platform.slice(1).replace(/_/g, ' ');
   }
 
   ngOnDestroy(): void {
-    this.chatService.disconnect();
     if (this.voiceConnected) this.leaveVoice();
   }
 }

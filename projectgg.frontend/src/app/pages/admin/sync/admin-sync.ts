@@ -4,13 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
 import { GamesService } from '../../../services/games.service';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-admin-sync',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule],
+  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, MatButtonModule, MatInputModule],
   templateUrl: './admin-sync.html',
   styleUrls: ['./admin-sync.scss'],
 })
@@ -31,6 +33,9 @@ export class AdminSync {
   syncComplete = false;
   scanPageSize = 200;
   showDetail = new Set<string>();
+  missingSeries: string[] = [];
+  fileMap: Map<string, File | null> = new Map();
+  uploadStatus: Map<string, string> = new Map();
 
   constructor(
     private readonly games: GamesService,
@@ -40,6 +45,56 @@ export class AdminSync {
 
   get currentUser(): any {
     return this.auth.getCurrentUser();
+  }
+
+  loadMissingSeries(): void {
+    this.status = 'Loading missing series...';
+    this.games.getMissingSeries().subscribe({
+      next: (list) => {
+        this.missingSeries = list;
+        for (const s of list) this.fileMap.set(s, null);
+        this.status = `Found ${list.length} missing series`;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.status = `Failed to load missing series: ${err.message}`;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onSeriesFileChange(series: string, ev: any): void {
+    const f = ev?.target?.files?.[0] ?? null;
+    if (f) this.fileMap.set(series, f);
+    this.cdr.detectChanges();
+  }
+
+  uploadSeries(series: string): void {
+    const file = this.fileMap.get(series) ?? null;
+    if (!file) { this.uploadStatus.set(series, 'No file selected'); return; }
+    this.uploadStatus.set(series, 'Uploading...');
+    this.games.uploadSeriesCover(series, file).subscribe({
+      next: () => {
+        this.uploadStatus.set(series, 'Uploaded');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.uploadStatus.set(series, `Error: ${err.message}`);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  uploadAllMissing(): void {
+    for (const s of this.missingSeries) {
+      const file = this.fileMap.get(s);
+      if (file) this.uploadSeries(s);
+    }
+  }
+
+  getFileName(series: string): string {
+    const f = this.fileMap.get(series) ?? null;
+    return f ? f.name : 'No file chosen';
   }
 
   get isAdmin(): boolean {

@@ -62,7 +62,23 @@
 				</div>
 			}
 
-			@if (searchResults.length > 0) {
+			@if (searching) {
+			<div class="import-results">
+				@for (_ of [1,2,3,4]; track _) {
+					<div class="sk-search-result">
+						<div class="sk-sr-check"></div>
+						<div class="sk-sr-cover"></div>
+						<div class="sk-sr-info">
+							<div class="sk-sr-title"></div>
+							<div class="sk-sr-meta"></div>
+						</div>
+						<div class="sk-sr-btn"></div>
+					</div>
+				}
+			</div>
+		}
+
+		@if (searchResults.length > 0 && !searching) {
 				<div class="import-results-header">
 					<span class="irh-count">{{ searchResults.length }} results</span>
 					<div class="irh-actions">

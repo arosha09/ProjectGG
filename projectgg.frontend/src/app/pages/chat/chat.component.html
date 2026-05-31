@@ -25,7 +25,14 @@
 
         <div class="sidebar-scroll">
           @if (loading) {
-            <div class="sidebar-loading">Loading...</div>
+            <div class="sidebar-sk">
+              @for (_ of [1,2,3,4,5,6]; track _) {
+                <div class="sk-ch-row">
+                  <div class="sk-ch-icon"></div>
+                  <div class="sk-ch-text"></div>
+                </div>
+              }
+            </div>
           } @else {
             @for (group of channelGroups; track group.name) {
               @if (group.name) {
@@ -225,7 +232,14 @@
       <aside class="sidebar sidebar-members">
         <div class="sidebar-scroll">
           @if (membersLoading) {
-            <div class="sidebar-loading">Loading...</div>
+            <div class="sidebar-sk">
+              @for (_ of [1,2,3,4,5]; track _) {
+                <div class="sk-member-row">
+                  <div class="sk-member-avatar"></div>
+                  <div class="sk-member-name"></div>
+                </div>
+              }
+            </div>
           } @else {
             @if (onlineMembers.length > 0) {
               <div class="member-group-label">Online — {{ onlineMembers.length }}</div>
@@ -269,20 +283,7 @@
                 </div>
               }
             }
-            @if (offlineMembers.length > 0) {
-              <div class="member-group-label">Offline — {{ offlineMembers.length }}</div>
-              @for (m of offlineMembers; track m.id) {
-                <div class="member-item">
-                  <div class="member-avatar-wrapper">
-                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
-                    <span class="member-status-dot status-offline"></span>
-                  </div>
-                  <div class="member-info">
-                    <span class="member-name member-offline">{{ m.username }}</span>
-                  </div>
-                </div>
-              }
-            }
+            <!-- legacy 'offline' group removed; legacy offline values are treated as dnd -->
           }
         </div>
       </aside>

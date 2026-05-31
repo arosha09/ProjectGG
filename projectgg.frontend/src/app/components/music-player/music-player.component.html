@@ -202,9 +202,16 @@
 
         @if (playlistsTab === 'youtube') {
           @if (loadingYoutubePlaylists) {
-            <div class="cyber-playlists-loading">
-              <span class="cyber-search-spinner"></span>
-              <span>Loading YouTube playlists...</span>
+            <div class="cyber-playlists-sk">
+              @for (_ of [1,2,3]; track _) {
+                <div class="sk-pl-row">
+                  <div class="sk-pl-info">
+                    <div class="sk-pl-name"></div>
+                    <div class="sk-pl-count"></div>
+                  </div>
+                  <div class="sk-pl-btn"></div>
+                </div>
+              }
             </div>
           } @else if (youtubePlaylists.length > 0) {
             <div class="cyber-playlists-list">

@@ -374,6 +374,7 @@ textarea,
   --bg-card: #12121e;
   --bg-card-hover: #1a1a2e;
   --bg-darker: var(--bg-deep);
+  --bg-danger: #4d0909;
 
   /* Text */
   --text-primary: #e0e0ff;
@@ -421,24 +422,24 @@ html[data-theme='green'] {
   --glow-purple: 0 0 10px rgba(0, 255, 136, 0.3), 0 0 20px rgba(0, 255, 136, 0.1);
 }
 html[data-theme='red'] {
-  --color-primary: #ff5f6d;
+  --color-primary: #ff1744;
   --color-primary-r: 255;
-  --color-primary-g: 95;
-  --color-primary-b: 109;
-  --color-accent: #ff5f6d;
+  --color-primary-g: 23;
+  --color-primary-b: 68;
+  --color-accent: #ff1744;
   --color-accent-r: 255;
-  --color-accent-g: 95;
-  --color-accent-b: 109;
-  --accent-color: #ff5f6d;
+  --color-accent-g: 23;
+  --color-accent-b: 68;
+  --accent-color: #ff1744;
   --accent-color-r: 255;
-  --accent-color-g: 95;
-  --accent-color-b: 109;
-  --accent-glow: rgba(255, 95, 109, 0.18);
-  --border-color: rgba(255, 95, 109, 0.12);
-  --border-accent: rgba(255, 95, 109, 0.25);
-  --text-primary: #ffe0e0;
-  --glow-green: 0 0 10px rgba(255, 95, 109, 0.3), 0 0 20px rgba(255, 95, 109, 0.1);
-  --glow-purple: 0 0 10px rgba(255, 95, 109, 0.3), 0 0 20px rgba(255, 95, 109, 0.1);
+  --accent-color-g: 23;
+  --accent-color-b: 68;
+  --accent-glow: rgba(255, 23, 68, 0.18);
+  --border-color: rgba(255, 23, 68, 0.12);
+  --border-accent: rgba(255, 23, 68, 0.25);
+  --text-primary: #facbcb;
+  --glow-green: 0 0 10px rgba(255, 23, 68, 0.3), 0 0 20px rgba(255, 23, 68, 0.1);
+  --glow-purple: 0 0 10px rgba(255, 23, 68, 0.3), 0 0 20px rgba(255, 23, 68, 0.1);
 }
 html[data-theme='yellow'] {
   --color-primary: var(--neon-gold);
@@ -622,14 +623,14 @@ h6 {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+  text-shadow: 0 0 10px var(--accent-glow);
 }
 
 h1 {
   font-size: 3rem;
   text-shadow:
-    0 0 20px var(--neon-cyan),
-    0 0 40px rgba(0, 240, 255, 0.2);
+    0 0 20px var(--accent-color),
+    0 0 40px var(--accent-glow);
   margin-bottom: 1rem;
   animation: glow-pulse 3s ease-in-out infinite;
 }
@@ -782,8 +783,7 @@ input[type='date'],
 select,
 textarea {
   width: 100%;
-  background: rgba(13, 17, 26, 0.8) !important;
-  border: 1px solid rgba(0, 255, 204, 0.25) !important;
+  // background: rgba(13, 17, 26, 0.8) !important;
   color: #ffffff !important;
   font-family: 'Rajdhani', 'Share Tech Mono', sans-serif !important;
   font-size: 14px !important;
@@ -802,13 +802,9 @@ select::placeholder {
 
 /* 2. Form Field Focus States (Replaces default browser highlights) */
 input:focus,
-select:focus,
-textarea:focus {
+select:focus{
   outline: none !important;
   border-color: var(--neon-cyan) !important;
-  box-shadow:
-    0 0 12px rgba(0, 255, 204, 0.3),
-    inset 0 0 8px rgba(0, 255, 204, 0.1) !important;
 }
 
 /* 3. Dropdown Menu Customizations */
@@ -1014,12 +1010,12 @@ button[type='submit']:hover {
 @keyframes glow-pulse {
   0%,
   100% {
-    text-shadow: var(--glow-cyan);
+    text-shadow: 0 0 10px var(--accent-glow);
   }
   50% {
     text-shadow:
-      0 0 30px rgba(0, 240, 255, 0.8),
-      0 0 60px rgba(0, 240, 255, 0.5);
+      0 0 30px var(--accent-color),
+      0 0 60px var(--accent-glow);
   }
 }
 

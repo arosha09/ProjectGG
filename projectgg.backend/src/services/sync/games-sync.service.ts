@@ -447,6 +447,66 @@ export class GamesSyncService {
     console.log(`[DEBUG] persistSync RPC call successful for ${code}`);
   }
 
+  async getMissingSeries(): Promise<string[]> {
+    try {
+      const { data, error } = await this.supabase
+        .schema('projectgg')
+        .from('games_master')
+        .select('series_name')
+        .not('series_name', 'is', null)
+        .eq('is_series', true)
+        .limit(1000);
+      if (error) throw error;
+      const names = Array.from(new Set((data ?? []).map((r: any) => r.series_name).filter(Boolean)));
+
+      const missing: string[] = [];
+      const exts = ['.png', '.jpg', '.jpeg', '.webp'];
+      await Promise.all(names.map(async (name: string) => {
+        let found = false;
+        for (const encoded of [encodeURIComponent(name), name]) {
+          for (const ext of exts) {
+            const filePath = `series/${encoded}${ext}`;
+            try {
+              const { data: urlData, error: urlErr } = await this.supabase.storage.from('game_image').createSignedUrl(filePath, 60);
+              if (!urlErr && urlData?.signedUrl) {
+                found = true;
+                break;
+              }
+            } catch (e) { }
+          }
+          if (found) break;
+        }
+        if (!found) missing.push(name);
+      }));
+
+      return missing.sort();
+    } catch (err) {
+      console.error('[sync] getMissingSeries failed:', err);
+      return [];
+    }
+  }
+
+  async uploadSeriesCover(name: string, buffer: Buffer, contentType: string, originalName?: string): Promise<void> {
+    const exts = ['.png', '.jpg', '.jpeg', '.webp'];
+    let ext = '';
+    if (originalName) {
+      const m = originalName.match(/(\.[a-z0-9]+)$/i);
+      if (m) ext = m[1].toLowerCase();
+    }
+    if (!ext) {
+      if (contentType === 'image/png') ext = '.png';
+      else if (contentType === 'image/webp') ext = '.webp';
+      else ext = '.jpg';
+    }
+
+    const filePath = `series/${encodeURIComponent(name)}${ext}`;
+    const { error } = await this.supabase.storage.from('game_image').upload(filePath, buffer, { contentType, upsert: true });
+    if (error) {
+      console.error('[sync] uploadSeriesCover failed:', error);
+      throw error;
+    }
+  }
+
   private async steamRating(appId: number): Promise<number | null> {
     try {
       const url = `https://store.steampowered.com/appreviews/${appId}?json=1&filter=summary&language=all`;

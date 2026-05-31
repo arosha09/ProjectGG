@@ -57,11 +57,13 @@
           <div class="hero-avatar-row">
             <div class="hero-avatar-frame" (click)="openAvatarModal()">
               <div class="hero-avatar-wrap">
+                <div class="hero-av-sk"></div>
                 @if (avatarDisplay) {
                   <img
                     class="hero-avatar-img"
                     [src]="avatarDisplay"
-                    (error)="onAvatarError($event)"
+                    (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')"
+                    (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')"
                     alt="Avatar"
                   />
                 }
@@ -87,6 +89,10 @@
           (claim)="onClaimDaily()"
         />
       </mat-card>
+
+      <div style="margin:8px 0;">
+        <button class="cyber-btn" type="button" (click)="debugMode = !debugMode">{{ debugMode ? 'Hide' : 'Show' }} debug JSON</button>
+      </div>
 
       <div class="profile-grid">
         <mat-card class="info-card">
@@ -180,7 +186,8 @@
                     </span>
                   }
                   @if (game.cover_url) {
-                    <img [src]="game.cover_url" alt="{{ game.name }}" class="collection-cover" />
+                    <div class="collection-cover-sk"></div>
+                    <img [src]="game.cover_url" alt="{{ game.name }}" class="collection-cover" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" (error)="$event.target.previousElementSibling?.classList?.add('sk-err')" />
                   } @else {
                     <div class="collection-cover-fallback">
                       <mat-icon>videogame_asset</mat-icon>
@@ -241,22 +248,59 @@
               </div>
               <div class="modal-avatars-grid">
                 @for (av of activeSystemAvatars; track av.url) {
-                  <img
-                    class="system-avatar-opt"
-                    style="cursor: pointer"
-                    [src]="av.url"
-                    [class.selected]="currentUser?.avatar === av.url"
-                    (click)="onSelectSystemAvatar(av.path)"
-                    [title]="av.filename"
-                    alt="System avatar"
-                    loading="lazy"
-                  />
+                  <div class="sys-av-wrap">
+                    <div class="sys-av-sk"></div>
+                    <img
+                      class="system-avatar-opt"
+                      style="cursor: pointer"
+                      [src]="av.url"
+                      [class.selected]="currentUser?.avatar === av.url"
+                      (click)="onSelectSystemAvatar(av.path)"
+                      [title]="av.filename"
+                      alt="System avatar"
+                      (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')"
+                      (error)="$event.target.previousElementSibling?.classList?.add('sk-err')"
+                    />
+                  </div>
                 }
               </div>
             </div>
           }
         </div>
       </div>
+
+      <!-- CARD SHOWCASE -->
+      @if (showcaseCards.length > 0) {
+        <mat-card class="info-card showcase-card">
+          <div class="info-head">
+            <mat-icon>style</mat-icon>
+            <h3>Card Showcase</h3>
+          </div>
+          <div class="showcase-grid">
+            @for (card of showcaseCards; track card.game_code) {
+              <div class="showcase-item" [style.border-color]="tierColor(card.card_tier)">
+                <div class="showcase-item-sk"></div>
+                <img [src]="card.cover_url || 'assets/default-avatar.png'" alt="" class="showcase-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+                <div class="showcase-bar" [style.background]="tierColor(card.card_tier)"></div>
+              </div>
+            }
+          </div>
+          <div class="showcase-footer">
+            <span class="showcase-count">{{ collectionStats?.total_cards ?? 0 }} total cards</span>
+            <a class="showcase-link" routerLink="/tasks">View All</a>
+          </div>
+        </mat-card>
+      }
+    }
+
+    <!-- Debug JSON panel -->
+    @if (debugMode) {
+      <mat-card class="info-card debug-card">
+        <div class="info-head"><mat-icon>bug_report</mat-icon><h3>Debug JSON</h3></div>
+        <div class="info-body">
+          <pre class="debug-json">{{ debugData | json }}</pre>
+        </div>
+      </mat-card>
     }
   </main>
 </section>

@@ -21,7 +21,7 @@ export class XpRepository {
     if (!rankCode) return '';
     const { data, error } = await this.supabase.storage
       .from('system_files')
-      .createSignedUrl(`ranks/${rankCode}.png`, 60 * 60);
+      .createSignedUrl(`ranks/${rankCode}.png`, 315360000);
     if (error || !data?.signedUrl) return '';
     return data.signedUrl;
   }

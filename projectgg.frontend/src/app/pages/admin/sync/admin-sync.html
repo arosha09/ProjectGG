@@ -82,6 +82,39 @@
         </div>
       </div>
 
+      <div class="sync-missing-series">
+        <h3>Missing Series Covers</h3>
+        <div class="ms-actions">
+          <button class="sync-btn sync-btn-secondary" (click)="loadMissingSeries()">Load Missing Series</button>
+          <button class="sync-btn sync-btn-primary" (click)="uploadAllMissing()" [disabled]="missingSeries.length === 0">Upload All Selected</button>
+        </div>
+        @if (missingSeries.length === 0) {
+          <p class="ms-empty">No missing series loaded.</p>
+        } @else {
+          <div class="ms-list">
+            @for (s of missingSeries; track s) {
+              <div class="ms-item">
+                <div class="ms-left">
+                  <div class="ms-name">{{ s }}</div>
+                  <div class="ms-file-wrap">
+                    <input type="file" #fileInput (change)="onSeriesFileChange(s, $event)" accept="image/*" hidden />
+                    <button mat-button type="button" class="ms-choose-btn" (click)="fileInput.click()">
+                      <mat-icon class="ms-attach">attach_file</mat-icon>
+                      <span class="ms-choose-label">Choose file</span>
+                    </button>
+                    <span class="ms-filename">{{ getFileName(s) }}</span>
+                  </div>
+                </div>
+                <div class="ms-actions-right">
+                  <button class="sync-btn sync-btn-tertiary ms-upload-btn" (click)="uploadSeries(s)">Upload</button>
+                  <div class="ms-status">{{ uploadStatus.get(s) }}</div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
       @if (syncing || completed > 0) {
         <div class="sync-progress-section">
           <div class="sync-progress-header">
@@ -100,6 +133,27 @@
               <span>CURRENT: {{ current }}</span>
             </div>
           }
+        </div>
+      }
+
+      @if (scanning && !showQueue) {
+        <div class="sync-queue-list">
+          <div class="sq-header"><h3>SCANNING...</h3></div>
+          <div class="sq-items">
+            @for (_ of [1,2,3,4,5,6]; track _) {
+              <div class="sq-item sk-sync-row">
+                <div class="sq-item-row">
+                  <div class="sk-sync-check"></div>
+                  <div class="sk-sync-code"></div>
+                  <div class="sk-sync-name"></div>
+                  <div class="sk-sync-tags">
+                    <div class="sk-sync-tag"></div>
+                    <div class="sk-sync-tag"></div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
         </div>
       }
 

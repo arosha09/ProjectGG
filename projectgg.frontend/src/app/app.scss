@@ -1,0 +1,13 @@
+
+.app-status-message-wrap {
+	position: fixed;
+	top: 56px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 1200;
+	pointer-events: none;
+}
+
+.app-status-message-wrap app-status-message {
+	pointer-events: auto;
+}

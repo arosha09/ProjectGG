@@ -525,7 +525,7 @@
         &.active { border-color: var(--neon-gold); background: rgba(255, 215, 0, 0.1); color: var(--neon-gold); box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); }
       }
 
-      &.status-offline {
+      &.status-dnd {
         .status-dot { background: var(--neon-red); color: var(--neon-red); }
         &.active { border-color: var(--neon-red); background: rgba(255, 23, 68, 0.1); color: var(--neon-red); box-shadow: 0 0 15px rgba(255, 23, 68, 0.2); }
       }
@@ -1203,4 +1203,50 @@
   .status-buttons {
     grid-template-columns: repeat(2, 1fr) !important;
   }
+}
+
+/* ===== SKELETON ===== */
+.sk-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sk-label {
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(255,255,255,.06);
+}
+
+.sk-input {
+  height: 38px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+.sk-btn {
+  height: 40px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+  animation: skPulse 1.5s ease-in-out infinite;
+  margin-top: 8px;
+}
+
+.w-20 { width: 20%; }
+.w-25 { width: 25%; }
+.w-30 { width: 30%; }
+.w-40 { width: 40%; }
+
+@keyframes skPulse {
+  0%, 100% { opacity: .5; }
+  50% { opacity: 1; }
 }

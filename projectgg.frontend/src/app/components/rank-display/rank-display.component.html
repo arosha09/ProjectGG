@@ -1,12 +1,25 @@
 @if (userRank(); as rank) {
-  <mat-card class="rank-card" [class.rank-compact]="compact()">
+  <mat-card
+    class="rank-card"
+    [class.rank-compact]="compact()"
+    [style.--rank-glow]="glowColor"
+    [style.--rank-glow-intense]="glowColorIntense"
+    [style.--rank-accent]="accentHex"
+  >
     <div class="rank-inner">
       <div class="rank-visual">
+        <canvas #particleCanvas class="particle-canvas"></canvas>
+        <div class="rank-glow-ring"></div>
+        @if (!imageLoaded()) {
+          <div class="rank-image-sk"></div>
+        }
         <img
+          #rankImg
           class="rank-image"
           [src]="rankImageUrl"
           [alt]="rank.rank_name"
-          (error)="$event.target['style'].display = 'none'"
+          (load)="onImageLoad()"
+          (error)="$event.target.style.display='none'; $event.target.previousElementSibling?.classList?.add('sk-err')"
         />
       </div>
       <div class="rank-info">

@@ -266,7 +266,7 @@
   width: 13px;
   height: 13px;
   margin-left: auto;
-  color: var(--neon-pink);
+  color: var(--neon-red);
   opacity: 0.5;
   flex-shrink: 0;
 }
@@ -592,7 +592,7 @@
     height: 18px;
     flex-shrink: 0;
     opacity: 0.4;
-    color: var(--neon-pink);
+    color: var(--neon-red);
   }
 
   strong { color: var(--text-secondary); }
@@ -677,7 +677,7 @@
   padding: 2px;
   transition: color 0.15s ease;
 
-  &:hover { color: var(--neon-pink); }
+  &:hover { color: var(--neon-red); }
 }
 
 /* ===== TOOLBAR ===== */
@@ -944,8 +944,8 @@
 
 .status-online  { background: var(--neon-green);  box-shadow: 0 0 4px rgba(0, 255, 136, 0.4); }
 .status-idle    { background: var(--neon-gold);    box-shadow: 0 0 4px rgba(255, 215, 0, 0.4); }
-.status-dnd     { background: var(--neon-pink);    box-shadow: 0 0 4px rgba(255, 45, 149, 0.4); }
-.status-offline { background: rgba(255, 255, 255, 0.15); }
+.status-dnd     { background: var(--neon-red);    box-shadow: 0 0 4px rgba(255, 23, 68, 0.4); }
+/* removed separate offline styling; legacy offline users are shown with dnd styling */
 
 .member-info { flex: 1; overflow: hidden; }
 
@@ -959,7 +959,7 @@
   letter-spacing: 0.3px;
 }
 
-.member-offline {
+.member-dnd {
   color: var(--text-muted) !important;
   opacity: 0.6;
 }
@@ -987,7 +987,7 @@
 }
 
 /* ===== GLITCH TEXT ===== */
-h2.glitch::before { color: var(--neon-pink);  }
+h2.glitch::before { color: var(--neon-red);  }
 h2.glitch::after  { color: var(--color-primary); }
 
 /* ===== ANIMATIONS ===== */
@@ -1073,4 +1073,65 @@ h2.glitch::after  { color: var(--color-primary); }
   .msg-avatar-col { display: none; }
   .msg-head { flex-wrap: wrap; gap: 4px; }
   .chat-textarea { font-size: 13px; }
+}
+
+/* ===== SKELETON ===== */
+.sidebar-sk {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+}
+
+.sk-ch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+}
+
+.sk-ch-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: rgba(255,255,255,.06);
+  flex-shrink: 0;
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+.sk-ch-text {
+  height: 10px;
+  width: 60%;
+  border-radius: 2px;
+  background: rgba(255,255,255,.06);
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+.sk-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px;
+}
+
+.sk-member-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.06);
+  flex-shrink: 0;
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+.sk-member-name {
+  height: 10px;
+  width: 50%;
+  border-radius: 2px;
+  background: rgba(255,255,255,.06);
+  animation: skPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skPulse {
+  0%, 100% { opacity: .5; }
+  50% { opacity: 1; }
 }

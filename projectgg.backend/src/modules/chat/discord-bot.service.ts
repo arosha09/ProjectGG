@@ -159,7 +159,7 @@ export class DiscordBotService implements OnModuleInit {
       const presenceMap = new Map<string, string>();
       if (guild.presences?.cache) {
         for (const [, p] of guild.presences.cache) {
-          presenceMap.set(p.userId, p.status ?? 'offline');
+          presenceMap.set(p.userId, p.status ?? 'dnd');
         }
       }
 
@@ -173,7 +173,7 @@ export class DiscordBotService implements OnModuleInit {
           roles: m.roles.cache
             .filter((r: any) => r.id !== guild.id)
             .map((r: any) => ({ id: r.id, name: r.name, color: r.color })),
-          status: presenceMap.get(m.id) ?? (m.presence?.status ?? 'offline'),
+          status: presenceMap.get(m.id) ?? (m.presence?.status ?? 'dnd'),
           isBot: m.user?.bot ?? false,
         }));
 

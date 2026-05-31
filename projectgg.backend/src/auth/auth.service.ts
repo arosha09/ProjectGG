@@ -86,6 +86,15 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Invalid credentials');
     const match = await bcrypt.compare(dto.password, user.password_hash || '');
     if (!match) throw new UnauthorizedException('Invalid credentials');
+
+    const statusToRestore = user.sys_status ?? user.status ?? 'online';
+    const updatedUser = await this.repo.updateUser(user.id, {
+      status: statusToRestore,
+      sys_status: user.sys_status ?? statusToRestore,
+    });
+    user.status = updatedUser?.status ?? statusToRestore;
+    user.sys_status = updatedUser?.sys_status ?? (user.sys_status ?? statusToRestore);
+    
     delete user.password_hash;
     const token = this.createToken(user);
     const refresh_token = this.createRefreshToken(user);

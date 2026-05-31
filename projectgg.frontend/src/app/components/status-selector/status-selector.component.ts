@@ -1,7 +1,7 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type StatusOption = 'online' | 'away' | 'offline' | 'invisible';
+export type StatusOption = 'online' | 'away' | 'dnd' | 'invisible';
 
 @Component({
   selector: 'app-status-selector',
@@ -19,7 +19,7 @@ export class StatusSelectorComponent {
   readonly statuses: { key: StatusOption; color: string }[] = [
     { key: 'online', color: '#00ff99' },
     { key: 'away', color: '#ffd24d' },
-    { key: 'offline', color: '#d80606' },
+    { key: 'dnd', color: '#d80606' },
     { key: 'invisible', color: '#6c6870' },
   ];
 

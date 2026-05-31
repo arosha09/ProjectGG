@@ -34,7 +34,7 @@ export class CyberDropdownComponent {
   statusOptions = [
     { id: 'online', label: 'Online', color: '#00ff88' },
     { id: 'away', label: 'Away', color: '#ffd700' },
-    { id: 'offline', label: 'Offline', color: '#ff5f6d' },
+    { id: 'dnd', label: 'Do Not Disturb', color: '#ff5f6d' },
     { id: 'invisible', label: 'Invisible', color: '#888888' },
   ];
 

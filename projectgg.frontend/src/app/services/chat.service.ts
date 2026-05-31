@@ -49,6 +49,7 @@ export interface GgServerMember {
   joined_at: string;
   username?: string;
   avatar_url?: string;
+  status?: string;
 }
 
 export interface DmConversation {
@@ -59,9 +60,12 @@ export interface DmConversation {
   otherUserId: string;
   otherUsername: string;
   otherAvatar: string | null;
+  otherStatus?: string;
   lastMessage: string | null;
   lastMessageAt: string | null;
 }
+
+  // ===== FRIEND / MEMBER DETAILS =====
 
 export interface FriendUser {
   id: number;
@@ -69,6 +73,9 @@ export interface FriendUser {
   other_username: string;
   other_avatar: string | null;
   status: string;
+  gender?: string | null;
+  other_name?: string | null;
+  blocked?: boolean;
 }
 
 export interface FriendsData {
@@ -86,6 +93,32 @@ export interface AppNotification {
   data: any;
   read: boolean;
   created_at: string;
+}
+
+export interface DrawCard {
+  game_code: string;
+  game_name: string;
+  cover_url: string;
+  rating: number;
+  card_tier: string;
+  series_name: string;
+  desc?: string | null;
+  release_year?: number | null;
+  source?: string | null;
+}
+
+export interface DrawResult {
+  game_code: string;
+  game_name: string;
+  cover_url: string;
+  rating: number;
+  card_tier: string;
+  series_name: string;
+  desc?: string | null;
+  release_year?: number | null;
+  source?: string | null;
+  is_new: boolean;
+  xp_awarded: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -183,6 +216,14 @@ export class ChatService {
     return this.http.post<ChatMessage>(`${this.apiUrl}/gg/send`, body);
   }
 
+  editGgMessage(messageId: number, content: string): Observable<ChatMessage> {
+    return this.http.patch<ChatMessage>(`${this.apiUrl}/gg/messages/${messageId}`, { content });
+  }
+
+  deleteGgMessage(messageId: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/gg/messages/${messageId}`);
+  }
+
   uploadFile(file: File): Observable<{ url: string }> {
     const fd = new FormData();
     fd.append('file', file);
@@ -202,6 +243,24 @@ export class ChatService {
 
   kickMember(serverId: number, memberId: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/gg/servers/${serverId}/members/${memberId}/kick`, {});
+  }
+
+  getServerRoles(serverId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/gg/servers/${serverId}/roles`);
+  }
+
+  createServerRole(serverId: number, name: string, color?: string, permissions?: string[]): Observable<any> {
+    return this.http.post(`${this.apiUrl}/gg/servers/${serverId}/roles`, { name, color, permissions });
+  }
+
+  deleteServerRole(serverId: number, roleName: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/gg/servers/${serverId}/roles/${roleName}`);
+  }
+
+  emitStatus(status: string): void {
+    if (this.socket) {
+      this.socket.emit('status-change', { status });
+    }
   }
 
   // ===== SERVER SETTINGS =====
@@ -276,6 +335,24 @@ export class ChatService {
     return this.http.post<ChatMessage>(`${this.apiUrl}/gg/dm/send`, body);
   }
 
+  deleteDmConversation(conversationId: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/gg/dm/conversations/${conversationId}`);
+  }
+
+  // ===== BLOCKING =====
+
+  blockUser(userId: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/gg/users/block/${userId}`, {});
+  }
+
+  unblockUser(userId: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/gg/users/unblock/${userId}`, {});
+  }
+
+  getBlockedUsers(): Observable<FriendUser[]> {
+    return this.http.get<FriendUser[]>(`${this.apiUrl}/gg/users/blocked`);
+  }
+
   // ===== NOTIFICATIONS =====
 
   getNotifications(): Observable<AppNotification[]> {
@@ -288,5 +365,88 @@ export class ChatService {
 
   markAllNotificationsRead(): Observable<any> {
     return this.http.patch(`${this.apiUrl}/gg/notifications/read-all`, {});
+  }
+
+  // ===== CARD COLLECTION =====
+
+  getDailyDrawCards(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/draw/daily`);
+  }
+
+  claimDailyDraw(): Observable<DrawResult> {
+    return this.http.post<DrawResult>(`${this.apiUrl}/cards/draw/daily/claim`, {});
+  }
+
+  drawWithTicket(ticketId: number): Observable<DrawResult> {
+    return this.http.post<DrawResult>(`${this.apiUrl}/cards/draw/ticket/${ticketId}`, {});
+  }
+
+  getDrawTickets(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/tickets`);
+  }
+
+  getCardCollection(page = 1, pageSize = 24, tier?: string, search?: string): Observable<any[]> {
+    let url = `${this.apiUrl}/cards/collection?page=${page}&page_size=${pageSize}`;
+    if (tier) url += `&tier=${tier}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    return this.http.get<any[]>(url);
+  }
+
+  getCollectionStats(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/cards/collection/stats`);
+  }
+
+  toggleCardFavorite(gameCode: string): Observable<boolean> {
+    return this.http.patch<boolean>(`${this.apiUrl}/cards/collection/${gameCode}/favorite`, {});
+  }
+
+  getUserShowcase(userId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/showcase/${userId}`);
+  }
+
+  createCardTrade(proposerCardId: number, receiverId: string, receiverCardId: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/cards/trade`, { proposerCardId, receiverId, receiverCardId });
+  }
+
+  getCardTrades(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/trades`);
+  }
+
+  acceptCardTrade(tradeId: number): Observable<any> {
+    return this.http.patch<any>(`${this.apiUrl}/cards/trade/${tradeId}/accept`, {});
+  }
+
+  rejectCardTrade(tradeId: number): Observable<any> {
+    return this.http.patch<any>(`${this.apiUrl}/cards/trade/${tradeId}/reject`, {});
+  }
+
+  cancelCardTrade(tradeId: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/cards/trade/${tradeId}`);
+  }
+
+  getCardTaskProgress(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/tasks/progress`);
+  }
+
+  trackCardTask(taskType: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/cards/tasks/track/${taskType}`, {});
+  }
+
+  addMessageReaction(messageId: number, messageSource: string, emoji: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/cards/reactions`, { messageId, messageSource, emoji });
+  }
+
+  removeMessageReaction(messageId: number, messageSource: string, emoji: string): Observable<any> {
+    return this.http.request<any>('DELETE', `${this.apiUrl}/cards/reactions`, {
+      body: { messageId, messageSource, emoji },
+    });
+  }
+
+  getMessageReactions(messageIds: number[], messageSource: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/reactions/${messageSource}?ids=${messageIds.join(',')}`);
+  }
+
+  getCardLeaderboard(limit = 50): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/leaderboard?limit=${limit}`);
   }
 }

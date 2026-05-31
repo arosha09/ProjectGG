@@ -9,19 +9,24 @@ export class VoiceService implements OnDestroy {
   private socket: Socket | null = null;
   private audioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
-  private audioPlayer: AudioWorkletNode | ScriptProcessorNode | null = null;
   private gainNode: GainNode | null = null;
   private destination: MediaStreamAudioDestinationNode | null = null;
+  private analyser: AnalyserNode | null = null;
+  private speakCheckInterval: ReturnType<typeof setInterval> | null = null;
   private isConnected = false;
   private currentChannel: { guildId: string; channelId: string } | null = null;
 
-  // Callbacks
-  onMemberJoined: ((userId: string) => void) | null = null;
-  onMemberLeft: ((userId: string) => void) | null = null;
-  onExistingMembers: ((userIds: string[]) => void) | null = null;
+  onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
+  onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
+  onExistingMembers: ((members: { userId: string; muted: boolean; deafened: boolean }[]) => void) | null = null;
   onAudioFrame: ((userId: string, audio: ArrayBuffer) => void) | null = null;
   onUserMuted: ((userId: string) => void) | null = null;
   onUserUnmuted: ((userId: string) => void) | null = null;
+  onUserDeafened: ((userId: string) => void) | null = null;
+  onUserUndeafened: ((userId: string) => void) | null = null;
+  onUserSpeaking: ((userId: string) => void) | null = null;
+  onUserStoppedSpeaking: ((userId: string) => void) | null = null;
+  onAllVoiceState: ((channels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[]) => void) | null = null;
 
   constructor(
     private readonly auth: AuthService,
@@ -59,7 +64,7 @@ export class VoiceService implements OnDestroy {
 
           const micOk = await this.setupAudio().then(() => true).catch(() => false);
           if (!micOk) {
-            this.notification.triggerThemeAlert('Microphone access is required for voice chat. Please allow mic permissions.');
+            this.notification.triggerStatusMessage('Microphone access is required for voice chat. Please allow mic permissions.');
           }
 
           this.isConnected = true;
@@ -82,34 +87,61 @@ export class VoiceService implements OnDestroy {
   private async setupAudio(): Promise<void> {
     this.audioContext = new AudioContext();
 
-    // Request mic
     this.mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true },
     });
 
-    // Create gain node for local monitoring
     this.gainNode = this.audioContext.createGain();
     this.gainNode.gain.value = 0;
 
-    // Create destination for capturing mic
     this.destination = this.audioContext.createMediaStreamDestination();
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
     source.connect(this.destination);
+
+    this.analyser = this.audioContext.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.analyser.smoothingTimeConstant = 0.5;
+    source.connect(this.analyser);
+
+    this.startSpeakingDetection();
+  }
+
+  private startSpeakingDetection(): void {
+    if (!this.analyser) return;
+    const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+    let wasSpeaking = false;
+    const threshold = 15;
+
+    this.speakCheckInterval = setInterval(() => {
+      if (!this.analyser || !this.socket || !this.isConnected) return;
+      this.analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+      const avg = sum / dataArray.length;
+      const isSpeaking = avg > threshold;
+
+      if (isSpeaking && !wasSpeaking) {
+        this.socket.emit('speaking');
+      } else if (!isSpeaking && wasSpeaking) {
+        this.socket.emit('stopped-speaking');
+      }
+      wasSpeaking = isSpeaking;
+    }, 150);
   }
 
   private setupListeners(): void {
     if (!this.socket) return;
 
-    this.socket.on('member-joined', (data: { userId: string }) => {
-      this.onMemberJoined?.(data.userId);
+    this.socket.on('member-joined', (data: { userId: string; channelId: string; muted: boolean; deafened: boolean }) => {
+      this.onMemberJoined?.(data.userId, data.channelId, data.muted, data.deafened);
     });
 
-    this.socket.on('member-left', (data: { userId: string }) => {
-      this.onMemberLeft?.(data.userId);
+    this.socket.on('member-left', (data: { userId: string; channelId: string }) => {
+      this.onMemberLeft?.(data.userId, data.channelId);
     });
 
-    this.socket.on('existing-members', (data: { members: { userId: string }[] }) => {
-      this.onExistingMembers?.(data.members.map(m => m.userId));
+    this.socket.on('existing-members', (data: { members: { userId: string; muted: boolean; deafened: boolean }[] }) => {
+      this.onExistingMembers?.(data.members);
     });
 
     this.socket.on('audio-frame', (data: { userId: string; audio: ArrayBuffer }) => {
@@ -124,6 +156,26 @@ export class VoiceService implements OnDestroy {
     this.socket.on('user-unmuted', (data: { userId: string }) => {
       this.onUserUnmuted?.(data.userId);
     });
+
+    this.socket.on('user-deafened', (data: { userId: string }) => {
+      this.onUserDeafened?.(data.userId);
+    });
+
+    this.socket.on('user-undeafened', (data: { userId: string }) => {
+      this.onUserUndeafened?.(data.userId);
+    });
+
+    this.socket.on('user-speaking', (data: { userId: string }) => {
+      this.onUserSpeaking?.(data.userId);
+    });
+
+    this.socket.on('user-stopped-speaking', (data: { userId: string }) => {
+      this.onUserStoppedSpeaking?.(data.userId);
+    });
+
+    this.socket.on('all-voice-state', (data: { channels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[] }) => {
+      this.onAllVoiceState?.(data.channels);
+    });
   }
 
   private playAudioFrame(audioData: ArrayBuffer): void {
@@ -137,13 +189,21 @@ export class VoiceService implements OnDestroy {
   }
 
   async leaveChannel(): Promise<void> {
+    if (this.speakCheckInterval) {
+      clearInterval(this.speakCheckInterval);
+      this.speakCheckInterval = null;
+    }
+    if (this.analyser) {
+      this.analyser.disconnect();
+      this.analyser = null;
+    }
+
     if (this.socket) {
       this.socket.emit('leave-channel');
       this.socket.disconnect();
       this.socket = null;
     }
 
-    // Cleanup audio
     this.mediaStream?.getTracks().forEach(t => t.stop());
     this.mediaStream = null;
 
@@ -168,6 +228,15 @@ export class VoiceService implements OnDestroy {
       this.mediaStream.getAudioTracks().forEach(t => (t.enabled = true));
     }
     this.socket?.emit('unmute');
+  }
+
+  deafen(): void {
+    this.mute();
+    this.socket?.emit('deafen');
+  }
+
+  undeafen(): void {
+    this.socket?.emit('undeafen');
   }
 
   ngOnDestroy(): void {
