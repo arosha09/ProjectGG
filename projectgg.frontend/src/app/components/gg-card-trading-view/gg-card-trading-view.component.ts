@@ -8,11 +8,12 @@ import { ChatService, FriendUser } from '../../services/chat.service';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth.service';
 
-type TradeTab = 'incoming' | 'outgoing' | 'completed' | 'propose' | 'gift';
+type TradeTab = 'incoming' | 'outgoing' | 'completed' | 'propose' | 'gift' | 'gifts';
 
 interface Trade {
   trade_id: number;
   trade_status: string;
+  type: string;
   proposer_id: string;
   proposer_name: string;
   proposer_avatar: string | null;
@@ -51,6 +52,7 @@ interface UserCard {
 export class GgCardTradingViewComponent implements OnInit {
   @Input() currentUserId = '';
   @Input() friends: FriendUser[] = [];
+  @Input() filterUserId = '';
   @Output() accepted = new EventEmitter<number>();
   @Output() rejected = new EventEmitter<number>();
   @Output() cancelled = new EventEmitter<number>();
@@ -96,7 +98,7 @@ export class GgCardTradingViewComponent implements OnInit {
   loadTrades(): void {
     this.loading = true;
     this.error = null;
-    this.chat.getCardTrades().subscribe({
+    this.chat.getCardTrades(this.filterUserId || undefined).subscribe({
       next: (trades) => {
         this.trades = trades || [];
         this.loading = false;
@@ -112,15 +114,27 @@ export class GgCardTradingViewComponent implements OnInit {
   }
 
   get incomingTrades(): Trade[] {
-    return this.trades.filter(t => t.trade_status === 'pending' && t.receiver_id === this.currentUserId);
+    return this.trades.filter(t => t.trade_status === 'pending' && t.receiver_id === this.currentUserId && (t.type || 'trade') === 'trade');
   }
 
   get outgoingTrades(): Trade[] {
-    return this.trades.filter(t => t.trade_status === 'pending' && t.proposer_id === this.currentUserId);
+    return this.trades.filter(t => t.trade_status === 'pending' && t.proposer_id === this.currentUserId && (t.type || 'trade') === 'trade');
   }
 
   get completedTrades(): Trade[] {
-    return this.trades.filter(t => t.trade_status === 'accepted' || t.trade_status === 'rejected' || t.trade_status === 'cancelled');
+    return this.trades.filter(t => (t.trade_status === 'accepted' || t.trade_status === 'rejected' || t.trade_status === 'cancelled') && (t.type || 'trade') === 'trade');
+  }
+
+  get giftHistory(): Trade[] {
+    return this.trades.filter(t => t.type === 'gift' && (t.proposer_id === this.currentUserId || t.receiver_id === this.currentUserId));
+  }
+
+  get sentGifts(): Trade[] {
+    return this.giftHistory.filter(t => t.proposer_id === this.currentUserId);
+  }
+
+  get receivedGifts(): Trade[] {
+    return this.giftHistory.filter(t => t.receiver_id === this.currentUserId);
   }
 
   get incomingCount(): number {

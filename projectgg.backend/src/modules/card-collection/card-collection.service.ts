@@ -109,8 +109,8 @@ export class CardCollectionService {
     return { success: true };
   }
 
-  async getTrades(userId: string) {
-    return this.repo.getUserTrades(userId);
+  async getTrades(userId: string, otherUserId?: string) {
+    return this.repo.getUserTrades(userId, otherUserId);
   }
 
   async checkTradeFairness(proposerCardId: number, receiverCardId: number): Promise<{ isFair: boolean; tierDiff: number; proposerTier: string; receiverTier: string }> {

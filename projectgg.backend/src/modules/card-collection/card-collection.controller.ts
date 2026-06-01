@@ -124,8 +124,8 @@ export class CardCollectionController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('trades')
-  async getTrades(@Req() req: any) {
-    return this.cardService.getTrades(req.user.id);
+  async getTrades(@Req() req: any, @Query('otherUserId') otherUserId?: string) {
+    return this.cardService.getTrades(req.user.id, otherUserId);
   }
 
   @UseGuards(JwtAuthGuard)

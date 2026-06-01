@@ -416,8 +416,10 @@ export class ChatService {
     return this.http.post<any>(`${this.apiUrl}/cards/gift`, { gifterCardId, receiverId });
   }
 
-  getCardTrades(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/cards/trades`);
+  getCardTrades(otherUserId?: string): Observable<any[]> {
+    const params: any = {};
+    if (otherUserId) params.otherUserId = otherUserId;
+    return this.http.get<any[]>(`${this.apiUrl}/cards/trades`, { params });
   }
 
   acceptCardTrade(tradeId: number): Observable<any> {

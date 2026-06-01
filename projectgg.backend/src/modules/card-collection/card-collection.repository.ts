@@ -191,7 +191,7 @@ export class CardCollectionRepository {
     const { data: games, error: gamesErr } = await this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('code, name, cover_url, rating, desc, genres, platforms, series_name, release_year')
+      .select('code, name, cover_url, rating, desc, genres, platforms, series_name')
       .in('code', gameCodes);
     if (gamesErr) throw new InternalServerErrorException(`getUserCollection games: ${gamesErr.message}`);
     const gameMap = new Map<string, any>((games || []).map((g: any) => [g.code, g]));
@@ -260,7 +260,7 @@ export class CardCollectionRepository {
     const { data: games, error: gamesErr } = await this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('code, name, cover_url, rating, desc, genres, platforms, series_name, release_year')
+      .select('code, name, cover_url, rating, desc, genres, platforms, series_name')
       .in('code', gameCodes);
     if (gamesErr) throw new InternalServerErrorException(`getUserShowcase games: ${gamesErr.message}`);
     const gameMap = new Map<string, any>((games || []).map((g: any) => [g.code, g]));
@@ -293,7 +293,7 @@ export class CardCollectionRepository {
     const { data: proposerCard, error: proposerErr } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
-      .select('id, user_id')
+      .select('id, user_id, game_code')
       .eq('id', proposerCardId)
       .single();
     if (proposerErr || !proposerCard) throw new InternalServerErrorException('Proposer card not found');
@@ -303,11 +303,30 @@ export class CardCollectionRepository {
     const { data: receiverCard, error: receiverErr } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
-      .select('id, user_id')
+      .select('id, user_id, game_code')
       .eq('id', receiverCardId)
       .single();
     if (receiverErr || !receiverCard) throw new InternalServerErrorException('Receiver card not found');
     if (receiverCard.user_id !== receiverId) throw new InternalServerErrorException('Receiver does not own this card');
+
+    // Check for duplicates: proposer already has receiver's card, or receiver already has proposer's card
+    const { data: proposerHasReceiver } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id')
+      .eq('user_id', proposerId)
+      .eq('game_code', (receiverCard as any).game_code)
+      .limit(1);
+    if (proposerHasReceiver && proposerHasReceiver.length > 0) throw new InternalServerErrorException('You already have this card');
+
+    const { data: receiverHasProposer } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id')
+      .eq('user_id', receiverId)
+      .eq('game_code', (proposerCard as any).game_code)
+      .limit(1);
+    if (receiverHasProposer && receiverHasProposer.length > 0) throw new InternalServerErrorException('Receiver already has this card');
 
     const { data, error } = await this.supabase
       .schema('projectgg')
@@ -318,6 +337,7 @@ export class CardCollectionRepository {
         receiver_id: receiverId,
         receiver_card: receiverCardId,
         status: 'pending',
+        type: 'trade',
         allow_unfair: allowUnfair ?? false,
       })
       .select('id')
@@ -355,11 +375,37 @@ export class CardCollectionRepository {
     const { data: card, error: cardErr } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
-      .select('id, user_id')
+      .select('id, user_id, game_code')
       .eq('id', gifterCardId)
       .single();
     if (cardErr || !card) throw new InternalServerErrorException('Card not found');
     if (card.user_id !== gifterId) throw new InternalServerErrorException('You do not own this card');
+
+    // Check receiver doesn't already have this card
+    const { data: existing } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id')
+      .eq('user_id', receiverId)
+      .eq('game_code', card.game_code)
+      .limit(1);
+    if (existing && existing.length > 0) throw new InternalServerErrorException('Receiver already has this card');
+
+    // Record gift in card_trades for tracking
+    const { error: tradeErr } = await this.supabase
+      .schema('projectgg')
+      .from('card_trades')
+      .insert({
+        proposer_id: gifterId,
+        proposer_card: gifterCardId,
+        receiver_id: receiverId,
+        receiver_card: gifterCardId,
+        status: 'accepted',
+        type: 'gift',
+        allow_unfair: true,
+        resolved_at: new Date().toISOString(),
+      });
+    if (tradeErr) throw new InternalServerErrorException(`giftCard trade record: ${tradeErr.message}`);
 
     // Transfer ownership
     const { error } = await this.supabase
@@ -382,6 +428,32 @@ export class CardCollectionRepository {
     if (tradeErr || !trade) throw new InternalServerErrorException('Trade not found');
     if (trade.receiver_id !== userId) throw new InternalServerErrorException('Not authorized to accept this trade');
     if (trade.status !== 'pending') throw new InternalServerErrorException('Trade is no longer pending');
+
+    // Check receiver doesn't already have the proposer's card
+    const proposerCard = await this.getCardById(trade.proposer_card);
+    if (proposerCard) {
+      const { data: existing } = await this.supabase
+        .schema('projectgg')
+        .from('card_collections')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('game_code', proposerCard.game_code)
+        .limit(1);
+      if (existing && existing.length > 0) throw new InternalServerErrorException('You already have this card');
+    }
+
+    // Check proposer doesn't already have the receiver's card
+    const receiverCard = await this.getCardById(trade.receiver_card);
+    if (receiverCard) {
+      const { data: existing } = await this.supabase
+        .schema('projectgg')
+        .from('card_collections')
+        .select('id')
+        .eq('user_id', trade.proposer_id)
+        .eq('game_code', receiverCard.game_code)
+        .limit(1);
+      if (existing && existing.length > 0) throw new InternalServerErrorException('Proposer already has this card');
+    }
 
     // Swap ownership
     const { error: swapErr1 } = await this.supabase
@@ -437,14 +509,19 @@ export class CardCollectionRepository {
     if (error) throw new InternalServerErrorException(`cancelTrade: ${error.message}`);
   }
 
-  async getUserTrades(userId: string): Promise<any[]> {
+  async getUserTrades(userId: string, otherUserId?: string): Promise<any[]> {
     // Fetch trades where user is proposer or receiver
-    const { data: trades, error: tradesErr } = await this.supabase
+    let query = this.supabase
       .schema('projectgg')
       .from('card_trades')
       .select('*')
-      .or(`proposer_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order('created_at', { ascending: false });
+      .or(`proposer_id.eq.${userId},receiver_id.eq.${userId}`);
+
+    if (otherUserId) {
+      query = query.or(`proposer_id.eq.${otherUserId},receiver_id.eq.${otherUserId}`);
+    }
+
+    const { data: trades, error: tradesErr } = await query.order('created_at', { ascending: false });
     if (tradesErr) throw new InternalServerErrorException(`getUserTrades: ${tradesErr.message}`);
     if (!trades || trades.length === 0) return [];
 
@@ -492,6 +569,7 @@ export class CardCollectionRepository {
       return {
         trade_id: t.id,
         trade_status: t.status,
+        type: t.type || 'trade',
         proposer_id: t.proposer_id,
         proposer_name: (proposer as any)?.username ?? null,
         proposer_avatar: (proposer as any)?.avatar ?? null,

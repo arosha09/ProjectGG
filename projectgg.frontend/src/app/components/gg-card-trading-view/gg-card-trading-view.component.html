@@ -23,13 +23,17 @@
       <mat-icon>check_circle</mat-icon>
       History
     </button>
+    <button class="trading-tab" [class.active]="activeTab === 'gifts'" (click)="switchTab('gifts')">
+      <mat-icon>card_giftcard</mat-icon>
+      Gifts
+    </button>
     <button class="trading-tab trading-tab-cta" [class.active]="activeTab === 'propose'" (click)="switchTab('propose')">
       <mat-icon>swap_horiz</mat-icon>
       Propose Trade
     </button>
     <button class="trading-tab trading-tab-gift" [class.active]="activeTab === 'gift'" (click)="switchTab('gift')">
-      <mat-icon>card_giftcard</mat-icon>
-      Gift Card
+      <mat-icon>redeem</mat-icon>
+      Send Gift
     </button>
   </div>
 
@@ -306,7 +310,53 @@
     </div>
   }
 
-  <!-- GIFT CARD -->
+  <!-- GIFT HISTORY -->
+  @if (activeTab === 'gifts') {
+    <div class="trades-list">
+      @if (giftHistory.length === 0) {
+        <div class="trading-empty">
+          <mat-icon class="empty-icon">card_giftcard</mat-icon>
+          <h3>No gifts yet</h3>
+          <p>Sent and received gifts will appear here.</p>
+        </div>
+      } @else {
+        @for (gift of giftHistory; track gift.trade_id) {
+          <div class="trade-card trade-card-gift">
+            <div class="trade-header">
+              <div class="trade-user">
+                <img [src]="gift.proposer_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <div>
+                  <div class="trade-user-name">{{ gift.proposer_id === currentUserId ? 'You' : gift.proposer_name }}</div>
+                  <div class="trade-user-tier" [class]="'tier-' + gift.proposer_tier">{{ gift.proposer_tier }}</div>
+                </div>
+              </div>
+              <div class="trade-arrow">
+                <mat-icon>card_giftcard</mat-icon>
+              </div>
+              <div class="trade-user">
+                <img [src]="gift.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <div>
+                  <div class="trade-user-name">{{ gift.receiver_id === currentUserId ? 'You' : gift.receiver_name }}</div>
+                  <div class="trade-user-tier" [class]="'tier-' + gift.receiver_tier">{{ gift.receiver_tier }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="trade-cards">
+              <div class="trade-card-side">
+                <img [src]="gift.proposer_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
+                <div class="trade-card-name">{{ gift.proposer_game_code }}</div>
+              </div>
+            </div>
+            <div class="trade-status-badge status-gift">
+              {{ gift.proposer_id === currentUserId ? 'Sent' : 'Received' }} Gift
+            </div>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <!-- SEND GIFT -->
   @if (activeTab === 'gift') {
     <div class="propose-trade">
       <div class="propose-section">
