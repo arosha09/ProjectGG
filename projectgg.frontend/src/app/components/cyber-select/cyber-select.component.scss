@@ -10,10 +10,10 @@
   margin-bottom: 4px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--neon-cyan);
+  color: var(--accent-color);
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  text-shadow: 0 0 8px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.4);
 
   .lbl-icon {
     font-size: 14px;
@@ -29,7 +29,7 @@
   width: 100%;
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  border: 1px solid rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3);
   border-radius: 4px;
   color: var(--text-primary);
   font-family: inherit;
@@ -40,13 +40,13 @@
   letter-spacing: 0.3px;
 
   &:hover:not(:disabled) {
-    border-color: var(--neon-cyan);
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 8px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3);
   }
 
   &:focus {
-    border-color: var(--neon-cyan);
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 12px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.4);
     outline: none;
   }
 
@@ -64,7 +64,7 @@
 
 .sel-arrow {
   font-size: 10px;
-  color: var(--neon-cyan);
+  color: var(--accent-color);
   transition: transform .2s;
   margin-left: 8px;
   flex-shrink: 0;
@@ -79,9 +79,9 @@
   left: 0;
   width: 100%;
   background: linear-gradient(180deg, #0a1020, #080e1a);
-  border: 1px solid var(--neon-cyan);
+  border: 1px solid var(--accent-color);
   border-radius: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 240, 255, 0.3), inset 0 0 8px rgba(0, 240, 255, 0.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3), inset 0 0 8px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.05);
   z-index: 300;
   padding: 4px;
   animation: popInDown .15s ease-out;
@@ -121,14 +121,14 @@
   transition: background .12s, color .12s;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.1);
-    color: var(--neon-cyan);
+    background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.1);
+    color: var(--accent-color);
   }
 
   &.active {
-    color: var(--neon-cyan);
-    background: rgba(0, 240, 255, 0.08);
-    box-shadow: inset 2px 0 0 var(--neon-cyan);
+    color: var(--accent-color);
+    background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.08);
+    box-shadow: inset 2px 0 0 var(--accent-color);
   }
 }
 
@@ -137,6 +137,6 @@
 }
 
 .sel-popup::-webkit-scrollbar-thumb {
-  background: var(--neon-cyan);
+  background: var(--accent-color);
   border-radius: 2px;
 }

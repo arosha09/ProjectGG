@@ -289,6 +289,30 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
             </div>
           }
 
+          <!-- Device picker (Discord-style) - positioned ABOVE the control buttons, UNDER the profile dropdown -->
+          @if (showDevicePicker) {
+            <div class="gg-voice-device-picker">
+              <app-cyber-select
+                [options]="inputDeviceOptions"
+                [value]="selectedInputId"
+                [openAbove]="true"
+                icon="mic"
+                label="Input Device"
+                placeholder="Default Microphone"
+                (valueChange)="onInputDeviceChange.emit($event)"
+              ></app-cyber-select>
+              <app-cyber-select
+                [options]="outputDeviceOptions"
+                [value]="selectedOutputId"
+                [openAbove]="true"
+                icon="volume_up"
+                label="Output Device"
+                placeholder="Default Speaker"
+                (valueChange)="onOutputDeviceChange.emit($event)"
+              ></app-cyber-select>
+            </div>
+          }
+
           <div class="gg-user-status-controls">
             <button type="button" class="gg-voice-control-btn" [class.active]="voiceMuted" (click)="toggleVoiceMute.emit()" title="{{ voiceMuted ? 'Unmute' : 'Mute' }}">
               <mat-icon>{{ voiceMuted ? 'mic_off' : 'mic' }}</mat-icon>
@@ -313,30 +337,6 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               }
             }
           </div>
-
-          <!-- Device picker (Discord-style) - opens above, custom cyber dropdown -->
-          @if (showDevicePicker) {
-            <div class="gg-voice-device-picker">
-              <app-cyber-select
-                [options]="inputDeviceOptions"
-                [value]="selectedInputId"
-                [openAbove]="true"
-                icon="mic"
-                label="Input Device"
-                placeholder="Default Microphone"
-                (valueChange)="onInputDeviceChange.emit($event)"
-              ></app-cyber-select>
-              <app-cyber-select
-                [options]="outputDeviceOptions"
-                [value]="selectedOutputId"
-                [openAbove]="true"
-                icon="volume_up"
-                label="Output Device"
-                placeholder="Default Speaker"
-                (valueChange)="onOutputDeviceChange.emit($event)"
-              ></app-cyber-select>
-            </div>
-          }
         </div>
       } @else {
         <div class="gg-no-server">
@@ -387,6 +387,7 @@ export class ChannelListComponent {
   @Input() audioOutputDevices: MediaDeviceInfo[] = [];
   @Input() selectedInputId = 'default';
   @Input() selectedOutputId = 'default';
+  @Input() speakingUsers: Set<string> = new Set<string>();
   @Input() serverDropdownOpen = false;
 
   @Output() selectServer = new EventEmitter<GgServer>();
@@ -488,7 +489,7 @@ export class ChannelListComponent {
   }
 
   voiceMemberSpeaking(userId: string): boolean {
-    return false;
+    return this.speakingUsers.has(userId);
   }
 
   dmStatus(otherUserId: string): string {

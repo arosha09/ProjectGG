@@ -1813,17 +1813,17 @@
 
 .gg-voice-channel-icon-wrap {
   width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 240, 255, 0.1));
-  border: 2px solid var(--neon-green);
-  box-shadow: 0 0 24px rgba(0, 255, 136, 0.3), inset 0 0 16px rgba(0, 255, 136, 0.15);
+  background: linear-gradient(135deg, rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.2), rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.05));
+  border: 2px solid var(--accent-color);
+  box-shadow: 0 0 24px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3), inset 0 0 16px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.15);
   position: relative;
   &::before, &::after {
     content: ''; position: absolute; width: 14px; height: 14px;
-    border: 2px solid var(--neon-cyan);
+    border: 2px solid var(--accent-color);
   }
   &::before { top: -6px; left: -6px; border-right: none; border-bottom: none; }
   &::after { bottom: -6px; right: -6px; border-left: none; border-top: none; }
-  mat-icon { font-size: 42px; width: 42px; height: 42px; color: var(--neon-green); }
+  mat-icon { font-size: 42px; width: 42px; height: 42px; color: var(--accent-color); }
 }
 
 .gg-voice-channel-name {
@@ -1897,6 +1897,10 @@
 .gg-voice-avatar-card {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   position: relative; transition: all .3s;
+  &.speaking .gg-voice-avatar-name {
+    color: var(--accent-color);
+    text-shadow: 0 0 12px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.6);
+  }
 }
 
 .gg-voice-avatar-ring {
@@ -1906,31 +1910,38 @@
   transition: all .3s;
   position: relative;
   &.speaking {
-    background: var(--neon-green);
-    border: 2px solid var(--neon-green);
-    box-shadow: 0 0 24px rgba(0, 255, 136, 0.7),
-                0 0 48px rgba(0, 255, 136, 0.4),
-                inset 0 0 16px rgba(0, 255, 136, 0.2);
-    animation: gg-speaking-pulse 1.5s ease-in-out infinite;
+    background: var(--accent-color);
+    border: 2px solid var(--accent-color);
+    animation: gg-speaking-pulse 1.4s ease-in-out infinite;
   }
-  // cyber corner ticks
-  &::before, &::after {
-    content: ''; position: absolute; width: 14px; height: 14px;
-    border: 2px solid var(--neon-cyan);
-  }
-  &::before { top: -6px; left: -6px; border-right: none; border-bottom: none; }
-  &::after { bottom: -6px; right: -6px; border-left: none; border-top: none; }
 }
 
 @keyframes gg-speaking-pulse {
-  0%, 100% { box-shadow: 0 0 24px rgba(0, 255, 136, 0.7), 0 0 48px rgba(0, 255, 136, 0.4); }
-  50% { box-shadow: 0 0 32px rgba(0, 255, 136, 0.9), 0 0 64px rgba(0, 255, 136, 0.5); }
+  0%, 100% {
+    box-shadow: 0 0 0 3px var(--bg-black),
+                0 0 24px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.9),
+                0 0 48px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.6),
+                0 0 80px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--bg-black),
+                0 0 40px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 1),
+                0 0 80px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.8),
+                0 0 140px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.5),
+                0 0 200px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.2);
+  }
 }
 
 .gg-voice-avatar {
   width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
   background: var(--bg-elevated); display: flex; align-items: center; justify-content: center;
+  position: relative;
+  transition: all .3s;
   img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.gg-voice-avatar-ring.speaking .gg-voice-avatar {
+  box-shadow: 0 0 16px var(--accent-color), 0 0 32px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.4);
 }
 
 .gg-voice-avatar-initial {
@@ -1947,11 +1958,13 @@
 
 // Status icon to the RIGHT of the avatar (Discord-style)
 .gg-voice-avatar-status-icon {
-  position: absolute; right: -2px; bottom: 38px;
+  position: absolute; right: 0; bottom: 0;
+  transform: translate(25%, 25%);
   width: 36px; height: 36px;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   border: 3px solid var(--bg-black);
   z-index: 2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   mat-icon { font-size: 20px; width: 20px; height: 20px; color: #fff; }
   &.muted { background: var(--neon-red); }
   &.deafened { background: var(--neon-gold); }
@@ -2064,50 +2077,18 @@
   display: flex; flex-direction: column; gap: 10px;
   padding: 12px; margin: 4px 0 6px;
   background: rgba(0, 0, 0, 0.6);
-  border: 1px solid var(--neon-cyan);
+  border: 1px solid var(--accent-color);
   border-radius: 6px;
-  box-shadow: 0 0 16px rgba(0, 240, 255, 0.25), inset 0 0 12px rgba(0, 240, 255, 0.05);
+  box-shadow: 0 0 16px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.25), inset 0 0 12px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.05);
   backdrop-filter: blur(8px);
   position: relative;
   // corner ticks
   &::before, &::after {
     content: ''; position: absolute; width: 10px; height: 10px;
-    border: 1.5px solid var(--neon-cyan);
+    border: 1.5px solid var(--accent-color);
   }
   &::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
   &::after { bottom: -1px; right: -1px; border-left: none; border-top: none; }
-}
-
-.gg-vdp-section {
-  display: flex; flex-direction: column; gap: 4px;
-}
-
-.gg-vdp-label {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 10px; font-weight: 700; color: var(--neon-cyan);
-  text-transform: uppercase; letter-spacing: 1.2px;
-  mat-icon { font-size: 14px; width: 14px; height: 14px; }
-}
-
-.gg-vdp-select {
-  width: 100%; padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.3);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: inherit; font-size: 11px;
-  cursor: pointer; outline: none;
-  transition: all .15s;
-  appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--neon-cyan) 50%),
-                    linear-gradient(135deg, var(--neon-cyan) 50%, transparent 50%);
-  background-position: calc(100% - 14px) 50%, calc(100% - 8px) 50%;
-  background-size: 6px 6px, 6px 6px;
-  background-repeat: no-repeat;
-  padding-right: 26px;
-  &:hover { border-color: var(--neon-cyan); }
-  &:focus { border-color: var(--neon-cyan); box-shadow: 0 0 6px rgba(0, 240, 255, 0.3); }
-  option { background: var(--bg-black); color: var(--text-primary); }
 }
 
 // ── VOICE USERS UNDER CHANNEL (sidebar) ──
@@ -2132,9 +2113,9 @@
   &:hover { background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.06); }
   &.speaking {
     .gg-voice-under-avatar {
-      border-color: var(--neon-green);
-      box-shadow: 0 0 12px rgba(0, 255, 136, 0.6), inset 0 0 8px rgba(0, 255, 136, 0.2);
-      background: rgba(0, 255, 136, 0.08);
+      border-color: var(--accent-color);
+      box-shadow: 0 0 12px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.6), inset 0 0 8px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.2);
+      background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.08);
     }
   }
 }

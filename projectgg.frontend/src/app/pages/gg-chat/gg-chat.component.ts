@@ -1035,6 +1035,16 @@ export class GgChatComponent implements OnInit, OnDestroy {
       };
       this.voiceService.onLocalSpeaking = (speaking) => {
         this.localMicActive = speaking;
+        // Also add the current user to speakingUsers so their own avatar glows
+        // (server doesn't echo speaking event back to the speaker)
+        const currentUserId = this.auth.getCurrentUser()?.id;
+        if (currentUserId) {
+          if (speaking) {
+            this.speakingUsers.add(currentUserId);
+          } else {
+            this.speakingUsers.delete(currentUserId);
+          }
+        }
         this.cdr.markForCheck();
       };
       this.voiceService.onMicPermissionError = (err) => {
