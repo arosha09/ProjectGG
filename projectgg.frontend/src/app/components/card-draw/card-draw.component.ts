@@ -15,40 +15,48 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
 
         <div class="reel-hud">
           <span class="hud-tag">NEURAL JACKPOT</span>
-          <span class="hud-sub">{{ loadingData ? 'loading card data...' : 'stabilizing prize stream...' }}</span>
+          <span class="hud-sub" [class.fading]="isTransitioning">
+            {{ loadingData ? currentLoadingMessage : 'spinning the vault...' }}
+          </span>
         </div>
 
-        <div class="reel-container">
-          <div class="reel-scanlines"></div>
-          <div class="reel-track" [class.fast]="reelPhase === 'fast'" [class.slow]="reelPhase === 'slow'" [class.stop]="reelPhase === 'stop'" [style.transform]="'translateX(' + reelOffsetPx + 'px)'">
-            <ng-container *ngFor="let card of reelCards; let i = index">
-              <div class="reel-card" [class.highlight]="i === highlightIndex">
-                <div class="reel-card-inner" [class]="'tier-' + card.card_tier">
-                  <ng-container *ngIf="card.cover_url; else noCoverReel">
-                    <img [src]="card.cover_url" alt="" class="reel-card-img" (error)="onImgError($event)" />
-                  </ng-container>
-                  <ng-template #noCoverReel>
-                    <div class="reel-card-placeholder">
-                      <span class="placeholder-icon">🎮</span>
-                      <span class="placeholder-tier">{{ card.card_tier | uppercase }}</span>
-                    </div>
-                  </ng-template>
+        <!-- LOADING PHASE: animated messages, NO images -->
+        <div class="reel-loading" *ngIf="loadingData">
+          <div class="reel-loading-ring"></div>
+          <div class="reel-loading-ring reel-loading-ring-2"></div>
+          <div class="reel-loading-core">
+            <mat-icon class="reel-loading-icon">memory</mat-icon>
+            <div class="reel-loading-progress">
+              <div class="reel-loading-bar"></div>
+            </div>
+            <div class="reel-loading-percent">{{ loadingPercent }}%</div>
+          </div>
+        </div>
+
+        <!-- REEL PHASE: actual spinning cards with images -->
+        <div class="reel-stage" *ngIf="!loadingData">
+          <div class="reel-container">
+            <div class="reel-scanlines"></div>
+            <div class="reel-track" [class.fast]="reelPhase === 'fast'" [class.slow]="reelPhase === 'slow'" [class.stop]="reelPhase === 'stop'" [style.transform]="'translateX(' + reelOffsetPx + 'px)'">
+              <ng-container *ngFor="let card of reelCards; let i = index">
+                <div class="reel-card" [class.highlight]="i === highlightIndex">
+                  <div class="reel-card-inner" [class]="'tier-' + card.card_tier">
+                    <ng-container *ngIf="card.cover_url; else noCoverReel">
+                      <img [src]="card.cover_url" alt="" class="reel-card-img" (error)="onImgError($event)" />
+                    </ng-container>
+                    <ng-template #noCoverReel>
+                      <div class="reel-card-placeholder">
+                        <span class="placeholder-icon">🎮</span>
+                        <span class="placeholder-tier">{{ card.card_tier | uppercase }}</span>
+                      </div>
+                    </ng-template>
+                  </div>
                 </div>
-              </div>
-            </ng-container>
-            <div class="reel-card-glow"></div>
+              </ng-container>
+              <div class="reel-card-glow"></div>
+            </div>
+            <div class="reel-pointer"></div>
           </div>
-          <div class="reel-pointer"></div>
-        </div>
-
-        <div class="reel-bottom">
-          <div class="reel-tier-pill" [style.border-color]="tierColor(currentReelTier)" [style.color]="tierColor(currentReelTier)">
-            {{ currentReelTier | uppercase }}
-          </div>
-          <div class="reel-status">LOCKING RESULT</div>
-          <button class="reel-skip" (click)="skipReel()" [disabled]="loadingData || reelPhase !== 'fast'">
-            <mat-icon>skip_next</mat-icon> SKIP
-          </button>
         </div>
       </div>
     </ng-container>
@@ -118,7 +126,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
   styles: [`
     :host { display: block; }
 
-    /* ── REEL ── */
+    /* ── REEL OVERLAY ── */
     .reel-overlay {
       position: fixed;
       inset: 0;
@@ -166,7 +174,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       flex-direction: column;
       align-items: center;
       gap: 6px;
-      margin-bottom: 14px;
+      margin-bottom: 28px;
       z-index: 2;
     }
 
@@ -182,12 +190,122 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       font-size: 12px;
       color: rgba(240, 246, 255, 0.55);
       letter-spacing: 2px;
+      min-height: 18px;
+      transition: opacity 0.3s;
+    }
+
+    .hud-sub.fading { opacity: 0; }
+
+    /* ── LOADING PHASE (no images) ── */
+    .reel-loading {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .reel-loading-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: #ff2d6f;
+      border-right-color: rgba(255, 45, 111, 0.5);
+      animation: spin-cw 1.2s linear infinite;
+    }
+
+    .reel-loading-ring-2 {
+      inset: 24px;
+      border-top-color: #5bd9ff;
+      border-left-color: rgba(91, 217, 255, 0.4);
+      animation: spin-ccw 1.6s linear infinite;
+    }
+
+    @keyframes spin-cw { to { transform: rotate(360deg); } }
+    @keyframes spin-ccw { to { transform: rotate(-360deg); } }
+
+    .reel-loading-core {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(255, 45, 111, 0.18), rgba(8, 9, 18, 0.95) 70%);
+      border: 1.5px solid rgba(255, 45, 111, 0.45);
+      box-shadow: 0 0 32px rgba(255, 45, 111, 0.25), inset 0 0 18px rgba(255, 45, 111, 0.18);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .reel-loading-icon {
+      font-size: 38px !important;
+      width: 38px !important;
+      height: 38px !important;
+      color: #ff5f8e;
+      filter: drop-shadow(0 0 12px rgba(255, 45, 111, 0.8));
+      animation: icon-flicker 0.8s ease-in-out infinite alternate;
+    }
+
+    @keyframes icon-flicker {
+      from { opacity: 0.75; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1.04); }
+    }
+
+    .reel-loading-progress {
+      width: 80px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .reel-loading-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ff2d6f, #5bd9ff);
+      box-shadow: 0 0 8px rgba(255, 45, 111, 0.6);
+      transition: width 0.2s;
+      animation: bar-shimmer 1.4s ease-in-out infinite;
+    }
+
+    @keyframes bar-shimmer {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.4); }
+    }
+
+    .reel-loading-percent {
+      font-size: 10px;
+      font-weight: 800;
+      color: #ff5f8e;
+      letter-spacing: 2px;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* ── REEL STAGE (cards with images) ── */
+    .reel-stage {
+      width: 100%;
+      max-width: 880px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      animation: stage-in 0.4s ease-out;
+    }
+
+    @keyframes stage-in {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
     }
 
     .reel-container {
       position: relative;
       width: 100%;
-      max-width: 820px;
       height: 220px;
       overflow: hidden;
       border-top: 1px solid rgba(255, 45, 111, 0.45);
@@ -234,7 +352,6 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       background: var(--bg-dark);
     }
 
-    /* Add Tier Styles for Glow */
     .tier-common { border-color: #8c96a8 !important; box-shadow: 0 0 10px #8c96a844; }
     .tier-uncommon { border-color: #00e676 !important; box-shadow: 0 0 10px #00e67644; }
     .tier-rare { border-color: #5fb6ff !important; box-shadow: 0 0 10px #5fb6ff44; }
@@ -328,35 +445,6 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       background: linear-gradient(180deg, rgba(255,255,255,0.06), transparent 18%, transparent 82%, rgba(255,255,255,0.04));
       pointer-events: none;
       opacity: 0.55;
-    }
-
-    .reel-bottom {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-top: 18px;
-      z-index: 2;
-    }
-
-    .reel-tier-pill {
-      padding: 7px 14px;
-      border: 1px solid;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 4px;
-      animation: tier-flash 0.6s ease-in-out infinite alternate;
-    }
-
-    .reel-status {
-      font-size: 12px;
-      letter-spacing: 3px;
-      color: rgba(240, 246, 255, 0.55);
-    }
-
-    @keyframes tier-flash {
-      from { opacity: 0.6; text-shadow: none; }
-      to { opacity: 1; text-shadow: 0 0 20px currentColor; }
     }
 
     /* ── RESULT ── */
@@ -565,49 +653,13 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       color: rgba(241, 247, 255, 0.45);
     }
 
-    .reel-bottom {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      justify-content: center;
-    }
-
-    .reel-skip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 16px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 6px;
-      color: rgba(241, 247, 255, 0.6);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-
-      mat-icon { font-size: 16px; width: 16px; height: 16px; }
-
-      &:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.12);
-        border-color: rgba(255, 45, 111, 0.6);
-        color: #fff;
-      }
-
-      &:disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
-      }
-    }
-
     @media (max-width: 780px) {
-      .reel-container { max-width: calc(100vw - 24px); height: 196px; }
+      .reel-container { height: 196px; }
       .result-body { grid-template-columns: 1fr; }
       .result-art { max-width: 280px; margin: 0 auto; }
       .result-header h3 { font-size: 20px; }
+      .reel-loading { width: 220px; height: 220px; }
+      .reel-loading-core { width: 110px; height: 110px; }
     }
   `],
 })
@@ -619,15 +671,29 @@ export class CardDrawComponent {
   reelPhase: 'fast' | 'slow' | 'stop' = 'fast';
   reelCards: DrawCard[] = [];
   highlightIndex = 15;
-  currentReelTier = 'common';
   reelOffsetPx = 0;
   resultCard: DrawCard | null = null;
   isNew = false;
   xpAwarded = 0;
   defaultCover = '';
   loadingData = false;
+  loadingPercent = 0;
+  isTransitioning = false;
+  currentLoadingMessage = 'initializing neural link...';
 
   private reelTimers: ReturnType<typeof setTimeout>[] = [];
+  private loadingTimers: ReturnType<typeof setTimeout>[] = [];
+  private percentInterval: ReturnType<typeof setInterval> | null = null;
+
+  private readonly loadingMessages = [
+    'initializing neural link...',
+    'authenticating operator...',
+    'syncing with vault...',
+    'decrypting prize stream...',
+    'stabilizing quantum state...',
+    'aligning card frequencies...',
+    'sealing the outcome...',
+  ];
 
   readonly tierColors: Record<string, string> = {
     common: '#8c96a8',
@@ -681,6 +747,61 @@ export class CardDrawComponent {
   private clearTimers(): void {
     this.reelTimers.forEach(t => clearTimeout(t));
     this.reelTimers = [];
+    this.loadingTimers.forEach(t => clearTimeout(t));
+    this.loadingTimers = [];
+    if (this.percentInterval) {
+      clearInterval(this.percentInterval);
+      this.percentInterval = null;
+    }
+  }
+
+  private startLoadingSequence(): void {
+    this.clearLoadingTimers();
+    this.currentLoadingMessage = this.loadingMessages[0];
+    this.loadingPercent = 0;
+    this.isTransitioning = false;
+
+    this.percentInterval = setInterval(() => {
+      if (this.loadingPercent < 90) {
+        const step = Math.random() * 4 + 1;
+        this.loadingPercent = Math.min(90, this.loadingPercent + step);
+      }
+    }, 200);
+
+    for (let i = 1; i < this.loadingMessages.length; i++) {
+      this.loadingTimers.push(
+        setTimeout(() => {
+          this.isTransitioning = true;
+          this.loadingTimers.push(
+            setTimeout(() => {
+              this.currentLoadingMessage = this.loadingMessages[i];
+              this.isTransitioning = false;
+            }, 300)
+          );
+        }, i * 900)
+      );
+    }
+  }
+
+  private finishLoading(): void {
+    this.isTransitioning = true;
+    if (this.percentInterval) {
+      clearInterval(this.percentInterval);
+      this.percentInterval = null;
+    }
+    let p = this.loadingPercent;
+    const finishInterval = setInterval(() => {
+      p = Math.min(100, p + 8);
+      this.loadingPercent = p;
+      if (p >= 100) {
+        clearInterval(finishInterval);
+      }
+    }, 60);
+  }
+
+  private clearLoadingTimers(): void {
+    this.loadingTimers.forEach(t => clearTimeout(t));
+    this.loadingTimers = [];
   }
 
   skipReel(): void {
@@ -699,7 +820,6 @@ export class CardDrawComponent {
   private runReel(result: DrawResult): void {
     const realCard = this.normalizeResult(result);
     this.reelCards[this.highlightIndex] = realCard;
-    this.currentReelTier = realCard.card_tier;
     this.resultCard = realCard;
     this.isNew = !!result.is_new;
     this.xpAwarded = result.xp_awarded ?? 0;
@@ -728,7 +848,8 @@ export class CardDrawComponent {
     this.reelOffsetPx = 0;
     this.resultCard = null;
     this.loadingData = true;
-    this.reelCards = this.buildReelCards([], this.placeholderCard());
+    this.reelCards = [];
+    this.startLoadingSequence();
 
     this.chatService.getDailyDrawCards().subscribe({
       next: (cards) => {
@@ -736,14 +857,17 @@ export class CardDrawComponent {
         this.reelCards = this.buildReelCards(cards ?? [], fallback);
         const imageUrls = (cards ?? []).map(c => c.cover_url).filter(Boolean);
         this.preloadImages(imageUrls).then(() => {
-          this.loadingData = false;
-          this.chatService.claimDailyDraw().subscribe({
-            next: (result: DrawResult) => {
-              if (!result) { this.state = 'idle'; return; }
-              this.runReel(result);
-            },
-            error: () => { this.state = 'idle'; },
-          });
+          this.finishLoading();
+          setTimeout(() => {
+            this.loadingData = false;
+            this.chatService.claimDailyDraw().subscribe({
+              next: (result: DrawResult) => {
+                if (!result) { this.state = 'idle'; return; }
+                this.runReel(result);
+              },
+              error: () => { this.state = 'idle'; },
+            });
+          }, 400);
         });
       },
       error: () => { this.state = 'idle'; }
@@ -757,7 +881,8 @@ export class CardDrawComponent {
     this.reelOffsetPx = 0;
     this.resultCard = null;
     this.loadingData = true;
-    this.reelCards = this.buildReelCards([], this.placeholderCard());
+    this.reelCards = [];
+    this.startLoadingSequence();
 
     this.chatService.getDailyDrawCards().subscribe({
       next: (cards) => {
@@ -765,6 +890,23 @@ export class CardDrawComponent {
         this.reelCards = this.buildReelCards(cards ?? [], fallback);
         const imageUrls = (cards ?? []).map(c => c.cover_url).filter(Boolean);
         this.preloadImages(imageUrls).then(() => {
+          this.finishLoading();
+          setTimeout(() => {
+            this.loadingData = false;
+            this.chatService.drawWithTicket(ticketId).subscribe({
+              next: (result: DrawResult) => {
+                if (!result) { this.state = 'idle'; return; }
+                this.runReel(result);
+              },
+              error: () => { this.state = 'idle'; },
+            });
+          }, 400);
+        });
+      },
+      error: () => {
+        this.reelCards = this.buildReelCards([], this.placeholderCard());
+        this.finishLoading();
+        setTimeout(() => {
           this.loadingData = false;
           this.chatService.drawWithTicket(ticketId).subscribe({
             next: (result: DrawResult) => {
@@ -773,18 +915,7 @@ export class CardDrawComponent {
             },
             error: () => { this.state = 'idle'; },
           });
-        });
-      },
-      error: () => {
-        this.reelCards = this.buildReelCards([], this.placeholderCard());
-        this.loadingData = false;
-        this.chatService.drawWithTicket(ticketId).subscribe({
-          next: (result: DrawResult) => {
-            if (!result) { this.state = 'idle'; return; }
-            this.runReel(result);
-          },
-          error: () => { this.state = 'idle'; },
-        });
+        }, 400);
       },
     });
   }
