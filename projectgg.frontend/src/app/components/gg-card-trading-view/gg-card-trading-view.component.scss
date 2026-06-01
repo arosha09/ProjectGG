@@ -296,6 +296,11 @@
   &.status-accepted { background: rgba(0, 230, 118, 0.2); color: #00e676; }
   &.status-rejected { background: rgba(255, 95, 109, 0.2); color: #ff5f6d; }
   &.status-cancelled { background: rgba(120, 120, 120, 0.2); color: #888; }
+  &.status-gift { background: rgba(255, 215, 0, 0.15); color: #ffd700; }
+}
+
+.trade-card-gift {
+  border-color: rgba(255, 215, 0, 0.2) !important;
 }
 
 .btn {
