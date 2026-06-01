@@ -159,6 +159,11 @@
     text-transform: uppercase; letter-spacing: 1px;
     transition: box-shadow .25s, transform .15s;
     &:hover { box-shadow: 0 0 20px var(--color-primary); transform: scale(1.02); }
+
+    &--disabled {
+      opacity: 0.4; cursor: not-allowed;
+      &:hover { box-shadow: none; transform: none; }
+    }
   }
 
   .draw-already {
@@ -799,84 +804,4 @@
   text-decoration: none;
 
   &:hover { text-decoration: underline; }
-}
-
-/* ── DRAW MODAL ── */
-.draw-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-}
-
-.draw-modal {
-  background: var(--bg-dark, #0e0e16);
-  border: 1px solid var(--border-color, rgba(75,90,21,0.12));
-  border-radius: 14px;
-  width: 90%;
-  max-width: 600px;
-  overflow: hidden;
-}
-
-.draw-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color, rgba(75,90,21,0.12));
-
-  h2 {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary, #e0e0ff);
-    margin: 0;
-    letter-spacing: 1px;
-  }
-}
-
-.draw-close {
-  background: none;
-  border: none;
-  color: var(--text-muted, #555577);
-  cursor: pointer;
-
-  &:hover { color: var(--text-primary, #e0e0ff); }
-}
-
-.draw-trigger {
-  text-align: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color, rgba(75,90,21,0.12));
-
-  p {
-    color: var(--text-secondary, #8888aa);
-    font-size: 13px;
-    margin: 0 0 12px;
-  }
-}
-
-.draw-trigger-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 24px;
-  background: linear-gradient(135deg, var(--color-primary, #00ff88), rgba(var(--color-primary-r,0), var(--color-primary-g,255), var(--color-primary-b,136), 0.7));
-  color: var(--bg-black, #050508);
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(var(--color-primary-r,0), var(--color-primary-g,255), var(--color-primary-b,136), 0.25);
-  transition: all 0.3s;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 36px rgba(var(--color-primary-r,0), var(--color-primary-g,255), var(--color-primary-b,136), 0.4);
-  }
 }

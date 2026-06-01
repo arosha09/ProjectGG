@@ -116,6 +116,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.server?.to(`user:${userId}`).emit(event, data);
   }
 
+  async createNotification(userId: string, type: string, title: string, body?: string, data?: any): Promise<void> {
+    try {
+      const { error } = await this.supabase
+        .schema('projectgg')
+        .from('notifications')
+        .insert({ user_id: userId, type, title, body: body ?? '', data: data ?? null });
+      if (!error) {
+        this.sendToUser(userId, 'notification', {});
+      }
+    } catch {}
+  }
+
   private subscribeToUserStatusChanges(): void {
     this.usersChannel = this.supabase
       .channel('projectgg-users-status')

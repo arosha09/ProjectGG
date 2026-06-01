@@ -24,13 +24,13 @@ import { MemberListComponent } from './member-list/member-list.component';
 import { ServerListComponent } from './server-list/server-list.component';
 import { ChannelListComponent } from './channel-list/channel-list.component';
 import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
-import { CardTradingComponent } from '../../components/card-trading/card-trading.component';
+import { GgCardTradingViewComponent } from '../../components/gg-card-trading-view/gg-card-trading-view.component';
 import { CyberEmojiPickerComponent } from '../../components/cyber-emoji-picker/cyber-emoji-picker.component';
 
 @Component({
   selector: 'app-gg-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, CardTradingComponent, CyberEmojiPickerComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent],
   schemas: [NO_ERRORS_SCHEMA],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
@@ -44,7 +44,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   socket: Socket | null = null;
 
   // View mode
-  viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' = 'dm';
+  viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' | 'trading' = 'dm';
 
   // Servers
   servers: GgServer[] = [];
@@ -321,6 +321,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.dmMessages = [];
     this.dmOptionsOpen = false;
     this.serverDropdownOpen = false;
+  }
+
+  openTradingView(): void {
+    this.viewMode = 'trading';
+    this.selectedServer = null;
+    this.selectedChannel = null;
+    this.selectedDm = null;
+    this.messages = [];
+    this.dmMessages = [];
+    this.dmOptionsOpen = false;
+    this.serverDropdownOpen = false;
+    this.loadCardTrades();
   }
 
   selectServer(server: GgServer): void {
@@ -1836,28 +1848,24 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   // ===== CARD COLLECTION (DM TRADE ONLY) =====
 
-  showCardTrading = false;
   cardTrades: any[] = [];
 
-  openCardTrading(): void {
-    this.showCardTrading = true;
+  onTradeAccepted(tradeId: number): void {
+    this.loadCardTrades();
+  }
+
+  onTradeRejected(tradeId: number): void {
+    this.loadCardTrades();
+  }
+
+  onTradeCancelled(tradeId: number): void {
+    this.loadCardTrades();
+  }
+
+  loadCardTrades(): void {
     this.chatService.getCardTrades().subscribe({
       next: (trades) => { this.cardTrades = trades; this.cdr.markForCheck(); },
     });
-  }
-
-  acceptCardTrade(tradeId: number): void {
-    this.chatService.acceptCardTrade(tradeId).subscribe({
-      next: () => { this.openCardTrading(); },
-    });
-  }
-
-  rejectCardTrade(tradeId: number): void {
-    this.chatService.rejectCardTrade(tradeId).subscribe({ next: () => this.openCardTrading() });
-  }
-
-  cancelCardTrade(tradeId: number): void {
-    this.chatService.cancelCardTrade(tradeId).subscribe({ next: () => this.openCardTrading() });
   }
 
   formatPlatformName(platform: string): string {

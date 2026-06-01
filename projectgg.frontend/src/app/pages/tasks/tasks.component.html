@@ -2,69 +2,302 @@
   <main class="container tasks-main">
     <div class="tasks-header">
       <h1>MISSIONS</h1>
-      <p>Complete tasks to earn games and XP</p>
+      <p>Complete missions to earn rewards</p>
     </div>
 
     @if (completeMsg) {
       <div class="complete-toast">{{ completeMsg }}</div>
     }
 
-    @if (loading) {
-      <div class="tasks-loading">
-        <div class="sk-card" *ngFor="let _ of [1,2,3]">
-          <div class="sk-line w-60"></div>
-          <div class="sk-line w-80"></div>
-          <div class="sk-line w-40"></div>
+    <div class="tasks-tabs">
+      <button class="tab-btn" [class.active]="activeTab === 'daily'" (click)="activeTab = 'daily'">
+        <mat-icon>today</mat-icon>
+        Daily
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'achievements'" (click)="activeTab = 'achievements'">
+        <mat-icon>emoji_events</mat-icon>
+        Achievements
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'duration'" (click)="activeTab = 'duration'">
+        <mat-icon>timer</mat-icon>
+        Live
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'completed'" (click)="activeTab = 'completed'">
+        <mat-icon>check_circle</mat-icon>
+        Completed
+      </button>
+      @if (canManualComplete) {
+        <button class="tab-btn tab-btn-test" [class.active]="activeTab === 'test'" (click)="activeTab = 'test'">
+          <mat-icon>science</mat-icon>
+          Test
+        </button>
+      }
+    </div>
+
+    @if (activeTab === 'achievements') {
+      @if (loading) {
+        <div class="tasks-loading">
+          <div class="sk-card" *ngFor="let _ of [1,2,3]">
+            <div class="sk-line w-60"></div>
+            <div class="sk-line w-80"></div>
+            <div class="sk-line w-40"></div>
+          </div>
         </div>
-      </div>
-    } @else if (availableTasks.length === 0) {
-      <div class="tasks-empty">
-        <mat-icon>celebration</mat-icon>
-        <p>All missions complete! Check back later.</p>
-      </div>
-    } @else {
-      <div class="tasks-grid">
-        @for (task of availableTasks; track task.id) {
-          <mat-card class="task-card">
-            <div class="task-card-top">
-              <div class="task-icon-wrap">
-                <mat-icon>{{ task.icon || 'assignment' }}</mat-icon>
+      } @else if (achievementCategories.length === 0) {
+        <div class="tasks-empty">
+          <mat-icon>emoji_events</mat-icon>
+          <p>No achievements yet. Check back later!</p>
+        </div>
+      } @else {
+        <div class="achievement-categories">
+          @for (cat of achievementCategories; track cat.category) {
+            <div class="achievement-category" [class.collapsed]="isCategoryCollapsed(cat.category)">
+              <div class="category-header" (click)="toggleCategory(cat.category)">
+                <mat-icon class="category-icon">folder</mat-icon>
+                <span>{{ cat.category }}</span>
+                <span class="category-count">{{ cat.tasks.length }}</span>
+                <mat-icon class="category-chevron" [class.rotated]="!isCategoryCollapsed(cat.category)">expand_more</mat-icon>
               </div>
-              <div class="task-info">
-                <h3>{{ task.title }}</h3>
-                @if (task.description) {
-                  <p class="task-desc">{{ task.description }}</p>
+              <div class="category-body">
+                <div class="tasks-grid">
+                  @for (task of cat.tasks; track task.id) {
+                    <mat-card class="task-card" [class.task-ready]="isTaskReadyToClaim(task)">
+                      <div class="task-card-top">
+                        <div class="task-icon-wrap">
+                          <mat-icon>emoji_events</mat-icon>
+                        </div>
+                        <div class="task-info">
+                          <h3>{{ task.title }}</h3>
+                          @if (task.description) {
+                            <p class="task-desc">{{ task.description }}</p>
+                          }
+                          <div class="task-progress-wrap">
+                            <div class="task-progress-meta">
+                              <span class="task-kind">Achievement</span>
+                              <span class="task-progress-label">{{ progressLabel(task) }}</span>
+                            </div>
+                            <div class="task-progress-bar">
+                              <div class="task-progress-fill" [style.width.%]="progressPercent(task)" [class.fill-complete]="isTaskReadyToClaim(task)"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="task-rewards">
+                        @for (reward of task.rewards ?? [{ type: task.reward_type, amount: task.reward_amount }]; track reward.type + '-' + reward.amount) {
+                          <span class="reward-badge" [class.xp-badge]="reward.type === 'xp'" [class.ticket-badge]="reward.type === 'tickets'">
+                            <mat-icon>{{ reward.type === 'tickets' ? 'confirmation_number' : 'bolt' }}</mat-icon>
+                            +{{ reward.amount }} {{ reward.type === 'tickets' ? 'Tickets' : 'XP' }}
+                          </span>
+                        }
+                      </div>
+
+                      <div class="task-kind-pill achievement">Achievement</div>
+
+                      @if (canManualComplete) {
+                        <button
+                          class="task-complete-btn admin-complete"
+                          [disabled]="completingId === task.id"
+                          (click)="claimTask(task.id, true)"
+                        >
+                          @if (completingId === task.id) {
+                            <span class="btn-spinner"></span>
+                            Completing...
+                          } @else {
+                            <mat-icon>flash_on</mat-icon>
+                            {{ isTaskReadyToClaim(task) ? 'Complete' : 'Insta Complete' }}
+                          }
+                        </button>
+                      } @else if (isTaskReadyToClaim(task)) {
+                        <div class="ready-badge">
+                          <mat-icon>check_circle</mat-icon>
+                          Ready to Claim
+                        </div>
+                        <button
+                          class="task-complete-btn"
+                          [disabled]="completingId === task.id"
+                          (click)="claimTask(task.id)"
+                        >
+                          @if (completingId === task.id) {
+                            <span class="btn-spinner"></span>
+                            Claiming...
+                          } @else {
+                            <mat-icon>card_giftcard</mat-icon>
+                            Claim Reward
+                          }
+                        </button>
+                      } @else if (!isTaskReadyToClaim(task)) {
+                        <div class="progress-indicator">
+                          <mat-icon>schedule</mat-icon>
+                          {{ progressPercent(task) }}% Complete
+                        </div>
+                      }
+                    </mat-card>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    } @else if (activeTab !== 'completed') {
+      @if (loading) {
+        <div class="tasks-loading">
+          <div class="sk-card" *ngFor="let _ of [1,2,3]">
+            <div class="sk-line w-60"></div>
+            <div class="sk-line w-80"></div>
+            <div class="sk-line w-40"></div>
+          </div>
+        </div>
+      } @else if (tasksForCurrentTab.length === 0) {
+        <div class="tasks-empty">
+          <mat-icon>celebration</mat-icon>
+          <p>No missions here yet. Check back later!</p>
+        </div>
+      } @else {
+        <div class="tasks-grid">
+          @for (task of tasksForCurrentTab; track task.id) {
+            <mat-card class="task-card" [class.task-ready]="isTaskReadyToClaim(task)">
+              <div class="task-card-top">
+                <div class="task-icon-wrap">
+                  <mat-icon>{{ isAchievement(task) ? 'emoji_events' : isDuration(task) ? 'timer' : 'assignment' }}</mat-icon>
+                </div>
+                <div class="task-info">
+                  <h3>{{ task.title }}</h3>
+                  @if (task.description) {
+                    <p class="task-desc">{{ task.description }}</p>
+                  }
+                  @if (isAchievement(task) || isDuration(task)) {
+                    <div class="task-progress-wrap">
+                      <div class="task-progress-meta">
+                        <span class="task-kind">{{ isDuration(task) ? 'Live' : 'Achievement' }}</span>
+                        <span class="task-progress-label">{{ progressLabel(task) }}</span>
+                      </div>
+                      <div class="task-progress-bar">
+                        <div class="task-progress-fill" [style.width.%]="progressPercent(task)" [class.fill-complete]="isTaskReadyToClaim(task)"></div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="task-rewards">
+                @for (reward of task.rewards ?? [{ type: task.reward_type, amount: task.reward_amount }]; track reward.type + '-' + reward.amount) {
+                  <span class="reward-badge" [class.xp-badge]="reward.type === 'xp'" [class.ticket-badge]="reward.type === 'tickets'">
+                    <mat-icon>{{ reward.type === 'tickets' ? 'confirmation_number' : 'bolt' }}</mat-icon>
+                    +{{ reward.amount }} {{ reward.type === 'tickets' ? 'Tickets' : 'XP' }}
+                  </span>
                 }
               </div>
-            </div>
 
-            <div class="task-rewards">
-              <span class="reward-badge xp-badge">
-                <mat-icon>bolt</mat-icon>
-                +{{ task.xp_reward }} XP
-              </span>
-              @if (task.reward_game_code) {
-                <span class="reward-badge game-badge">
-                  <mat-icon>videogame_asset</mat-icon>
-                  {{ task.reward_game_code }}
-                </span>
-              }
-            </div>
-
-            <button
-              class="task-complete-btn"
-              [disabled]="completingId === task.id"
-              (click)="completeTask(task.id)"
-            >
-              @if (completingId === task.id) {
-                <span class="btn-spinner"></span>
-                Completing...
+              @if (isDuration(task)) {
+                <div class="task-kind-pill live">
+                  <span class="live-dot"></span>
+                  Live
+                </div>
+              } @else if (isAchievement(task)) {
+                <div class="task-kind-pill achievement">Achievement</div>
               } @else {
-                <mat-icon>check_circle</mat-icon>
-                Complete
+                <div class="task-kind-pill">Daily</div>
               }
-            </button>
-          </mat-card>
+
+              @if (canManualComplete) {
+                <button
+                  class="task-complete-btn admin-complete"
+                  [disabled]="completingId === task.id"
+                  (click)="claimTask(task.id, true)"
+                >
+                  @if (completingId === task.id) {
+                    <span class="btn-spinner"></span>
+                    Completing...
+                  } @else {
+                    <mat-icon>flash_on</mat-icon>
+                    {{ isTaskReadyToClaim(task) ? 'Complete' : 'Insta Complete' }}
+                  }
+                </button>
+              } @else if (isTaskReadyToClaim(task)) {
+                <button
+                  class="task-complete-btn"
+                  [disabled]="completingId === task.id"
+                  (click)="claimTask(task.id)"
+                >
+                  @if (completingId === task.id) {
+                    <span class="btn-spinner"></span>
+                    Claiming...
+                  } @else {
+                    <mat-icon>check_circle</mat-icon>
+                    Claim Reward
+                  }
+                </button>
+              } @else if (!isTaskReadyToClaim(task)) {
+                <div class="progress-indicator">
+                  <mat-icon>schedule</mat-icon>
+                  {{ progressPercent(task) }}% Complete
+                </div>
+              }
+            </mat-card>
+          }
+        </div>
+      }
+    } @else {
+      @if (completedTasksForDisplay.length === 0) {
+        <div class="tasks-empty">
+          <mat-icon>history</mat-icon>
+          <p>No completed missions yet.</p>
+        </div>
+      } @else {
+        <div class="tasks-grid completed-grid">
+          @for (task of completedTasksForDisplay; track task.id) {
+            <mat-card class="task-card completed-card">
+              <div class="task-card-top">
+                <div class="task-icon-wrap completed-icon">
+                  <mat-icon>check_circle</mat-icon>
+                </div>
+                <div class="task-info">
+                  <h3>{{ task.tasks?.title || 'Mission' }}</h3>
+                  @if (task.tasks?.description) {
+                    <p class="task-desc">{{ task.tasks?.description }}</p>
+                  }
+                  <p class="completed-date">Completed {{ task.claimed_at | date:'short' }}</p>
+                </div>
+              </div>
+            </mat-card>
+          }
+        </div>
+      }
+    }
+
+    @if (collectionStats && (activeTab === 'achievements' || activeTab === 'daily')) {
+      <div class="stats-panel">
+        <div class="stats-header">
+          <h3>Your Arsenal</h3>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-value">{{ collectionStats.total_cards }}</span>
+            <span class="stat-label">Current Arsenal</span>
+          </div>
+          <div class="stat-item highlight">
+            <span class="stat-value">{{ collectionStats.static_total_cards }}</span>
+            <span class="stat-label">Total Collected</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">{{ collectionStats.favorite_cards }}</span>
+            <span class="stat-label">Favorites</span>
+          </div>
+        </div>
+        @if (collectionStats.legendary > 0 || collectionStats.epic > 0) {
+          <div class="tier-stats">
+            @if (collectionStats.legendary > 0) {
+              <span class="tier-badge legendary">{{ collectionStats.legendary }} LEG</span>
+            }
+            @if (collectionStats.epic > 0) {
+              <span class="tier-badge epic">{{ collectionStats.epic }} EPIC</span>
+            }
+            @if (collectionStats.rare > 0) {
+              <span class="tier-badge rare">{{ collectionStats.rare }} RARE</span>
+            }
+          </div>
         }
       </div>
     }

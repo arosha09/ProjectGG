@@ -14,6 +14,17 @@ type GameApiItem = Partial<Game> & {
   series_name?: string | null;
 };
 
+export interface SyncResult {
+  code: string;
+  success: boolean;
+  message: string;
+  source?: string;
+  rating?: number | null;
+  genres?: string[];
+  platforms?: string[];
+  release_year?: number | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -114,10 +125,10 @@ export class GamesService {
     return this.http.delete<{ locked_columns: string[] }>(`${this.apiUrl}/games/sync/lock/${code}/${column}`);
   }
 
-  syncGame(code: string, name?: string): Observable<any> {
+  syncGame(code: string, name?: string): Observable<SyncResult> {
     const params: any = {};
     if (name) params.name = name;
-    return this.http.post(`${this.apiUrl}/games/sync/${code}`, null, { params });
+    return this.http.post<SyncResult>(`${this.apiUrl}/games/sync/${code}`, null, { params });
   }
 
   getMissingSeries(): Observable<string[]> {

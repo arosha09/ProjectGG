@@ -15,7 +15,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
 
         <div class="reel-hud">
           <span class="hud-tag">NEURAL JACKPOT</span>
-          <span class="hud-sub">stabilizing prize stream...</span>
+          <span class="hud-sub">{{ loadingData ? 'loading card data...' : 'stabilizing prize stream...' }}</span>
         </div>
 
         <div class="reel-container">
@@ -46,6 +46,9 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
             {{ currentReelTier | uppercase }}
           </div>
           <div class="reel-status">LOCKING RESULT</div>
+          <button class="reel-skip" (click)="skipReel()" [disabled]="loadingData || reelPhase !== 'fast'">
+            <mat-icon>skip_next</mat-icon> SKIP
+          </button>
         </div>
       </div>
     </ng-container>
@@ -201,7 +204,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       left: 0;
       height: 100%;
       align-items: center;
-      transition: transform 4.6s cubic-bezier(0.14, 0.84, 0.16, 1);
+      transition: transform 3.2s cubic-bezier(0.14, 0.84, 0.16, 1);
       will-change: transform;
     }
 
@@ -562,6 +565,44 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       color: rgba(241, 247, 255, 0.45);
     }
 
+    .reel-bottom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .reel-skip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 16px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: rgba(241, 247, 255, 0.6);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+      &:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 45, 111, 0.6);
+        color: #fff;
+      }
+
+      &:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+    }
+
     @media (max-width: 780px) {
       .reel-container { max-width: calc(100vw - 24px); height: 196px; }
       .result-body { grid-template-columns: 1fr; }
@@ -584,6 +625,9 @@ export class CardDrawComponent {
   isNew = false;
   xpAwarded = 0;
   defaultCover = '';
+  loadingData = false;
+
+  private reelTimers: ReturnType<typeof setTimeout>[] = [];
 
   readonly tierColors: Record<string, string> = {
     common: '#8c96a8',
@@ -610,11 +654,10 @@ export class CardDrawComponent {
     const parent = img.parentElement;
     if (parent) {
       const fallback = document.createElement('div');
-      // Apply correct placeholder class based on context
-      fallback.className = parent.classList.contains('reel-card-inner') 
-        ? 'reel-card-placeholder' 
+      fallback.className = parent.classList.contains('reel-card-inner')
+        ? 'reel-card-placeholder'
         : 'result-placeholder';
-      
+
       fallback.innerHTML = parent.classList.contains('reel-card-inner')
         ? '<span class="placeholder-icon">🎮</span><span class="placeholder-tier">CARD</span>'
         : '<span class="placeholder-icon-lg">🎮</span><span class="placeholder-tier-lg">CARD</span>';
@@ -622,53 +665,85 @@ export class CardDrawComponent {
     }
   }
 
+  private preloadImages(urls: string[]): Promise<void> {
+    const uniqueUrls = [...new Set(urls.filter(u => !!u))];
+    if (uniqueUrls.length === 0) return Promise.resolve();
+    return Promise.all(
+      uniqueUrls.map(url => new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = url;
+      }))
+    ).then(() => {});
+  }
+
+  private clearTimers(): void {
+    this.reelTimers.forEach(t => clearTimeout(t));
+    this.reelTimers = [];
+  }
+
+  skipReel(): void {
+    if (this.state !== 'reeling' || !this.resultCard) return;
+    this.clearTimers();
+    this.reelPhase = 'stop';
+    this.reelOffsetPx = this.getFinalOffset();
+    this.showResult();
+  }
+
+  private showResult(): void {
+    this.state = 'result';
+    this.drawComplete.emit({ card: this.resultCard!, isNew: this.isNew, xp: this.xpAwarded });
+  }
+
+  private runReel(result: DrawResult): void {
+    const realCard = this.normalizeResult(result);
+    this.reelCards[this.highlightIndex] = realCard;
+    this.currentReelTier = realCard.card_tier;
+    this.resultCard = realCard;
+    this.isNew = !!result.is_new;
+    this.xpAwarded = result.xp_awarded ?? 0;
+
+    const finalOffset = this.getFinalOffset();
+
+    this.reelTimers.push(
+      setTimeout(() => {
+        this.reelOffsetPx = finalOffset * 0.3;
+        this.reelPhase = 'slow';
+      }, 3000),
+      setTimeout(() => {
+        this.reelOffsetPx = finalOffset;
+        this.reelPhase = 'stop';
+      }, 4400),
+      setTimeout(() => {
+        this.showResult();
+      }, 5000),
+    );
+  }
+
   startDailyDraw(): void {
-    // 1. Trigger animation immediately
+    this.clearTimers();
     this.state = 'reeling';
     this.reelPhase = 'fast';
+    this.reelOffsetPx = 0;
+    this.resultCard = null;
+    this.loadingData = true;
+    this.reelCards = this.buildReelCards([], this.placeholderCard());
 
-    // 2. Fetch real options
     this.chatService.getDailyDrawCards().subscribe({
       next: (cards) => {
-        if (!cards || cards.length === 0) { this.state = 'idle'; return; }
-        
-        // Fill reel by cycling through the 5 real cards
-        this.reelCards = Array.from({ length: 30 }, (_, i) => ({
-          game_code: cards[i % cards.length].game_code,
-          game_name: cards[i % cards.length].game_name,
-          cover_url: cards[i % cards.length].cover_url,
-          rating: cards[i % cards.length].rating,
-          card_tier: cards[i % cards.length].card_tier,
-          series_name: cards[i % cards.length].series_name
-        }));
-        
-        // 3. Trigger claim
-        this.chatService.claimDailyDraw().subscribe({
-          next: (result) => {
-            const realCard: DrawCard = {
-              game_code: result.game_code,
-              game_name: result.game_name,
-              cover_url: result.cover_url || '',
-              rating: result.rating,
-              card_tier: result.card_tier,
-              series_name: result.series_name || '',
-            };
-            
-            // Set the winning card at the highlight index
-            this.reelCards[this.highlightIndex] = realCard;
-            this.currentReelTier = realCard.card_tier;
-
-            setTimeout(() => { this.reelPhase = 'slow'; }, 2000);
-            setTimeout(() => { this.reelPhase = 'stop'; }, 3500);
-            setTimeout(() => {
-              this.resultCard = realCard;
-              this.isNew = result.is_new;
-              this.xpAwarded = result.xp_awarded;
-              this.state = 'result';
-              this.drawComplete.emit({ card: realCard, isNew: result.is_new, xp: result.xp_awarded });
-            }, 4200);
-          },
-          error: () => { this.state = 'idle'; },
+        const fallback = this.placeholderCard();
+        this.reelCards = this.buildReelCards(cards ?? [], fallback);
+        const imageUrls = (cards ?? []).map(c => c.cover_url).filter(Boolean);
+        this.preloadImages(imageUrls).then(() => {
+          this.loadingData = false;
+          this.chatService.claimDailyDraw().subscribe({
+            next: (result: DrawResult) => {
+              if (!result) { this.state = 'idle'; return; }
+              this.runReel(result);
+            },
+            error: () => { this.state = 'idle'; },
+          });
         });
       },
       error: () => { this.state = 'idle'; }
@@ -676,7 +751,42 @@ export class CardDrawComponent {
   }
 
   startTicketDraw(ticketId: number): void {
-    this.beginDraw('ticket', () => this.chatService.drawWithTicket(ticketId));
+    this.clearTimers();
+    this.state = 'reeling';
+    this.reelPhase = 'fast';
+    this.reelOffsetPx = 0;
+    this.resultCard = null;
+    this.loadingData = true;
+    this.reelCards = this.buildReelCards([], this.placeholderCard());
+
+    this.chatService.getDailyDrawCards().subscribe({
+      next: (cards) => {
+        const fallback = this.placeholderCard();
+        this.reelCards = this.buildReelCards(cards ?? [], fallback);
+        const imageUrls = (cards ?? []).map(c => c.cover_url).filter(Boolean);
+        this.preloadImages(imageUrls).then(() => {
+          this.loadingData = false;
+          this.chatService.drawWithTicket(ticketId).subscribe({
+            next: (result: DrawResult) => {
+              if (!result) { this.state = 'idle'; return; }
+              this.runReel(result);
+            },
+            error: () => { this.state = 'idle'; },
+          });
+        });
+      },
+      error: () => {
+        this.reelCards = this.buildReelCards([], this.placeholderCard());
+        this.loadingData = false;
+        this.chatService.drawWithTicket(ticketId).subscribe({
+          next: (result: DrawResult) => {
+            if (!result) { this.state = 'idle'; return; }
+            this.runReel(result);
+          },
+          error: () => { this.state = 'idle'; },
+        });
+      },
+    });
   }
 
   closeResult(): void {
@@ -684,71 +794,6 @@ export class CardDrawComponent {
       this.state = 'idle';
       this.resultCard = null;
     }
-  }
-
-  private beginDraw(mode: 'daily' | 'ticket', drawRequest: () => any): void {
-    this.state = 'reeling';
-    this.reelPhase = 'fast';
-    this.reelOffsetPx = 0;
-    this.resultCard = null;
-    this.reelCards = this.buildReelCards([], this.placeholderCard());
-
-    this.chatService.getDailyDrawCards().subscribe({
-      next: (cards) => {
-        const fallback = this.placeholderCard();
-        this.reelCards = this.buildReelCards(cards ?? [], fallback);
-
-        drawRequest().subscribe({
-          next: (result: DrawResult) => {
-            if (!result) {
-              this.state = 'idle';
-              return;
-            }
-
-            const realCard = this.normalizeResult(result);
-            this.reelCards[this.highlightIndex] = realCard;
-            this.currentReelTier = realCard.card_tier;
-
-            const finalOffset = this.getFinalOffset();
-            setTimeout(() => {
-              this.reelOffsetPx = finalOffset * 0.55;
-              this.reelPhase = 'slow';
-            }, 900);
-            setTimeout(() => {
-              this.reelOffsetPx = finalOffset;
-              this.reelPhase = 'stop';
-            }, 2200);
-            setTimeout(() => {
-              this.resultCard = realCard;
-              this.isNew = !!result.is_new;
-              this.xpAwarded = result.xp_awarded ?? 0;
-              this.state = 'result';
-              this.drawComplete.emit({ card: realCard, isNew: !!result.is_new, xp: result.xp_awarded ?? 0 });
-            }, 3000);
-          },
-          error: () => { this.state = 'idle'; },
-        });
-      },
-      error: () => {
-        this.reelCards = this.buildReelCards([], this.placeholderCard());
-        drawRequest().subscribe({
-          next: (result: DrawResult) => {
-            const realCard = this.normalizeResult(result);
-            this.reelCards[this.highlightIndex] = realCard;
-            this.currentReelTier = realCard.card_tier;
-            this.reelOffsetPx = this.getFinalOffset();
-            setTimeout(() => {
-              this.resultCard = realCard;
-              this.isNew = !!result.is_new;
-              this.xpAwarded = result.xp_awarded ?? 0;
-              this.state = 'result';
-              this.drawComplete.emit({ card: realCard, isNew: !!result.is_new, xp: result.xp_awarded ?? 0 });
-            }, 2400);
-          },
-          error: () => { this.state = 'idle'; },
-        });
-      },
-    });
   }
 
   private buildReelCards(pool: DrawCard[], winner: DrawCard): DrawCard[] {

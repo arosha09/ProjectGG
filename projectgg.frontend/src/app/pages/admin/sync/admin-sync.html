@@ -194,7 +194,7 @@
                     </div>
                   }
                   <div class="sq-locks">
-                    @for (col of ['cover_url', 'rating', 'platforms', 'sources']; track col) {
+                    @for (col of ['cover_url', 'rating', 'genres', 'platforms', 'desc', 'sources']; track col) {
                       <span class="sq-lock-btn"
                             [class.sq-locked]="game.locked_columns?.includes(col)"
                             [title]="(game.locked_columns?.includes(col) ? 'Unlock' : 'Lock') + ' ' + col"
@@ -215,21 +215,22 @@
                   @if (results.find(r => r.code === game.code); as result) {
                     <div class="sq-result-detail" [class.sq-rd-err]="!result.success">
                       @if (result.success) {
-                        <span class="sq-rd-source">{{ result.source | uppercase }}</span>
-                        @if (result.genres?.length > 0) {
-                          <span class="sq-rd-info">{{ result.genres.join(', ') }}</span>
-                        }
-                        @if (result.rating != null) {
-                          <span class="sq-rd-info">★ {{ result.rating }}</span>
-                        }
-                        @if (result.release_year) {
-                          <span class="sq-rd-info">{{ result.release_year }}</span>
-                        }
-                        @if (result.platforms?.length > 0) {
-                          <span class="sq-rd-info">{{ result.platforms.join(', ') }}</span>
-                        }
+                        <div class="sq-rd-source-row">
+                          <span class="sq-rd-source" [class]="'source-' + result.source">{{ result.source?.toUpperCase() || 'SYNCED' }}</span>
+                          <span class="sq-rd-fields">
+                            <span class="field-badge cover field-updated">COVER</span>
+                            <span class="field-badge rating" [class.field-updated]="result.rating != null">{{ result.rating != null ? 'RATING ' + result.rating : 'NO RATING' }}</span>
+                            <span class="field-badge genres field-updated">GENRES</span>
+                            <span class="field-badge platforms field-updated">PLATFORMS</span>
+                            <span class="field-badge desc field-updated">DESC</span>
+                            @if (result.message.includes('RAWG')) {
+                              <span class="field-badge rawg-fallback">RAWG FALLBACK</span>
+                            }
+                          </span>
+                        </div>
+                        <div class="sq-rd-message">{{ result.message }}</div>
                       } @else {
-                        {{ result.message }}
+                        <span class="sq-rd-error">{{ result.message }}</span>
                       }
                     </div>
                   }

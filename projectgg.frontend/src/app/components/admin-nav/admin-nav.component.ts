@@ -18,6 +18,10 @@ import { MatIconModule } from '@angular/material/icon';
           <mat-icon>admin_panel_settings</mat-icon>
           <span>ADMIN PANEL</span>
         </a>
+        <a class="admin-nav-btn" routerLink="/admin/tasks">
+          <mat-icon>assignment</mat-icon>
+          <span>TASKS</span>
+        </a>
       </div>
     </header>
   `,

@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
-import { GamesService } from '../../../services/games.service';
+import { GamesService, SyncResult } from '../../../services/games.service';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
@@ -19,12 +19,12 @@ import { AuthService } from '../../../services/auth.service';
 export class AdminSync {
   syncing = false;
   scanning = false;
-  queue: { code: string; name: string; missing: string[]; locked_columns?: string[] }[] = [];
+  queue: { code: string; name: string; missing: string[]; locked_columns?: string[]; currentSync?: SyncResult }[] = [];
   completed = 0;
   total = 0;
   current = '';
   status = '';
-  results: any[] = [];
+  results: SyncResult[] = [];
   showQueue = false;
   searchQuery = '';
   selectedCodes = new Set<string>();
@@ -36,6 +36,7 @@ export class AdminSync {
   missingSeries: string[] = [];
   fileMap: Map<string, File | null> = new Map();
   uploadStatus: Map<string, string> = new Map();
+  currentSyncingDetail = '';
 
   constructor(
     private readonly games: GamesService,
@@ -285,23 +286,56 @@ export class AdminSync {
 
     const game = this.queue[index];
     this.current = game.code;
+    this.currentSyncingDetail = '';
     this.status = `[${index + 1}/${this.total}] Syncing ${game.name} (${game.code})...`;
     this.cdr.detectChanges();
 
     this.games.syncGame(game.code, game.name).subscribe({
-      next: (result) => {
-        this.results.push(result);
+      next: (result: SyncResult) => {
+        const syncResult: SyncResult = {
+          code: game.code,
+          success: result.success,
+          message: result.message,
+          source: result.source || this.extractSource(result.message),
+          rating: result.rating,
+        };
+        this.results.push(syncResult);
         this.completed = index + 1;
         this.cdr.detectChanges();
         setTimeout(() => this.processNext(index + 1), 500);
       },
-      error: (err) => {
-        this.results.push({ code: game.code, success: false, message: err.message });
+      error: (err: any) => {
+        const syncResult: SyncResult = {
+          code: game.code,
+          success: false,
+          message: err.message,
+        };
+        this.results.push(syncResult);
         this.completed = index + 1;
         this.cdr.detectChanges();
         setTimeout(() => this.processNext(index + 1), 500);
       },
     });
+  }
+
+  private extractSource(message: string): string {
+    const sources = ['steam', 'rawg', 'gog', 'epic', 'steamgriddb'];
+    const lower = message.toLowerCase();
+    for (const s of sources) {
+      if (lower.includes(s)) return s;
+    }
+    return 'unknown';
+  }
+
+  getFieldDetails(result: SyncResult): string {
+    if (!result.success) return result.message;
+    const parts: string[] = [];
+    if (result.message?.includes('cover')) parts.push('cover');
+    if (result.message?.includes('rating')) parts.push('rating');
+    if (result.message?.includes('RAWG')) parts.push('RAWG rating');
+    if (result.message?.includes('genres')) parts.push('genres');
+    if (result.message?.includes('platforms')) parts.push('platforms');
+    return parts.length > 0 ? parts.join(', ') : result.message;
   }
 
   get progressPercent(): number {

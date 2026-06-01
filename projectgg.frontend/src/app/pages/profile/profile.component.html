@@ -63,7 +63,7 @@
                     class="hero-avatar-img"
                     [src]="avatarDisplay"
                     (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')"
-                    (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')"
+                    (load)="onAvatarLoad($event)"
                     alt="Avatar"
                   />
                 }
@@ -90,9 +90,11 @@
         />
       </mat-card>
 
-      <div style="margin:8px 0;">
-        <button class="cyber-btn" type="button" (click)="debugMode = !debugMode">{{ debugMode ? 'Hide' : 'Show' }} debug JSON</button>
-      </div>
+      @if (isDev) {
+        <div style="margin:8px 0;">
+          <button class="cyber-btn" type="button" (click)="toggleDebugMode()">{{ debugMode ? 'Hide' : 'Show' }} debug JSON</button>
+        </div>
+      }
 
       <div class="profile-grid">
         <mat-card class="info-card">
@@ -147,18 +149,18 @@
         <app-rank-display [userRank]="userRank"></app-rank-display>
       </div>
 
-      <!-- Collected games -->
+      <!-- Favorites -->
       <div class="profile-collection-section">
         <div class="collection-section-header">
-          <mat-icon>videogame_asset</mat-icon>
-          <h3>Collected Games</h3>
-          @if (collectedGames.length > 0) {
-            <span class="collection-count">{{ collectedGames.length }}</span>
+          <mat-icon>star</mat-icon>
+          <h3>Favorite Games</h3>
+          @if (favoriteGames.length > 0) {
+            <span class="collection-count">{{ favoriteGames.length }}/10</span>
           }
           <a class="collection-view-all" routerLink="/tasks">Missions</a>
         </div>
 
-        @if (collectedGamesLoading) {
+        @if (favoriteGamesLoading) {
           <div class="collection-grid">
             @for (_ of [1,2,3,4,5,6]; track _) {
               <div class="collection-sk-card">
@@ -167,17 +169,17 @@
               </div>
             }
           </div>
-        } @else if (collectedGames.length === 0) {
+        } @else if (favoriteGames.length === 0) {
           <div class="collection-empty">
-            <mat-icon>explore</mat-icon>
-            <p>No games collected yet. Complete missions to earn your first game.</p>
+            <mat-icon>star_outline</mat-icon>
+            <p>No favorite games yet. Mark some cards as favorite to pin them here.</p>
             <a class="cyber-btn-sm" routerLink="/tasks">
               <mat-icon>assignment</mat-icon> View Missions
             </a>
           </div>
         } @else {
           <div class="collection-grid">
-            @for (game of collectedGames; track game.code) {
+            @for (game of favoriteGames; track game.game_code) {
               <div class="collection-item" [style.--tier-color]="tierColor(game.tier)">
                 <div class="collection-item-media">
                   @if (game.tier) {
@@ -258,7 +260,7 @@
                       (click)="onSelectSystemAvatar(av.path)"
                       [title]="av.filename"
                       alt="System avatar"
-                      (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')"
+                      (load)="onSystemAvatarLoad($event)"
                       (error)="$event.target.previousElementSibling?.classList?.add('sk-err')"
                     />
                   </div>
@@ -269,32 +271,29 @@
         </div>
       </div>
 
-      <!-- CARD SHOWCASE -->
-      @if (showcaseCards.length > 0) {
-        <mat-card class="info-card showcase-card">
-          <div class="info-head">
-            <mat-icon>style</mat-icon>
-            <h3>Card Showcase</h3>
-          </div>
-          <div class="showcase-grid">
-            @for (card of showcaseCards; track card.game_code) {
-              <div class="showcase-item" [style.border-color]="tierColor(card.card_tier)">
-                <div class="showcase-item-sk"></div>
-                <img [src]="card.cover_url || 'assets/default-avatar.png'" alt="" class="showcase-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
-                <div class="showcase-bar" [style.background]="tierColor(card.card_tier)"></div>
-              </div>
-            }
-          </div>
-          <div class="showcase-footer">
-            <span class="showcase-count">{{ collectionStats?.total_cards ?? 0 }} total cards</span>
-            <a class="showcase-link" routerLink="/tasks">View All</a>
-          </div>
-        </mat-card>
-      }
+      <mat-card class="info-card showcase-card">
+        <div class="info-head">
+          <mat-icon>style</mat-icon>
+          <h3>Card Showcase</h3>
+        </div>
+        <div class="showcase-grid">
+          @for (card of favoriteGames; track card.game_code) {
+            <div class="showcase-item" [style.border-color]="tierColor(card.card_tier)">
+              <div class="showcase-item-sk"></div>
+              <img [src]="card.cover_url || 'assets/default-avatar.png'" alt="" class="showcase-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <div class="showcase-bar" [style.background]="tierColor(card.card_tier)"></div>
+            </div>
+          }
+        </div>
+        <div class="showcase-footer">
+          <span class="showcase-count">{{ collectionStats?.total_cards ?? 0 }} total cards</span>
+          <a class="showcase-link" routerLink="/tasks">View All</a>
+        </div>
+      </mat-card>
     }
 
     <!-- Debug JSON panel -->
-    @if (debugMode) {
+    @if (isDev && debugMode) {
       <mat-card class="info-card debug-card">
         <div class="info-head"><mat-icon>bug_report</mat-icon><h3>Debug JSON</h3></div>
         <div class="info-body">

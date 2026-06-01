@@ -8,6 +8,8 @@ import { SettingsComponent } from './pages/settings/settings.component';
 import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
 import { AdminDashboard } from './pages/admin/dashboard/admin-dashboard';
 import { AdminSync } from './pages/admin/sync/admin-sync';
+import { TasksAdminComponent } from './pages/admin/tasks-admin.component';
+import { AdminGuard } from './services/admin.guard';
 import { SteamCallbackComponent } from './pages/steam-callback/steam-callback.component';
 import { DiscordCallbackComponent } from './pages/discord-callback/discord-callback.component';
 import { SpotifyCallbackComponent } from './pages/spotify-callback/spotify-callback.component';
@@ -107,6 +109,11 @@ export const routes: Routes = [
     path: 'admin/sync',
     component: AdminSync,
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'admin/tasks',
+    component: TasksAdminComponent,
+    canActivate: [AuthGuard, AdminGuard]
   },
   {
     path: '**',

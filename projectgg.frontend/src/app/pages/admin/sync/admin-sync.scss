@@ -585,21 +585,96 @@
 .sq-result-detail {
   grid-column: 1 / -1;
   display: flex;
-  gap: 12px;
-  padding: 4px 10px 2px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 6px;
   font-size: 11px;
   color: rgba(200, 216, 208, 0.5);
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   flex-wrap: wrap;
 }
 
+.sq-rd-source-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .sq-rd-source {
   color: #aa44ff;
   font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  background: rgba(170, 68, 255, 0.15);
+  border-radius: 4px;
+
+  &.source-steam {
+    background: rgba(0, 100, 200, 0.15);
+    color: #00aaff;
+  }
+
+  &.source-rawg {
+    background: rgba(90, 180, 90, 0.15);
+    color: #5ab45a;
+  }
+
+  &.source-gog {
+    background: rgba(140, 60, 180, 0.15);
+    color: #a855c0;
+  }
+
+  &.source-epic {
+    background: rgba(50, 50, 50, 0.15);
+    color: #888;
+  }
+
+  &.source-steamgriddb {
+    background: rgba(100, 150, 200, 0.15);
+    color: #64a0e0;
+  }
 }
 
-.sq-rd-info {
-  color: rgba(200, 216, 208, 0.6);
+.sq-rd-fields {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.field-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 255, 153, 0.08);
+  color: #00ff99;
+  border: 1px solid rgba(0, 255, 153, 0.25);
+  transition: all 0.2s ease;
+
+  &.cover { border-color: rgba(255, 34, 85, 0.3); }
+  &.rating { border-color: rgba(255, 215, 0, 0.3); }
+  &.genres { border-color: rgba(170, 68, 255, 0.3); }
+  &.platforms { border-color: rgba(0, 255, 153, 0.3); }
+  &.desc { border-color: rgba(255, 152, 0, 0.3); }
+
+  &.rawg-fallback {
+    background: rgba(90, 180, 90, 0.15);
+    color: #5ab45a;
+    border-color: rgba(90, 180, 90, 0.3);
+    font-size: 7px;
+  }
+}
+
+.sq-rd-message {
+  color: rgba(200, 216, 208, 0.5);
+  font-size: 10px;
+}
+
+.sq-rd-error {
+  color: #ff5f6d;
+  font-size: 11px;
 }
 
 .sq-rd-err {

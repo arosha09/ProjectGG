@@ -62,7 +62,7 @@ import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from 
             </div>
           }
         </div>
-      } @else if (viewMode === 'dm' || viewMode === 'friends') {
+      } @else if (viewMode === 'dm' || viewMode === 'friends' || viewMode === 'trading') {
         <div class="gg-channels-head">
           <span class="gg-channels-title">Direct Messages</span>
         </div>
@@ -76,6 +76,11 @@ import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from 
             @if (pendingRequests.length > 0) {
               <span class="gg-pending-badge">{{ pendingRequests.length }}</span>
             }
+          </div>
+
+          <div class="gg-channel gg-trading-btn" [class.active]="viewMode === 'trading'" (click)="openTradingView.emit()">
+            <mat-icon class="gg-ch-icon">style</mat-icon>
+            <span class="gg-ch-name">Trade</span>
           </div>
 
           @if (dmLoading) {
@@ -357,6 +362,7 @@ export class ChannelListComponent {
   @Output() deleteChannel = new EventEmitter<GgChannel>();
   @Output() selectDm = new EventEmitter<DmConversation>();
   @Output() openFriendsView = new EventEmitter<void>();
+  @Output() openTradingView = new EventEmitter<void>();
   @Output() openInviteLinks = new EventEmitter<void>();
   @Output() setStatus = new EventEmitter<string>();
   @Output() toggleVoiceMute = new EventEmitter<void>();

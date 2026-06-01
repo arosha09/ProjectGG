@@ -10,10 +10,14 @@
 						<button class="draw-btn" (click)="openCardDraw()">
 							<mat-icon>casino</mat-icon> DAILY DRAW
 						</button>
+					} @else if (cardDrawTickets.length > 0) {
+						<button class="draw-btn" (click)="openCardDraw()">
+							<mat-icon>confirmation_number</mat-icon> {{ cardDrawTickets.length > 10 ? '10+' : cardDrawTickets.length }} tickets remaining — click to draw
+						</button>
 					} @else {
-						<div class="draw-already">
-							<mat-icon>check_circle</mat-icon> Draw claimed today
-						</div>
+						<button class="draw-btn draw-btn--disabled" disabled>
+							<mat-icon>casino</mat-icon> 0 tickets
+						</button>
 					}
 					<a class="hero-link" routerLink="/profile">Collection</a>
 					<a class="hero-link" routerLink="/tasks">Tasks</a>
@@ -161,33 +165,5 @@
 
 	</main>
 
-	<!-- CARD DRAW MODAL -->
-	@if (showCardDraw) {
-		<div class="draw-overlay" (click)="showCardDraw = false">
-			<div class="draw-modal" (click)="$event.stopPropagation()">
-				<div class="draw-modal-header">
-					<h2>CARD DRAW</h2>
-					<button class="draw-close" (click)="showCardDraw = false"><mat-icon>close</mat-icon></button>
-				</div>
-				@if (!cardStats?.today_drawn) {
-					<div class="draw-trigger">
-						<p>One free draw per day!</p>
-						<button class="draw-trigger-btn" (click)="triggerDailyDraw(drawRef)">
-							<mat-icon>casino</mat-icon> DRAW NOW
-						</button>
-					</div>
-				} @else {
-					<div class="draw-trigger">
-						<p>Already drew today.</p>
-						@if (cardDrawTickets.length > 0) {
-							<button class="draw-trigger-btn" (click)="triggerTicketDraw(drawRef)">
-								<mat-icon>confirmation_number</mat-icon> USE TICKET ({{ cardDrawTickets.length }})
-							</button>
-						}
-					</div>
-				}
-				<app-card-draw #drawRef [ticketCount]="cardDrawTickets.length" (drawComplete)="onDrawComplete()"></app-card-draw>
-			</div>
-		</div>
-	}
+	<app-card-draw #drawRef [ticketCount]="cardDrawTickets.length" (drawComplete)="onDrawComplete()"></app-card-draw>
 </section>

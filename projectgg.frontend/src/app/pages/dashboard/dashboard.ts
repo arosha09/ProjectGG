@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef, HostListener, ViewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -92,9 +92,10 @@ export class Dashboard implements OnInit, OnDestroy {
   // Card collection
   cardStats: any = null;
   cards: any[] = [];
-  showCardDraw = false;
   cardDrawTickets: any[] = [];
   recentDrawCode: string | null = null;
+
+  @ViewChild('drawRef') drawRef?: CardDrawComponent;
   
   // ... (keep existing properties)
 
@@ -123,6 +124,7 @@ export class Dashboard implements OnInit, OnDestroy {
         this.loadConnections();
         this.loadCardStats();
         this.loadCardCollection();
+        this.loadDrawTickets();
       }
     });
 
@@ -133,6 +135,7 @@ export class Dashboard implements OnInit, OnDestroy {
         this.loadConnections();
         this.loadCardStats();
         this.loadCardCollection();
+        this.loadDrawTickets();
     }
 
     this.applySavedTheme();
@@ -270,28 +273,28 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   openCardDraw(): void {
-    this.showCardDraw = true;
+    if (!this.cardStats?.today_drawn) {
+      this.drawRef?.startDailyDraw();
+    } else {
+      const ticket = this.cardDrawTickets[0];
+      if (ticket) {
+        this.drawRef?.startTicketDraw(ticket.id);
+        this.cardDrawTickets = this.cardDrawTickets.filter(t => t.id !== ticket.id);
+      }
+    }
+  }
+
+  loadDrawTickets(): void {
     this.chatService.getDrawTickets().subscribe({
       next: (tickets) => { this.cardDrawTickets = tickets; this.cdr.markForCheck(); },
     });
-  }
-
-  triggerDailyDraw(drawComp: any): void {
-    drawComp?.startDailyDraw();
-  }
-
-  triggerTicketDraw(drawComp: any): void {
-    const ticket = this.cardDrawTickets[0];
-    if (ticket) {
-      drawComp?.startTicketDraw(ticket.id);
-      this.cardDrawTickets = this.cardDrawTickets.filter(t => t.id !== ticket.id);
-    }
   }
 
   onDrawComplete(result?: { card?: { game_code?: string } }): void {
     this.recentDrawCode = result?.card?.game_code ?? null;
     this.loadCardStats();
     this.loadCardCollection();
+    this.loadDrawTickets();
     if (this.recentDrawCode) {
       setTimeout(() => {
         this.recentDrawCode = null;

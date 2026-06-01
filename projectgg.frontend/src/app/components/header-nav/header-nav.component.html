@@ -104,6 +104,9 @@
         <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
       </div>
       <span class="user-name">{{ userName() }}</span>
+      @if (isAdmin()) {
+        <span class="admin-badge">ADMIN</span>
+      }
       <span class="trigger-arrow">▼</span>
     </div>
 
@@ -128,15 +131,41 @@
           <button class="header-notif-mark-read" (click)="markAllNotifRead()">Mark all read</button>
         }
       </div>
-      <div class="header-notif-list">
-        @if (notifications.length === 0) {
-          <div class="header-notif-empty">No notifications</div>
+      
+      <div class="header-notif-tabs">
+        @for (cat of notifCategories; track cat.id) {
+          <button 
+            class="header-notif-tab" 
+            [class.active]="notifCategory === cat.id"
+            (click)="notifCategory = cat.id"
+          >
+            <mat-icon>{{ cat.icon }}</mat-icon>
+            <span>{{ cat.label }}</span>
+            @if (getCategoryUnreadCount(cat.id) > 0) {
+              <span class="notif-tab-badge">{{ getCategoryUnreadCount(cat.id) }}</span>
+            }
+          </button>
         }
-        @for (n of notifications; track n.id) {
+      </div>
+
+      <div class="header-notif-list">
+        @if (filteredNotifications.length === 0) {
+          <div class="header-notif-empty">
+            <mat-icon>inbox</mat-icon>
+            <p>No notifications</p>
+          </div>
+        }
+        @for (n of filteredNotifications; track n.id) {
           <div class="header-notif-item" [class.unread]="!n.read" (click)="markNotifRead(n)">
-            <div class="header-notif-icon">
+            <div class="header-notif-icon" [class]="'cat-' + getNotifCategory(n)">
               @if (n.type === 'friend_request' || n.type === 'friend_accepted') {
                 <mat-icon>person_add</mat-icon>
+              } @else if (n.type === 'task_completed' || n.type === 'mission_complete' || n.type === 'achievement') {
+                <mat-icon>emoji_events</mat-icon>
+              } @else if (n.type === 'card_trade' || n.type === 'trade') {
+                <mat-icon>swap_horiz</mat-icon>
+              } @else if (n.type === 'xp_reward' || n.type === 'level_up') {
+                <mat-icon>bolt</mat-icon>
               } @else {
                 <mat-icon>notifications</mat-icon>
               }
@@ -144,6 +173,7 @@
             <div class="header-notif-body">
               <div class="header-notif-title">{{ n.title }}</div>
               <div class="header-notif-text">{{ n.body }}</div>
+              <div class="header-notif-cat-tag">{{ getNotifCategory(n) }}</div>
             </div>
             <div class="header-notif-time">{{ n.created_at | date:'short' }}</div>
           </div>

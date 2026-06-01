@@ -48,6 +48,16 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
   showNotifications = false;
   private socket: Socket | null = null;
 
+  notifCategory: 'all' | 'tasks' | 'social' | 'trades' | 'system' = 'all';
+  
+  readonly notifCategories: Array<{ id: 'all' | 'tasks' | 'social' | 'trades' | 'system'; label: string; icon: string }> = [
+    { id: 'all', label: 'All', icon: 'inbox' },
+    { id: 'tasks', label: 'Tasks', icon: 'assignment' },
+    { id: 'social', label: 'Social', icon: 'people' },
+    { id: 'trades', label: 'Trades', icon: 'swap_horiz' },
+    { id: 'system', label: 'System', icon: 'settings' },
+  ];
+
   profileItems: DropdownItem[] = [
     { label: 'PROFILE', icon: 'person', link: '/profile' },
     { label: 'MISSIONS', icon: 'assignment', link: '/tasks' },
@@ -148,6 +158,35 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
       this.notifications.forEach(n => n.read = true);
       this.unreadCount = 0;
     });
+  }
+
+  get filteredNotifications(): AppNotification[] {
+    if (this.notifCategory === 'all') return this.notifications;
+    return this.notifications.filter(n => this.getNotifCategory(n) === this.notifCategory);
+  }
+
+  getNotifCategory(n: AppNotification): 'tasks' | 'social' | 'trades' | 'system' {
+    const type = n.type?.toLowerCase() ?? '';
+    if (type.includes('task') || type.includes('mission') || type.includes('achievement') || type.includes('xp') || type.includes('reward')) {
+      return 'tasks';
+    }
+    if (type.includes('friend') || type.includes('dm') || type.includes('message') || type.includes('server') || type.includes('guild')) {
+      return 'social';
+    }
+    if (type.includes('trade') || type.includes('swap') || type.includes('card')) {
+      return 'trades';
+    }
+    return 'system';
+  }
+
+  getCategoryCount(cat: 'all' | 'tasks' | 'social' | 'trades' | 'system'): number {
+    if (cat === 'all') return this.notifications.length;
+    return this.notifications.filter(n => this.getNotifCategory(n) === cat).length;
+  }
+
+  getCategoryUnreadCount(cat: 'all' | 'tasks' | 'social' | 'trades' | 'system'): number {
+    if (cat === 'all') return this.unreadCount;
+    return this.notifications.filter(n => !n.read && this.getNotifCategory(n) === cat).length;
   }
 
   toggleMobileMenu(): void {

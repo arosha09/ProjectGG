@@ -14,7 +14,6 @@ import { DailyClaimComponent } from '../../components/daily-claim/daily-claim.co
 import { XpService } from '../../services/xp.service';
 import { UserRankDto } from '../../models/rank.model';
 import { environment } from '../../../environments/environment';
-import { Game } from '../../models/game.model';
 import { TasksService } from '../../services/tasks.service';
 import { ThemeService } from '../../services/theme.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
@@ -39,7 +38,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   userRank: UserRankDto | null = null;
   // debug
   debugMode = false;
-  debugData: any = { profile: null, connections: null, rank: null, showcase: null, collectedGames: null, collectionStats: null };
+  debugData: any = { profile: null, connections: null, rank: null, showcase: null, collectionStats: null };
   canClaim = false;
   claimLoading = false;
   loading = true;
@@ -47,8 +46,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
   profileError = '';
   connectionsError = '';
 
-  // Card showcase
-  showcaseCards: any[] = [];
+  // Favorites showcase
+  favoriteGames: any[] = [];
+  favoriteGamesLoading = false;
   collectionStats: any = null;
 
   avatarCategories: { category: string; avatars: { filename: string; url: string; path: string }[] }[] = [];
@@ -69,12 +69,6 @@ export class ProfileComponent implements OnInit, OnDestroy {
   ];
   connections: any[] = [];
   discordConnected = false;
-
-  collectedGames: Game[] = [];
-  collectedGamesLoading = false;
-  collectedGamesPage = 1;
-  collectedGamesTotalPages = 1;
-  readonly pageSize = 12;
 
   private readonly apiUrl = environment.apiUrl;
 
@@ -122,7 +116,6 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
     this.refreshProfile();
     this.loadConnections();
-    this.loadCollectedGames();
     this.loadShowcase();
   }
 
@@ -184,6 +177,17 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   onAvatarError(event: Event): void {
     (event.target as HTMLImageElement).style.display = 'none';
+  }
+
+  onAvatarLoad(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    const sk = img.previousElementSibling as HTMLElement | null;
+    sk?.classList?.add('sk-hidden');
+    img.classList.add('is-loaded');
+  }
+
+  onSystemAvatarLoad(event: Event): void {
+    this.onAvatarLoad(event);
   }
 
   openAvatarModal(): void {
@@ -309,6 +313,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.profileError = '';
         this.debugData.profile = profile;
         this.loadRankData();
+        this.loadFavoriteGames();
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -335,24 +340,27 @@ export class ProfileComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadCollectedGames(): void {
-    this.collectedGamesLoading = true;
-    this.tasksService.getCollectedGames(this.collectedGamesPage, this.pageSize).subscribe({
-      next:  (games) => { this.collectedGames = games; this.debugData.collectedGames = games; this.collectedGamesLoading = false; this.cdr.markForCheck(); },
-      error: ()      => { this.collectedGamesLoading = false; this.cdr.markForCheck(); },
+  loadFavoriteGames(): void {
+    if (!this.currentUser?.id) return;
+    this.favoriteGamesLoading = true;
+    this.chatService.getUserShowcase(this.currentUser?.id).subscribe({
+      next: (games) => {
+        this.favoriteGames = (games ?? []).slice(0, 10);
+        this.debugData.showcase = this.favoriteGames;
+        this.favoriteGamesLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.favoriteGames = [];
+        this.favoriteGamesLoading = false;
+        this.cdr.markForCheck();
+      },
     });
   }
-
-  get collectedGameCount(): number { return this.collectedGames.length; }
 
   // ===== CARD SHOWCASE =====
 
   loadShowcase(): void {
-    if (!this.currentUser) return;
-    const userId = this.currentUser.id;
-    this.chatService.getUserShowcase(userId).subscribe({
-      next: (cards) => { this.showcaseCards = cards; this.debugData.showcase = cards; this.cdr.markForCheck(); },
-    });
     this.chatService.getCollectionStats().subscribe({
       next: (stats) => { this.collectionStats = stats; this.debugData.collectionStats = stats; this.cdr.markForCheck(); },
     });
@@ -387,6 +395,13 @@ export class ProfileComponent implements OnInit, OnDestroy {
   }
 
   get isAdmin(): boolean { return this.currentUser?.role === 'admin'; }
+
+  get isDev(): boolean { return this.currentUser?.role === 'dev'; }
+
+  toggleDebugMode(): void {
+    if (!this.isDev) return;
+    this.debugMode = !this.debugMode;
+  }
 
   logout(): void {
     this.auth.logout();

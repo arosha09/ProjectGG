@@ -404,8 +404,16 @@ export class ChatService {
     return this.http.get<any[]>(`${this.apiUrl}/cards/showcase/${userId}`);
   }
 
-  createCardTrade(proposerCardId: number, receiverId: string, receiverCardId: number): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/cards/trade`, { proposerCardId, receiverId, receiverCardId });
+  createCardTrade(proposerCardId: number, receiverId: string, receiverCardId: number, allowUnfair = false): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/cards/trade`, { proposerCardId, receiverId, receiverCardId, allowUnfair });
+  }
+
+  checkTradeFairness(proposerCardId: number, receiverCardId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/cards/trade/fairness`, { params: { proposerCardId, receiverCardId } });
+  }
+
+  giftCard(gifterCardId: number, receiverId: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/cards/gift`, { gifterCardId, receiverId });
   }
 
   getCardTrades(): Observable<any[]> {

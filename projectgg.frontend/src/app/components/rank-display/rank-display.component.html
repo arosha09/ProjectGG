@@ -16,6 +16,7 @@
         <img
           #rankImg
           class="rank-image"
+          [class.is-loaded]="imageLoaded()"
           [src]="rankImageUrl"
           [alt]="rank.rank_name"
           (load)="onImageLoad()"

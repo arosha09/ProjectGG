@@ -3,7 +3,21 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { DrawCard } from '../../services/chat.service';
+import { ChatService } from '../../services/chat.service';
+
+interface TradeFairnessResult {
+  isFair: boolean;
+  tierDiff: number;
+  proposerTier: string;
+  receiverTier: string;
+}
+
+interface TradeFriend {
+  id: string;
+  username: string;
+  avatar: string | null;
+  name?: string | null;
+}
 
 @Component({
   selector: 'app-card-collection',
@@ -29,6 +43,157 @@ import { DrawCard } from '../../services/chat.service';
               <span class="stat-tier">{{ tier.tier }}</span>
               <span class="stat-count">{{ tier.count }}</span>
             </div>
+          }
+        </div>
+      }
+
+      @if (selectedCard) {
+        <div class="trade-panel">
+          <div class="trade-panel-header">
+            <div>
+              <p class="trade-kicker">Trade Desk</p>
+              <h3>{{ selectedCard.game_name }}</h3>
+              <p class="trade-subtitle">{{ selectedCard.card_tier }} card · {{ selectedCard.game_code }}</p>
+            </div>
+            <button type="button" class="trade-close-btn" (click)="clearTradeDraft()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="trade-picked-card">
+            <div class="trade-picked-art" [style.border-color]="tierColor(selectedCard.card_tier)">
+              <img *ngIf="selectedCard.cover_url" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
+              <div class="trade-picked-overlay"></div>
+              <div class="trade-picked-badge" [style.color]="tierColor(selectedCard.card_tier)">{{ selectedCard.card_tier }}</div>
+            </div>
+            <div class="trade-picked-meta">
+              <div class="trade-mode-switch">
+                <button type="button" class="mode-btn" [class.active]="tradeMode === 'trade'" (click)="setTradeMode('trade')">Trade</button>
+                <button type="button" class="mode-btn" [class.active]="tradeMode === 'gift'" (click)="setTradeMode('gift')">Gift</button>
+              </div>
+              <p class="trade-help">Pick a friend below, then choose their card or send this one as a gift.</p>
+            </div>
+          </div>
+
+          <div class="trade-search-block">
+            <label class="trade-label" for="friend-search">Find a friend</label>
+            <input
+              id="friend-search"
+              name="friend-search"
+              class="trade-search"
+              [(ngModel)]="friendQuery"
+              (input)="searchFriends()"
+              placeholder="Search by username"
+              autocomplete="off"
+            />
+            @if (friendSearching) {
+              <p class="trade-hint">Searching users...</p>
+            }
+            @if (friendResults.length > 0) {
+              <div class="friend-results">
+                @for (friend of friendResults; track friend.id) {
+                  <button type="button" class="friend-result" (click)="selectFriend(friend)">
+                    <img [src]="friend.avatar || ''" alt="" (error)="onImgError($event)" />
+                    <span>
+                      <strong>{{ friend.username }}</strong>
+                      <em>{{ friend.name || 'Player' }}</em>
+                    </span>
+                  </button>
+                }
+              </div>
+            } @else if (friendQuery.trim().length >= 2 && !friendSearching) {
+              <p class="trade-hint">No matching users found.</p>
+            }
+          </div>
+
+          @if (selectedFriend) {
+            <div class="selected-friend-row">
+              <div class="selected-friend-meta">
+                <img [src]="selectedFriend.avatar || ''" alt="" (error)="onImgError($event)" />
+                <div>
+                  <strong>{{ selectedFriend.username }}</strong>
+                  <span>{{ selectedFriend.name || 'Selected friend' }}</span>
+                </div>
+              </div>
+              <button type="button" class="trade-link-btn" (click)="clearFriendSelection()">Change friend</button>
+            </div>
+
+            @if (tradeMode === 'trade') {
+              <div class="friend-cards-block">
+                <div class="trade-section-title">Choose their card</div>
+                @if (friendCardsLoading) {
+                  <p class="trade-hint">Loading showcase...</p>
+                } @else if (friendCards.length === 0) {
+                  <p class="trade-hint">No showcase cards are available for this player.</p>
+                } @else {
+                  <div class="friend-cards-grid">
+                    @for (friendCard of friendCards; track friendCard.id ?? friendCard.game_code) {
+                      <button
+                        type="button"
+                        class="friend-card"
+                        [class.selected]="selectedReceiverCard?.id === friendCard.id"
+                        (click)="selectReceiverCard(friendCard)"
+                      >
+                        <img [src]="friendCard.cover_url || ''" [alt]="friendCard.game_name" (error)="onImgError($event)" />
+                        <div class="friend-card-overlay"></div>
+                        <div class="friend-card-label">
+                          <strong>{{ friendCard.game_name }}</strong>
+                          <span>{{ friendCard.card_tier }}</span>
+                        </div>
+                      </button>
+                    }
+                  </div>
+                }
+
+                @if (fairnessCheck) {
+                  <div class="fairness-banner" [class.fair]="fairnessCheck.isFair">
+                    @if (fairnessCheck.isFair) {
+                      <mat-icon>verified</mat-icon>
+                      <span>Fair trade confirmed. You can send it as-is.</span>
+                    } @else {
+                      <mat-icon>warning</mat-icon>
+                      <span>Unfair trade: {{ fairnessCheck.proposerTier }} vs {{ fairnessCheck.receiverTier }} (tier gap {{ fairnessCheck.tierDiff }}).</span>
+                    }
+                  </div>
+                  @if (!fairnessCheck.isFair) {
+                    <label class="override-row">
+                      <input type="checkbox" name="override-unfair" [(ngModel)]="overrideUnfair" />
+                      Proceed anyway
+                    </label>
+                  }
+                }
+              </div>
+            } @else {
+              <div class="gift-note">
+                <mat-icon>card_giftcard</mat-icon>
+                <span>This sends your selected card without requiring a return card.</span>
+              </div>
+            }
+
+            <div class="trade-actions">
+              <button
+                type="button"
+                class="action-btn primary"
+                [disabled]="tradeBusy || !selectedFriend || (tradeMode === 'trade' && !selectedReceiverCard)"
+                (click)="tradeMode === 'trade' ? submitTrade() : sendGift()"
+              >
+                @if (tradeBusy) {
+                  <span class="btn-spinner"></span>
+                  Working...
+                } @else {
+                  <mat-icon>{{ tradeMode === 'trade' ? 'swap_horiz' : 'card_giftcard' }}</mat-icon>
+                  {{ tradeMode === 'trade' ? 'Propose Trade' : 'Send Gift' }}
+                }
+              </button>
+              <button type="button" class="action-btn secondary" (click)="clearTradeDraft()" [disabled]="tradeBusy">Reset</button>
+            </div>
+
+            @if (tradeMessage) {
+              <p class="trade-message success">{{ tradeMessage }}</p>
+            }
+            @if (tradeError) {
+              <p class="trade-message error">{{ tradeError }}</p>
+            }
           }
         </div>
       }
@@ -73,6 +238,7 @@ import { DrawCard } from '../../services/chat.service';
         @for (card of displayCards; track card.game_code) {
           <mat-card
             class="owned-card"
+            [class.selected-card]="selectedCard?.id === card.id"
             [class.recent-draw]="highlightGameCode === card.game_code"
             [ngClass]="'tier-' + card.card_tier"
             (click)="selectCard(card)"
@@ -206,6 +372,390 @@ import { DrawCard } from '../../services/chat.service';
         margin-bottom: 16px;
       }
 
+      .trade-panel {
+        margin-bottom: 16px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(91, 217, 255, 0.2);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .trade-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .trade-kicker {
+        margin: 0 0 4px;
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: rgba(241, 247, 255, 0.72);
+      }
+
+      .trade-panel h3 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .trade-subtitle {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: rgba(241, 247, 255, 0.62);
+      }
+
+      .trade-close-btn,
+      .trade-link-btn,
+      .action-btn,
+      .mode-btn,
+      .friend-result,
+      .friend-card {
+        font-family: inherit;
+      }
+
+      .trade-close-btn {
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(241, 247, 255, 0.85);
+        border-radius: 10px;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+
+      .trade-picked-card {
+        display: grid;
+        grid-template-columns: 90px 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .trade-picked-art {
+        position: relative;
+        border: 2px solid;
+        border-radius: 10px;
+        overflow: hidden;
+        min-height: 116px;
+        background: rgba(0, 0, 0, 0.3);
+      }
+
+      .trade-picked-art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .trade-picked-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(7, 9, 16, 0.1), rgba(7, 9, 16, 0.8));
+      }
+
+      .trade-picked-badge {
+        position: absolute;
+        right: 6px;
+        top: 6px;
+        font-size: 10px;
+        text-transform: uppercase;
+        font-weight: 800;
+        background: rgba(8, 10, 16, 0.85);
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+
+      .trade-mode-switch {
+        display: inline-flex;
+        gap: 8px;
+      }
+
+      .mode-btn {
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(241, 247, 255, 0.8);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .mode-btn.active {
+        border-color: rgba(91, 217, 255, 0.7);
+        color: #ffffff;
+        background: rgba(91, 217, 255, 0.16);
+      }
+
+      .trade-help {
+        margin: 8px 0 0;
+        font-size: 12px;
+        color: rgba(241, 247, 255, 0.72);
+      }
+
+      .trade-search-block {
+        margin-bottom: 12px;
+      }
+
+      .trade-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: rgba(241, 247, 255, 0.72);
+      }
+
+      .trade-search {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.35);
+        color: #f4f7ff;
+        outline: none;
+      }
+
+      .trade-hint {
+        margin: 8px 0 0;
+        font-size: 12px;
+        color: rgba(241, 247, 255, 0.62);
+      }
+
+      .friend-results {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 8px;
+      }
+
+      .friend-result {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.03);
+        color: #f4f7ff;
+        border-radius: 10px;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .friend-result img,
+      .selected-friend-meta img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .friend-result strong,
+      .selected-friend-meta strong {
+        display: block;
+        font-size: 12px;
+      }
+
+      .friend-result em,
+      .selected-friend-meta span {
+        display: block;
+        font-style: normal;
+        font-size: 11px;
+        color: rgba(241, 247, 255, 0.65);
+      }
+
+      .selected-friend-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .selected-friend-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .trade-link-btn {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: transparent;
+        color: rgba(241, 247, 255, 0.8);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .trade-section-title {
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .friend-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+      }
+
+      .friend-card {
+        position: relative;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        overflow: hidden;
+        background: rgba(7, 9, 16, 0.6);
+        cursor: pointer;
+        min-height: 150px;
+      }
+
+      .friend-card.selected {
+        border-color: rgba(91, 217, 255, 0.9);
+      }
+
+      .friend-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        position: absolute;
+        inset: 0;
+      }
+
+      .friend-card-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(7, 9, 16, 0.2), rgba(7, 9, 16, 0.95));
+      }
+
+      .friend-card-label {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        z-index: 2;
+      }
+
+      .friend-card-label strong {
+        display: block;
+        font-size: 11px;
+        margin-bottom: 3px;
+      }
+
+      .friend-card-label span {
+        display: inline-block;
+        font-size: 10px;
+        text-transform: uppercase;
+        opacity: 0.8;
+      }
+
+      .fairness-banner {
+        margin-top: 10px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 174, 0, 0.4);
+        background: rgba(255, 174, 0, 0.08);
+        color: #ffd98c;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+      }
+
+      .fairness-banner.fair {
+        border-color: rgba(0, 230, 118, 0.45);
+        background: rgba(0, 230, 118, 0.1);
+        color: #9ef6c2;
+      }
+
+      .override-row {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+        font-size: 12px;
+        color: rgba(241, 247, 255, 0.75);
+      }
+
+      .gift-note {
+        margin-top: 4px;
+        padding: 10px;
+        border: 1px dashed rgba(91, 217, 255, 0.35);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(241, 247, 255, 0.82);
+        font-size: 12px;
+      }
+
+      .trade-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        padding: 9px 12px;
+        cursor: pointer;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .action-btn.primary {
+        background: linear-gradient(135deg, #5bd9ff, #ff4d84);
+        color: #0b0e16;
+        border-color: transparent;
+        font-weight: 700;
+      }
+
+      .action-btn.secondary {
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(241, 247, 255, 0.82);
+      }
+
+      .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .trade-message {
+        margin: 10px 0 0;
+        font-size: 12px;
+      }
+
+      .trade-message.success {
+        color: #9ef6c2;
+      }
+
+      .trade-message.error {
+        color: #ff97a7;
+      }
+
+      .btn-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid transparent;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       .stat-chip {
         display: flex;
         align-items: center;
@@ -306,6 +856,9 @@ import { DrawCard } from '../../services/chat.service';
       .owned-card:hover {
         transform: translateY(-8px) scale(1.03);
         box-shadow: 0 0 36px rgba(255, 45, 111, 0.24);
+      }
+      .owned-card.selected-card {
+        box-shadow: 0 0 0 2px rgba(91, 217, 255, 0.75), 0 0 24px rgba(91, 217, 255, 0.25);
       }
       .owned-card.recent-draw {
         animation: recent-draw 1.8s ease-in-out 2;
@@ -674,6 +1227,8 @@ import { DrawCard } from '../../services/chat.service';
   ],
 })
 export class CardCollectionComponent {
+  constructor(private readonly chatService: ChatService) {}
+
   @Input() cards: any[] = [];
   @Input() totalCards = 0;
   @Input() page = 1;
@@ -691,6 +1246,19 @@ export class CardCollectionComponent {
   showFavoritesOnly = false;
   searchQuery = '';
   selectedCard: any = null;
+  tradeMode: 'trade' | 'gift' = 'trade';
+  friendQuery = '';
+  friendResults: TradeFriend[] = [];
+  friendSearching = false;
+  selectedFriend: TradeFriend | null = null;
+  friendCards: any[] = [];
+  friendCardsLoading = false;
+  selectedReceiverCard: any = null;
+  fairnessCheck: TradeFairnessResult | null = null;
+  overrideUnfair = false;
+  tradeBusy = false;
+  tradeMessage: string | null = null;
+  tradeError: string | null = null;
   tiers = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
   readonly tierColors: Record<string, string> = {
@@ -741,7 +1309,191 @@ export class CardCollectionComponent {
   }
 
   selectCard(card: any): void {
+    if (this.selectedCard?.id === card.id) {
+      this.clearTradeDraft();
+      return;
+    }
     this.selectedCard = card;
+    this.clearFriendSelection();
+    this.tradeMessage = null;
+    this.tradeError = null;
+  }
+
+  setTradeMode(mode: 'trade' | 'gift'): void {
+    this.tradeMode = mode;
+    this.fairnessCheck = null;
+    this.overrideUnfair = false;
+    this.tradeMessage = null;
+    this.tradeError = null;
+    if (mode === 'gift') {
+      this.selectedReceiverCard = null;
+    } else if (this.selectedFriend) {
+      this.loadFriendCards(this.selectedFriend.id);
+    }
+  }
+
+  searchFriends(): void {
+    const query = this.friendQuery.trim();
+    this.tradeError = null;
+    this.tradeMessage = null;
+    this.selectedFriend = null;
+    this.friendCards = [];
+    this.selectedReceiverCard = null;
+    this.fairnessCheck = null;
+    this.overrideUnfair = false;
+
+    if (query.length < 2) {
+      this.friendResults = [];
+      return;
+    }
+
+    this.friendSearching = true;
+    this.chatService.searchUsers(query).subscribe({
+      next: (users) => {
+        this.friendResults = (users ?? []).map((user: any) => ({
+          id: String(user.id),
+          username: user.username,
+          avatar: user.avatar ?? null,
+          name: user.name ?? null,
+        }));
+        this.friendSearching = false;
+      },
+      error: () => {
+        this.friendResults = [];
+        this.friendSearching = false;
+      },
+    });
+  }
+
+  selectFriend(friend: TradeFriend): void {
+    this.selectedFriend = friend;
+    this.friendResults = [];
+    this.friendQuery = friend.username;
+    this.tradeError = null;
+    this.tradeMessage = null;
+    this.selectedReceiverCard = null;
+    this.fairnessCheck = null;
+    this.overrideUnfair = false;
+    this.loadFriendCards(friend.id);
+  }
+
+  clearFriendSelection(): void {
+    this.selectedFriend = null;
+    this.friendCards = [];
+    this.selectedReceiverCard = null;
+    this.fairnessCheck = null;
+    this.overrideUnfair = false;
+  }
+
+  selectReceiverCard(card: any): void {
+    this.selectedReceiverCard = card;
+    this.tradeError = null;
+    this.tradeMessage = null;
+    this.checkFairness();
+  }
+
+  clearTradeDraft(): void {
+    this.selectedCard = null;
+    this.tradeMode = 'trade';
+    this.friendQuery = '';
+    this.friendResults = [];
+    this.friendSearching = false;
+    this.selectedFriend = null;
+    this.friendCards = [];
+    this.friendCardsLoading = false;
+    this.selectedReceiverCard = null;
+    this.fairnessCheck = null;
+    this.overrideUnfair = false;
+    this.tradeBusy = false;
+    this.tradeMessage = null;
+    this.tradeError = null;
+  }
+
+  private loadFriendCards(userId: string): void {
+    this.friendCardsLoading = true;
+    this.chatService.getUserShowcase(userId).subscribe({
+      next: (cards) => {
+        this.friendCards = cards ?? [];
+        this.friendCardsLoading = false;
+      },
+      error: () => {
+        this.friendCards = [];
+        this.friendCardsLoading = false;
+      },
+    });
+  }
+
+  private getCardId(card: any): number | null {
+    const id = card?.id ?? card?.card_id ?? card?.user_card_id ?? null;
+    return typeof id === 'number' ? id : Number(id) || null;
+  }
+
+  private checkFairness(): void {
+    if (!this.selectedCard || !this.selectedReceiverCard) return;
+    const proposerCardId = this.getCardId(this.selectedCard);
+    const receiverCardId = this.getCardId(this.selectedReceiverCard);
+    if (!proposerCardId || !receiverCardId) return;
+
+    this.chatService.checkTradeFairness(proposerCardId, receiverCardId).subscribe({
+      next: (result) => {
+        this.fairnessCheck = result;
+        if (!result?.isFair) this.overrideUnfair = false;
+      },
+      error: () => {
+        this.fairnessCheck = null;
+      },
+    });
+  }
+
+  submitTrade(): void {
+    const proposerCardId = this.getCardId(this.selectedCard);
+    const receiverCardId = this.getCardId(this.selectedReceiverCard);
+    if (!proposerCardId || !receiverCardId || !this.selectedFriend) return;
+
+    this.tradeBusy = true;
+    this.tradeError = null;
+    const allowUnfair = !!this.overrideUnfair || !!this.fairnessCheck?.isFair;
+
+    this.chatService.createCardTrade(proposerCardId, this.selectedFriend.id, receiverCardId, allowUnfair).subscribe({
+      next: () => {
+        this.tradeBusy = false;
+        this.tradeMessage = 'Trade proposal sent.';
+        this.startTrade.emit({
+          type: 'trade',
+          proposerCardId,
+          receiverId: this.selectedFriend?.id,
+          receiverCardId,
+          allowUnfair,
+        });
+      },
+      error: (err) => {
+        this.tradeBusy = false;
+        this.tradeError = err?.error?.message ?? 'Failed to send trade proposal.';
+      },
+    });
+  }
+
+  sendGift(): void {
+    const cardId = this.getCardId(this.selectedCard);
+    if (!cardId || !this.selectedFriend) return;
+
+    this.tradeBusy = true;
+    this.tradeError = null;
+    this.chatService.giftCard(cardId, this.selectedFriend.id).subscribe({
+      next: () => {
+        this.tradeBusy = false;
+        this.tradeMessage = 'Gift sent.';
+        this.startTrade.emit({
+          type: 'gift',
+          gifterCardId: cardId,
+          receiverId: this.selectedFriend?.id,
+        });
+      },
+      error: (err) => {
+        this.tradeBusy = false;
+        this.tradeError = err?.error?.message ?? 'Failed to send gift.';
+      },
+    });
   }
 
   filterTier(tier: string | null): void {

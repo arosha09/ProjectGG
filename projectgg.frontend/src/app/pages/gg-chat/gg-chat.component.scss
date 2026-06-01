@@ -379,6 +379,12 @@
   .gg-ch-icon { color: var(--neon-green); }
 }
 
+.gg-trading-btn {
+  .gg-ch-icon { color: #f1c40f; }
+  &:hover { background: rgba(241, 196, 15, 0.08); }
+  &.active { background: rgba(241, 196, 15, 0.15); }
+}
+
 .gg-add-friend-btn {
   .gg-ch-icon { color: var(--color-primary); }
 }

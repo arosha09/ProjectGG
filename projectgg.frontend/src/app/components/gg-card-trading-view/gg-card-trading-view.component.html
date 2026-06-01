@@ -1,0 +1,366 @@
+<div class="trading-view">
+  <div class="trading-view-header">
+    <div>
+      <p class="trading-view-kicker">Arsenal</p>
+      <h2 class="trading-view-title">CARD TRADING</h2>
+      <p class="trading-view-subtitle">Trade or gift cards with friends.</p>
+    </div>
+  </div>
+
+  <div class="trading-tabs-bar">
+    <button class="trading-tab" [class.active]="activeTab === 'incoming'" (click)="switchTab('incoming')">
+      <mat-icon>call_received</mat-icon>
+      Incoming
+      @if (incomingCount > 0) {
+        <span class="tab-badge">{{ incomingCount }}</span>
+      }
+    </button>
+    <button class="trading-tab" [class.active]="activeTab === 'outgoing'" (click)="switchTab('outgoing')">
+      <mat-icon>call_made</mat-icon>
+      Outgoing
+    </button>
+    <button class="trading-tab" [class.active]="activeTab === 'completed'" (click)="switchTab('completed')">
+      <mat-icon>check_circle</mat-icon>
+      History
+    </button>
+    <button class="trading-tab trading-tab-cta" [class.active]="activeTab === 'propose'" (click)="switchTab('propose')">
+      <mat-icon>swap_horiz</mat-icon>
+      Propose Trade
+    </button>
+    <button class="trading-tab trading-tab-gift" [class.active]="activeTab === 'gift'" (click)="switchTab('gift')">
+      <mat-icon>card_giftcard</mat-icon>
+      Gift Card
+    </button>
+  </div>
+
+  @if (error) {
+    <div class="trading-error">{{ error }}</div>
+  }
+
+  <!-- INCOMING TRADES -->
+  @if (activeTab === 'incoming') {
+    <div class="trades-list">
+      @if (loading) {
+        <div class="trading-empty">Loading...</div>
+      } @else if (incomingTrades.length === 0) {
+        <div class="trading-empty">
+          <mat-icon class="empty-icon">inbox</mat-icon>
+          <h3>No incoming trades</h3>
+          <p>Trades from other users will appear here.</p>
+        </div>
+      } @else {
+        @for (trade of incomingTrades; track trade.trade_id) {
+          <div class="trade-card">
+            <div class="trade-header">
+              <div class="trade-user">
+                <img [src]="trade.proposer_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <div>
+                  <div class="trade-user-name">{{ trade.proposer_name }}</div>
+                  <div class="trade-user-tier" [class]="'tier-' + trade.proposer_tier">{{ trade.proposer_tier }}</div>
+                </div>
+              </div>
+              <div class="trade-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+              <div class="trade-user">
+                <img [src]="trade.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <div>
+                  <div class="trade-user-name">You</div>
+                  <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="trade-cards">
+              <div class="trade-card-side">
+                <img [src]="trade.proposer_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
+                <div class="trade-card-name">{{ trade.proposer_game_code }}</div>
+              </div>
+              <mat-icon class="trade-swap-icon">compare_arrows</mat-icon>
+              <div class="trade-card-side">
+                <img [src]="trade.receiver_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
+                <div class="trade-card-name">{{ trade.receiver_game_code }}</div>
+              </div>
+            </div>
+            @if (trade.allow_unfair) {
+              <div class="trade-unfair-note">⚠ Trade is uneven ({{ trade.proposer_tier }} → {{ trade.receiver_tier }})</div>
+            }
+            <div class="trade-actions">
+              <button class="btn btn-accept" (click)="accept(trade.trade_id)">
+                <mat-icon>check</mat-icon> Accept
+              </button>
+              <button class="btn btn-reject" (click)="reject(trade.trade_id)">
+                <mat-icon>close</mat-icon> Reject
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <!-- OUTGOING TRADES -->
+  @if (activeTab === 'outgoing') {
+    <div class="trades-list">
+      @if (loading) {
+        <div class="trading-empty">Loading...</div>
+      } @else if (outgoingTrades.length === 0) {
+        <div class="trading-empty">
+          <mat-icon class="empty-icon">outbox</mat-icon>
+          <h3>No outgoing trades</h3>
+          <p>Click "Propose Trade" to start one.</p>
+        </div>
+      } @else {
+        @for (trade of outgoingTrades; track trade.trade_id) {
+          <div class="trade-card">
+            <div class="trade-header">
+              <div class="trade-user">
+                <div>
+                  <div class="trade-user-name">You</div>
+                  <div class="trade-user-tier" [class]="'tier-' + trade.proposer_tier">{{ trade.proposer_tier }}</div>
+                </div>
+              </div>
+              <div class="trade-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+              <div class="trade-user">
+                <img [src]="trade.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <div>
+                  <div class="trade-user-name">{{ trade.receiver_name }}</div>
+                  <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="trade-cards">
+              <div class="trade-card-side">
+                <img [src]="trade.proposer_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
+                <div class="trade-card-name">{{ trade.proposer_game_code }}</div>
+              </div>
+              <mat-icon class="trade-swap-icon">compare_arrows</mat-icon>
+              <div class="trade-card-side">
+                <img [src]="trade.receiver_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
+                <div class="trade-card-name">{{ trade.receiver_game_code }}</div>
+              </div>
+            </div>
+            @if (trade.allow_unfair) {
+              <div class="trade-unfair-note">⚠ Trade is uneven ({{ trade.proposer_tier }} → {{ trade.receiver_tier }})</div>
+            }
+            <div class="trade-actions">
+              <button class="btn btn-cancel" (click)="cancel(trade.trade_id)">
+                <mat-icon>cancel</mat-icon> Cancel
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <!-- COMPLETED TRADES -->
+  @if (activeTab === 'completed') {
+    <div class="trades-list">
+      @if (loading) {
+        <div class="trading-empty">Loading...</div>
+      } @else if (completedTrades.length === 0) {
+        <div class="trading-empty">
+          <mat-icon class="empty-icon">history</mat-icon>
+          <h3>No trade history</h3>
+          <p>Accepted, rejected, and cancelled trades will appear here.</p>
+        </div>
+      } @else {
+        @for (trade of completedTrades; track trade.trade_id) {
+          <div class="trade-card trade-card-completed" [class]="'status-' + trade.trade_status">
+            <div class="trade-header">
+              <div class="trade-user">
+                <img [src]="trade.proposer_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <div>
+                  <div class="trade-user-name">{{ trade.proposer_name }}</div>
+                  <div class="trade-user-tier" [class]="'tier-' + trade.proposer_tier">{{ trade.proposer_tier }}</div>
+                </div>
+              </div>
+              <div class="trade-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+              <div class="trade-user">
+                <img [src]="trade.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <div>
+                  <div class="trade-user-name">{{ trade.receiver_name }}</div>
+                  <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="trade-cards">
+              <div class="trade-card-side">
+                <img [src]="trade.proposer_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
+                <div class="trade-card-name">{{ trade.proposer_game_code }}</div>
+              </div>
+              <mat-icon class="trade-swap-icon">compare_arrows</mat-icon>
+              <div class="trade-card-side">
+                <img [src]="trade.receiver_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
+                <div class="trade-card-name">{{ trade.receiver_game_code }}</div>
+              </div>
+            </div>
+            <div class="trade-status-badge" [class]="'status-' + trade.trade_status">{{ trade.trade_status }}</div>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <!-- PROPOSE TRADE -->
+  @if (activeTab === 'propose') {
+    <div class="propose-trade">
+      <div class="propose-section">
+        <h3 class="propose-section-title">1. SELECT YOUR CARD</h3>
+        @if (loadingProposerCards) {
+          <div class="propose-loading">Loading your collection...</div>
+        } @else {
+          <div class="card-picker">
+            @for (card of proposerCards; track card.id) {
+              <div class="picker-card" [class.selected]="selectedProposerCard?.id === card.id" [class]="'tier-' + card.card_tier" (click)="selectProposerCard(card)">
+                <img [src]="card.cover_url || ''" alt="" class="picker-card-img" (error)="$event.target.style.display='none'" />
+                <div class="picker-card-tier" [class]="'tier-' + card.card_tier">{{ card.card_tier }}</div>
+                <div class="picker-card-name">{{ card.game_name || card.game_code }}</div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="propose-section">
+        <h3 class="propose-section-title">2. SELECT RECEIVER</h3>
+        <div class="friend-picker">
+          @if (friends.length > 0) {
+            @for (friend of friends; track friend.id) {
+              <div class="friend-chip" [class.selected]="selectedReceiverId === friend.other_id" (click)="selectReceiverFriend(friend)">
+                <img [src]="friend.other_avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                <span>{{ friend.other_username }}</span>
+              </div>
+            }
+          }
+          <div class="user-search-wrap">
+            <input type="text" class="user-search" [(ngModel)]="userSearch" (input)="searchUsers()" placeholder="Or search any user..." />
+            @if (searching) {
+              <span class="search-spinner">⏳</span>
+            }
+            @if (userSearchResults.length > 0) {
+              <div class="user-search-results">
+                @for (user of userSearchResults; track user.id) {
+                  <div class="user-search-item" (click)="selectUser(user)">
+                    <img [src]="user.avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                    <span>{{ user.username }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      @if (selectedReceiverId) {
+        <div class="propose-section">
+          <h3 class="propose-section-title">3. SELECT RECEIVER'S CARD</h3>
+          @if (loadingReceiverCards) {
+            <div class="propose-loading">Loading their collection...</div>
+          } @else if (receiverCards.length === 0) {
+            <div class="propose-loading">No showcase cards for this user.</div>
+          } @else {
+            <div class="card-picker">
+              @for (card of receiverCards; track card.id) {
+                <div class="picker-card" [class.selected]="selectedReceiverCard?.id === card.id" [class]="'tier-' + card.card_tier" (click)="selectReceiverCard(card)">
+                  <img [src]="card.cover_url || ''" alt="" class="picker-card-img" (error)="$event.target.style.display='none'" />
+                  <div class="picker-card-tier" [class]="'tier-' + card.card_tier">{{ card.card_tier }}</div>
+                  <div class="picker-card-name">{{ card.game_name || card.game_code }}</div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (fairness) {
+        <div class="fairness-check" [class.fair]="fairness.isFair" [class.unfair]="!fairness.isFair">
+          @if (fairness.isFair) {
+            <mat-icon>check_circle</mat-icon>
+            <span>FAIR TRADE — both cards are {{ fairness.proposerTier }}</span>
+          } @else {
+            <mat-icon>warning</mat-icon>
+            <span>UNEVEN — you're offering {{ fairness.proposerTier }} for their {{ fairness.receiverTier }} ({{ fairness.tierDiff }} tier gap)</span>
+          }
+        </div>
+        @if (!fairness.isFair) {
+          <label class="allow-unfair-toggle">
+            <input type="checkbox" [(ngModel)]="allowUnfair" />
+            <span>Allow uneven trade (recipient must also accept)</span>
+          </label>
+        }
+      }
+
+      <div class="propose-actions">
+        <button class="btn btn-primary" [disabled]="!canPropose() || proposing" (click)="proposeTrade()">
+          @if (proposing) {
+            <span class="btn-spinner"></span>
+          }
+          <mat-icon>send</mat-icon> Send Trade Proposal
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- GIFT CARD -->
+  @if (activeTab === 'gift') {
+    <div class="propose-trade">
+      <div class="propose-section">
+        <h3 class="propose-section-title">SELECT CARD TO GIFT</h3>
+        @if (loadingProposerCards) {
+          <div class="propose-loading">Loading your collection...</div>
+        } @else {
+          <div class="card-picker">
+            @for (card of proposerCards; track card.id) {
+              <div class="picker-card" [class.selected]="giftCard?.id === card.id" [class]="'tier-' + card.card_tier" (click)="selectGiftCard(card)">
+                <img [src]="card.cover_url || ''" alt="" class="picker-card-img" (error)="$event.target.style.display='none'" />
+                <div class="picker-card-tier" [class]="'tier-' + card.card_tier">{{ card.card_tier }}</div>
+                <div class="picker-card-name">{{ card.game_name || card.game_code }}</div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="propose-section">
+        <h3 class="propose-section-title">SEND TO</h3>
+        <div class="friend-picker">
+          @if (friends.length > 0) {
+            @for (friend of friends; track friend.id) {
+              <div class="friend-chip" [class.selected]="giftReceiverId === friend.other_id" (click)="selectGiftReceiver(friend)">
+                <img [src]="friend.other_avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                <span>{{ friend.other_username }}</span>
+              </div>
+            }
+          }
+          <div class="user-search-wrap">
+            <input type="text" class="user-search" [(ngModel)]="userSearch" (input)="searchUsers()" placeholder="Or search any user..." />
+            @if (userSearchResults.length > 0) {
+              <div class="user-search-results">
+                @for (user of userSearchResults; track user.id) {
+                  <div class="user-search-item" (click)="selectUserForGift(user)">
+                    <img [src]="user.avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                    <span>{{ user.username }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="propose-actions">
+        <button class="btn btn-gift" [disabled]="!canGift() || gifting" (click)="sendGift()">
+          @if (gifting) {
+            <span class="btn-spinner"></span>
+          }
+          <mat-icon>card_giftcard</mat-icon> Send Gift
+        </button>
+      </div>
+    </div>
+  }
+</div>

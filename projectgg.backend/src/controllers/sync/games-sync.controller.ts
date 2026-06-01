@@ -121,4 +121,12 @@ export class GamesSyncController {
     const gameName = name || code;
     return this.syncService.syncGame(code, gameName);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('force-rawg-desc/:code')
+  async forceRawgDesc(@Req() req: any, @Param('code') code: string, @Query('name') name?: string): Promise<any> {
+    if (!req.user || req.user.role !== 'admin') throw new ForbiddenException('admin required');
+    return this.syncService.forceSetRawgDesc(code, name);
+  }
 }

@@ -45,6 +45,7 @@
       (deleteChannel)="deleteChannel($event)"
       (selectDm)="selectDm($event)"
       (openFriendsView)="openFriendsView()"
+      (openTradingView)="openTradingView()"
       (openInviteLinks)="openInviteLinks()"
       (setStatus)="setStatus($event)"
       (toggleVoiceMute)="toggleVoiceMute()"
@@ -82,7 +83,7 @@
             <button class="gg-dm-header-btn" (click)="showUserProfile(selectedDm)" title="View Profile">
               <mat-icon>person</mat-icon>
             </button>
-            <button class="gg-dm-header-btn" (click)="openCardTrading()" title="Card Trading">
+            <button class="gg-dm-header-btn" (click)="openTradingView()" title="Card Trading">
               <mat-icon>style</mat-icon>
             </button>
             <div class="gg-dm-more-wrap">
@@ -652,6 +653,14 @@
       <!-- FRIENDS VIEW -->
       @if (viewMode === 'friends') {
         <app-gg-chat-friends [standalone]="false" [memberStatuses]="memberStatuses" [blockedUsers]="blockedUsers" (startDm)="handleFriendsDm($event)"></app-gg-chat-friends>
+      } @else if (viewMode === 'trading') {
+        <app-gg-card-trading-view
+          [currentUserId]="currentUser?.id"
+          [friends]="friends"
+          (accepted)="onTradeAccepted($event)"
+          (rejected)="onTradeRejected($event)"
+          (cancelled)="onTradeCancelled($event)"
+        ></app-gg-card-trading-view>
       } @else if (viewMode === 'dm' && !selectedDm) {
         <div class="gg-dm-empty-state">
           <mat-icon class="gg-dm-icon-large">chat</mat-icon>
@@ -676,20 +685,22 @@
     </main>
 
     <!-- MEMBER LIST (server only) -->
-    <app-member-list
-      [viewMode]="viewMode"
-      [selectedServer]="selectedServer"
-      [members]="members"
-      [membersLoading]="membersLoading"
-      [isSelf]="isSelf.bind(this)"
-      [canManageRoles]="canManageRoles.bind(this)"
-      [canKick]="canKick.bind(this)"
-      [memberStatus]="memberStatus.bind(this)"
-      [resolveAvatar]="resolveAvatar.bind(this)"
-      [onAvatarError]="onAvatarError.bind(this)"
-      (changeRole)="changeRole($event.member, $event.role)"
-      (confirmKick)="confirmKick($event)"
-    ></app-member-list>
+    @if (viewMode === 'server') {
+      <app-member-list
+        [viewMode]="viewMode"
+        [selectedServer]="selectedServer"
+        [members]="members"
+        [membersLoading]="membersLoading"
+        [isSelf]="isSelf.bind(this)"
+        [canManageRoles]="canManageRoles.bind(this)"
+        [canKick]="canKick.bind(this)"
+        [memberStatus]="memberStatus.bind(this)"
+        [resolveAvatar]="resolveAvatar.bind(this)"
+        [onAvatarError]="onAvatarError.bind(this)"
+        (changeRole)="changeRole($event.member, $event.role)"
+        (confirmKick)="confirmKick($event)"
+      ></app-member-list>
+    }
   </div>
 
   <!-- CREATE CHANNEL MODAL -->
@@ -824,25 +835,6 @@
         </button>
       </div>
       <app-cyber-emoji-picker (emojiSelect)="onEmojiPickerSelect($event)"></app-cyber-emoji-picker>
-    </div>
-  }
-
-  <!-- CARD TRADING MODAL (DM only) -->
-  @if (showCardTrading) {
-    <div class="gg-overlay" (click)="showCardTrading = false">
-      <div class="gg-modal gg-modal-lg" (click)="$event.stopPropagation()">
-        <div class="gg-modal-header">
-          <h2 class="gg-modal-title">TRADE CARDS</h2>
-          <button class="gg-modal-close" (click)="showCardTrading = false"><mat-icon>close</mat-icon></button>
-        </div>
-        <app-card-trading
-          [trades]="cardTrades"
-          [currentUserId]="currentUser?.id"
-          (accept)="acceptCardTrade($event)"
-          (reject)="rejectCardTrade($event)"
-          (cancel)="cancelCardTrade($event)"
-        ></app-card-trading>
-      </div>
     </div>
   }
 </section>

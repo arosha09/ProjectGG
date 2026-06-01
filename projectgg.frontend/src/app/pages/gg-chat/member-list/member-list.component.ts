@@ -69,7 +69,7 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
   styleUrls: ['../gg-chat.component.scss']
 })
 export class MemberListComponent {
-  @Input() viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' = 'friends';
+  @Input() viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' | 'trading' = 'friends';
   @Input() selectedServer: GgServer | null = null;
   @Input() members: GgServerMember[] = [];
   @Input() membersLoading = false;

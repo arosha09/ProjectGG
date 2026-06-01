@@ -61,9 +61,24 @@ export class CardCollectionService {
     return this.repo.getUserShowcase(userId);
   }
 
-  async createTrade(proposerId: string, proposerCardId: number, receiverId: string, receiverCardId: number) {
+  async createTrade(
+    proposerId: string,
+    proposerCardId: number,
+    receiverId: string,
+    receiverCardId: number,
+    allowUnfair = false,
+  ) {
     if (proposerId === receiverId) throw new BadRequestException('Cannot trade with yourself');
-    return this.repo.createTrade(proposerId, proposerCardId, receiverId, receiverCardId);
+
+    const fairness = await this.checkTradeFairness(proposerCardId, receiverCardId);
+    if (!fairness.isFair && !allowUnfair) {
+      throw new BadRequestException({
+        message: 'Trade is not tier-balanced',
+        ...fairness,
+      });
+    }
+
+    return this.repo.createTrade(proposerId, proposerCardId, receiverId, receiverCardId, allowUnfair);
   }
 
   async acceptTrade(tradeId: number, userId: string) {
@@ -96,6 +111,29 @@ export class CardCollectionService {
 
   async getTrades(userId: string) {
     return this.repo.getUserTrades(userId);
+  }
+
+  async checkTradeFairness(proposerCardId: number, receiverCardId: number): Promise<{ isFair: boolean; tierDiff: number; proposerTier: string; receiverTier: string }> {
+    const proposerTier = await this.repo.getCardTier(proposerCardId);
+    const receiverTier = await this.repo.getCardTier(receiverCardId);
+    const TIER_VALUES: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+    const pVal = TIER_VALUES[proposerTier] ?? 1;
+    const rVal = TIER_VALUES[receiverTier] ?? 1;
+    const diff = pVal - rVal;
+    return {
+      isFair: diff === 0,
+      tierDiff: Math.abs(diff),
+      proposerTier,
+      receiverTier,
+    };
+  }
+
+  async giftCard(gifterId: string, gifterCardId: number, receiverId: string) {
+    if (gifterId === receiverId) throw new BadRequestException('Cannot gift to yourself');
+    const card = await this.repo.getCardById(gifterCardId);
+    if (!card) throw new BadRequestException('Card not found');
+    if (card.user_id !== gifterId) throw new ForbiddenException('Card does not belong to you');
+    return this.repo.giftCard(gifterId, gifterCardId, receiverId);
   }
 
   async getStats(userId: string) {

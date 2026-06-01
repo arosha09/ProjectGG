@@ -89,9 +89,36 @@ export class CardCollectionController {
   @Post('trade')
   async createTrade(
     @Req() req: any,
-    @Body() body: { proposerCardId: number; receiverId: string; receiverCardId: number },
+    @Body() body: { proposerCardId: number; receiverId: string; receiverCardId: number; allowUnfair?: boolean },
   ) {
-    return this.cardService.createTrade(req.user.id, body.proposerCardId, body.receiverId, body.receiverCardId);
+    return this.cardService.createTrade(
+      req.user.id,
+      body.proposerCardId,
+      body.receiverId,
+      body.receiverCardId,
+      body.allowUnfair,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('trade/fairness')
+  async checkTradeFairness(
+    @Req() req: any,
+    @Query('proposerCardId') proposerCardId: string,
+    @Query('receiverCardId') receiverCardId: string,
+  ) {
+    return this.cardService.checkTradeFairness(Number(proposerCardId), Number(receiverCardId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gift')
+  async giftCard(
+    @Req() req: any,
+    @Body() body: { gifterCardId: number; receiverId: string },
+  ) {
+    return this.cardService.giftCard(req.user.id, body.gifterCardId, body.receiverId);
   }
 
   @UseGuards(JwtAuthGuard)
