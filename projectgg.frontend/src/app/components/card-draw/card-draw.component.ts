@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectorRef, NgZone, OnDestroy } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectorRef, NgZone, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
@@ -34,7 +34,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
         </div>
 
         <!-- REEL PHASE: actual spinning cards with images -->
-        <div class="reel-container" *ngIf="!loadingData">
+        <div class="reel-container" #reelContainer *ngIf="!loadingData">
           <div class="reel-scanlines"></div>
           <div class="reel-track" [style.transform]="trackTransform">
             <ng-container *ngFor="let card of reelCards; let i = index; trackBy: trackByCard">
@@ -313,6 +313,9 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       height: 100%;
       align-items: center;
       will-change: transform;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transform-style: preserve-3d;
     }
 
     .reel-card {
@@ -705,6 +708,15 @@ export class CardDrawComponent implements OnDestroy {
   private loadingTimers: ReturnType<typeof setTimeout>[] = [];
   private percentInterval: ReturnType<typeof setInterval> | null = null;
   private rafId: number | null = null;
+  private finalOffset = 0;
+
+  @ViewChild('reelContainer', { static: false }) reelContainerRef?: ElementRef<HTMLElement>;
+
+  // Layout constants — must match .reel-card (140px) and .reel-card-inner (110px) in CSS
+  private static readonly SLOT_WIDTH = 140;
+  private static readonly SLOT_GAP = 16;
+  private static readonly PITCH = 140 + 16; // 156
+  private static readonly VISIBLE_CARD_WIDTH = 110;
 
   get trackTransform(): string {
     return `translate3d(${this.reelOffsetPx}px, 0, 0)`;
@@ -848,10 +860,39 @@ export class CardDrawComponent implements OnDestroy {
   skipReel(): void {
     if (this.state !== 'reeling' || !this.resultCard) return;
     this.clearTimers();
-    const finalOffset = this.getFinalOffset();
-    this.reelOffsetPx = finalOffset;
-    this.cdr.markForCheck();
-    setTimeout(() => this.showResult(), 400);
+
+    // Re-measure final position in case container size changed
+    this.finalOffset = this.measureFinalOffset();
+
+    // Animate smoothly to the final position over 350ms, then show result
+    const startOffset = this.reelOffsetPx;
+    const endOffset = this.finalOffset;
+    const duration = 350;
+    const startTime = performance.now();
+
+    this.zone.runOutsideAngular(() => {
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        this.reelOffsetPx = startOffset + (endOffset - startOffset) * eased;
+
+        if (now - (this as any)._lastCd >= 32 || t === 1) {
+          (this as any)._lastCd = now;
+          this.zone.run(() => this.cdr.markForCheck());
+        }
+
+        if (t < 1) {
+          this.rafId = requestAnimationFrame(tick);
+        } else {
+          this.reelOffsetPx = endOffset;
+          this.zone.run(() => this.cdr.markForCheck());
+          this.rafId = null;
+          setTimeout(() => this.zone.run(() => this.showResult()), 400);
+        }
+      };
+      (this as any)._lastCd = 0;
+      this.rafId = requestAnimationFrame(tick);
+    });
   }
 
   private showResult(): void {
@@ -867,51 +908,45 @@ export class CardDrawComponent implements OnDestroy {
     this.xpAwarded = result.xp_awarded ?? 0;
     this.cdr.markForCheck();
 
-    const finalOffset = this.getFinalOffset();
-    // Spin through several full "slots" past the final position so it looks like a real spin
-    const startOffset = 200; // start slightly to the right of center
-    const totalDuration = 4500; // ms
-    const startTime = performance.now();
-
-    // Run animation outside Angular's zone for smoothness, but call back into zone for change detection
+    // Defer one frame so the .reel-container is laid out and we can measure it
     this.zone.runOutsideAngular(() => {
-      const animate = (now: number) => {
-        const elapsed = now - startTime;
-        let progress: number;
+      requestAnimationFrame(() => {
+        this.finalOffset = this.measureFinalOffset();
 
-        if (elapsed < 3000) {
-          // Fast phase: 0–3s, linear motion from startOffset to (finalOffset + a few extra slots)
-          const t = elapsed / 3000;
-          progress = t;
-        } else if (elapsed < totalDuration) {
-          // Slow phase: 3s–4.5s, ease-out from (finalOffset + extra) to finalOffset
-          const t = (elapsed - 3000) / (totalDuration - 3000);
-          const eased = 1 - Math.pow(1 - t, 3);
-          progress = 1 + eased * 0.15;
-        } else {
-          // Final
-          this.reelOffsetPx = finalOffset;
-          this.zone.run(() => this.cdr.markForCheck());
-          setTimeout(() => this.zone.run(() => this.showResult()), 500);
-          this.rafId = null;
-          return;
-        }
+        // Start ~4 slots to the right of final, then spin left to land on the winning card
+        const startOffset = this.finalOffset + 4 * CardDrawComponent.PITCH;
+        const totalDuration = 4800; // ms
+        const startTime = performance.now();
 
-        // Start at +200, pass through finalOffset + 4 slots worth, then land on finalOffset
-        const overshoot = 4 * 156; // ~4 extra slots
-        const phase1End = finalOffset + overshoot;
-        if (elapsed < 3000) {
-          this.reelOffsetPx = startOffset + (phase1End - startOffset) * progress;
-        } else {
-          const t = (elapsed - 3000) / (totalDuration - 3000);
-          const eased = 1 - Math.pow(1 - t, 3);
-          this.reelOffsetPx = phase1End + (finalOffset - phase1End) * eased;
-        }
+        const animate = (now: number) => {
+          const elapsed = now - startTime;
+          const t = Math.min(1, elapsed / totalDuration);
 
-        this.zone.run(() => this.cdr.markForCheck());
+          // Ease-out quint: very aggressive deceleration for a smooth "settle" feel
+          // 1 - (1-t)^5 starts fast and decelerates smoothly
+          const eased = 1 - Math.pow(1 - t, 5);
+
+          this.reelOffsetPx = startOffset + (this.finalOffset - startOffset) * eased;
+
+          // Trigger change detection every ~32ms (every other frame) for performance
+          if (now - (this as any)._lastCd >= 32 || t === 1) {
+            (this as any)._lastCd = now;
+            this.zone.run(() => this.cdr.markForCheck());
+          }
+
+          if (t < 1) {
+            this.rafId = requestAnimationFrame(animate);
+          } else {
+            // Snap exactly to the final pixel for a crisp landing
+            this.reelOffsetPx = this.finalOffset;
+            this.zone.run(() => this.cdr.markForCheck());
+            this.rafId = null;
+            setTimeout(() => this.zone.run(() => this.showResult()), 600);
+          }
+        };
+        (this as any)._lastCd = 0;
         this.rafId = requestAnimationFrame(animate);
-      };
-      this.rafId = requestAnimationFrame(animate);
+      });
     });
   }
 
@@ -1028,12 +1063,14 @@ export class CardDrawComponent implements OnDestroy {
     };
   }
 
-  private getFinalOffset(): number {
-    const slotWidth = 140;
-    const cardWidth = 118;
-    const containerWidth = 820;
-    const centerOffset = (containerWidth / 2) - (cardWidth / 2);
-    return centerOffset - (this.highlightIndex * slotWidth);
+  private measureFinalOffset(): number {
+    const containerWidth = this.reelContainerRef?.nativeElement?.clientWidth ?? 820;
+    const containerCenter = containerWidth / 2;
+    // Card N's visible center within the track is at: N*PITCH + (SLOT_WIDTH - VISIBLE_CARD_WIDTH)/2 + VISIBLE_CARD_WIDTH/2
+    // = N*PITCH + SLOT_WIDTH/2  (since the visible card is centered in the slot)
+    const cardCenterInTrack = this.highlightIndex * CardDrawComponent.PITCH + CardDrawComponent.SLOT_WIDTH / 2;
+    // We want cardCenterInTrack + trackOffset = containerCenter
+    return containerCenter - cardCenterInTrack;
   }
 
   private placeholderCard(): DrawCard {
