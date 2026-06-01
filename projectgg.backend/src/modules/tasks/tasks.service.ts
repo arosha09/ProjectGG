@@ -217,7 +217,7 @@ export class TasksService {
   async completeTask(userId: string, taskId: number, forceComplete = false) {
     const task = await this.repo.getTask(taskId);
     
-    if (task.task_kind === 'duration' && !forceComplete) {
+    if ((task.task_kind === 'duration' || task.task_kind === 'test') && !forceComplete) {
       const progress = await this.repo.getDurationProgress(userId, taskId);
       const requiredSeconds = (task.duration_minutes || 30) * 60;
       if (progress < requiredSeconds) {
@@ -230,10 +230,8 @@ export class TasksService {
       throw new ForbiddenException('Task already claimed');
     }
 
-    const result = await this.repo.collectGameViaTask(userId, taskId);
-    if (!result || result.success === false) {
-      throw new ForbiddenException(result?.error || 'Failed to complete task');
-    }
+    await this.repo.getOrCreateUserTask(taskId, userId);
+    await this.repo.claimTask(taskId, userId);
 
     try {
       const rewards = Array.isArray(task?.rewards) && task.rewards.length > 0
@@ -277,7 +275,7 @@ export class TasksService {
       // non-critical
     }
 
-    return result;
+    return { success: true, taskId };
   }
 
   async getAvailableWithProgress(userId: string) {
