@@ -1040,13 +1040,104 @@ export class CardDrawComponent implements OnDestroy {
   }
 
   private buildReelCards(pool: DrawCard[], winner: DrawCard): DrawCard[] {
-    const cards = Array.from({ length: 26 }, () => this.placeholderCard());
-    const source = pool.length > 0 ? [...pool] : [winner];
-    for (let i = 0; i < cards.length; i++) {
-      cards[i] = source[i % source.length] ?? this.placeholderCard();
+    const length = 26;
+    const filler: DrawCard[] = pool.length > 0
+      ? this.shuffleNoAdjacent(pool)
+      : Array.from({ length: length - 1 }, () => this.placeholderCard());
+
+    // Fill all 26 slots with filler
+    const cards: DrawCard[] = [];
+    for (let i = 0; i < length; i++) {
+      cards.push(filler[i % filler.length]);
     }
+
+    // Place winner at highlight index
     cards[this.highlightIndex] = winner;
+
+    // Ensure cards immediately before/after the winner are NOT the winner's game
+    if (this.highlightIndex - 1 >= 0 && cards[this.highlightIndex - 1]?.game_code === winner.game_code) {
+      for (let j = length - 1; j > this.highlightIndex + 1; j--) {
+        if (cards[j]?.game_code !== winner.game_code) {
+          const tmp = cards[this.highlightIndex - 1];
+          cards[this.highlightIndex - 1] = cards[j];
+          cards[j] = tmp;
+          break;
+        }
+      }
+    }
+    if (this.highlightIndex + 1 < length && cards[this.highlightIndex + 1]?.game_code === winner.game_code) {
+      for (let j = 0; j < this.highlightIndex - 1; j++) {
+        if (cards[j]?.game_code !== winner.game_code) {
+          const tmp = cards[this.highlightIndex + 1];
+          cards[this.highlightIndex + 1] = cards[j];
+          cards[j] = tmp;
+          break;
+        }
+      }
+    }
+
+    // Sweep again to fix any adjacent duplicates introduced by swaps
+    for (let i = 1; i < length; i++) {
+      if (cards[i]?.game_code && cards[i].game_code === cards[i - 1]?.game_code) {
+        for (let j = i + 1; j < length; j++) {
+          if (cards[j]?.game_code !== cards[i - 1]?.game_code && cards[j]?.game_code !== winner.game_code) {
+            const tmp = cards[i];
+            cards[i] = cards[j];
+            cards[j] = tmp;
+            break;
+          }
+        }
+      }
+    }
+
+    // If a slot still has a placeholder (empty game_code), replace with a non-adjacent placeholder
+    for (let i = 0; i < length; i++) {
+      if (!cards[i]?.game_code) {
+        let alt: DrawCard | null = null;
+        for (let j = i + 1; j < length; j++) {
+          if (cards[j]?.game_code && cards[j].game_code !== cards[i - 1]?.game_code && cards[j].game_code !== cards[i + 1]?.game_code) {
+            alt = cards[j];
+            break;
+          }
+        }
+        if (alt) {
+          cards[i] = alt;
+        } else {
+          const ph = this.placeholderCard();
+          cards[i] = ph;
+        }
+      }
+    }
+
     return cards;
+  }
+
+  private shuffleNoAdjacent(pool: DrawCard[]): DrawCard[] {
+    if (pool.length === 0) return [];
+    if (pool.length === 1) return [pool[0]];
+
+    const out: DrawCard[] = [];
+    const remaining = [...pool];
+
+    while (remaining.length > 0) {
+      // Pick a random index, but skip any card matching the last placed
+      const last = out[out.length - 1];
+      const candidates = remaining
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) => !last || c.game_code !== last.game_code);
+
+      if (candidates.length === 0) {
+        // All remaining match the last; just place the first one
+        out.push(remaining.shift()!);
+        continue;
+      }
+
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      out.push(pick.c);
+      remaining.splice(pick.i, 1);
+    }
+
+    return out;
   }
 
   private normalizeResult(result: DrawResult): DrawCard {
