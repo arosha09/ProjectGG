@@ -172,6 +172,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   profileAccounts: any[] = [];
   profileMusic: any[] = [];
   memberStatuses: Record<string, string> = {};
+  tradeFilterUserId = '';
 
   // Context menu
   contextMenu: { x: number; y: number; msg: ChatMessage } | null = null;
@@ -1836,6 +1837,30 @@ export class GgChatComponent implements OnInit, OnDestroy {
   handleFriendsDm(userId: string | any): void {
     this.closeProfile();
     this.startDmWithUser(typeof userId === 'string' ? userId : String(userId));
+  }
+
+  onUsernameClick(username: string): void {
+    if (!username || username === 'System') return;
+    if (username === this.currentUser?.username) return;
+    this.usersService.getUserDetails(undefined, username).subscribe({
+      next: (user) => {
+        if (user) {
+          this.openProfile({ otherUserId: user.id, otherUsername: user.username, username: user.username, id: user.id });
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  openTradingViewWithUser(userId: string): void {
+    this.tradeFilterUserId = userId;
+    this.viewMode = 'trading';
+    this.loadCardTrades();
+  }
+
+  closeTradingView(): void {
+    this.tradeFilterUserId = '';
+    this.viewMode = this.selectedServer ? 'server' : 'dm';
   }
 
   // ===== CREATE SERVER FLOW =====

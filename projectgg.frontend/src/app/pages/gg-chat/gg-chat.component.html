@@ -127,7 +127,7 @@
                 </div>
                 <div class="gg-msg-body">
                   <div class="gg-msg-head">
-                    <span class="gg-msg-username">{{ msg.username }}</span>
+                    <span class="gg-msg-username" (click)="onUsernameClick(msg.username)">{{ msg.username }}</span>
                     <span class="gg-msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
                   </div>
                   <div class="gg-msg-content">{{ msg.content }}</div>
@@ -266,6 +266,7 @@
                     <span class="msg-username"
                       [class.discord-user]="msg.source === 'discord'"
                       [class.web-user]="msg.source === 'web'"
+                      (click)="onUsernameClick(msg.username)"
                     >{{ msg.username }}</span>
                     <span class="msg-time">{{ msg.created_at | date:'HH:mm' }}</span>
                   </div>
@@ -588,6 +589,12 @@
               <mat-icon>close</mat-icon>
             </button>
           </div>
+          <div class="gg-profile-actions">
+            <button class="gg-profile-action-btn" (click)="openTradingViewWithUser(profileUser.otherUserId || profileUser.id)" title="Trade with this user">
+              <mat-icon>swap_horiz</mat-icon>
+              <span>Trade</span>
+            </button>
+          </div>
           <div class="gg-profile-body">
             @if (profileUser.rank) {
               <div class="gg-profile-section">
@@ -693,6 +700,7 @@
         <app-gg-card-trading-view
           [currentUserId]="currentUser?.id"
           [friends]="friends"
+          [filterUserId]="tradeFilterUserId"
           (accepted)="onTradeAccepted($event)"
           (rejected)="onTradeRejected($event)"
           (cancelled)="onTradeCancelled($event)"

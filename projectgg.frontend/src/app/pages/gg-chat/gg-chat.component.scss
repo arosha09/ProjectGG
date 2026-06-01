@@ -1373,6 +1373,31 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.gg-profile-actions {
+  display: flex; gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gg-profile-action-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid rgba(var(--color-primary-r, 95), var(--color-primary-g, 182), var(--color-primary-b, 255), 0.3);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-primary, #5fb6ff);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+  &:hover {
+    background: rgba(var(--color-primary-r, 95), var(--color-primary-g, 182), var(--color-primary-b, 255), 0.1);
+    border-color: rgba(var(--color-primary-r, 95), var(--color-primary-g, 182), var(--color-primary-b, 255), 0.6);
+  }
+}
+
 .gg-profile-avatar {
   width: 64px; height: 64px; border-radius: 50%;
   overflow: visible;
