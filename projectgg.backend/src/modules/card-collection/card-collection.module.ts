@@ -6,9 +6,10 @@ import { supabaseProvider } from '../../config/supabase.provider';
 import { AuthModule } from '../../auth/auth.module';
 import { XpModule } from '../xp.module';
 import { TasksModule } from '../tasks/tasks.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
-  imports: [AuthModule, forwardRef(() => XpModule), forwardRef(() => TasksModule)],
+  imports: [AuthModule, forwardRef(() => XpModule), forwardRef(() => TasksModule), RealtimeModule],
   controllers: [CardCollectionController],
   providers: [CardCollectionService, CardCollectionRepository, supabaseProvider],
   exports: [CardCollectionService],

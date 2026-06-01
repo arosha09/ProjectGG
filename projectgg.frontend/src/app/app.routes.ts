@@ -1,26 +1,6 @@
 import { Routes } from '@angular/router';
-import { Home } from './pages/home/home';
-import { Login } from './pages/login/login';
-import { Register } from './pages/register/register';
-import { Dashboard } from './pages/dashboard/dashboard';
-import { ProfileComponent } from './pages/profile/profile.component';
-import { SettingsComponent } from './pages/settings/settings.component';
-import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
-import { AdminDashboard } from './pages/admin/dashboard/admin-dashboard';
-import { AdminSync } from './pages/admin/sync/admin-sync';
-import { TasksAdminComponent } from './pages/admin/tasks-admin.component';
-import { AdminGuard } from './services/admin.guard';
-import { SteamCallbackComponent } from './pages/steam-callback/steam-callback.component';
-import { DiscordCallbackComponent } from './pages/discord-callback/discord-callback.component';
-import { SpotifyCallbackComponent } from './pages/spotify-callback/spotify-callback.component';
-import { YoutubeMusicCallbackComponent } from './pages/youtube-music-callback/youtube-music-callback.component';
-import { AppleMusicCallbackComponent } from './pages/apple-music-callback/apple-music-callback.component';
-import { ChatComponent } from './pages/chat/chat.component';
-import { GgChatComponent } from './pages/gg-chat/gg-chat.component';
-import { TasksComponent } from './pages/tasks/tasks.component';
-import { GiftTrackingComponent } from './pages/gifts/gift-tracking.component';
-import { ServerSettingsComponent } from './pages/server-settings/server-settings.component';
 import { AuthGuard } from './services/auth.guard';
+import { AdminGuard } from './services/admin.guard';
 
 export const routes: Routes = [
   {
@@ -30,101 +10,101 @@ export const routes: Routes = [
   },
   {
     path: 'home',
-    component: Home,
+    loadComponent: () => import('./pages/home/home').then(m => m.Home),
     data: { hideDivider: true }
   },
   {
     path: 'login',
-    component: Login,
+    loadComponent: () => import('./pages/login/login').then(m => m.Login),
     data: { hideDivider: true }
   },
   {
     path: 'register',
-    component: Register,
+    loadComponent: () => import('./pages/register/register').then(m => m.Register),
     data: { hideDivider: true }
   },
   {
     path: 'dashboard',
-    component: Dashboard,
+    loadComponent: () => import('./pages/dashboard/dashboard').then(m => m.Dashboard),
     canActivate: [AuthGuard]
   },
   {
     path: 'profile',
-    component: ProfileComponent,
+    loadComponent: () => import('./pages/profile/profile.component').then(m => m.ProfileComponent),
     canActivate: [AuthGuard]
   },
   {
     path: 'settings',
-    component: SettingsComponent,
+    loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent),
     canActivate: [AuthGuard]
   },
   {
     path: 'auth/steam/callback',
-    component: SteamCallbackComponent,
+    loadComponent: () => import('./pages/steam-callback/steam-callback.component').then(m => m.SteamCallbackComponent),
     data: { hideDivider: true }
   },
   {
     path: 'auth/discord/callback',
-    component: DiscordCallbackComponent,
+    loadComponent: () => import('./pages/discord-callback/discord-callback.component').then(m => m.DiscordCallbackComponent),
     data: { hideDivider: true }
   },
   {
     path: 'auth/spotify/callback',
-    component: SpotifyCallbackComponent,
+    loadComponent: () => import('./pages/spotify-callback/spotify-callback.component').then(m => m.SpotifyCallbackComponent),
     data: { hideDivider: true }
   },
   {
     path: 'auth/youtube-music/callback',
-    component: YoutubeMusicCallbackComponent,
+    loadComponent: () => import('./pages/youtube-music-callback/youtube-music-callback.component').then(m => m.YoutubeMusicCallbackComponent),
     data: { hideDivider: true }
   },
   {
     path: 'auth/apple-music/callback',
-    component: AppleMusicCallbackComponent,
+    loadComponent: () => import('./pages/apple-music-callback/apple-music-callback.component').then(m => m.AppleMusicCallbackComponent),
     data: { hideDivider: true }
   },
   {
     path: 'chat',
-    component: ChatComponent,
+    loadComponent: () => import('./pages/chat/chat.component').then(m => m.ChatComponent),
     canActivate: [AuthGuard]
   },
   {
     path: 'gg-chat',
-    component: GgChatComponent,
+    loadComponent: () => import('./pages/gg-chat/gg-chat.component').then(m => m.GgChatComponent),
     canActivate: [AuthGuard]
   },
   {
     path: 'tasks',
-    component: TasksComponent,
+    loadComponent: () => import('./pages/tasks/tasks.component').then(m => m.TasksComponent),
     canActivate: [AuthGuard]
   },
   {
     path: 'verify-email',
-    component: VerifyEmailComponent,
+    loadComponent: () => import('./pages/verify-email/verify-email.component').then(m => m.VerifyEmailComponent),
   },
   {
     path: 'admin',
-    component: AdminDashboard,
+    loadComponent: () => import('./pages/admin/dashboard/admin-dashboard').then(m => m.AdminDashboard),
     canActivate: [AuthGuard]
   },
   {
     path: 'admin/sync',
-    component: AdminSync,
+    loadComponent: () => import('./pages/admin/sync/admin-sync').then(m => m.AdminSync),
     canActivate: [AuthGuard]
   },
   {
     path: 'admin/tasks',
-    component: TasksAdminComponent,
+    loadComponent: () => import('./pages/admin/tasks-admin.component').then(m => m.TasksAdminComponent),
     canActivate: [AuthGuard, AdminGuard]
   },
   {
     path: 'gifts',
-    component: GiftTrackingComponent,
+    loadComponent: () => import('./pages/gifts/gift-tracking.component').then(m => m.GiftTrackingComponent),
     canActivate: [AuthGuard]
   },
   {
     path: 'gg-chat/server/:id/settings',
-    component: ServerSettingsComponent,
+    loadComponent: () => import('./pages/server-settings/server-settings.component').then(m => m.ServerSettingsComponent),
     canActivate: [AuthGuard]
   },
   {
@@ -132,4 +112,3 @@ export const routes: Routes = [
     redirectTo: 'home'
   }
 ];
-

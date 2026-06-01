@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectorRef, NgZone, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectorRef, ChangeDetectionStrategy, NgZone, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { Observable, forkJoin } from 'rxjs';
@@ -7,6 +7,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
 @Component({
   selector: 'app-card-draw',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   template: `
     <ng-container *ngIf="state === 'reeling'">
@@ -45,7 +46,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
               <div class="reel-card" [class.highlight]="i === highlightIndex">
                 <div class="reel-card-inner" [class]="'tier-' + card.card_tier">
                   <ng-container *ngIf="card.cover_url; else noCoverReel">
-                    <img [src]="card.cover_url" alt="" class="reel-card-img" (error)="onImgError($event)" />
+                    <img loading="lazy" decoding="async" [src]="card.cover_url" alt="" class="reel-card-img" (error)="onImgError($event)" />
                   </ng-container>
                   <ng-template #noCoverReel>
                     <div class="reel-card-placeholder">
@@ -87,7 +88,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
             <div class="result-body">
               <div class="result-art">
                 <ng-container *ngIf="resultCard.cover_url; else noCoverResult">
-                  <img [src]="resultCard.cover_url" alt="" class="result-img" (error)="onImgError($event)" />
+                  <img loading="lazy" decoding="async" [src]="resultCard.cover_url" alt="" class="result-img" (error)="onImgError($event)" />
                 </ng-container>
                 <ng-template #noCoverResult>
                   <div class="result-placeholder">

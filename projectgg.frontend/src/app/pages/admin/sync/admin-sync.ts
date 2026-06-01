@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -12,6 +12,7 @@ import { AuthService } from '../../../services/auth.service';
 @Component({
   selector: 'app-admin-sync',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, MatButtonModule, MatInputModule],
   templateUrl: './admin-sync.html',
   styleUrls: ['./admin-sync.scss'],

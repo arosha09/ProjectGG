@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, OnInit } from '@angular/core';
+import { Component, EventEmitter, Output, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 interface EmojiCategory {
@@ -11,6 +11,7 @@ interface EmojiCategory {
 @Component({
   selector: 'app-cyber-emoji-picker',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
     <div class="picker" (click)="$event.stopPropagation()">

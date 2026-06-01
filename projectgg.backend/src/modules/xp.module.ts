@@ -5,9 +5,10 @@ import { XpRepository } from 'src/repositories/xp.repository';
 import { supabaseProvider } from 'src/config/supabase.provider';
 import { AuthModule } from 'src/auth/auth.module';
 import { ChatModule } from 'src/modules/chat/chat.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
-  imports: [AuthModule, forwardRef(() => ChatModule)],
+  imports: [AuthModule, forwardRef(() => ChatModule), RealtimeModule],
   controllers: [XpController],
   providers: [XpService, XpRepository, supabaseProvider],
   exports: [XpService],

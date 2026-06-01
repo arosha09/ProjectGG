@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -29,6 +29,7 @@ interface Trade {
 @Component({
   selector: 'app-card-trading',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   template: `
     <div class="trading-panel">
@@ -111,7 +112,7 @@ interface Trade {
                   @if (activeTab === 'outgoing') {
                     <span class="trade-user-label">You</span>
                   } @else {
-                    <img [src]="trade.proposer_avatar || defaultAvatar" alt="" class="trade-avatar" (error)="onAvatarError($event)" />
+                    <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || defaultAvatar" alt="" class="trade-avatar" (error)="onAvatarError($event)" />
                     <span class="trade-name">{{ trade.proposer_name }}</span>
                   }
                 </div>
@@ -119,11 +120,11 @@ interface Trade {
                 <div class="trade-arrow-wrapper">
                   <div class="trade-cards-preview">
                     <div class="trade-card-mini" [style.border-color]="tierColor(trade.proposer_tier)">
-                      <img [src]="trade.proposer_cover || defaultCover" alt="" class="trade-card-img" (error)="onImgError($event)" />
+                      <img loading="lazy" decoding="async" [src]="trade.proposer_cover || defaultCover" alt="" class="trade-card-img" (error)="onImgError($event)" />
                     </div>
                     <mat-icon class="trade-arrow">swap_horiz</mat-icon>
                     <div class="trade-card-mini" [style.border-color]="tierColor(trade.receiver_tier)">
-                      <img [src]="trade.receiver_cover || defaultCover" alt="" class="trade-card-img" (error)="onImgError($event)" />
+                      <img loading="lazy" decoding="async" [src]="trade.receiver_cover || defaultCover" alt="" class="trade-card-img" (error)="onImgError($event)" />
                     </div>
                   </div>
                 </div>
@@ -132,7 +133,7 @@ interface Trade {
                   @if (activeTab === 'incoming' || activeTab === 'completed') {
                     <span class="trade-user-label">You</span>
                   } @else {
-                    <img [src]="trade.receiver_avatar || defaultAvatar" alt="" class="trade-avatar" (error)="onAvatarError($event)" />
+                    <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || defaultAvatar" alt="" class="trade-avatar" (error)="onAvatarError($event)" />
                     <span class="trade-name">{{ trade.receiver_name }}</span>
                   }
                 </div>
@@ -142,7 +143,7 @@ interface Trade {
                 <div class="trade-detail-item">
                   <span class="detail-label">Your card</span>
                   <div class="detail-card" [style.border-color]="tierColor(activeTab === 'outgoing' ? trade.proposer_tier : trade.receiver_tier)">
-                    <img [src]="(activeTab === 'outgoing' ? trade.proposer_cover : trade.receiver_cover) || defaultCover" alt="" (error)="onImgError($event)" />
+                    <img loading="lazy" decoding="async" [src]="(activeTab === 'outgoing' ? trade.proposer_cover : trade.receiver_cover) || defaultCover" alt="" (error)="onImgError($event)" />
                     <span class="detail-tier" [style.color]="tierColor(activeTab === 'outgoing' ? trade.proposer_tier : trade.receiver_tier)">
                       {{ activeTab === 'outgoing' ? trade.proposer_tier : trade.receiver_tier }}
                     </span>
@@ -156,7 +157,7 @@ interface Trade {
                     @if (activeTab === 'outgoing') { Their card } @else { Your card }
                   </span>
                   <div class="detail-card" [style.border-color]="tierColor(activeTab === 'outgoing' ? trade.receiver_tier : trade.proposer_tier)">
-                    <img [src]="(activeTab === 'outgoing' ? trade.receiver_cover : trade.proposer_cover) || defaultCover" alt="" (error)="onImgError($event)" />
+                    <img loading="lazy" decoding="async" [src]="(activeTab === 'outgoing' ? trade.receiver_cover : trade.proposer_cover) || defaultCover" alt="" (error)="onImgError($event)" />
                     <span class="detail-tier" [style.color]="tierColor(activeTab === 'outgoing' ? trade.receiver_tier : trade.proposer_tier)">
                       {{ activeTab === 'outgoing' ? trade.receiver_tier : trade.proposer_tier }}
                     </span>

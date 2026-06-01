@@ -102,4 +102,41 @@ export class AuthRepository {
 
     if (error) throw new InternalServerErrorException(error.message);
   }
+
+  async recordFailedLogin(userId: string): Promise<{ attempts: number; lockedUntil: string | null }> {
+    const { data: current, error: fetchErr } = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .select('failed_login_attempts')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (fetchErr) throw new InternalServerErrorException(fetchErr.message);
+
+    const attempts = (current?.failed_login_attempts ?? 0) + 1;
+    const shouldLock = attempts >= 5;
+    const lockedUntil = shouldLock ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+
+    const { error } = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .update({
+        failed_login_attempts: shouldLock ? 0 : attempts,
+        locked_until: lockedUntil,
+      })
+      .eq('id', userId);
+
+    if (error) throw new InternalServerErrorException(error.message);
+    return { attempts: shouldLock ? 0 : attempts, lockedUntil };
+  }
+
+  async recordSuccessfulLogin(userId: string): Promise<void> {
+    const { error } = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .update({ failed_login_attempts: 0, locked_until: null })
+      .eq('id', userId);
+
+    if (error) throw new InternalServerErrorException(error.message);
+  }
 }

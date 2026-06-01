@@ -9,31 +9,41 @@ export class VoiceService {
   private audioPlayers = new Map<string, any>(); // guildId -> AudioPlayer
   private audioQueue = new Map<string, any[]>(); // guildId -> queued audio frames
 
+  private initPromise: Promise<void> | null = null;
+  private botToken: string | null = null;
+
   constructor(configService: ConfigService) {
-    const token = configService.get<string>('DISCORD_BOT_TOKEN');
-    if (!token) {
+    this.botToken = configService.get<string>('DISCORD_BOT_TOKEN') ?? null;
+    if (!this.botToken) {
       this.logger.warn('DISCORD_BOT_TOKEN not set — voice unavailable');
-      return;
     }
-    this.initClient(token);
+  }
+
+  private async ensureClient(): Promise<any> {
+    if (this.client) return this.client;
+    if (!this.botToken) throw new Error('Voice bot token not configured');
+    if (!this.initPromise) {
+      this.initPromise = this.initClient(this.botToken).catch((e) => {
+        this.initPromise = null;
+        throw e;
+      });
+    }
+    await this.initPromise;
+    return this.client;
   }
 
   private async initClient(token: string): Promise<void> {
-    try {
-      const { Client, GatewayIntentBits } = await import('discord.js');
-      this.client = new Client({
-        intents: [
-          GatewayIntentBits.Guilds,
-          GatewayIntentBits.GuildVoiceStates,
-        ],
-      });
-      this.client.on('clientReady', () => {
-        this.logger.log(`Voice bot logged in as ${this.client.user?.tag}`);
-      });
-      await this.client.login(token);
-    } catch (e) {
-      this.logger.error('Failed to start voice bot:', e);
-    }
+    const { Client, GatewayIntentBits } = await import('discord.js');
+    this.client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
+      ],
+    });
+    this.client.on('clientReady', () => {
+      this.logger.log(`Voice bot logged in as ${this.client.user?.tag}`);
+    });
+    await this.client.login(token);
   }
 
   get isReady(): boolean {
@@ -45,6 +55,8 @@ export class VoiceService {
       this.logger.log(`Joined voice channel ${channelId} (GG Chat — no Discord guild)`);
       return;
     }
+
+    await this.ensureClient();
 
     if (this.connections.has(guildId)) {
       const existing = this.connections.get(guildId);

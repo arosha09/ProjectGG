@@ -1,4 +1,4 @@
-import { Component, input, output, signal, effect, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, input, output, signal, effect, OnInit, OnDestroy, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { Subscription, Subject, filter, map, takeUntil } from 'rxjs';
@@ -12,6 +12,7 @@ import { Socket } from 'socket.io-client';
 @Component({
   selector: 'app-header-nav',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterLink, MatIconModule, CyberDropdownComponent],
   templateUrl: './header-nav.component.html',
   styleUrls: ['./header-nav.component.scss'],

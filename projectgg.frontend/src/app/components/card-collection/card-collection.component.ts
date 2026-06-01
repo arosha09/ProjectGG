@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -22,6 +22,7 @@ interface TradeFriend {
 @Component({
   selector: 'app-card-collection',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, MatCardModule, MatIconModule],
   template: `
     <section class="collection-shell">
@@ -61,8 +62,7 @@ interface TradeFriend {
           <div class="tier-badge" [ngClass]="'tier-' + selectedCard.card_tier">
             {{ selectedCard.card_tier }}
           </div>
-          <img
-            *ngIf="selectedCard.cover_url"
+          <img loading="lazy" decoding="async" *ngIf="selectedCard.cover_url"
             class="cover-image"
             [src]="selectedCard.cover_url"
             [alt]="selectedCard.game_name"
@@ -89,7 +89,7 @@ interface TradeFriend {
       <button type="button" class="image-viewer-close" (click)="closeImageView()">
         <mat-icon svgIcon="close"></mat-icon>
       </button>
-      <img [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
+      <img loading="lazy" decoding="async" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
       <div class="image-viewer-info">
         <h2>{{ selectedCard.game_name }}</h2>
         <span class="tier-badge" [ngClass]="'tier-' + selectedCard.card_tier">{{ selectedCard.card_tier }}</span>
@@ -156,7 +156,7 @@ interface TradeFriend {
 
   <div class="trade-picked-card">
     <div class="trade-picked-art" [style.border-color]="tierColor(selectedCard.card_tier)">
-      <img *ngIf="selectedCard.cover_url" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
+      <img loading="lazy" decoding="async" *ngIf="selectedCard.cover_url" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
       <div class="trade-picked-overlay"></div>
       <div class="trade-picked-badge" [style.color]="tierColor(selectedCard.card_tier)">{{ selectedCard.card_tier }}</div>
     </div>
@@ -190,7 +190,7 @@ interface TradeFriend {
       <div class="friend-results">
         @for (friend of friendResults; track friend.id) {
           <button type="button" class="friend-result" (click)="selectFriend(friend)">
-            <img [src]="friend.avatar || ''" alt="" (error)="onImgError($event)" />
+            <img loading="lazy" decoding="async" [src]="friend.avatar || ''" alt="" (error)="onImgError($event)" />
             <span>
               <strong>{{ friend.username }}</strong>
               <em>{{ friend.name || 'Player' }}</em>
@@ -206,7 +206,7 @@ interface TradeFriend {
   @if (selectedFriend) {
     <div class="selected-friend-row">
       <div class="selected-friend-meta">
-        <img [src]="selectedFriend.avatar || ''" alt="" (error)="onImgError($event)" />
+        <img loading="lazy" decoding="async" [src]="selectedFriend.avatar || ''" alt="" (error)="onImgError($event)" />
         <div>
           <strong>{{ selectedFriend.username }}</strong>
           <span>{{ selectedFriend.name || 'Selected friend' }}</span>
@@ -232,7 +232,7 @@ interface TradeFriend {
               [class.selected]="selectedReceiverCard?.id === friendCard.id"
               (click)="selectReceiverCard(friendCard)"
             >
-              <img [src]="friendCard.cover_url || ''" [alt]="friendCard.game_name" (error)="onImgError($event)" />
+              <img loading="lazy" decoding="async" [src]="friendCard.cover_url || ''" [alt]="friendCard.game_name" (error)="onImgError($event)" />
               <div class="friend-card-overlay"></div>
               <div class="friend-card-label">
                 <strong>{{ friendCard.game_name }}</strong>
@@ -351,8 +351,7 @@ interface TradeFriend {
               <div class="tier-badge" [ngClass]="'tier-' + card.card_tier">
                 {{ card.card_tier }}
               </div>
-              <img
-                *ngIf="card.cover_url"
+              <img loading="lazy" decoding="async" *ngIf="card.cover_url"
                 class="cover-image"
                 [src]="card.cover_url"
                 [alt]="card.game_name"

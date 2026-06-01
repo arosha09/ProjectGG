@@ -71,7 +71,7 @@
         <div class="gg-channel-header gg-dm-header">
           <div class="gg-dm-avatar-sm gg-dm-header-avatar">
             <div class="gg-avatar-sk"></div>
-            <img [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-dm-avatar-img-sm" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+            <img loading="lazy" decoding="async" [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-dm-avatar-img-sm" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
             <span class="gg-user-status-dot"
               [class.online]="dmFriendStatus() === 'online'"
               [class.away]="dmFriendStatus() === 'away'"
@@ -126,7 +126,7 @@
             @for (msg of dmMessages; track msg.id) {
               <div class="gg-msg" (contextmenu)="openContextMenu($event, msg)">
                 <div class="gg-msg-avatar">
-                  <img [src]="msg.avatar_url || defaultAvatar()" alt="" class="gg-msg-avatar-img" (error)="onAvatarError($event)" />
+                  <img loading="lazy" decoding="async" [src]="msg.avatar_url || defaultAvatar()" alt="" class="gg-msg-avatar-img" (error)="onAvatarError($event)" />
                 </div>
                 <div class="gg-msg-body">
                   <div class="gg-msg-head">
@@ -141,7 +141,7 @@
                           <source [src]="msg.attachment_url" />
                         </video>
                       } @else {
-                        <img [src]="msg.attachment_url" alt="" class="gg-msg-attachment-img" (click)="downloadFile(msg.attachment_url!)" />
+                        <img loading="lazy" decoding="async" [src]="msg.attachment_url" alt="" class="gg-msg-attachment-img" (click)="downloadFile(msg.attachment_url!)" />
                       }
                       <button class="gg-msg-download-btn" (click)="downloadFile(msg.attachment_url!)" title="Download">
                         <mat-icon svgIcon="open_in_new"></mat-icon>
@@ -198,7 +198,7 @@
               <input class="gif-search" [(ngModel)]="gifSearchQuery" (input)="searchGifs()" placeholder="Search GIFs..." />
               <div class="gif-grid">
                 @for (gif of gifResults; track gif.id) {
-                  <img [src]="gif.preview || gif.url" (click)="selectGif(gif.url || gif)" class="gif-item" />
+                  <img loading="lazy" decoding="async" [src]="gif.preview || gif.url" (click)="selectGif(gif.url || gif)" class="gif-item" />
                 }
               </div>
             </div>
@@ -251,7 +251,7 @@
                   <div class="msg-avatar-col">
                     <div class="msg-avatar-wrapper">
                       <div class="gg-avatar-sk"></div>
-                      <img class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+                      <img loading="lazy" decoding="async" class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
                     </div>
                   </div>
                 }
@@ -287,12 +287,12 @@
                   }
                   @if (msg.attachment_url) {
                     <div class="msg-attachment">
-                      <img [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
+                      <img loading="lazy" decoding="async" [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
                     </div>
                   }
                   @if (msg.sticker_url) {
                     <div class="msg-sticker">
-                      <img [src]="msg.sticker_url" class="sticker-img" />
+                      <img loading="lazy" decoding="async" [src]="msg.sticker_url" class="sticker-img" />
                     </div>
                   }
                   <div class="msg-actions">
@@ -347,7 +347,7 @@
               <div class="mention-autocomplete">
                 @for (m of filteredMentions; track m.id) {
                   <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index">
-                    <img [src]="m.avatar || defaultAvatar()" class="mention-avatar" (error)="onAvatarError($event)" />
+                    <img loading="lazy" decoding="async" [src]="m.avatar || defaultAvatar()" class="mention-avatar" (error)="onAvatarError($event)" />
                     <span class="mention-name">{{ m.username }}</span>
                   </div>
                 }
@@ -416,7 +416,7 @@
                       <div class="gg-voice-avatar-ring" [class.speaking]="voiceMemberSpeaking(vm.userId)">
                         <div class="gg-voice-avatar">
                           @if (voiceMemberAvatar(vm.userId)) {
-                            <img [src]="voiceMemberAvatar(vm.userId)!" alt="{{ voiceMemberName(vm.userId) }}" />
+                            <img loading="lazy" decoding="async" [src]="voiceMemberAvatar(vm.userId)!" alt="{{ voiceMemberName(vm.userId) }}" />
                           } @else {
                             <span class="gg-voice-avatar-initial">{{ voiceMemberName(vm.userId)[0] }}</span>
                           }
@@ -505,7 +505,7 @@
                 <div class="gg-cs-avatar-section">
                   <div class="gg-cs-avatar" (click)="csAvatarInput.click()">
                     @if (newServerAvatarPreview) {
-                      <img [src]="newServerAvatarPreview" alt="" class="gg-cs-avatar-img" />
+                      <img loading="lazy" decoding="async" [src]="newServerAvatarPreview" alt="" class="gg-cs-avatar-img" />
                     } @else {
                       <mat-icon class="gg-cs-avatar-icon">add_photo_alternate</mat-icon>
                     }
@@ -576,7 +576,7 @@
           <div class="gg-profile-head">
             <div class="gg-profile-avatar">
               <div class="gg-avatar-sk gg-avatar-sk-lg"></div>
-              <img [src]="resolveAvatar(profileUser, 'avatar', 'avatar_url', 'otherAvatar')" alt="" class="gg-profile-avatar-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <img loading="lazy" decoding="async" [src]="resolveAvatar(profileUser, 'avatar', 'avatar_url', 'otherAvatar')" alt="" class="gg-profile-avatar-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
               <span class="gg-user-status-dot"
                 [class.online]="profileStatus() === 'online'"
                 [class.away]="profileStatus() === 'away'"
@@ -598,7 +598,7 @@
                 <span class="gg-profile-label">Rank</span>
                 <div class="gg-profile-rank-display">
                   @if (profileUser.rank.rank_image_url) {
-                    <img [src]="profileUser.rank.rank_image_url" [alt]="profileUser.rank.rank_name" class="gg-profile-rank-img" />
+                    <img loading="lazy" decoding="async" [src]="profileUser.rank.rank_image_url" [alt]="profileUser.rank.rank_name" class="gg-profile-rank-img" />
                   }
                   <div class="gg-profile-rank-info">
                     <span class="gg-profile-rank-name">{{ profileUser.rank.rank_name }}</span>
@@ -615,7 +615,7 @@
                 <div class="gg-profile-connections-grid">
                   @for (conn of profileAccounts; track conn.id) {
                     <div class="gg-profile-connection-item">
-                      <img [src]="getPlatformLogo(conn.platform)" [alt]="conn.platform" class="gg-profile-connection-logo" />
+                      <img loading="lazy" decoding="async" [src]="getPlatformLogo(conn.platform)" [alt]="conn.platform" class="gg-profile-connection-logo" />
                       <div class="gg-profile-connection-info">
                         <span class="gg-profile-connection-platform">{{ formatPlatformName(conn.platform) }}</span>
                         <span class="gg-profile-connection-username">{{ conn.platform_username || conn.platform_user_id }}</span>
@@ -632,7 +632,7 @@
                 <div class="gg-profile-connections-grid">
                   @for (conn of profileMusic; track conn.id) {
                     <div class="gg-profile-connection-item">
-                      <img [src]="getPlatformLogo(conn.platform)" [alt]="conn.platform" class="gg-profile-connection-logo" />
+                      <img loading="lazy" decoding="async" [src]="getPlatformLogo(conn.platform)" [alt]="conn.platform" class="gg-profile-connection-logo" />
                       <div class="gg-profile-connection-info">
                         <span class="gg-profile-connection-platform">{{ formatPlatformName(conn.platform) }}</span>
                         <span class="gg-profile-connection-username">{{ conn.platform_username || conn.platform_user_id }}</span>
@@ -665,8 +665,7 @@
                     <div class="gg-profile-fav-card" [style.border-color]="tierColor(card.card_tier)">
                       <div class="gg-profile-fav-card-media">
                         <div class="gg-profile-fav-sk"></div>
-                        <img
-                          [src]="card.cover_url || 'assets/avatars/unknown.png'"
+                        <img loading="lazy" decoding="async" [src]="card.cover_url || 'assets/avatars/unknown.png'"
                           [alt]="card.game_name"
                           (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')"
                           (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')"
@@ -721,7 +720,7 @@
           </div>
           <div class="gg-inline-trade-side">
             <div class="gg-inline-side-head">
-              <img [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
+              <img loading="lazy" decoding="async" [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
               <span>{{ selectedDm?.otherUsername }}</span>
             </div>
             <div class="gg-inline-side-messages">
@@ -759,7 +758,7 @@
           </div>
           <div class="gg-inline-trade-side">
             <div class="gg-inline-side-head">
-              <img [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
+              <img loading="lazy" decoding="async" [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
               <span>{{ selectedDm?.otherUsername }}</span>
             </div>
             <div class="gg-inline-side-messages">
@@ -787,7 +786,7 @@
           <div class="gg-dm-tiles">
             @for (conv of dmConversations; track conv.id) {
               <div class="gg-dm-tile" (click)="selectDm(conv)">
-                <img [src]="resolveAvatar(conv, 'otherAvatar')" alt="" class="gg-dm-tile-img" (error)="onAvatarError($event)" />
+                <img loading="lazy" decoding="async" [src]="resolveAvatar(conv, 'otherAvatar')" alt="" class="gg-dm-tile-img" (error)="onAvatarError($event)" />
                 <div class="gg-dm-tile-info">
                   <span class="gg-dm-tile-name">{{ conv.otherUsername }}</span>
                   <span class="gg-dm-tile-status">{{ dmStatus(conv.otherUserId) }}</span>

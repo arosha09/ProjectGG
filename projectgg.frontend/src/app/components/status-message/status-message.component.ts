@@ -1,10 +1,11 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 
 export type StatusType = 'success' | 'error' | 'warning';
 
 @Component({
   selector: 'app-status-message',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [],
   templateUrl: './status-message.component.html',
   styleUrl: './status-message.component.scss',

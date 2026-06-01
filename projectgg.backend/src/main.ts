@@ -1,11 +1,47 @@
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
+import * as Sentry from '@sentry/node';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
-async function bootstrap() {
+@Catch()
+class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const req = ctx.getRequest();
+    const res = ctx.getResponse();
+    const err = exception as any;
+    const status = err instanceof HttpException ? err.getStatus() : err?.status ?? 500;
+    const message = err?.message ?? 'Internal server error';
+    Logger.error(
+      `${req.method} ${req.originalUrl} → ${status} | ${message}`,
+      err?.stack,
+      'ExceptionFilter',
+    );
+    if (status >= 500) Sentry.captureException(exception);
+    res.status(status).json({
+      statusCode: status,
+      message,
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+    });
+  }
+}
+
+async function bootstrap(): Promise<void> {
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      tracesSampleRate: 0.2,
+      environment: process.env.NODE_ENV ?? 'development',
+    });
+  }
+
   const app = await NestFactory.create(AppModule);
 
-  // Disable ETag on the underlying Express instance to avoid 304 caching during development
+  app.use(helmet({ contentSecurityPolicy: false }));
+
   const httpAdapter = app.getHttpAdapter?.();
   const underlying = httpAdapter?.getInstance?.() as any;
   if (underlying && typeof underlying.disable === 'function') {
@@ -21,13 +57,15 @@ async function bootstrap() {
     maxAge: 86400,
   });
 
-  app.use((req, res, next) => {
-    if (req.url.startsWith('/api')) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    }
-
+  app.use((req: any, res: any, next: any) => {
+    if (!req.url.startsWith('/api')) return next();
+    const start = Date.now();
+    res.on('finish', () => {
+      Logger.log(
+        `${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - start}ms`,
+        'HTTP',
+      );
+    });
     next();
   });
 
@@ -54,6 +92,9 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
+  app.useGlobalFilters(new AllExceptionsFilter());
+
   await app.listen(process.env.PORT ?? 3000);
+  if (process.env.SENTRY_DSN) Sentry.captureMessage('Backend started', 'info');
 }
 bootstrap();

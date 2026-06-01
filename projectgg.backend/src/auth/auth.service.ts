@@ -84,8 +84,23 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.repo.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const mins = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000);
+      throw new UnauthorizedException(`Account locked. Try again in ${mins} minute(s).`);
+    }
+
     const match = await bcrypt.compare(dto.password, user.password_hash || '');
-    if (!match) throw new UnauthorizedException('Invalid credentials');
+    if (!match) {
+      const result = await this.repo.recordFailedLogin(user.id);
+      if (result?.lockedUntil) {
+        throw new UnauthorizedException('Account locked for 15 minutes due to too many failed attempts.');
+      }
+      const remaining = 5 - (result?.attempts ?? 0);
+      throw new UnauthorizedException(`Invalid credentials. ${remaining} attempt(s) remaining.`);
+    }
+
+    await this.repo.recordSuccessfulLogin(user.id);
 
     const statusToRestore = user.sys_status ?? user.status ?? 'online';
     const updatedUser = await this.repo.updateUser(user.id, {
@@ -94,7 +109,7 @@ export class AuthService {
     });
     user.status = updatedUser?.status ?? statusToRestore;
     user.sys_status = updatedUser?.sys_status ?? (user.sys_status ?? statusToRestore);
-    
+
     delete user.password_hash;
     const token = this.createToken(user);
     const refresh_token = this.createRefreshToken(user);

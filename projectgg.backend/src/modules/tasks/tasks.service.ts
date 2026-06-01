@@ -3,6 +3,7 @@ import { TasksRepository } from './tasks.repository';
 import { XpService } from '../../services/xp.service';
 import { CardCollectionService } from '../card-collection/card-collection.service';
 import { ChatGateway } from '../chat/chat.gateway';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { SUPABASE_CLIENT } from '../../config/supabase.provider';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class TasksService {
     private readonly xpService: XpService,
     private readonly cardCollectionService: CardCollectionService,
     @Inject(forwardRef(() => ChatGateway)) private readonly chatGateway: ChatGateway,
+    private readonly realtime: RealtimeGateway,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
   ) {}
 
@@ -215,6 +217,7 @@ export class TasksService {
   }
 
   async completeTask(userId: string, taskId: number, forceComplete = false) {
+    this.realtime.emitToUser(userId, 'task:progress', { taskId, status: 'starting' });
     const task = await this.repo.getTask(taskId);
 
     if (task.task_kind === 'duration' && !forceComplete) {

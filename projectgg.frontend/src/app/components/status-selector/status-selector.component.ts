@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export type StatusOption = 'online' | 'away' | 'dnd' | 'invisible';
@@ -6,6 +6,7 @@ export type StatusOption = 'online' | 'away' | 'dnd' | 'invisible';
 @Component({
   selector: 'app-status-selector',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   templateUrl: './status-selector.component.html',
   styleUrls: ['./status-selector.component.scss'],

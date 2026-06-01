@@ -9,7 +9,7 @@
     color="primary"
   ></mat-checkbox>
   @if (result().cover_url) {
-    <img class="ir-cover" [src]="result().cover_url" [alt]="result().name" />
+    <img loading="lazy" decoding="async" class="ir-cover" [src]="result().cover_url" [alt]="result().name" />
   }
   <div class="ir-body">
     <div class="ir-top">

@@ -1,4 +1,4 @@
-import { Component, input, ElementRef, ViewChild, AfterViewInit, OnDestroy, ChangeDetectorRef, effect, signal } from '@angular/core';
+import { Component, input, ElementRef, ViewChild, AfterViewInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { UserRankDto } from '../../models/rank.model';
@@ -48,6 +48,7 @@ function hex(r: number, g: number, b: number): string {
 @Component({
   selector: 'app-rank-display',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatCardModule],
   templateUrl: './rank-display.component.html',
   styleUrls: ['./rank-display.component.scss'],

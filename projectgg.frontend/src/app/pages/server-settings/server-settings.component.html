@@ -151,7 +151,7 @@
                   <div class="ss-member-left">
                     <div class="ss-member-avatar">
                       @if (member.avatar_url) {
-                        <img [src]="member.avatar_url" alt="" />
+                        <img loading="lazy" decoding="async" [src]="member.avatar_url" alt="" />
                       } @else {
                         <span>{{ getUsername(member.user_id)[0] }}</span>
                       }

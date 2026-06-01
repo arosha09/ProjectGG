@@ -59,8 +59,7 @@
               <div class="hero-avatar-wrap">
                 <div class="hero-av-sk"></div>
                 @if (avatarDisplay) {
-                  <img
-                    class="hero-avatar-img"
+                  <img loading="lazy" decoding="async" class="hero-avatar-img"
                     [src]="avatarDisplay"
                     (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')"
                     (load)="onAvatarLoad($event)"
@@ -132,7 +131,7 @@
             }
             @for (p of platforms; track p.id) {
               <div class="platform-badge-row">
-                <img class="platform-badge-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
+                <img loading="lazy" decoding="async" class="platform-badge-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
                 <div class="platform-badge-info">
                   <span class="platform-badge-name">{{ p.name }}</span>
                   @if (getConnection(p.id); as conn) {
@@ -189,7 +188,7 @@
                   }
                   @if (game.cover_url) {
                     <div class="collection-cover-sk"></div>
-                    <img [src]="game.cover_url" alt="{{ game.name }}" class="collection-cover" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" (error)="$event.target.previousElementSibling?.classList?.add('sk-err')" />
+                    <img loading="lazy" decoding="async" [src]="game.cover_url" alt="{{ game.name }}" class="collection-cover" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" (error)="$event.target.previousElementSibling?.classList?.add('sk-err')" />
                   } @else {
                     <div class="collection-cover-fallback">
                       <mat-icon svgIcon="videogame_asset"></mat-icon>
@@ -215,8 +214,7 @@
           </button>
           <h3 class="modal-title">Avatar</h3>
           <div class="modal-preview">
-            <img
-              [src]="avatarDisplay ?? 'assets/unknown.png'"
+            <img loading="lazy" decoding="async" [src]="avatarDisplay ?? 'assets/unknown.png'"
               (error)="onAvatarError($event)"
               alt="Avatar"
             />
@@ -252,8 +250,7 @@
                 @for (av of activeSystemAvatars; track av.url) {
                   <div class="sys-av-wrap">
                     <div class="sys-av-sk"></div>
-                    <img
-                      class="system-avatar-opt"
+                    <img loading="lazy" decoding="async" class="system-avatar-opt"
                       style="cursor: pointer"
                       [src]="av.url"
                       [class.selected]="currentUser?.avatar === av.url"
@@ -280,7 +277,7 @@
           @for (card of favoriteGames; track card.game_code) {
             <div class="showcase-item" [style.border-color]="tierColor(card.card_tier)">
               <div class="showcase-item-sk"></div>
-              <img [src]="card.cover_url || 'assets/default-avatar.png'" alt="" class="showcase-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <img loading="lazy" decoding="async" [src]="card.cover_url || 'assets/default-avatar.png'" alt="" class="showcase-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
               <div class="showcase-bar" [style.background]="tierColor(card.card_tier)"></div>
             </div>
           }

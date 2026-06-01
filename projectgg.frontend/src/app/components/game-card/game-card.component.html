@@ -5,7 +5,7 @@
 				{{ game().tier }}
 			</div>
 		}
-		<img *ngIf="game().cover_url" class="cover-image" [src]="game().cover_url" [alt]="game().name" (error)="hideBrokenCover($event)" />
+		<img loading="lazy" decoding="async" *ngIf="game().cover_url" class="cover-image" [src]="game().cover_url" [alt]="game().name" (error)="hideBrokenCover($event)" />
 		<div class="cover-overlay"></div>
 			<div class="game-content owned-content">
 			<div class="game-top">

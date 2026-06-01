@@ -1,12 +1,20 @@
 import { Injectable, inject } from '@angular/core';
 import { MatIconRegistry } from '@angular/material/icon';
 import { DomSanitizer } from '@angular/platform-browser';
+import { Observable } from 'rxjs';
 
 /**
- * Registers the local Material Icons SVG set with Angular Material's
- * MatIconRegistry, so <mat-icon svgIcon="people"> renders the local
- * SVG file from /assets/icons/people.svg instead of falling back to the
- * text ligature from the (incomplete) material-icons.woff2 subset.
+ * Lazy icon registry for Angular Material.
+ *
+ * Subclasses `MatIconRegistry` and registers SVG icons on first
+ * lookup instead of eagerly at app start. `<mat-icon svgIcon="NAME">`
+ * ultimately calls `getNamedSvgIcon` here; we register the URL just
+ * in time, then delegate to the parent. The first `<mat-icon>` render
+ * triggers registration for that one icon; subsequent renders hit the
+ * in-memory cache and the parent registry.
+ *
+ * Provided via `useClass` in app.config.ts to replace the default
+ * `MatIconRegistry` for the whole app.
  *
  * The SVG files live in public/assets/icons/ — there is one per icon
  * name. The font file is a 125 KB subset that does not include all
@@ -15,19 +23,17 @@ import { DomSanitizer } from '@angular/platform-browser';
  * icons through SVGs fixes that and matches the local-assets rule.
  */
 @Injectable({ providedIn: 'root' })
-export class IconRegistryService {
-  private readonly registry = inject(MatIconRegistry);
+export class IconRegistryService extends MatIconRegistry {
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly registered = new Set<string>();
+  private static readonly base = '/assets/icons/';
 
   /**
-   * Names that appear as <mat-icon svgIcon="NAME"></mat-icon> anywhere in the app.
-   * Add new ones here when introducing a new icon, or — better — switch
-   * the call site to <mat-icon svgIcon="NAME"> and let the registry
-   * below handle it without the user ever seeing a broken glyph.
-   *
+   * Names that appear as <mat-icon svgIcon="NAME"></mat-icon> anywhere
+   * in the app. Add new ones here when introducing a new icon.
    * Keep in sync with the SVG files in public/assets/icons/.
    */
-static readonly ICON_NAMES: readonly string[] = [
+  static readonly ICON_NAMES: readonly string[] = [
     'add', 'arrow_back', 'arrow_forward', 'arrow_upward',
     'call', 'call_made', 'call_received', 'cancel', 'chat', 'chat_bubble',
     'check', 'check_circle', 'chevron_right', 'close', 'code', 'content_copy',
@@ -52,15 +58,14 @@ static readonly ICON_NAMES: readonly string[] = [
     'confirmation_number', 'block', 'discord', 'headphones'
   ];
 
-  register(): void {
-    const base = '/assets/icons/';
-    for (const name of IconRegistryService.ICON_NAMES) {
-      // MatIconRegistry dedupes by name, so calling this repeatedly is safe.
-      this.registry.addSvgIcon(
+  override getNamedSvgIcon(name: string, namespace: string = ''): Observable<SVGElement> {
+    if (!this.registered.has(name) && IconRegistryService.ICON_NAMES.includes(name)) {
+      this.addSvgIcon(
         name,
-        this.sanitizer.bypassSecurityTrustResourceUrl(`${base}${name}.svg`),
+        this.sanitizer.bypassSecurityTrustResourceUrl(`${IconRegistryService.base}${name}.svg`),
       );
+      this.registered.add(name);
     }
+    return super.getNamedSvgIcon(name, namespace);
   }
 }
-

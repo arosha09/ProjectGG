@@ -13,8 +13,7 @@
         @if (!imageLoaded()) {
           <div class="rank-image-sk"></div>
         }
-        <img
-          #rankImg
+        <img loading="lazy" decoding="async" #rankImg
           class="rank-image"
           [class.is-loaded]="imageLoaded()"
           [src]="rankImageUrl"

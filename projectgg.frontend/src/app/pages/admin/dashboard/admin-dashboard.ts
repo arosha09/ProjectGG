@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -12,6 +12,7 @@ import { StatusMessageComponent } from '../../../components/status-message/statu
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatCheckboxModule, GameSearchResultComponent, StatusMessageComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss'],

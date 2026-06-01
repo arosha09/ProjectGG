@@ -186,12 +186,12 @@ export class DiscordBotService implements OnModuleInit {
     }
   }
 
-  async onModuleInit(): Promise<void> {
+  onModuleInit(): void {
     if (!this.token) {
       this.logger.warn('DISCORD_BOT_TOKEN not set — bot not started');
       return;
     }
-    await this.startBot();
+    void this.startBot().catch((e) => this.logger.error('Discord bot start failed:', e));
   }
 
   private async startBot(): Promise<void> {

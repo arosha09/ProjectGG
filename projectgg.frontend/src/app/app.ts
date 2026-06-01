@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener, ViewChild, ViewContainerRef, ComponentRef, effect, Injector } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, ViewChild, ViewContainerRef, ComponentRef, effect, Injector } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -14,10 +14,12 @@ import { StatusMessageComponent } from './components/status-message/status-messa
 import { StatusNotificationService } from './services/notification.service';
 import { UserStatusService } from './services/user-status.service';
 import { TaskTrackerService } from './services/task-tracker.service';
+import { RealtimeService } from './services/realtime.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterOutlet, HeaderNavComponent, AdminNavComponent, MusicPlayerComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
@@ -46,6 +48,7 @@ export class App implements OnInit, OnDestroy {
     private readonly injector: Injector,
     private readonly userStatus: UserStatusService,
     private readonly taskTracker: TaskTrackerService,
+    private readonly realtime: RealtimeService,
     public readonly statusNotification: StatusNotificationService,
   ) {}
 
@@ -88,7 +91,12 @@ export class App implements OnInit, OnDestroy {
       this.isAdmin = user?.role === 'admin';
       this.profileDropdownOpen = false;
       this.userStatus.syncFromUser(user);
+      if (user?.id) this.realtime.connect();
+      else this.realtime.disconnect();
       this.cdr.markForCheck();
+    });
+    this.realtime.notifications.pipe(takeUntil(this.destroy$)).subscribe((n) => {
+      this.statusNotification.show(n.body || n.title, n.type as any);
     });
     this.applySavedStatus();
     this.loadConnections();
@@ -97,6 +105,7 @@ export class App implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.realtime.disconnect();
   }
 
   setStatus(status: string): void {

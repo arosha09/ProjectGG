@@ -1,5 +1,5 @@
 
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { GgServer } from '../../../services/chat.service';
@@ -7,6 +7,7 @@ import { GgServer } from '../../../services/chat.service';
 @Component({
   selector: 'app-server-list',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   template: `
     <aside class="gg-servers">
@@ -30,7 +31,7 @@ import { GgServer } from '../../../services/chat.service';
             (click)="selectServer.emit(s)"
             [title]="s.name"
           >
-            <img *ngIf="serverAvatar && serverAvatar(s)" [src]="serverAvatar(s)" alt="{{ s.name }}" class="gg-server-img" (error)="$event.target.style.display='none'" />
+            <img loading="lazy" decoding="async" *ngIf="serverAvatar && serverAvatar(s)" [src]="serverAvatar(s)" alt="{{ s.name }}" class="gg-server-img" (error)="$event.target.style.display='none'" />
             <span *ngIf="!(serverAvatar && serverAvatar(s))" class="gg-server-initial">{{ serverInitial ? serverInitial(s) : (s.name ? s.name[0] : '?') }}</span>
           </div>
         </ng-container>

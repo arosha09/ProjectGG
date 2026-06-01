@@ -1,4 +1,4 @@
-import { Component, input, signal, HostListener } from '@angular/core';
+import { Component, input, signal, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface ContextMenuItem {
@@ -13,6 +13,7 @@ export interface ContextMenuItem {
 @Component({
   selector: 'app-cyber-context-menu',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
     @if (visible()) {

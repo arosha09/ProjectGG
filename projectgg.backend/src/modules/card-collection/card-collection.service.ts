@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, ForbiddenException, Inject, forwardRef
 import { CardCollectionRepository } from './card-collection.repository';
 import { XpService } from '../../services/xp.service';
 import { TasksService } from '../tasks/tasks.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 const XP_MAP: Record<string, number> = {
   common: 10,
@@ -23,6 +24,7 @@ export class CardCollectionService {
     private readonly repo: CardCollectionRepository,
     private readonly xpService: XpService,
     @Inject(forwardRef(() => TasksService)) private readonly tasksService: TasksService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   async getDailyDrawCards(userId: string) {
@@ -37,12 +39,10 @@ export class CardCollectionService {
         await this.xpService.awardCustomXp(userId, result.xp_awarded, 'card_draw', result.game_code);
       } catch { /* non-critical */ }
     }
-    // Tell the realtime task tracker the user's cards_collected count
-    // may have bumped (and any achievement task watching it should
-    // re-evaluate).
     try {
       await this.tasksService.bumpAchievementProgress(userId, 'cards_collected');
     } catch { /* non-critical */ }
+    this.realtime.emitToUser(userId, 'cards:updated', { type: 'daily_draw', card: result });
     return result;
   }
 
@@ -57,6 +57,7 @@ export class CardCollectionService {
     try {
       await this.tasksService.bumpAchievementProgress(userId, 'cards_collected');
     } catch { /* non-critical */ }
+    this.realtime.emitToUser(userId, 'cards:updated', { type: 'ticket_draw', card: result });
     return result;
   }
 

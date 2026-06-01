@@ -1,4 +1,4 @@
-import { Component, input, output, signal, effect, computed, HostListener, ElementRef } from '@angular/core';
+import { Component, input, output, signal, effect, computed, HostListener, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -10,6 +10,7 @@ type CalView = 'days' | 'months' | 'years';
 @Component({
   selector: 'app-cyber-date-picker',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   templateUrl: './cyber-date-picker.component.html',
   styleUrls: ['./cyber-date-picker.component.scss'],

@@ -1,6 +1,6 @@
 <header class="dashbar" [class.dashbar-public]="hideDivider">
   <a class="brand" [routerLink]="hideDivider ? '/home' : '/dashboard'">
-    <img src="logo.ico" alt="ProjectGG" class="brand-mark" />
+    <img loading="lazy" decoding="async" src="logo.ico" alt="ProjectGG" class="brand-mark" />
     <span>PROJECT GG</span>
   </a>
 
@@ -8,7 +8,7 @@
     <div class="mini-player">
       <div class="mini-player-art" (click)="musicService.toggleExpanded()">
         @if (musicTrack.thumbnail) {
-          <img [src]="musicTrack.thumbnail" alt="" class="mini-player-thumb" />
+          <img loading="lazy" decoding="async" [src]="musicTrack.thumbnail" alt="" class="mini-player-thumb" />
         } @else {
           <div class="mini-player-thumb-placeholder">
             <mat-icon>music_note</mat-icon>
@@ -77,12 +77,12 @@
     <a class="nav-discord-btn"
        routerLink="/chat"
        title="Discord Chat">
-      <img src="/assets/icons/platforms/discord.svg" alt="Discord" class="nav-discord-icon" />
+      <img loading="lazy" decoding="async" src="/assets/icons/platforms/discord.svg" alt="Discord" class="nav-discord-icon" />
       <span>Discord</span>
     </a>
 
     <a class="nav-ggchat-btn" routerLink="/gg-chat" title="GG Chat">
-      <img src="/assets/icons/platforms/gg_chat.svg" alt="GG" class="nav-ggchat-icon" onerror="this.style.display='none'" />
+      <img loading="lazy" decoding="async" src="/assets/icons/platforms/gg_chat.svg" alt="GG" class="nav-ggchat-icon" onerror="this.style.display='none'" />
       <span>GG Chat</span>
     </a>
 
@@ -101,7 +101,7 @@
     <div class="profile-trigger" (click)="profileToggle.emit()">
       <div class="header-av-sk-wrap">
         <div class="header-nav-sk"></div>
-        <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+        <img loading="lazy" decoding="async" class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
       </div>
       <span class="user-name">{{ userName() }}</span>
       @if (isAdmin()) {
@@ -188,7 +188,7 @@
     <div class="profile-trigger" (click)="profileToggle.emit(); mobileMenuOpen = false">
       <div class="header-av-sk-wrap">
         <div class="header-nav-sk"></div>
-        <img class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+        <img loading="lazy" decoding="async" class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
       </div>
       <span class="user-name">{{ userName() }}</span>
       <span class="trigger-arrow">▼</span>

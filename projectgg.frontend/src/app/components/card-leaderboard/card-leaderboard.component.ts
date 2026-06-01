@@ -1,10 +1,11 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-card-leaderboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   template: `
     <div class="lb-panel">
@@ -16,7 +17,7 @@ import { MatIconModule } from '@angular/material/icon';
           @for (entry of entries; track entry.user_id; let i = $index) {
             <div class="lb-row" [class.top-3]="i < 3">
               <span class="lb-rank" [class]="'rank-' + (i + 1)">{{ i + 1 }}</span>
-              <img [src]="entry.avatar || defaultCover" alt="" class="lb-avatar" (error)="onImgError($event)" />
+              <img loading="lazy" decoding="async" [src]="entry.avatar || defaultCover" alt="" class="lb-avatar" (error)="onImgError($event)" />
               <div class="lb-info">
                 <span class="lb-name">{{ entry.username }}</span>
                 <span class="lb-sub">{{ entry.total_cards }} cards · {{ entry.legendary }} LEG · {{ entry.epic }} EPIC</span>

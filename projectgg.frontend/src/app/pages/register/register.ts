@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -11,6 +11,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../components/cyber-
 @Component({
   selector: 'app-register',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, RouterLink, StatusMessageComponent, CyberDatePickerComponent, CyberSelectComponent, MatIconModule],
   templateUrl: './register.html',
   styleUrl: './register.scss',

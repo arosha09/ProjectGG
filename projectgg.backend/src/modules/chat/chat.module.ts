@@ -6,11 +6,13 @@ import { ChatService } from './chat.service';
 import { DiscordBotService } from './discord-bot.service';
 import { supabaseProvider } from 'src/config/supabase.provider';
 import { TasksModule } from '../tasks/tasks.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
   imports: [
     MulterModule.register({ dest: './uploads' }),
     forwardRef(() => TasksModule),
+    RealtimeModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, DiscordBotService, supabaseProvider],

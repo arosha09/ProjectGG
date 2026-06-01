@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GamesService } from '../../services/games.service';
@@ -6,6 +6,7 @@ import { GamesService } from '../../services/games.service';
 @Component({
   selector: 'app-spotify-callback',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `<p>Connecting Spotify...</p>`,
 })

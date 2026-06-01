@@ -1,4 +1,4 @@
-import { Component, input, output, signal, HostListener, ElementRef, contentChild, TemplateRef } from '@angular/core';
+import { Component, input, output, signal, HostListener, ElementRef, contentChild, TemplateRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface DropdownOption {
@@ -10,6 +10,7 @@ export interface DropdownOption {
 @Component({
   selector: 'app-dropdown',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   templateUrl: './dropdown.component.html',
   styleUrls: ['./dropdown.component.scss'],

@@ -1,4 +1,4 @@
-import { Component, input, output, signal, HostListener, ElementRef } from '@angular/core';
+import { Component, input, output, signal, HostListener, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -10,6 +10,7 @@ export interface CyberSelectOption {
 @Component({
   selector: 'app-cyber-select',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   templateUrl: './cyber-select.component.html',
   styleUrls: ['./cyber-select.component.scss'],

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
@@ -14,6 +14,7 @@ export interface DropdownItem {
 @Component({
   selector: 'app-cyber-dropdown',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule, RouterLink],
   templateUrl: './cyber-dropdown.component.html',
   styleUrls: ['./cyber-dropdown.component.scss']

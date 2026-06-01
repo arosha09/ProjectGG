@@ -6,11 +6,11 @@
     </div>
   } @else if (!discordLinked) {
     <div class="discord-gate">
-      <img src="/assets/icons/platforms/discord.svg" alt="Discord" class="gate-discord-icon" />
+      <img loading="lazy" decoding="async" src="/assets/icons/platforms/discord.svg" alt="Discord" class="gate-discord-icon" />
       <h2 class="glitch" data-text="DISCORD REQUIRED">Discord Required</h2>
       <p>Link your Discord account to access the chat.</p>
       <button class="gate-btn" (click)="linkDiscord()">
-        <img src="/assets/icons/platforms/discord.svg" alt="" class="gate-btn-icon" />
+        <img loading="lazy" decoding="async" src="/assets/icons/platforms/discord.svg" alt="" class="gate-btn-icon" />
         Link Discord
       </button>
     </div>
@@ -67,7 +67,7 @@
           <div class="sidebar-user">
             <div class="user-avatar-wrapper">
               @if (userPermissions.avatar) {
-                <img class="user-avatar-img" [src]="userPermissions.avatar" alt="" />
+                <img loading="lazy" decoding="async" class="user-avatar-img" [src]="userPermissions.avatar" alt="" />
               } @else {
                 <span class="user-avatar-text">{{ (discordUsername ?? '?')[0] }}</span>
               }
@@ -108,9 +108,9 @@
                     <div class="msg-avatar-col">
                       <div class="msg-avatar-wrapper">
                         @if (msg.avatar_url) {
-                          <img class="msg-avatar" [src]="msg.avatar_url" alt="" />
+                          <img loading="lazy" decoding="async" class="msg-avatar" [src]="msg.avatar_url" alt="" />
                         } @else if (avatarForUsername(msg.username)) {
-                          <img class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" />
+                          <img loading="lazy" decoding="async" class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" />
                         } @else {
                           <span class="msg-avatar-text">{{ msg.username[0] }}</span>
                         }
@@ -137,12 +137,12 @@
                     <div class="msg-content" [class.msg-system]="msg.username === 'System'" [innerHTML]="highlightMentions(msg.content)"></div>
                     @if (msg.attachment_url) {
                       <div class="msg-attachment">
-                        <img [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
+                        <img loading="lazy" decoding="async" [src]="msg.attachment_url" (click)="openImage(msg.attachment_url)" class="msg-image" />
                       </div>
                     }
                     @if (msg.sticker_url) {
                       <div class="msg-sticker">
-                        <img [src]="msg.sticker_url" class="sticker-img" />
+                        <img loading="lazy" decoding="async" [src]="msg.sticker_url" class="sticker-img" />
                       </div>
                     }
                     <div class="msg-actions">
@@ -187,7 +187,7 @@
                     <input class="gif-search" [(ngModel)]="gifQuery" (input)="searchGifs()" placeholder="Search GIFs..." />
                     <div class="gif-grid">
                       @for (gif of gifResults; track gif.id) {
-                        <img [src]="gif.preview" (click)="selectGif(gif.url)" class="gif-item" />
+                        <img loading="lazy" decoding="async" [src]="gif.preview" (click)="selectGif(gif.url)" class="gif-item" />
                       }
                     </div>
                   </div>
@@ -196,7 +196,7 @@
                   <div class="mention-autocomplete">
                     @for (m of filteredMentions; track m.id) {
                       <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index">
-                        <img [src]="m.avatar || ''" class="mention-avatar" />
+                        <img loading="lazy" decoding="async" [src]="m.avatar || ''" class="mention-avatar" />
                         <span class="mention-name">{{ m.username }}</span>
                       </div>
                     }
@@ -246,7 +246,7 @@
               @for (m of onlineMembers; track m.id) {
                 <div class="member-item">
                   <div class="member-avatar-wrapper">
-                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
+                    <img loading="lazy" decoding="async" class="member-avatar" [src]="memberAvatar(m)" alt="" />
                     <span class="member-status-dot status-online"></span>
                   </div>
                   <div class="member-info">
@@ -260,7 +260,7 @@
               @for (m of idleMembers; track m.id) {
                 <div class="member-item">
                   <div class="member-avatar-wrapper">
-                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
+                    <img loading="lazy" decoding="async" class="member-avatar" [src]="memberAvatar(m)" alt="" />
                     <span class="member-status-dot status-idle"></span>
                   </div>
                   <div class="member-info">
@@ -274,7 +274,7 @@
               @for (m of dndMembers; track m.id) {
                 <div class="member-item">
                   <div class="member-avatar-wrapper">
-                    <img class="member-avatar" [src]="memberAvatar(m)" alt="" />
+                    <img loading="lazy" decoding="async" class="member-avatar" [src]="memberAvatar(m)" alt="" />
                     <span class="member-status-dot status-dnd"></span>
                   </div>
                   <div class="member-info">
@@ -295,7 +295,7 @@
 
   @if (previewImageUrl) {
     <div class="image-overlay" (click)="closeImage()">
-      <img [src]="previewImageUrl" class="overlay-image" />
+      <img loading="lazy" decoding="async" [src]="previewImageUrl" class="overlay-image" />
     </div>
   }
 </section>

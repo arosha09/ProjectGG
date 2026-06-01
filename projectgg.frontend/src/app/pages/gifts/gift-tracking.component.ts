@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ChatService } from '../../services/chat.service';
@@ -26,6 +26,7 @@ interface GiftTrade {
 @Component({
   selector: 'app-gift-tracking',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   template: `
     <div class="gifts-page">
@@ -67,7 +68,7 @@ interface GiftTrade {
             <div class="gift-card">
               <div class="gift-card-header">
                 <div class="gift-user">
-                  <img [src]="gift.proposer_avatar || '/assets/default-avatar.png'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
+                  <img loading="lazy" decoding="async" [src]="gift.proposer_avatar || '/assets/default-avatar.png'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
                   <div>
                     <div class="gift-user-name">{{ gift.proposer_id === currentUserId ? 'You' : gift.proposer_name }}</div>
                     <div class="gift-user-label">Gifter</div>
@@ -77,7 +78,7 @@ interface GiftTrade {
                   <mat-icon svgIcon="card_giftcard"></mat-icon>
                 </div>
                 <div class="gift-user">
-                  <img [src]="gift.receiver_avatar || '/assets/default-avatar.png'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
+                  <img loading="lazy" decoding="async" [src]="gift.receiver_avatar || '/assets/default-avatar.png'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
                   <div>
                     <div class="gift-user-name">{{ gift.receiver_id === currentUserId ? 'You' : gift.receiver_name }}</div>
                     <div class="gift-user-label">Receiver</div>
@@ -86,7 +87,7 @@ interface GiftTrade {
               </div>
               <div class="gift-card-body">
                 <div class="gift-card-preview">
-                  <img [src]="gift.proposer_cover || ''" alt="" class="gift-card-img" (error)="$event.target.style.display='none'" />
+                  <img loading="lazy" decoding="async" [src]="gift.proposer_cover || ''" alt="" class="gift-card-img" (error)="$event.target.style.display='none'" />
                   <div class="gift-card-code">{{ gift.proposer_game_code }}</div>
                   <div class="gift-card-tier" [class]="'tier-' + gift.proposer_tier">{{ gift.proposer_tier }}</div>
                 </div>

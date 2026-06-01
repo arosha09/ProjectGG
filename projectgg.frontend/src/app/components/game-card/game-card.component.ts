@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { Game } from '../../models/game.model';
@@ -7,6 +7,7 @@ import { CollectionButtonComponent } from '../collection-button/collection-butto
 @Component({
   selector: 'app-game-card',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatCardModule, CollectionButtonComponent],
   templateUrl: './game-card.component.html',
   styleUrls: ['./game-card.component.scss'],

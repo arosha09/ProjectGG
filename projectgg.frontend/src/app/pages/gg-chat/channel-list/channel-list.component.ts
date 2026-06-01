@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
@@ -9,6 +9,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
 @Component({
   selector: 'app-channel-list',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule, FormsModule, RouterModule, CyberSelectComponent],
   host: { style: 'display: contents' },
   template: `
@@ -23,7 +24,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
           <div class="gg-user-status-main" (click)="toggleProfileMenu()" style="cursor: pointer;">
             <div class="gg-user-avatar">
               <div class="gg-avatar-sk"></div>
-              <img [src]="userAvatar()" alt="" class="gg-user-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <img loading="lazy" decoding="async" [src]="userAvatar()" alt="" class="gg-user-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
               <span
                 class="gg-user-status-dot"
                 [class.online]="currentStatus === 'online'"
@@ -103,7 +104,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               >
                 <div class="gg-dm-avatar-sm">
                   <div class="gg-avatar-sk"></div>
-                  <img [src]="resolveAvatar(conv, 'otherAvatar')" alt="" class="gg-dm-avatar-img-sm" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+                  <img loading="lazy" decoding="async" [src]="resolveAvatar(conv, 'otherAvatar')" alt="" class="gg-dm-avatar-img-sm" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
                   <span class="gg-user-status-dot"
                     [class.online]="dmStatus(conv.otherUserId) === 'online'"
                     [class.away]="dmStatus(conv.otherUserId) === 'away'"
@@ -123,7 +124,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
           <div class="gg-user-status-main" (click)="toggleProfileMenu()" style="cursor: pointer;">
             <div class="gg-user-avatar">
               <div class="gg-avatar-sk"></div>
-              <img [src]="userAvatar()" alt="" class="gg-user-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <img loading="lazy" decoding="async" [src]="userAvatar()" alt="" class="gg-user-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
               <span
                 class="gg-user-status-dot"
                 [class.online]="currentStatus === 'online'"
@@ -219,7 +220,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
                       <div class="gg-voice-under-user" [class.speaking]="voiceMemberSpeaking(vu.userId)">
                         <div class="gg-voice-under-avatar">
                           @if (voiceMemberAvatar(vu.userId)) {
-                            <img [src]="voiceMemberAvatar(vu.userId)!" alt="" />
+                            <img loading="lazy" decoding="async" [src]="voiceMemberAvatar(vu.userId)!" alt="" />
                           } @else {
                             <span>{{ voiceMemberName(vu.userId)[0] }}</span>
                           }
@@ -249,7 +250,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
           <div class="gg-user-status-main" (click)="toggleProfileMenu()" style="cursor: pointer;">
             <div class="gg-user-avatar">
               <div class="gg-avatar-sk"></div>
-              <img [src]="userAvatar()" alt="" class="gg-user-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <img loading="lazy" decoding="async" [src]="userAvatar()" alt="" class="gg-user-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
               <span
                 class="gg-user-status-dot"
                 [class.online]="currentStatus === 'online'"

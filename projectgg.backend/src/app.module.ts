@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { UsersModule } from './modules/users.module';
 import { GamesModule } from './modules/games.module';
 import { AuthModule } from './auth/auth.module';
@@ -15,6 +17,7 @@ import { CardCollectionModule } from './modules/card-collection/card-collection.
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', 'src/.env'] }),
+    ThrottlerModule.forRoot([{ name: 'short', ttl: 60_000, limit: 30 }]),
     UsersModule,
     GamesModule,
     GamesSyncModule,
@@ -28,5 +31,6 @@ import { CardCollectionModule } from './modules/card-collection/card-collection.
     MusicModule,
     CardCollectionModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -7,6 +7,7 @@ export type ThemeOption = 'green' | 'red' | 'yellow' | 'blue' | 'custom';
 @Component({
   selector: 'app-theme-selector',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   templateUrl: './theme-selector.component.html',
   styleUrls: ['./theme-selector.component.scss'],

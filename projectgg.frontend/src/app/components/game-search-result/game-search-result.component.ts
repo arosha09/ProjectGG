@@ -1,4 +1,4 @@
-import { Component, input, output, ViewEncapsulation } from '@angular/core';
+import { Component, input, output, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 
@@ -18,6 +18,7 @@ export interface SearchResult {
 @Component({
   selector: 'app-game-search-result',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatCheckboxModule],
   templateUrl: './game-search-result.component.html',
   styleUrls: ['./game-search-result.component.scss'],

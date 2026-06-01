@@ -5,7 +5,7 @@
       <div class="cyber-now-playing">
         <div class="cyber-art-container">
           @if (track?.thumbnail) {
-            <img [src]="track!.thumbnail" alt="Album art" class="cyber-album-art" />
+            <img loading="lazy" decoding="async" [src]="track!.thumbnail" alt="Album art" class="cyber-album-art" />
             <div class="cyber-art-glow"></div>
           } @else {
             <div class="cyber-album-art cyber-art-placeholder">
@@ -109,7 +109,7 @@
             @for (qTrack of queue; track qTrack.videoId; let i = $index) {
               <div class="cyber-queue-item" [class.active]="i === queueIndex" (click)="skipTo(i)">
                 @if (qTrack.thumbnail) {
-                  <img [src]="qTrack.thumbnail" alt="" class="cyber-queue-thumb" />
+                  <img loading="lazy" decoding="async" [src]="qTrack.thumbnail" alt="" class="cyber-queue-thumb" />
                 } @else {
                   <div class="cyber-queue-thumb cyber-queue-thumb-empty">
                     <mat-icon svgIcon="music_note"></mat-icon>

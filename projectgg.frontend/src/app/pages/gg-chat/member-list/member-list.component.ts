@@ -1,5 +1,5 @@
 
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { GgServer, GgServerMember } from '../../../services/chat.service';
@@ -7,6 +7,7 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
 @Component({
   selector: 'app-member-list',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, MatIconModule],
   template: `
     <aside class="gg-members" [class.gg-members-hidden]="viewMode === 'dm' || viewMode === 'friends'">
@@ -28,7 +29,7 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
               <div class="gg-member">
                 <div class="gg-member-avatar">
                   <div class="gg-avatar-sk"></div>
-                  <img [src]="resolveAvatar(member, 'avatar_url')" alt="" class="gg-member-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+                  <img loading="lazy" decoding="async" [src]="resolveAvatar(member, 'avatar_url')" alt="" class="gg-member-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
                   <span class="gg-user-status-dot"
                     [class.online]="memberStatus(member.user_id) === 'online'"
                     [class.away]="memberStatus(member.user_id) === 'away'"

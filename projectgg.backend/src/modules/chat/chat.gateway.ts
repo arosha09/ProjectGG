@@ -12,6 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { DiscordBotService } from './discord-bot.service';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 import { TasksService } from '../tasks/tasks.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 type UserStatus = 'online' | 'away' | 'dnd' | 'invisible';
 
@@ -26,6 +27,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   private usersChannel: any = null;
   private heartbeatSweep: ReturnType<typeof setInterval> | null = null;
   private taskProgressTick: ReturnType<typeof setInterval> | null = null;
+  private gatewayInitialized = false;
   private readonly heartbeatByUser = new Map<string, number>();
   private readonly connectedSockets = new Map<string, Set<string>>();
 
@@ -37,13 +39,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly discordBot: DiscordBotService,
     @Inject(forwardRef(() => TasksService)) private readonly tasksService: TasksService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   onModuleInit(): void {
     this.discordBot.setMessageCallback((msg) => {
       this.broadcastMessage(msg);
     });
+  }
 
+  private ensureInitialized(): void {
+    if (this.gatewayInitialized) return;
+    this.gatewayInitialized = true;
     this.subscribeToUserStatusChanges();
     this.heartbeatSweep = setInterval(() => this.pruneStaleHeartbeats(), 10_000);
     this.taskProgressTick = setInterval(() => this.tickTaskProgress(), this.TASK_TICK_INTERVAL_MS);
@@ -65,6 +72,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   handleConnection(client: Socket): void {
+    this.ensureInitialized();
     const userId = client.handshake.query.userId as string;
     if (userId) {
       client.data.userId = userId;
@@ -133,7 +141,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         .from('notifications')
         .insert({ user_id: userId, type, title, body: body ?? '', data: data ?? null });
       if (!error) {
-        this.sendToUser(userId, 'notification', {});
+        this.realtime.emitToUser(userId, 'notification', { type, title, body: body ?? '', data: data ?? null });
       }
     } catch {}
   }

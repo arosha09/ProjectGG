@@ -47,7 +47,7 @@
         @for (friend of friends; track friend.id) {
           <div class="gf-row">
             <div class="gf-avatar">
-              <img [src]="resolveAvatar(friend, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+              <img loading="lazy" decoding="async" [src]="resolveAvatar(friend, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
               <span class="gf-user-status-dot"
                 [class.online]="friendStatus(friend) === 'online'"
                 [class.away]="friendStatus(friend) === 'away'"
@@ -92,7 +92,7 @@
           @for (req of pendingRequests; track req.id) {
             <div class="gf-row">
               <div class="gf-avatar">
-                <img [src]="resolveAvatar(req, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+                <img loading="lazy" decoding="async" [src]="resolveAvatar(req, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
               </div>
               <div class="gf-info">
                 <span class="gf-name">{{ req.other_username }}</span>
@@ -116,7 +116,7 @@
           @for (req of sentRequests; track req.id) {
             <div class="gf-row">
               <div class="gf-avatar">
-                <img [src]="resolveAvatar(req, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+                <img loading="lazy" decoding="async" [src]="resolveAvatar(req, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
               </div>
               <div class="gf-info">
                 <span class="gf-name">{{ req.other_username }}</span>
@@ -153,7 +153,7 @@
           @for (user of blockedUsers; track user.id) {
             <div class="gf-row">
               <div class="gf-avatar">
-                <img [src]="resolveAvatar(user, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+                <img loading="lazy" decoding="async" [src]="resolveAvatar(user, 'other_avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
               </div>
               <div class="gf-info">
                 <span class="gf-name">{{ user.other_username }}</span>
@@ -201,7 +201,7 @@
             @for (user of searchResults; track user.id) {
               <div class="gf-row">
                 <div class="gf-avatar">
-                  <img [src]="resolveAvatar(user, 'avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
+                  <img loading="lazy" decoding="async" [src]="resolveAvatar(user, 'avatar')" alt="" class="gf-avatar-img" (error)="onAvatarError($event)" />
                 </div>
                 <div class="gf-info">
                   <span class="gf-name">{{ user.username }}</span>
