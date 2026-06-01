@@ -44,7 +44,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   socket: Socket | null = null;
 
   // View mode
-  viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' | 'trading' = 'dm';
+  viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' | 'trading' | 'trading-inline' | 'gift-inline' = 'dm';
 
   // Servers
   servers: GgServer[] = [];
@@ -172,7 +172,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
   profileAccounts: any[] = [];
   profileMusic: any[] = [];
   memberStatuses: Record<string, string> = {};
-  tradeFilterUserId = '';
+tradeFilterUserId = '';
+  tradeFilterUsername = '';
 
   // Context menu
   contextMenu: { x: number; y: number; msg: ChatMessage } | null = null;
@@ -800,6 +801,25 @@ export class GgChatComponent implements OnInit, OnDestroy {
         });
       },
       'Kick',
+      'Cancel'
+    );
+  }
+
+  confirmBan(member: GgServerMember): void {
+    if (!this.selectedServer) return;
+    const name = member.username ?? member.user_id;
+    this.showCyberConfirm(
+      `Ban ${name} from the server? This will remove them and prevent re-joining.`,
+      () => {
+        this.chatService.banMember(this.selectedServer!.id, member.user_id).subscribe({
+          next: () => {
+            this.members = this.members.filter(m => m.user_id !== member.user_id);
+            this.cdr.markForCheck();
+          },
+          error: (err) => this.showCyberAlert(err.error?.message ?? 'Failed to ban member'),
+        });
+      },
+      'Ban',
       'Cancel'
     );
   }
@@ -1748,12 +1768,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   getPlatformLogo(id: string): string {
-    const slugs: Record<string, string> = {
-      steam: 'steam', discord: 'discord', gog: 'gogdotcom', epic: 'epicgames',
-      ubisoft: 'ubisoft', ea: 'ea', spotify: 'spotify',
-      youtube_music: 'youtubemusic', apple_music: 'applemusic',
-    };
-    return `https://cdn.simpleicons.org/${slugs[id] ?? id}/ffffff`;
+    return `/assets/icons/platforms/${id}.svg`;
   }
 
   // ===== PROFILE VIEW =====
@@ -1852,14 +1867,28 @@ export class GgChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  openTradingViewWithUser(userId: string): void {
+  openTradingViewWithUser(userId: string, username?: string): void {
     this.tradeFilterUserId = userId;
+    this.tradeFilterUsername = username ?? '';
     this.viewMode = 'trading';
     this.loadCardTrades();
   }
 
-  closeTradingView(): void {
+  openInlineTrading(userId: string, username: string): void {
+    this.tradeFilterUserId = userId;
+    this.tradeFilterUsername = username;
+    this.viewMode = 'trading-inline';
+  }
+
+  openInlineGift(userId: string, username: string): void {
+    this.tradeFilterUserId = userId;
+    this.tradeFilterUsername = username;
+    this.viewMode = 'gift-inline';
+  }
+
+  closeInlineTrade(): void {
     this.tradeFilterUserId = '';
+    this.tradeFilterUsername = '';
     this.viewMode = this.selectedServer ? 'server' : 'dm';
   }
 

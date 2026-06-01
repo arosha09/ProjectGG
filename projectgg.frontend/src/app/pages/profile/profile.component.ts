@@ -371,12 +371,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   }
 
   getPlatformLogo(id: string): string {
-    const slugs: Record<string, string> = {
-      steam: 'steam', discord: 'discord', gog: 'gogdotcom', epic: 'epicgames',
-      ubisoft: 'ubisoft', ea: 'ea', spotify: 'spotify',
-      youtube_music: 'youtubemusic', apple_music: 'applemusic',
-    };
-    return `https://cdn.simpleicons.org/${slugs[id] ?? id}/ffffff`;
+    return `/assets/icons/platforms/${id}.svg`;
   }
 
   tierColor(tier?: string): string {

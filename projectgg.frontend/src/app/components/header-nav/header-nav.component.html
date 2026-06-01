@@ -77,22 +77,22 @@
     <a class="nav-discord-btn"
        routerLink="/chat"
        title="Discord Chat">
-      <img src="https://cdn.simpleicons.org/discord/ffffff" alt="Discord" class="nav-discord-icon" />
+      <img src="/assets/icons/platforms/discord.svg" alt="Discord" class="nav-discord-icon" />
       <span>Discord</span>
     </a>
 
     <a class="nav-ggchat-btn" routerLink="/gg-chat" title="GG Chat">
-      <img src="https://cdn.simpleicons.org/chatbot/00f0ff" alt="GG" class="nav-ggchat-icon" onerror="this.style.display='none'" />
+      <img src="/assets/icons/platforms/gg_chat.svg" alt="GG" class="nav-ggchat-icon" onerror="this.style.display='none'" />
       <span>GG Chat</span>
     </a>
 
     <button class="nav-music-btn" (click)="musicService.toggleExpanded()" type="button" title="Music Player">
-      <mat-icon class="nav-music-icon">headphones</mat-icon>
+      <mat-icon class="nav-music-icon" svgIcon="headphones"></mat-icon>
       <span>Music</span>
     </button>
 
     <div class="header-notif-wrap" (click)="toggleNotifications(); $event.stopPropagation()">
-      <mat-icon class="header-notif-bell">notifications</mat-icon>
+      <mat-icon class="header-notif-bell" svgIcon="notifications"></mat-icon>
       @if (unreadCount > 0) {
         <span class="header-notif-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
       }
