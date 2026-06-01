@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
 import { TasksRepository } from './tasks.repository';
@@ -9,7 +9,7 @@ import { CardCollectionModule } from '../card-collection/card-collection.module'
 import { ChatModule } from '../chat/chat.module';
 
 @Module({
-  imports: [AuthModule, XpModule, CardCollectionModule, ChatModule],
+  imports: [AuthModule, forwardRef(() => XpModule), forwardRef(() => CardCollectionModule), forwardRef(() => ChatModule)],
   controllers: [TasksController],
   providers: [TasksService, TasksRepository, supabaseProvider],
   exports: [TasksService],

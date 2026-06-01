@@ -245,6 +245,18 @@ export class ChatService {
     return this.http.post(`${this.apiUrl}/gg/servers/${serverId}/members/${memberId}/kick`, {});
   }
 
+  banMember(serverId: number, memberId: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/gg/servers/${serverId}/members/${memberId}/ban`, {});
+  }
+
+  unbanMember(serverId: number, memberId: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/gg/servers/${serverId}/bans/${memberId}`);
+  }
+
+  getBannedMembers(serverId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/gg/servers/${serverId}/bans`);
+  }
+
   getServerRoles(serverId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/gg/servers/${serverId}/roles`);
   }
@@ -365,6 +377,10 @@ export class ChatService {
 
   markAllNotificationsRead(): Observable<any> {
     return this.http.patch(`${this.apiUrl}/gg/notifications/read-all`, {});
+  }
+
+  clearAllNotifications(): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/gg/notifications`);
   }
 
   // ===== CARD COLLECTION =====

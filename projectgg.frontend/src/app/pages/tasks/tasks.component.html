@@ -11,24 +11,24 @@
 
     <div class="tasks-tabs">
       <button class="tab-btn" [class.active]="activeTab === 'daily'" (click)="activeTab = 'daily'">
-        <mat-icon>today</mat-icon>
+        <mat-icon svgIcon="today"></mat-icon>
         Daily
       </button>
       <button class="tab-btn" [class.active]="activeTab === 'achievements'" (click)="activeTab = 'achievements'">
-        <mat-icon>emoji_events</mat-icon>
+        <mat-icon svgIcon="emoji_events"></mat-icon>
         Achievements
       </button>
       <button class="tab-btn" [class.active]="activeTab === 'duration'" (click)="activeTab = 'duration'">
-        <mat-icon>timer</mat-icon>
+        <mat-icon svgIcon="timer"></mat-icon>
         Live
       </button>
       <button class="tab-btn" [class.active]="activeTab === 'completed'" (click)="activeTab = 'completed'">
-        <mat-icon>check_circle</mat-icon>
+        <mat-icon svgIcon="check_circle"></mat-icon>
         Completed
       </button>
       @if (canManualComplete) {
         <button class="tab-btn tab-btn-test" [class.active]="activeTab === 'test'" (click)="activeTab = 'test'">
-          <mat-icon>science</mat-icon>
+          <mat-icon svgIcon="science"></mat-icon>
           Test
         </button>
       }
@@ -45,7 +45,7 @@
         </div>
       } @else if (achievementCategories.length === 0) {
         <div class="tasks-empty">
-          <mat-icon>emoji_events</mat-icon>
+          <mat-icon svgIcon="emoji_events"></mat-icon>
           <p>No achievements yet. Check back later!</p>
         </div>
       } @else {
@@ -64,7 +64,7 @@
                     <mat-card class="task-card" [class.task-ready]="isTaskReadyToClaim(task)">
                       <div class="task-card-top">
                         <div class="task-icon-wrap">
-                          <mat-icon>emoji_events</mat-icon>
+                          <mat-icon svgIcon="emoji_events"></mat-icon>
                         </div>
                         <div class="task-info">
                           <h3>{{ task.title }}</h3>
@@ -104,13 +104,13 @@
                             <span class="btn-spinner"></span>
                             Completing...
                           } @else {
-                            <mat-icon>flash_on</mat-icon>
+                            <mat-icon svgIcon="flash_on"></mat-icon>
                             {{ isTaskReadyToClaim(task) ? 'Complete' : 'Insta Complete' }}
                           }
                         </button>
                       } @else if (isTaskReadyToClaim(task)) {
                         <div class="ready-badge">
-                          <mat-icon>check_circle</mat-icon>
+                          <mat-icon svgIcon="check_circle"></mat-icon>
                           Ready to Claim
                         </div>
                         <button
@@ -122,13 +122,13 @@
                             <span class="btn-spinner"></span>
                             Claiming...
                           } @else {
-                            <mat-icon>card_giftcard</mat-icon>
+                            <mat-icon svgIcon="card_giftcard"></mat-icon>
                             Claim Reward
                           }
                         </button>
                       } @else if (!isTaskReadyToClaim(task)) {
                         <div class="progress-indicator">
-                          <mat-icon>schedule</mat-icon>
+                          <mat-icon svgIcon="schedule"></mat-icon>
                           {{ progressPercent(task) }}% Complete
                         </div>
                       }
@@ -151,7 +151,7 @@
         </div>
       } @else if (tasksForCurrentTab.length === 0) {
         <div class="tasks-empty">
-          <mat-icon>celebration</mat-icon>
+          <mat-icon svgIcon="celebration"></mat-icon>
           <p>No missions here yet. Check back later!</p>
         </div>
       } @else {
@@ -211,7 +211,7 @@
                     <span class="btn-spinner"></span>
                     Completing...
                   } @else {
-                    <mat-icon>flash_on</mat-icon>
+                    <mat-icon svgIcon="flash_on"></mat-icon>
                     {{ isTaskReadyToClaim(task) ? 'Complete' : 'Insta Complete' }}
                   }
                 </button>
@@ -225,13 +225,13 @@
                     <span class="btn-spinner"></span>
                     Claiming...
                   } @else {
-                    <mat-icon>check_circle</mat-icon>
+                    <mat-icon svgIcon="check_circle"></mat-icon>
                     Claim Reward
                   }
                 </button>
               } @else if (!isTaskReadyToClaim(task)) {
                 <div class="progress-indicator">
-                  <mat-icon>schedule</mat-icon>
+                  <mat-icon svgIcon="schedule"></mat-icon>
                   {{ progressPercent(task) }}% Complete
                 </div>
               }
@@ -242,7 +242,7 @@
     } @else {
       @if (completedTasksForDisplay.length === 0) {
         <div class="tasks-empty">
-          <mat-icon>history</mat-icon>
+          <mat-icon svgIcon="history"></mat-icon>
           <p>No completed missions yet.</p>
         </div>
       } @else {
@@ -251,7 +251,7 @@
             <mat-card class="task-card completed-card">
               <div class="task-card-top">
                 <div class="task-icon-wrap completed-icon">
-                  <mat-icon>check_circle</mat-icon>
+                  <mat-icon svgIcon="check_circle"></mat-icon>
                 </div>
                 <div class="task-info">
                   <h3>{{ task.tasks?.title || 'Mission' }}</h3>

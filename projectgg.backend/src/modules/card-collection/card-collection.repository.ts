@@ -26,7 +26,7 @@ export class CardCollectionRepository {
       card_tier: row?.card_tier ?? row?.tier ?? this.inferTier(row?.rating ?? null),
       series_name: row?.series_name ?? null,
       desc: row?.desc ?? row?.description ?? null,
-      release_year: row?.release_year ?? null,
+      release_year: row?.sequence_release ?? row?.release_year ?? null,
       source: row?.source ?? null,
     };
   }
@@ -35,7 +35,7 @@ export class CardCollectionRepository {
     const { data, error } = await this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('code,name,cover_url,rating,series_name,desc,tier')
+      .select('code,name,cover_url,rating,series_name,desc,tier,sequence_release')
       .limit(40);
     if (error) throw new InternalServerErrorException(`getDailyDrawCards: ${error.message}`);
 
@@ -47,7 +47,7 @@ export class CardCollectionRepository {
     const { data: games, error: gamesErr } = await this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('id,code,name,cover_url,rating,series_name,desc,tier');
+      .select('id,code,name,cover_url,rating,series_name,desc,tier,sequence_release');
     if (gamesErr) throw new InternalServerErrorException(`claimDailyDraw games: ${gamesErr.message}`);
     if (!games || games.length === 0) throw new InternalServerErrorException('No games available for draw');
 
@@ -115,7 +115,7 @@ export class CardCollectionRepository {
     const { data: games, error: gamesErr } = await this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('id,code,name,cover_url,rating,series_name,desc,tier');
+      .select('id,code,name,cover_url,rating,series_name,desc,tier,sequence_release');
     if (gamesErr) throw new InternalServerErrorException(`drawWithTicket games: ${gamesErr.message}`);
     if (!games || games.length === 0) throw new InternalServerErrorException('No games available for draw');
 
@@ -191,7 +191,7 @@ export class CardCollectionRepository {
     const { data: games, error: gamesErr } = await this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('code, name, cover_url, rating, desc, genres, platforms, series_name')
+      .select('code, name, cover_url, rating, desc, genres, platforms, series_name, sequence_release')
       .in('code', gameCodes);
     if (gamesErr) throw new InternalServerErrorException(`getUserCollection games: ${gamesErr.message}`);
     const gameMap = new Map<string, any>((games || []).map((g: any) => [g.code, g]));
@@ -215,6 +215,7 @@ export class CardCollectionRepository {
         genres: (game as any).genres ?? [],
         platforms: (game as any).platforms ?? [],
         series_name: (game as any).series_name ?? null,
+        release_year: (game as any).sequence_release ?? null,
       };
     });
   }

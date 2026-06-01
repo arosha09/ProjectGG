@@ -8,21 +8,21 @@
 
 		<div class="admin-cards">
 			<a class="admin-card" routerLink="/admin/sync">
-				<div class="admin-card-icon"><mat-icon>sync</mat-icon></div>
+				<div class="admin-card-icon"><mat-icon svgIcon="sync"></mat-icon></div>
 				<div class="admin-card-body">
 					<h3>Game Sync</h3>
 					<p>Scan and sync existing games with external sources for cover art, genres, and ratings</p>
 				</div>
-			<div class="admin-card-arrow"><mat-icon>chevron_right</mat-icon></div>
+			<div class="admin-card-arrow"><mat-icon svgIcon="chevron_right"></mat-icon></div>
 		</a>
 
 		<a class="admin-card" routerLink="/dashboard">
-			<div class="admin-card-icon"><mat-icon>sports_esports</mat-icon></div>
+			<div class="admin-card-icon"><mat-icon svgIcon="sports_esports"></mat-icon></div>
 				<div class="admin-card-body">
 					<h3>User Dashboard</h3>
 					<p>Browse library, manage your personal game collection</p>
 				</div>
-				<div class="admin-card-arrow"><mat-icon>chevron_right</mat-icon></div>
+				<div class="admin-card-arrow"><mat-icon svgIcon="chevron_right"></mat-icon></div>
 			</a>
 		</div>
 
@@ -39,9 +39,9 @@
 					[(ngModel)]="searchQuery"
 					(keyup.enter)="onSearch()"
 				/>
-				<button class="import-search-btn" (click)="onSearch()"><mat-icon>search</mat-icon></button>
+				<button class="import-search-btn" (click)="onSearch()"><mat-icon svgIcon="search"></mat-icon></button>
 				@if (searchQuery) {
-					<button class="import-search-clear" (click)="clearSearch()"><mat-icon>close</mat-icon></button>
+					<button class="import-search-clear" (click)="clearSearch()"><mat-icon svgIcon="close"></mat-icon></button>
 				}
 				@if (searching) {
 					<div class="import-search-pulse"></div>
@@ -84,11 +84,11 @@
 					<div class="irh-actions">
 						@if (hasSelection) {
 							<button class="irh-import-selected" (click)="importSelected()" [disabled]="importing.size > 0">
-								<mat-icon>playlist_add</mat-icon> IMPORT SELECTED
+								<mat-icon svgIcon="playlist_add"></mat-icon> IMPORT SELECTED
 							</button>
 						}
 						<button class="irh-import-all" (click)="importAll()" [disabled]="importing.size > 0">
-							<mat-icon>playlist_add</mat-icon> IMPORT ALL
+							<mat-icon svgIcon="playlist_add"></mat-icon> IMPORT ALL
 						</button>
 					</div>
 				</div>
@@ -109,10 +109,11 @@
 } @else {
 	<section class="admin-shell">
 		<div class="sync-access-denied">
-			<span class="ad-icon"><mat-icon>block</mat-icon></span>
+			<span class="ad-icon"><mat-icon svgIcon="block"></mat-icon></span>
 			<h2>ACCESS RESTRICTED</h2>
 			<p>Admin credentials required.</p>
 			<a class="sync-btn" routerLink="/dashboard">Return to Hub</a>
 		</div>
 	</section>
 }
+

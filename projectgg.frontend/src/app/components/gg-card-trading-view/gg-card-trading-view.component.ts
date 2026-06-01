@@ -53,6 +53,7 @@ export class GgCardTradingViewComponent implements OnInit {
   @Input() currentUserId = '';
   @Input() friends: FriendUser[] = [];
   @Input() filterUserId = '';
+  @Input() startOnGiftTab = false;
   @Output() accepted = new EventEmitter<number>();
   @Output() rejected = new EventEmitter<number>();
   @Output() cancelled = new EventEmitter<number>();
@@ -79,6 +80,10 @@ export class GgCardTradingViewComponent implements OnInit {
   giftReceiverId = '';
   gifting = false;
 
+  // Search & Sort
+  tradeSearch = '';
+  tradeSort: 'newest' | 'oldest' | 'name' = 'newest';
+
   // User search (for non-friends)
   userSearch = '';
   userSearchResults: any[] = [];
@@ -92,6 +97,9 @@ export class GgCardTradingViewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    if (this.startOnGiftTab) {
+      this.activeTab = 'gift';
+    }
     this.loadTrades();
   }
 
@@ -113,20 +121,41 @@ export class GgCardTradingViewComponent implements OnInit {
     });
   }
 
+  private filterAndSort(trades: Trade[]): Trade[] {
+    let result = trades;
+    if (this.tradeSearch.trim()) {
+      const q = this.tradeSearch.toLowerCase();
+      result = result.filter(t =>
+        (t.proposer_name || '').toLowerCase().includes(q) ||
+        (t.receiver_name || '').toLowerCase().includes(q) ||
+        (t.proposer_game_code || '').toLowerCase().includes(q) ||
+        (t.receiver_game_code || '').toLowerCase().includes(q)
+      );
+    }
+    if (this.tradeSort === 'newest') {
+      result = [...result].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } else if (this.tradeSort === 'oldest') {
+      result = [...result].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    } else if (this.tradeSort === 'name') {
+      result = [...result].sort((a, b) => (a.proposer_name || '').localeCompare(b.proposer_name || ''));
+    }
+    return result;
+  }
+
   get incomingTrades(): Trade[] {
-    return this.trades.filter(t => t.trade_status === 'pending' && t.receiver_id === this.currentUserId && (t.type || 'trade') === 'trade');
+    return this.filterAndSort(this.trades.filter(t => t.trade_status === 'pending' && t.receiver_id === this.currentUserId && (t.type || 'trade') === 'trade'));
   }
 
   get outgoingTrades(): Trade[] {
-    return this.trades.filter(t => t.trade_status === 'pending' && t.proposer_id === this.currentUserId && (t.type || 'trade') === 'trade');
+    return this.filterAndSort(this.trades.filter(t => t.trade_status === 'pending' && t.proposer_id === this.currentUserId && (t.type || 'trade') === 'trade'));
   }
 
   get completedTrades(): Trade[] {
-    return this.trades.filter(t => (t.trade_status === 'accepted' || t.trade_status === 'rejected' || t.trade_status === 'cancelled') && (t.type || 'trade') === 'trade');
+    return this.filterAndSort(this.trades.filter(t => (t.trade_status === 'accepted' || t.trade_status === 'rejected' || t.trade_status === 'cancelled') && (t.type || 'trade') === 'trade'));
   }
 
   get giftHistory(): Trade[] {
-    return this.trades.filter(t => t.type === 'gift' && (t.proposer_id === this.currentUserId || t.receiver_id === this.currentUserId));
+    return this.filterAndSort(this.trades.filter(t => t.type === 'gift' && (t.proposer_id === this.currentUserId || t.receiver_id === this.currentUserId)));
   }
 
   get sentGifts(): Trade[] {

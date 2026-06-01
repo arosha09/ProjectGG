@@ -39,7 +39,7 @@ interface Trade {
             [class.active]="activeTab === 'incoming'"
             (click)="activeTab = 'incoming'"
           >
-            <mat-icon>call_received</mat-icon>
+            <mat-icon svgIcon="call_received"></mat-icon>
             Incoming
             @if (incomingCount > 0) {
               <span class="tab-badge">{{ incomingCount }}</span>
@@ -50,7 +50,7 @@ interface Trade {
             [class.active]="activeTab === 'outgoing'"
             (click)="activeTab = 'outgoing'"
           >
-            <mat-icon>call_made</mat-icon>
+            <mat-icon svgIcon="call_made"></mat-icon>
             Outgoing
             @if (outgoingCount > 0) {
               <span class="tab-badge">{{ outgoingCount }}</span>
@@ -61,7 +61,7 @@ interface Trade {
             [class.active]="activeTab === 'completed'"
             (click)="activeTab = 'completed'"
           >
-            <mat-icon>check_circle</mat-icon>
+            <mat-icon svgIcon="check_circle"></mat-icon>
             Completed
           </button>
         </div>
@@ -71,15 +71,15 @@ interface Trade {
         @if (filteredTrades.length === 0) {
           <div class="empty-state">
             @if (activeTab === 'incoming') {
-              <mat-icon>inbox</mat-icon>
+              <mat-icon svgIcon="inbox"></mat-icon>
               <p>No incoming trades</p>
               <span>Trades from other users will appear here</span>
             } @else if (activeTab === 'outgoing') {
-              <mat-icon>outbox</mat-icon>
+              <mat-icon svgIcon="outbox"></mat-icon>
               <p>No outgoing trades</p>
               <span>Trades you send will appear here</span>
             } @else {
-              <mat-icon>history</mat-icon>
+              <mat-icon svgIcon="history"></mat-icon>
               <p>No completed trades</p>
               <span>Your trade history will appear here</span>
             }
@@ -90,16 +90,16 @@ interface Trade {
               <div class="trade-card-header">
                 <div class="trade-status-badge" [class]="'status-' + trade.trade_status">
                   @if (trade.trade_status === 'pending') {
-                    <mat-icon>schedule</mat-icon>
+                    <mat-icon svgIcon="schedule"></mat-icon>
                     Pending
                   } @else if (trade.trade_status === 'accepted') {
-                    <mat-icon>check_circle</mat-icon>
+                    <mat-icon svgIcon="check_circle"></mat-icon>
                     Accepted
                   } @else if (trade.trade_status === 'rejected') {
-                    <mat-icon>cancel</mat-icon>
+                    <mat-icon svgIcon="cancel"></mat-icon>
                     Rejected
                   } @else {
-                    <mat-icon>block</mat-icon>
+                    <mat-icon svgIcon="block"></mat-icon>
                     Cancelled
                   }
                 </div>
@@ -149,7 +149,7 @@ interface Trade {
                   </div>
                 </div>
                 <div class="trade-detail-arrow">
-                  <mat-icon>arrow_forward</mat-icon>
+                  <mat-icon svgIcon="arrow_forward"></mat-icon>
                 </div>
                 <div class="trade-detail-item">
                   <span class="detail-label">
@@ -168,24 +168,24 @@ interface Trade {
                 <div class="trade-actions">
                   @if (activeTab === 'incoming') {
                     <button class="trade-btn accept" (click)="accept.emit(trade.trade_id)">
-                      <mat-icon>check</mat-icon>
+                      <mat-icon svgIcon="check"></mat-icon>
                       Accept Trade
                     </button>
                     <button class="trade-btn reject" (click)="reject.emit(trade.trade_id)">
-                      <mat-icon>close</mat-icon>
+                      <mat-icon svgIcon="close"></mat-icon>
                       Decline
                     </button>
                   } @else {
                     <span class="trade-pending-text">Awaiting response...</span>
                     <button class="trade-btn cancel" (click)="cancel.emit(trade.trade_id)">
-                      <mat-icon>cancel</mat-icon>
+                      <mat-icon svgIcon="cancel"></mat-icon>
                       Cancel
                     </button>
                   }
                 </div>
               } @else if (trade.resolved_at) {
                 <div class="trade-resolved">
-                  <mat-icon>schedule</mat-icon>
+                  <mat-icon svgIcon="schedule"></mat-icon>
                   {{ formatResolvedTime(trade.resolved_at) }}
                 </div>
               }

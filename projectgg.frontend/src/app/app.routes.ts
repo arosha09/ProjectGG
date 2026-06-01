@@ -18,6 +18,8 @@ import { AppleMusicCallbackComponent } from './pages/apple-music-callback/apple-
 import { ChatComponent } from './pages/chat/chat.component';
 import { GgChatComponent } from './pages/gg-chat/gg-chat.component';
 import { TasksComponent } from './pages/tasks/tasks.component';
+import { GiftTrackingComponent } from './pages/gifts/gift-tracking.component';
+import { ServerSettingsComponent } from './pages/server-settings/server-settings.component';
 import { AuthGuard } from './services/auth.guard';
 
 export const routes: Routes = [
@@ -114,6 +116,16 @@ export const routes: Routes = [
     path: 'admin/tasks',
     component: TasksAdminComponent,
     canActivate: [AuthGuard, AdminGuard]
+  },
+  {
+    path: 'gifts',
+    component: GiftTrackingComponent,
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'gg-chat/server/:id/settings',
+    component: ServerSettingsComponent,
+    canActivate: [AuthGuard]
   },
   {
     path: '**',

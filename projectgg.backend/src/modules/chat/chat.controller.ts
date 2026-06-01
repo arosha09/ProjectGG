@@ -429,6 +429,46 @@ export class ChatController {
     return { success: true };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/members/:memberId/ban')
+  async banMember(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    await this.chatService.banMember(
+      Number(serverId), memberId, req.user.id,
+    );
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/servers/:serverId/bans/:memberId')
+  async unbanMember(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    await this.chatService.unbanMember(
+      Number(serverId), memberId, req.user.id,
+    );
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/servers/:serverId/bans')
+  async getBannedMembers(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+  ) {
+    return this.chatService.getBannedMembers(
+      Number(serverId), req.user.id,
+    );
+  }
+
   // ================================================================
   // GG CHAT — INVITE LINKS
   // ================================================================
@@ -756,6 +796,14 @@ export class ChatController {
   @Patch('gg/notifications/read-all')
   async markAllNotificationsRead(@Req() req: any) {
     await this.chatService.markAllNotificationsRead(req.user.id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/notifications')
+  async clearAllNotifications(@Req() req: any) {
+    await this.chatService.clearAllNotifications(req.user.id);
     return { success: true };
   }
 }

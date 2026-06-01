@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
     <div class="gg-overlay" (click)="cancel.emit()">
       <div class="gg-modal gg-modal-sm" (click)="$event.stopPropagation()">
         <div class="gg-confirm-icon">
-          <mat-icon>warning</mat-icon>
+          <mat-icon svgIcon="warning"></mat-icon>
         </div>
 
         <p class="gg-confirm-message">{{ message }}</p>
@@ -118,3 +118,4 @@ export class CyberConfirmComponent {
   @Output() confirm = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
 }
+

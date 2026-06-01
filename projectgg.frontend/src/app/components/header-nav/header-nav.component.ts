@@ -160,6 +160,13 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
     });
   }
 
+  clearAllNotifications(): void {
+    this.chatService.clearAllNotifications().subscribe(() => {
+      this.notifications = [];
+      this.unreadCount = 0;
+    });
+  }
+
   get filteredNotifications(): AppNotification[] {
     if (this.notifCategory === 'all') return this.notifications;
     return this.notifications.filter(n => this.getNotifCategory(n) === this.notifCategory);

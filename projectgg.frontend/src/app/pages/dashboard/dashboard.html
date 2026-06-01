@@ -8,15 +8,15 @@
 				<div class="hero-actions">
 					@if (!cardStats?.today_drawn) {
 						<button class="draw-btn" (click)="openCardDraw()">
-							<mat-icon>casino</mat-icon> DAILY DRAW
+							<mat-icon svgIcon="casino"></mat-icon> DAILY DRAW
 						</button>
 					} @else if (cardDrawTickets.length > 0) {
 						<button class="draw-btn" (click)="openCardDraw()">
-							<mat-icon>confirmation_number</mat-icon> {{ cardDrawTickets.length > 10 ? '10+' : cardDrawTickets.length }} tickets remaining — click to draw
+							<mat-icon svgIcon="confirmation_number"></mat-icon> {{ cardDrawTickets.length > 10 ? '10+' : cardDrawTickets.length }} tickets remaining — click to draw
 						</button>
 					} @else {
 						<button class="draw-btn draw-btn--disabled" disabled>
-							<mat-icon>casino</mat-icon> 0 tickets
+							<mat-icon svgIcon="casino"></mat-icon> 0 tickets
 						</button>
 					}
 					<a class="hero-link" routerLink="/profile">Collection</a>
@@ -39,7 +39,7 @@
 					<p>Connect your Discord account to unlock profile integration and features — this is what makes ProjectGG unique.</p>
 				</div>
 				<button class="discord-cta-btn" (click)="linkDiscord()">
-					<mat-icon>login</mat-icon> LINK DISCORD
+					<mat-icon svgIcon="login"></mat-icon> LINK DISCORD
 				</button>
 			</mat-card>
 		}
@@ -60,7 +60,7 @@
 					(input)="onSearchInput()"
 				/>
 				@if (searchQuery) {
-					<button class="search-clear" type="button" (click)="clearSearch()"><mat-icon>close</mat-icon></button>
+					<button class="search-clear" type="button" (click)="clearSearch()"><mat-icon svgIcon="close"></mat-icon></button>
 				}
 				@if (searching) {
 					<span class="cyber-search-spinner"></span>
@@ -149,13 +149,14 @@
 		</section>
 
 		<app-paginator
-			*ngIf="totalLibraryPages > 1"
+			*ngIf="totalLibraryPages > 1"`
 			[currentPage]="libraryCurrentPage"
 			[totalPages]="totalLibraryPages"
 			(pageChange)="goToLibraryPage($event)"
 		></app-paginator>
 
 		<app-card-collection
+			class="card-collection-section"
 			[cards]="cards"
 			[totalCards]="cards.length"
 			[stats]="cardStats"

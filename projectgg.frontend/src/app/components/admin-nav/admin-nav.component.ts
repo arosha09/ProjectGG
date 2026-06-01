@@ -11,15 +11,15 @@ import { MatIconModule } from '@angular/material/icon';
       <a class="admin-brand" routerLink="/dashboard">PROJECT.GG</a>
       <div class="admin-topbar-links">
         <a class="admin-nav-btn" routerLink="/dashboard">
-          <mat-icon>sports_esports</mat-icon>
+          <mat-icon svgIcon="sports_esports"></mat-icon>
           <span>DASHBOARD</span>
         </a>
         <a class="admin-nav-btn" routerLink="/admin">
-          <mat-icon>admin_panel_settings</mat-icon>
+          <mat-icon svgIcon="admin_panel_settings"></mat-icon>
           <span>ADMIN PANEL</span>
         </a>
         <a class="admin-nav-btn" routerLink="/admin/tasks">
-          <mat-icon>assignment</mat-icon>
+          <mat-icon svgIcon="assignment"></mat-icon>
           <span>TASKS</span>
         </a>
       </div>
@@ -79,3 +79,4 @@ import { MatIconModule } from '@angular/material/icon';
   `],
 })
 export class AdminNavComponent {}
+

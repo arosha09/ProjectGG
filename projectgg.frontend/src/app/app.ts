@@ -13,6 +13,7 @@ import { CursorService } from './services/cursor.service';
 import { StatusMessageComponent } from './components/status-message/status-message.component';
 import { StatusNotificationService } from './services/notification.service';
 import { UserStatusService } from './services/user-status.service';
+import { TaskTrackerService } from './services/task-tracker.service';
 
 @Component({
   selector: 'app-root',
@@ -44,6 +45,7 @@ export class App implements OnInit, OnDestroy {
     private cursor: CursorService,
     private readonly injector: Injector,
     private readonly userStatus: UserStatusService,
+    private readonly taskTracker: TaskTrackerService,
     public readonly statusNotification: StatusNotificationService,
   ) {}
 
@@ -55,6 +57,7 @@ export class App implements OnInit, OnDestroy {
     this.profileDropdownOpen = false;
     this.cursor.init();
     this.userStatus.initialize();
+    this.taskTracker.initialize();
     effect(() => {
       const message = this.statusNotification.message();
       const type = this.statusNotification.type();

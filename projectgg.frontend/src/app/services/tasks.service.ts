@@ -16,6 +16,7 @@ export interface Task {
   reward_amount: number;
   rewards?: Array<{ type: 'xp' | 'tickets'; amount: number }>;
   max_claims?: number | null;
+  claims_count?: number;
   start_at?: string | null;
   end_at?: string | null;
   active?: boolean;

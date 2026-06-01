@@ -10,6 +10,8 @@ import {
   ParseIntPipe,
   ParseUUIDPipe,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
@@ -30,7 +32,7 @@ import { ChatGateway } from 'src/modules/chat/chat.gateway';
 export class XpController {
   constructor(
     private readonly xpService: XpService,
-    private readonly chatGateway: ChatGateway,
+    @Inject(forwardRef(() => ChatGateway)) private readonly chatGateway: ChatGateway,
   ) {}
 
   @Get('rank')

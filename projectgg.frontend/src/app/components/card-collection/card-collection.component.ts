@@ -47,158 +47,255 @@ interface TradeFriend {
         </div>
       }
 
-      @if (selectedCard) {
-        <div class="trade-panel">
-          <div class="trade-panel-header">
-            <div>
-              <p class="trade-kicker">Trade Desk</p>
+@if (selectedCard) {
+  <div class="detail-panel">
+    <div class="detail-panel-header">
+      <div>
+        <h3>{{ selectedCard.game_name }}</h3>
+        <p class="trade-subtitle">{{ selectedCard.card_tier.toUpperCase() }} CARD</p>
+      </div>
+    </div>
+    <div class="detail-card-layout">
+      <mat-card class="owned-card detail-view-card" [ngClass]="'tier-' + selectedCard.card_tier" (click)="openImageView()">
+        <div class="card-media owned-media" [class.has-image]="!!selectedCard.cover_url">
+          <div class="tier-badge" [ngClass]="'tier-' + selectedCard.card_tier">
+            {{ selectedCard.card_tier }}
+          </div>
+          <img
+            *ngIf="selectedCard.cover_url"
+            class="cover-image"
+            [src]="selectedCard.cover_url"
+            [alt]="selectedCard.game_name"
+            (error)="onImgError($event)"
+          />
+          <div class="cover-overlay"></div>
+          <div class="game-content owned-content">
+            <div class="game-top">
               <h3>{{ selectedCard.game_name }}</h3>
-              <p class="trade-subtitle">{{ selectedCard.card_tier }} card · {{ selectedCard.game_code }}</p>
+              @if (selectedCard.rating) {
+                <span class="rating-badge">{{ selectedCard.rating }}</span>
+              }
             </div>
-            <button type="button" class="trade-close-btn" (click)="clearTradeDraft()">
-              <mat-icon>close</mat-icon>
+          </div>
+          <div class="view-icon-overlay">
+            <mat-icon svgIcon="visibility"></mat-icon>
+          </div>
+        </div>
+      </mat-card>
+
+@if (showImageViewer) {
+  <div class="image-viewer-overlay" (click)="closeImageView()">
+    <div class="image-viewer-content" (click)="$event.stopPropagation()">
+      <button type="button" class="image-viewer-close" (click)="closeImageView()">
+        <mat-icon svgIcon="close"></mat-icon>
+      </button>
+      <img [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
+      <div class="image-viewer-info">
+        <h2>{{ selectedCard.game_name }}</h2>
+        <span class="tier-badge" [ngClass]="'tier-' + selectedCard.card_tier">{{ selectedCard.card_tier }}</span>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="detail-card-body">
+        @if (selectedCard.desc) {
+          <p class="detail-description">{{ selectedCard.desc }}</p>
+        }
+        <div class="detail-meta-grid">
+          @if (selectedCard.rating) {
+            <div class="detail-meta-item">
+              <mat-icon svgIcon="star"></mat-icon>
+              <span>Rating</span>
+              <strong>{{ selectedCard.rating }}</strong>
+            </div>
+          }
+          @if (selectedCard.release_year) {
+            <div class="detail-meta-item">
+              <mat-icon svgIcon="event"></mat-icon>
+              <span>Released</span>
+              <strong>{{ selectedCard.release_year }}</strong>
+            </div>
+          }
+          @if (selectedCard.platforms?.length) {
+            <div class="detail-meta-item detail-meta-full">
+              <div class="meta-row">
+                <mat-icon svgIcon="videogame_asset"></mat-icon>
+                <span>Platforms</span>
+                <strong>{{ selectedCard.platforms.join(', ') }}</strong>
+              </div>
+            </div>
+          }
+          @if (selectedCard.genres?.length) {
+            <div class="detail-meta-item detail-meta-full">
+              <div class="meta-row">
+                <mat-icon svgIcon="movie_filter"></mat-icon>
+                <span>Genres</span>
+                <strong>{{ selectedCard.genres.join(', ') }}</strong>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (selectedCard && viewMode === 'trade') {
+<div class="trade-panel">
+  <div class="trade-panel-header">
+    <div>
+      <p class="trade-kicker">{{ tradeMode === 'gift' ? 'Send a Gift' : 'Initiate Trade' }}</p>
+      <h3>{{ selectedCard.game_name }}</h3>
+      <p class="trade-subtitle">{{ selectedCard.card_tier }} card · {{ selectedCard.game_code }}</p>
+    </div>
+    <button type="button" class="trade-close-btn" (click)="showCardDetails()">
+      <mat-icon svgIcon="close"></mat-icon>
+    </button>
+  </div>
+
+  <div class="trade-picked-card">
+    <div class="trade-picked-art" [style.border-color]="tierColor(selectedCard.card_tier)">
+      <img *ngIf="selectedCard.cover_url" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
+      <div class="trade-picked-overlay"></div>
+      <div class="trade-picked-badge" [style.color]="tierColor(selectedCard.card_tier)">{{ selectedCard.card_tier }}</div>
+    </div>
+    <div class="trade-picked-meta">
+      <div class="trade-mode-switch">
+        <button type="button" class="mode-btn" [class.active]="tradeMode === 'trade'" (click)="setTradeMode('trade')">Trade</button>
+        <button type="button" class="mode-btn" [class.active]="tradeMode === 'gift'" (click)="setTradeMode('gift')">Gift</button>
+      </div>
+      <p class="trade-help">Pick a friend below, then choose their card or send this one as a gift.</p>
+    </div>
+  </div>
+
+  @if (tradeMode === 'trade') {
+    <button type="button" class="mode-btn" (click)="showCardDetails()">Back to details</button>
+  }
+
+  <div class="trade-search-block">
+    <label class="trade-label" for="friend-search">Find a friend</label>
+    <input
+      id="friend-search"
+      name="friend-search"
+      class="trade-search"
+      [(ngModel)]="friendQuery"
+      (input)="searchFriends()"
+      placeholder="Search by username"
+      autocomplete="off"
+    />
+    @if (friendSearching) {
+      <p class="trade-hint">Searching users...</p>
+    } @if (friendResults.length > 0) {
+      <div class="friend-results">
+        @for (friend of friendResults; track friend.id) {
+          <button type="button" class="friend-result" (click)="selectFriend(friend)">
+            <img [src]="friend.avatar || ''" alt="" (error)="onImgError($event)" />
+            <span>
+              <strong>{{ friend.username }}</strong>
+              <em>{{ friend.name || 'Player' }}</em>
+            </span>
+          </button>
+        }
+      </div>
+    } @else if (friendQuery.trim().length >= 2 && !friendSearching) {
+      <p class="trade-hint">No matching users found.</p>
+    }
+  </div>
+
+  @if (selectedFriend) {
+    <div class="selected-friend-row">
+      <div class="selected-friend-meta">
+        <img [src]="selectedFriend.avatar || ''" alt="" (error)="onImgError($event)" />
+        <div>
+          <strong>{{ selectedFriend.username }}</strong>
+          <span>{{ selectedFriend.name || 'Selected friend' }}</span>
+        </div>
+      </div>
+      <button type="button" class="trade-link-btn" (click)="clearFriendSelection()">Change friend</button>
+    </div>
+  }
+
+  @if (tradeMode === 'trade') {
+    <div class="friend-cards-block">
+      <div class="trade-section-title">Choose their card</div>
+      @if (friendCardsLoading) {
+        <p class="trade-hint">Loading showcase...</p>
+      } @else if (friendCards.length === 0) {
+        <p class="trade-hint">No showcase cards are available for this player.</p>
+      } @else {
+        <div class="friend-cards-grid">
+          @for (friendCard of friendCards; track friendCard.id ?? friendCard.game_code) {
+            <button
+              type="button"
+              class="friend-card"
+              [class.selected]="selectedReceiverCard?.id === friendCard.id"
+              (click)="selectReceiverCard(friendCard)"
+            >
+              <img [src]="friendCard.cover_url || ''" [alt]="friendCard.game_name" (error)="onImgError($event)" />
+              <div class="friend-card-overlay"></div>
+              <div class="friend-card-label">
+                <strong>{{ friendCard.game_name }}</strong>
+                <span>{{ friendCard.card_tier }}</span>
+              </div>
             </button>
-          </div>
-
-          <div class="trade-picked-card">
-            <div class="trade-picked-art" [style.border-color]="tierColor(selectedCard.card_tier)">
-              <img *ngIf="selectedCard.cover_url" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
-              <div class="trade-picked-overlay"></div>
-              <div class="trade-picked-badge" [style.color]="tierColor(selectedCard.card_tier)">{{ selectedCard.card_tier }}</div>
-            </div>
-            <div class="trade-picked-meta">
-              <div class="trade-mode-switch">
-                <button type="button" class="mode-btn" [class.active]="tradeMode === 'trade'" (click)="setTradeMode('trade')">Trade</button>
-                <button type="button" class="mode-btn" [class.active]="tradeMode === 'gift'" (click)="setTradeMode('gift')">Gift</button>
-              </div>
-              <p class="trade-help">Pick a friend below, then choose their card or send this one as a gift.</p>
-            </div>
-          </div>
-
-          <div class="trade-search-block">
-            <label class="trade-label" for="friend-search">Find a friend</label>
-            <input
-              id="friend-search"
-              name="friend-search"
-              class="trade-search"
-              [(ngModel)]="friendQuery"
-              (input)="searchFriends()"
-              placeholder="Search by username"
-              autocomplete="off"
-            />
-            @if (friendSearching) {
-              <p class="trade-hint">Searching users...</p>
-            }
-            @if (friendResults.length > 0) {
-              <div class="friend-results">
-                @for (friend of friendResults; track friend.id) {
-                  <button type="button" class="friend-result" (click)="selectFriend(friend)">
-                    <img [src]="friend.avatar || ''" alt="" (error)="onImgError($event)" />
-                    <span>
-                      <strong>{{ friend.username }}</strong>
-                      <em>{{ friend.name || 'Player' }}</em>
-                    </span>
-                  </button>
-                }
-              </div>
-            } @else if (friendQuery.trim().length >= 2 && !friendSearching) {
-              <p class="trade-hint">No matching users found.</p>
-            }
-          </div>
-
-          @if (selectedFriend) {
-            <div class="selected-friend-row">
-              <div class="selected-friend-meta">
-                <img [src]="selectedFriend.avatar || ''" alt="" (error)="onImgError($event)" />
-                <div>
-                  <strong>{{ selectedFriend.username }}</strong>
-                  <span>{{ selectedFriend.name || 'Selected friend' }}</span>
-                </div>
-              </div>
-              <button type="button" class="trade-link-btn" (click)="clearFriendSelection()">Change friend</button>
-            </div>
-
-            @if (tradeMode === 'trade') {
-              <div class="friend-cards-block">
-                <div class="trade-section-title">Choose their card</div>
-                @if (friendCardsLoading) {
-                  <p class="trade-hint">Loading showcase...</p>
-                } @else if (friendCards.length === 0) {
-                  <p class="trade-hint">No showcase cards are available for this player.</p>
-                } @else {
-                  <div class="friend-cards-grid">
-                    @for (friendCard of friendCards; track friendCard.id ?? friendCard.game_code) {
-                      <button
-                        type="button"
-                        class="friend-card"
-                        [class.selected]="selectedReceiverCard?.id === friendCard.id"
-                        (click)="selectReceiverCard(friendCard)"
-                      >
-                        <img [src]="friendCard.cover_url || ''" [alt]="friendCard.game_name" (error)="onImgError($event)" />
-                        <div class="friend-card-overlay"></div>
-                        <div class="friend-card-label">
-                          <strong>{{ friendCard.game_name }}</strong>
-                          <span>{{ friendCard.card_tier }}</span>
-                        </div>
-                      </button>
-                    }
-                  </div>
-                }
-
-                @if (fairnessCheck) {
-                  <div class="fairness-banner" [class.fair]="fairnessCheck.isFair">
-                    @if (fairnessCheck.isFair) {
-                      <mat-icon>verified</mat-icon>
-                      <span>Fair trade confirmed. You can send it as-is.</span>
-                    } @else {
-                      <mat-icon>warning</mat-icon>
-                      <span>Unfair trade: {{ fairnessCheck.proposerTier }} vs {{ fairnessCheck.receiverTier }} (tier gap {{ fairnessCheck.tierDiff }}).</span>
-                    }
-                  </div>
-                  @if (!fairnessCheck.isFair) {
-                    <label class="override-row">
-                      <input type="checkbox" name="override-unfair" [(ngModel)]="overrideUnfair" />
-                      Proceed anyway
-                    </label>
-                  }
-                }
-              </div>
-            } @else {
-              <div class="gift-note">
-                <mat-icon>card_giftcard</mat-icon>
-                <span>This sends your selected card without requiring a return card.</span>
-              </div>
-            }
-
-            <div class="trade-actions">
-              <button
-                type="button"
-                class="action-btn primary"
-                [disabled]="tradeBusy || !selectedFriend || (tradeMode === 'trade' && !selectedReceiverCard)"
-                (click)="tradeMode === 'trade' ? submitTrade() : sendGift()"
-              >
-                @if (tradeBusy) {
-                  <span class="btn-spinner"></span>
-                  Working...
-                } @else {
-                  <mat-icon>{{ tradeMode === 'trade' ? 'swap_horiz' : 'card_giftcard' }}</mat-icon>
-                  {{ tradeMode === 'trade' ? 'Propose Trade' : 'Send Gift' }}
-                }
-              </button>
-              <button type="button" class="action-btn secondary" (click)="clearTradeDraft()" [disabled]="tradeBusy">Reset</button>
-            </div>
-
-            @if (tradeMessage) {
-              <p class="trade-message success">{{ tradeMessage }}</p>
-            }
-            @if (tradeError) {
-              <p class="trade-message error">{{ tradeError }}</p>
-            }
           }
         </div>
       }
 
-      <!-- FILTERS -->
+      @if (fairnessCheck) {
+        <div class="fairness-banner" [class.fair]="fairnessCheck.isFair">
+          @if (fairnessCheck.isFair) {
+            <mat-icon svgIcon="verified"></mat-icon>
+            <span>Fair trade confirmed. You can send it as-is.</span>
+          } @else {
+            <mat-icon svgIcon="warning"></mat-icon>
+            <span>Unfair trade: {{ fairnessCheck.proposerTier }} vs {{ fairnessCheck.receiverTier }} (tier gap {{ fairnessCheck.tierDiff }}).</span>
+          }
+        </div>
+        @if (!fairnessCheck.isFair) {
+          <label class="override-row">
+            <input type="checkbox" name="override-unfair" [(ngModel)]="overrideUnfair" />
+            Proceed anyway
+          </label>
+        }
+      }
+    </div>
+  } @else {
+    <div class="gift-note">
+      <mat-icon svgIcon="card_giftcard"></mat-icon>
+      <span>This sends your selected card without requiring a return card.</span>
+    </div>
+  }
+
+  <div class="trade-actions">
+    <button
+      type="button"
+      class="action-btn primary"
+      [disabled]="tradeBusy || !selectedFriend || (tradeMode === 'trade' && !selectedReceiverCard)"
+      (click)="tradeMode === 'trade' ? submitTrade() : sendGift()"
+    >
+      @if (tradeBusy) {
+        <span class="btn-spinner"></span>
+        Working...
+      } @else {
+        <mat-icon svgIcon="{{ tradeMode === 'trade' ? 'swap_horiz' : 'card_giftcard' }}"></mat-icon>
+        {{ tradeMode === 'trade' ? 'Propose Trade' : 'Send Gift' }}
+      }
+    </button>
+    <button type="button" class="action-btn secondary" (click)="showCardDetails()" [disabled]="tradeBusy">Back</button>
+  </div>
+
+  @if (tradeMessage) {
+    <p class="trade-message success">{{ tradeMessage }}</p>
+  }
+  @if (tradeError) {
+    <p class="trade-message error">{{ tradeError }}</p>
+  }
+</div>
+}
+
+<!-- FILTERS -->
       <div class="filter-row">
         <button
           class="filter-btn filter-all"
@@ -212,7 +309,7 @@ interface TradeFriend {
           [class.active]="showFavoritesOnly"
           (click)="toggleFavoritesFilter()"
         >
-          <mat-icon>star</mat-icon>
+          <mat-icon svgIcon="star"></mat-icon>
           Favorites
         </button>
         @for (tier of tiers; track tier) {
@@ -788,38 +885,35 @@ interface TradeFriend {
         top: 8px;
         right: 8px;
         z-index: 5;
-        font-size: 8px;
+        font-size: 9px;
         font-weight: 800;
         letter-spacing: 1px;
         text-transform: uppercase;
-        padding: 3px 8px;
-        border-radius: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: #000000 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+        border: 2px solid;
       }
       .tier-common {
-        background: rgba(140, 150, 168, 0.15);
         color: #8c96a8;
-        border: 1px solid rgba(140, 150, 168, 0.25);
+        border-color: rgba(140, 150, 168, 0.4);
       }
       .tier-uncommon {
-        background: rgba(0, 230, 118, 0.1);
         color: #00e676;
-        border: 1px solid rgba(0, 230, 118, 0.2);
+        border-color: rgba(0, 230, 118, 0.4);
       }
       .tier-rare {
-        background: rgba(95, 182, 255, 0.1);
         color: #5fb6ff;
-        border: 1px solid rgba(95, 182, 255, 0.2);
+        border-color: rgba(95, 182, 255, 0.4);
       }
       .tier-epic {
-        background: rgba(170, 68, 255, 0.1);
         color: #aa44ff;
-        border: 1px solid rgba(170, 68, 255, 0.2);
+        border-color: rgba(170, 68, 255, 0.4);
       }
       .tier-legendary {
-        background: rgba(255, 215, 0, 0.15);
         color: #ffd700;
-        border: 2px solid rgba(255, 215, 0, 0.4);
-        box-shadow: none;
+        border-color: rgba(255, 215, 0, 0.4);
       }
 
       @keyframes border-glow {
@@ -1174,6 +1268,206 @@ interface TradeFriend {
         color: rgba(241, 247, 255, 0.34);
       }
 
+      /* ── DETAIL PANEL ── */
+      .detail-panel {
+        margin-bottom: 16px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(91, 217, 255, 0.2);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .detail-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .detail-card-layout {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .detail-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .detail-view-card {
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .detail-view-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 0 30px rgba(91, 217, 255, 0.3);
+      }
+
+      .view-icon-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.4);
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 6;
+      }
+
+      .detail-view-card:hover .view-icon-overlay {
+        opacity: 1;
+      }
+
+      .view-icon-overlay mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        color: #ffffff;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+      }
+
+      /* ── IMAGE VIEWER ── */
+      .image-viewer-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(0, 0, 0, 0.92);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.2s ease-out;
+      }
+
+      .image-viewer-content {
+        position: relative;
+        max-width: 90vw;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .image-viewer-content img {
+        max-width: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+        border-radius: 12px;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+      }
+
+      .image-viewer-close {
+        position: absolute;
+        top: -40px;
+        right: 0;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .image-viewer-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .image-viewer-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .image-viewer-info h2 {
+        margin: 0;
+        color: #f4f7ff;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .detail-description {
+        margin: 0;
+        font-size: 13px;
+        color: rgba(241, 247, 255, 0.82);
+        line-height: 1.5;
+      }
+
+      .detail-meta-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .detail-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: rgba(241, 247, 255, 0.7);
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .detail-meta-item mat-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+        color: var(--accent-color, #5bd9ff);
+      }
+
+      .detail-meta-item span {
+        min-width: 70px;
+        color: rgba(241, 247, 255, 0.5);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .detail-meta-item strong {
+        color: #f4f7ff;
+        font-weight: 600;
+      }
+
+      .detail-meta-item.detail-meta-full {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      .detail-meta-item.detail-meta-full .meta-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .detail-meta-item.detail-meta-full span {
+        min-width: auto;
+      }
+
+      .close-detail-btn {
+        align-self: flex-start;
+        margin-top: 8px;
+      }
+
       /* ── EMPTY STATE ── */
       .card-empty {
         grid-column: 1 / -1;
@@ -1246,6 +1540,7 @@ export class CardCollectionComponent {
   showFavoritesOnly = false;
   searchQuery = '';
   selectedCard: any = null;
+  viewMode: 'details' | 'trade' = 'details';
   tradeMode: 'trade' | 'gift' = 'trade';
   friendQuery = '';
   friendResults: TradeFriend[] = [];
@@ -1259,6 +1554,18 @@ export class CardCollectionComponent {
   tradeBusy = false;
   tradeMessage: string | null = null;
   tradeError: string | null = null;
+  showImageViewer = false;
+
+  openImageView(): void {
+    if (this.selectedCard?.cover_url) {
+      this.showImageViewer = true;
+    }
+  }
+
+  closeImageView(): void {
+    this.showImageViewer = false;
+  }
+
   tiers = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
   readonly tierColors: Record<string, string> = {
@@ -1317,6 +1624,19 @@ export class CardCollectionComponent {
     this.clearFriendSelection();
     this.tradeMessage = null;
     this.tradeError = null;
+    this.viewMode = 'details';
+  }
+
+  showCardDetails(): void {
+    this.viewMode = 'details';
+  }
+
+  openTradeMode(mode: 'trade' | 'gift'): void {
+    this.viewMode = 'trade';
+    this.tradeMode = mode;
+    if (mode === 'trade' && this.selectedFriend) {
+      this.loadFriendCards(this.selectedFriend.id);
+    }
   }
 
   setTradeMode(mode: 'trade' | 'gift'): void {

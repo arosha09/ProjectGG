@@ -9,6 +9,7 @@ import { Router } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { TasksService, Task, CollectionStats } from '../../services/tasks.service';
+import { TaskTrackerService, TaskUpdateEvent, TaskCompletedEvent } from '../../services/task-tracker.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -60,6 +61,8 @@ export class TasksComponent implements OnInit, OnDestroy {
   private heartbeatSub: Subscription | null = null;
   private durationInterval: Subscription | null = null;
   private autoCheckInterval: Subscription | null = null;
+  private taskTrackerSub: Subscription | null = null;
+  private taskTrackerCompletionSub: Subscription | null = null;
   private readonly apiUrl = environment.apiUrl;
   private connectedDurationTasks = new Map<number, number>();
 
@@ -71,6 +74,7 @@ export class TasksComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly http: HttpClient,
     private readonly userStatus: UserStatusService,
+    private readonly taskTracker: TaskTrackerService,
   ) {}
 
   ngOnInit(): void {
@@ -85,6 +89,7 @@ export class TasksComponent implements OnInit, OnDestroy {
       this.currentStatus = status;
       this.cdr.markForCheck();
     });
+    this.subscribeToTaskTracker();
     this.loadData();
     this.initWebSocket();
     this.initRealtimeArsenal();
@@ -95,6 +100,8 @@ export class TasksComponent implements OnInit, OnDestroy {
     this.heartbeatSub?.unsubscribe();
     this.durationInterval?.unsubscribe();
     this.autoCheckInterval?.unsubscribe();
+    this.taskTrackerSub?.unsubscribe();
+    this.taskTrackerCompletionSub?.unsubscribe();
     this.socket?.disconnect();
   }
 
@@ -126,6 +133,51 @@ export class TasksComponent implements OnInit, OnDestroy {
       },
       error: () => { this.autoChecking = false; }
     });
+  }
+
+  private subscribeToTaskTracker(): void {
+    this.taskTrackerSub = this.taskTracker.taskUpdates$.subscribe((event) => {
+      if (event.type === 'progress' && event.taskId) {
+        this.updateTaskProgress(event.taskId, event.currentProgress ?? 0, event.progressPercent ?? 0);
+      } else if (event.type === 'completed' || event.type === 'achievement-bump') {
+        this.loadData();
+      }
+      this.cdr.markForCheck();
+    });
+
+    this.taskTrackerCompletionSub = this.taskTracker.taskCompletions$.subscribe((event) => {
+      if (event.userId === this.currentUser?.id) {
+        this.completeMsg = `Task completed: ${event.taskTitle}${event.xpAwarded ? ` (+${event.xpAwarded} XP)` : ''}`;
+        setTimeout(() => { this.completeMsg = null; this.cdr.markForCheck(); }, 4000);
+        this.loadData();
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  private updateTaskProgress(taskId: number, current: number, percent: number): void {
+    for (const cat of this.achievementCategories) {
+      const task = cat.tasks.find(t => t.id === taskId);
+      if (task) {
+        task.current_progress = current;
+        task.progress_percent = percent;
+        return;
+      }
+    }
+    for (const task of this.durationTasks) {
+      if (task.id === taskId) {
+        task.elapsed_seconds = current;
+        task.progress_percent = percent;
+        return;
+      }
+    }
+    for (const task of this.dailyTasks) {
+      if (task.id === taskId) {
+        task.current_progress = current;
+        task.progress_percent = percent;
+        return;
+      }
+    }
   }
 
   private initWebSocket(): void {
@@ -302,14 +354,8 @@ export class TasksComponent implements OnInit, OnDestroy {
         if (res.success) {
           this.completeMsg = `Reward claimed${res.xp_awarded ? ` (+${res.xp_awarded} XP)` : ''}`;
           
-          this.achievementCategories = this.achievementCategories.map(cat => ({
-            ...cat,
-            tasks: cat.tasks.filter(t => t.id !== taskId)
-          })).filter(cat => cat.tasks.length > 0);
-          this.durationTasks = this.durationTasks.filter(t => t.id !== taskId);
-          this.dailyTasks = this.dailyTasks.filter(t => t.id !== taskId);
-          this.testTasks = this.testTasks.filter(t => t.id !== taskId);
-          this.connectedDurationTasks.delete(taskId);
+          // Reload tasks instead of removing — handles repeatable tasks (max_claims > 1)
+          this.loadData();
           
           setTimeout(() => { this.completeMsg = null; this.cdr.markForCheck(); }, 3000);
         }
@@ -339,6 +385,7 @@ export class TasksComponent implements OnInit, OnDestroy {
   }
 
   isTaskReadyToClaim(task: Task): boolean {
+    if (task.max_claims && task.claims_count !== undefined && task.claims_count >= task.max_claims) return false;
     if (task.task_kind === 'duration' || task.task_kind === 'test') {
       const elapsed = task.elapsed_seconds || 0;
       const required = (task.duration_minutes || 30) * 60;

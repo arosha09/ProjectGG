@@ -87,17 +87,20 @@
           </div>
           <div class="gg-dm-header-actions">
             <button class="gg-dm-header-btn" (click)="toggleDmVoice()" title="Voice Call">
-              <mat-icon>call</mat-icon>
+              <mat-icon svgIcon="call"></mat-icon>
             </button>
             <button class="gg-dm-header-btn" (click)="showUserProfile(selectedDm)" title="View Profile">
-              <mat-icon>person</mat-icon>
+              <mat-icon svgIcon="person"></mat-icon>
             </button>
-            <button class="gg-dm-header-btn" (click)="openTradingView()" title="Card Trading">
-              <mat-icon>style</mat-icon>
+            <button class="gg-dm-header-btn gg-dm-trade-btn" (click)="openInlineTrading(selectedDm.otherUserId, selectedDm.otherUsername)" title="Trade">
+              <mat-icon svgIcon="swap_horiz"></mat-icon>
+            </button>
+            <button class="gg-dm-header-btn gg-dm-gift-btn" (click)="openInlineGift(selectedDm.otherUserId, selectedDm.otherUsername)" title="Send Gift">
+              <mat-icon svgIcon="card_giftcard"></mat-icon>
             </button>
             <div class="gg-dm-more-wrap">
               <button class="gg-dm-header-btn" (click)="dmOptionsOpen = !dmOptionsOpen" title="More">
-                <mat-icon>more_vert</mat-icon>
+                <mat-icon svgIcon="more_vert"></mat-icon>
               </button>
               <app-cyber-dropdown
                 [items]="getDmOptions()"
@@ -141,7 +144,7 @@
                         <img [src]="msg.attachment_url" alt="" class="gg-msg-attachment-img" (click)="downloadFile(msg.attachment_url!)" />
                       }
                       <button class="gg-msg-download-btn" (click)="downloadFile(msg.attachment_url!)" title="Download">
-                        <mat-icon>open_in_new</mat-icon>
+                        <mat-icon svgIcon="open_in_new"></mat-icon>
                       </button>
                     </div>
                   }
@@ -174,7 +177,7 @@
           }
           <div class="chat-input-toolbar">
             <button mat-button class="chat-action-btn" (click)="dmFileInput.click()" title="Upload image">
-              <mat-icon>attach_file</mat-icon>
+              <mat-icon svgIcon="attach_file"></mat-icon>
             </button>
             <button mat-button class="chat-action-btn" (click)="toggleGifPicker()" title="GIF">
               <span>GIF</span>
@@ -185,7 +188,7 @@
             }
             @if (pendingAttachmentUrl) {
               <span class="gg-attachment-badge" (click)="removeAttachment()">
-                <mat-icon>attachment</mat-icon> 1 file
+                <mat-icon svgIcon="attachment"></mat-icon> 1 file
                 <mat-icon class="gg-attachment-remove">close</mat-icon>
               </span>
             }
@@ -210,7 +213,7 @@
               [disabled]="sending"
             ></textarea>
             <button mat-button (click)="sendDm()" [disabled]="(!newMessage.trim() && !pendingAttachmentUrl) || sending">
-              <mat-icon>send</mat-icon>
+              <mat-icon svgIcon="send"></mat-icon>
               SEND
             </button>
           </div>
@@ -275,10 +278,10 @@
                     <div class="msg-edit-row">
                       <input class="msg-edit-input" [(ngModel)]="editingContent" (keydown.enter)="saveEdit()" (keydown.escape)="cancelEdit()" autofocus />
                       <button class="msg-edit-save" (click)="saveEdit()">
-                        <mat-icon>check</mat-icon>
+                        <mat-icon svgIcon="check"></mat-icon>
                       </button>
                       <button class="msg-edit-cancel" (click)="cancelEdit()">
-                        <mat-icon>close</mat-icon>
+                        <mat-icon svgIcon="close"></mat-icon>
                       </button>
                     </div>
                   }
@@ -314,7 +317,7 @@
         <footer class="chat-footer-panel">
           @if (selectedChannel && !canSendInChannel(selectedChannel.id)) {
             <div class="no-permission-bar">
-              <mat-icon>lock</mat-icon>
+              <mat-icon svgIcon="lock"></mat-icon>
               <span>You don't have permission to send messages in <strong>#{{ selectedChannel.name }}</strong></span>
             </div>
           } @else {
@@ -330,7 +333,7 @@
             }
             <div class="chat-input-toolbar">
               <button mat-button class="chat-action-btn" (click)="fileInput.click()" title="Upload image">
-                <mat-icon>attach_file</mat-icon>
+                <mat-icon svgIcon="attach_file"></mat-icon>
               </button>
               <button mat-button class="chat-action-btn" (click)="toggleGifPicker()" title="GIF">
                 <span>GIF</span>
@@ -360,7 +363,7 @@
                 rows="1"
               ></textarea>
               <button mat-button (click)="sendMessage()" [disabled]="(!messageText.trim() && !pendingUpload && !gifToSend) || sending">
-                <mat-icon>send</mat-icon>
+                <mat-icon svgIcon="send"></mat-icon>
                 SEND
               </button>
             </div>
@@ -378,7 +381,7 @@
               <p class="gg-voice-mic-error-msg">{{ micPermissionError }}</p>
               <div class="gg-voice-mic-error-actions">
                 <button class="gg-voice-mic-retry" (click)="selectChannel(selectedChannel)">
-                  <mat-icon>refresh</mat-icon> Retry
+                  <mat-icon svgIcon="refresh"></mat-icon> Retry
                 </button>
                 <button class="gg-voice-mic-dismiss" (click)="dismissMicError()">Dismiss</button>
               </div>
@@ -392,12 +395,12 @@
           } @else if (!voiceConnected) {
             <div class="gg-voice-connect-screen">
               <div class="gg-voice-channel-icon-wrap">
-                <mat-icon>volume_up</mat-icon>
+                <mat-icon svgIcon="volume_up"></mat-icon>
               </div>
               <h2 class="gg-voice-channel-name">{{ selectedChannel.name }}</h2>
               <p class="gg-voice-channel-desc">Join the voice channel to start talking</p>
               <button class="gg-voice-join-btn" (click)="selectChannel(selectedChannel)">
-                <mat-icon>headset</mat-icon>
+                <mat-icon svgIcon="headset"></mat-icon>
                 Join Voice
               </button>
             </div>
@@ -436,7 +439,7 @@
                 <!-- Talking-while-muted warning banner -->
                 @if ((voiceMuted || voiceDeafened) && localMicActive) {
                   <div class="gg-voice-muted-warning" [class.deafened]="voiceDeafened">
-                    <mat-icon>warning</mat-icon>
+                    <mat-icon svgIcon="warning"></mat-icon>
                     <span>
                       @if (voiceDeafened) {
                         You're deafened — others can't hear you
@@ -468,7 +471,7 @@
 
                 <button class="gg-cs-option" (click)="showCreateForm()">
                   <div class="gg-cs-option-icon">
-                    <mat-icon>add</mat-icon>
+                    <mat-icon svgIcon="add"></mat-icon>
                   </div>
                   <div class="gg-cs-option-text">
                     <span class="gg-cs-option-title">Create Server</span>
@@ -479,7 +482,7 @@
 
                 <button class="gg-cs-option" (click)="openJoinServer()">
                   <div class="gg-cs-option-icon gg-cs-option-icon-join">
-                    <mat-icon>login</mat-icon>
+                    <mat-icon svgIcon="login"></mat-icon>
                   </div>
                   <div class="gg-cs-option-text">
                     <span class="gg-cs-option-title">Join Server</span>
@@ -494,7 +497,7 @@
             @if (createServerView === 'create') {
               <div class="gg-cs-head">
                 <button class="gg-dm-header-btn" (click)="backToPick()" title="Back">
-                  <mat-icon>arrow_back</mat-icon>
+                  <mat-icon svgIcon="arrow_back"></mat-icon>
                 </button>
                 <h2>CREATE SERVER</h2>
               </div>
@@ -534,7 +537,7 @@
             @if (createServerView === 'join') {
               <div class="gg-cs-head">
                 <button class="gg-dm-header-btn" (click)="backToPick()" title="Back">
-                  <mat-icon>arrow_back</mat-icon>
+                  <mat-icon svgIcon="arrow_back"></mat-icon>
                 </button>
                 <h2>JOIN SERVER</h2>
               </div>
@@ -586,13 +589,7 @@
               <span class="gg-profile-status">{{ profileStatus() }}</span>
             </div>
             <button class="gg-dm-header-btn" (click)="closeProfile()" title="Close">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-          <div class="gg-profile-actions">
-            <button class="gg-profile-action-btn" (click)="openTradingViewWithUser(profileUser.otherUserId || profileUser.id)" title="Trade with this user">
-              <mat-icon>swap_horiz</mat-icon>
-              <span>Trade</span>
+              <mat-icon svgIcon="close"></mat-icon>
             </button>
           </div>
           <div class="gg-profile-body">
@@ -659,7 +656,7 @@
                 </div>
               } @else if (profileFavoritesError) {
                 <div class="gg-profile-fav-error">
-                  <mat-icon>error_outline</mat-icon>
+                  <mat-icon svgIcon="error_outline"></mat-icon>
                   <span>{{ profileFavoritesError }}</span>
                 </div>
               } @else if (profileFavorites.length > 0) {
@@ -684,7 +681,7 @@
                 </div>
               } @else {
                 <div class="gg-profile-fav-empty">
-                  <mat-icon>star_outline</mat-icon>
+                  <mat-icon svgIcon="star_outline"></mat-icon>
                   <span>No favourite cards yet</span>
                 </div>
               }
@@ -700,11 +697,85 @@
         <app-gg-card-trading-view
           [currentUserId]="currentUser?.id"
           [friends]="friends"
-          [filterUserId]="tradeFilterUserId"
           (accepted)="onTradeAccepted($event)"
           (rejected)="onTradeRejected($event)"
           (cancelled)="onTradeCancelled($event)"
         ></app-gg-card-trading-view>
+      } @else if (viewMode === 'trading-inline') {
+        <div class="gg-inline-trade-layout">
+          <div class="gg-inline-trade-main">
+            <div class="gg-inline-trade-head">
+              <button class="gg-inline-back" (click)="closeInlineTrade()">
+                <mat-icon svgIcon="arrow_back"></mat-icon> Back to Chat
+              </button>
+              <span class="gg-inline-trade-title">Trade with {{ tradeFilterUsername }}</span>
+            </div>
+            <app-gg-card-trading-view
+              [currentUserId]="currentUser?.id"
+              [friends]="friends"
+              [filterUserId]="tradeFilterUserId"
+              (accepted)="onTradeAccepted($event)"
+              (rejected)="onTradeRejected($event)"
+              (cancelled)="onTradeCancelled($event)"
+            ></app-gg-card-trading-view>
+          </div>
+          <div class="gg-inline-trade-side">
+            <div class="gg-inline-side-head">
+              <img [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
+              <span>{{ selectedDm?.otherUsername }}</span>
+            </div>
+            <div class="gg-inline-side-messages">
+              @for (msg of dmMessages; track msg.id) {
+                <div class="gg-inline-side-msg">
+                  <span class="gg-inline-side-msg-user">{{ msg.username }}</span>
+                  <span class="gg-inline-side-msg-text">{{ msg.content }}</span>
+                </div>
+              }
+            </div>
+            <div class="gg-inline-side-input">
+              <input type="text" [(ngModel)]="newMessage" (keydown.enter)="sendDm()" placeholder="Message..." />
+              <button (click)="sendDm()"><mat-icon svgIcon="send"></mat-icon></button>
+            </div>
+          </div>
+        </div>
+      } @else if (viewMode === 'gift-inline') {
+        <div class="gg-inline-trade-layout">
+          <div class="gg-inline-trade-main">
+            <div class="gg-inline-trade-head">
+              <button class="gg-inline-back" (click)="closeInlineTrade()">
+                <mat-icon svgIcon="arrow_back"></mat-icon> Back to Chat
+              </button>
+              <span class="gg-inline-trade-title">Gift to {{ tradeFilterUsername }}</span>
+            </div>
+            <app-gg-card-trading-view
+              [currentUserId]="currentUser?.id"
+              [friends]="friends"
+              [filterUserId]="tradeFilterUserId"
+              [startOnGiftTab]="true"
+              (accepted)="onTradeAccepted($event)"
+              (rejected)="onTradeRejected($event)"
+              (cancelled)="onTradeCancelled($event)"
+            ></app-gg-card-trading-view>
+          </div>
+          <div class="gg-inline-trade-side">
+            <div class="gg-inline-side-head">
+              <img [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
+              <span>{{ selectedDm?.otherUsername }}</span>
+            </div>
+            <div class="gg-inline-side-messages">
+              @for (msg of dmMessages; track msg.id) {
+                <div class="gg-inline-side-msg">
+                  <span class="gg-inline-side-msg-user">{{ msg.username }}</span>
+                  <span class="gg-inline-side-msg-text">{{ msg.content }}</span>
+                </div>
+              }
+            </div>
+            <div class="gg-inline-side-input">
+              <input type="text" [(ngModel)]="newMessage" (keydown.enter)="sendDm()" placeholder="Message..." />
+              <button (click)="sendDm()"><mat-icon svgIcon="send"></mat-icon></button>
+            </div>
+          </div>
+        </div>
       } @else if (viewMode === 'dm' && !selectedDm) {
         <div class="gg-dm-empty-state">
           <mat-icon class="gg-dm-icon-large">chat</mat-icon>
@@ -743,6 +814,7 @@
         [onAvatarError]="onAvatarError.bind(this)"
         (changeRole)="changeRole($event.member, $event.role)"
         (confirmKick)="confirmKick($event)"
+        (confirmBan)="confirmBan($event)"
       ></app-member-list>
     }
   </div>
@@ -762,17 +834,17 @@
         <div class="gg-modal-type-row">
           <label class="gg-type-option" [class.active]="newChannelType === 'text'">
             <input type="radio" name="chType" value="text" [(ngModel)]="newChannelType" />
-            <mat-icon>tag</mat-icon> Text
+            <mat-icon svgIcon="tag"></mat-icon> Text
           </label>
           <label class="gg-type-option" [class.active]="newChannelType === 'voice'">
             <input type="radio" name="chType" value="voice" [(ngModel)]="newChannelType" />
-            <mat-icon>volume_up</mat-icon> Voice
+            <mat-icon svgIcon="volume_up"></mat-icon> Voice
           </label>
         </div>
         <div class="gg-modal-type-row">
           <label class="gg-type-option" [class.active]="newChannelPrivate">
             <input type="checkbox" [(ngModel)]="newChannelPrivate" />
-            <mat-icon>lock</mat-icon> Private
+            <mat-icon svgIcon="lock"></mat-icon> Private
           </label>
         </div>
         <div class="gg-modal-actions">
@@ -790,7 +862,7 @@
         <div class="gg-modal-header">
           <h2 class="gg-modal-title">Invite Links</h2>
           <button class="gg-modal-close" (click)="closeInviteLinks()">
-            <mat-icon>close</mat-icon>
+            <mat-icon svgIcon="close"></mat-icon>
           </button>
         </div>
 
@@ -811,7 +883,7 @@
                 <div class="gg-invite-code-row">
                   <input class="gg-modal-input gg-invite-input" [value]="inviteLinkUrl" readonly (click)="$event.target.select()" />
                   <button class="gg-btn gg-btn-icon" (click)="copyInviteLink()" title="Copy">
-                    <mat-icon>content_copy</mat-icon>
+                    <mat-icon svgIcon="content_copy"></mat-icon>
                   </button>
                 </div>
                 <div class="gg-invite-meta">
@@ -827,7 +899,7 @@
             }
 
             <button class="gg-btn gg-btn-primary gg-invite-generate" (click)="generateInvite()">
-              <mat-icon>refresh</mat-icon>
+              <mat-icon svgIcon="refresh"></mat-icon>
               {{ activeInvite ? 'Regenerate' : 'Generate' }} Invite Link
             </button>
           }
@@ -851,18 +923,18 @@
   @if (contextMenu) {
     <div class="cyber-context-menu" [style.left]="contextMenu.x + 'px'" [style.top]="contextMenu.y + 'px'">
       <button class="cyber-ctx-item" (click)="startReply(contextMenu.msg); closeContextMenu()">
-        <mat-icon>reply</mat-icon> Reply
+        <mat-icon svgIcon="reply"></mat-icon> Reply
       </button>
       <button class="cyber-ctx-item" (click)="openEmojiPickerFromCtx($event, contextMenu.msg)">
-        <mat-icon>mood</mat-icon> Reactions
+        <mat-icon svgIcon="mood"></mat-icon> Reactions
       </button>
       @if (contextMenu.msg.username === currentUser?.username) {
         <div class="cyber-ctx-divider"></div>
         <button class="cyber-ctx-item" (click)="startEdit(contextMenu.msg); closeContextMenu()">
-          <mat-icon>edit</mat-icon> Edit
+          <mat-icon svgIcon="edit"></mat-icon> Edit
         </button>
         <button class="cyber-ctx-item cyber-ctx-danger" (click)="deleteMessage(contextMenu.msg); closeContextMenu()">
-          <mat-icon>delete</mat-icon> Delete
+          <mat-icon svgIcon="delete"></mat-icon> Delete
         </button>
       }
     </div>
@@ -875,10 +947,11 @@
       <div class="emoji-picker-popup-head">
         <span>Add Reaction</span>
         <button class="emoji-picker-popup-close" (click)="closeEmojiPicker()">
-          <mat-icon>close</mat-icon>
+          <mat-icon svgIcon="close"></mat-icon>
         </button>
       </div>
       <app-cyber-emoji-picker (emojiSelect)="onEmojiPickerSelect($event)"></app-cyber-emoji-picker>
     </div>
   }
 </section>
+

@@ -460,6 +460,63 @@ export class ChatService {
     if (error) throw error;
   }
 
+  async banMember(serverId: number, targetUserId: string, requesterId: string): Promise<void> {
+    await this.requirePermission(serverId, requesterId, 'kick_members');
+    if (targetUserId === requesterId) throw new BadRequestException('Cannot ban yourself');
+    const targetRoles = await this.getMemberRoles(serverId, targetUserId);
+    if (!targetRoles) throw new BadRequestException('User not found in server');
+    if (targetRoles.includes('owner')) throw new BadRequestException('Cannot ban the owner');
+    const requesterRoles = await this.getMemberRoles(serverId, requesterId);
+    if (getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)) {
+      throw new BadRequestException('Cannot ban someone with equal or higher rank');
+    }
+    // Remove from server
+    await this.db()
+      .from('gg_server_members')
+      .delete()
+      .eq('server_id', serverId)
+      .eq('user_id', targetUserId);
+    // Add to banned list
+    const { error } = await this.db()
+      .from('banned_users')
+      .insert({ user_id: serverId, blocked_user_id: targetUserId })
+      .select()
+      .single();
+    if (error && !error.message?.includes('duplicate')) throw error;
+  }
+
+  async unbanMember(serverId: number, targetUserId: string, requesterId: string): Promise<void> {
+    await this.requirePermission(serverId, requesterId, 'kick_members');
+    const { error } = await this.db()
+      .from('banned_users')
+      .delete()
+      .eq('user_id', serverId)
+      .eq('blocked_user_id', targetUserId);
+    if (error) throw error;
+  }
+
+  async getBannedMembers(serverId: number, requesterId: string): Promise<any[]> {
+    await this.requirePermission(serverId, requesterId, 'kick_members');
+    const { data, error } = await this.db()
+      .from('banned_users')
+      .select('blocked_user_id, created_at')
+      .eq('user_id', serverId);
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+    const userIds = data.map((d: any) => d.blocked_user_id);
+    const { data: users } = await this.db()
+      .from('users')
+      .select('id, username, avatar')
+      .in('id', userIds);
+    const userMap = new Map<string, any>((users || []).map((u: any) => [u.id, u]));
+    return data.map((d: any) => ({
+      user_id: d.blocked_user_id,
+      banned_at: d.created_at,
+      username: userMap.get(d.blocked_user_id)?.username ?? null,
+      avatar: userMap.get(d.blocked_user_id)?.avatar ?? null,
+    }));
+  }
+
   // ================================================================
   // INVITE LINKS
   // ================================================================
@@ -854,6 +911,14 @@ export class ChatService {
       .update({ read: true })
       .eq('user_id', userId)
       .eq('read', false);
+    if (error) throw error;
+  }
+
+  async clearAllNotifications(userId: string): Promise<void> {
+    const { error } = await this.db()
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId);
     if (error) throw error;
   }
 

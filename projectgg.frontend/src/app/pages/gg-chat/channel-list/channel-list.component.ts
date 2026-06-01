@@ -54,10 +54,10 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               <div class="gg-profile-menu-divider"></div>
               <div class="gg-profile-menu-section">
                 <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
-                  <mat-icon>person</mat-icon> Profile
+                  <mat-icon svgIcon="person"></mat-icon> Profile
                 </a>
                 <a class="gg-profile-menu-item" routerLink="/settings" (click)="profileMenuOpen = false">
-                  <mat-icon>settings</mat-icon> Settings
+                  <mat-icon svgIcon="settings"></mat-icon> Settings
                 </a>
               </div>
             </div>
@@ -72,7 +72,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
           <div class="gg-dm-section-label">Friends</div>
 
           <div class="gg-channel gg-friends-btn" [class.active]="viewMode === 'friends'" (click)="openFriendsView.emit()">
-            <mat-icon class="gg-ch-icon">people</mat-icon>
+            <mat-icon class="gg-ch-icon" svgIcon="people"></mat-icon>
             <span class="gg-ch-name">Friends</span>
             @if (pendingRequests.length > 0) {
               <span class="gg-pending-badge">{{ pendingRequests.length }}</span>
@@ -80,7 +80,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
           </div>
 
           <div class="gg-channel gg-trading-btn" [class.active]="viewMode === 'trading'" (click)="openTradingView.emit()">
-            <mat-icon class="gg-ch-icon">style</mat-icon>
+            <mat-icon class="gg-ch-icon" svgIcon="style"></mat-icon>
             <span class="gg-ch-name">Trade</span>
           </div>
 
@@ -154,10 +154,10 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               <div class="gg-profile-menu-divider"></div>
               <div class="gg-profile-menu-section">
                 <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
-                  <mat-icon>person</mat-icon> Profile
+                  <mat-icon svgIcon="person"></mat-icon> Profile
                 </a>
                 <a class="gg-profile-menu-item" routerLink="/settings" (click)="profileMenuOpen = false">
-                  <mat-icon>settings</mat-icon> Settings
+                  <mat-icon svgIcon="settings"></mat-icon> Settings
                 </a>
               </div>
             </div>
@@ -168,15 +168,15 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
           <span class="gg-channels-title">{{ selectedServer.name }}</span>
           <div class="gg-server-dropdown-container">
             <button class="gg-ch-actions" (click)="toggleServerDropdown()" title="Server Menu">
-              <mat-icon>expand_more</mat-icon>
+              <mat-icon svgIcon="expand_more"></mat-icon>
             </button>
             @if (serverDropdownOpen) {
               <div class="gg-server-dropdown" (click)="$event.stopPropagation()">
                 <button class="gg-dropdown-item" (click)="onInviteLinks()">
-                  <mat-icon>link</mat-icon> Invite
+                  <mat-icon svgIcon="link"></mat-icon> Invite
                 </button>
                 <a class="gg-dropdown-item" routerLink="/gg-chat/server/{{ selectedServer.id }}/settings" (click)="closeServerDropdown()">
-                  <mat-icon>settings</mat-icon> Settings
+                  <mat-icon svgIcon="settings"></mat-icon> Settings
                 </a>
               </div>
             }
@@ -207,10 +207,10 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
                     <span class="gg-ch-voice-count">{{ voiceChannelUsers(chId(ch)).length }}</span>
                   }
                   <button class="gg-ch-settings" (click)="openChannelSettings.emit(ch); $event.stopPropagation()" title="Channel Settings">
-                    <mat-icon>settings</mat-icon>
+                    <mat-icon svgIcon="settings"></mat-icon>
                   </button>
                   <button class="gg-ch-delete" (click)="deleteChannel.emit(ch); $event.stopPropagation()" title="Delete">
-                    <mat-icon>close</mat-icon>
+                    <mat-icon svgIcon="close"></mat-icon>
                   </button>
                 </div>
                 @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
@@ -280,10 +280,10 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               <div class="gg-profile-menu-divider"></div>
               <div class="gg-profile-menu-section">
                 <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
-                  <mat-icon>person</mat-icon> Profile
+                  <mat-icon svgIcon="person"></mat-icon> Profile
                 </a>
                 <a class="gg-profile-menu-item" routerLink="/settings" (click)="profileMenuOpen = false">
-                  <mat-icon>settings</mat-icon> Settings
+                  <mat-icon svgIcon="settings"></mat-icon> Settings
                 </a>
               </div>
             </div>
@@ -322,17 +322,17 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
             </button>
             @if (voiceConnected) {
               <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
-                <mat-icon>settings_voice</mat-icon>
+                <mat-icon svgIcon="settings_voice"></mat-icon>
               </button>
             }
             @if (selectedChannel && selectedChannel.type === 'voice') {
               @if (voiceConnected) {
                 <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
-                  <mat-icon>phone_off</mat-icon>
+                  <mat-icon svgIcon="phone_off"></mat-icon>
                 </button>
               } @else {
                 <button type="button" class="gg-voice-control-btn gg-voice-connect" (click)="toggleVoice.emit(selectedChannel)" title="Join Voice Channel">
-                  <mat-icon>call</mat-icon>
+                  <mat-icon svgIcon="call"></mat-icon>
                 </button>
               }
             }
@@ -350,7 +350,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               }
             </div>
           } @else {
-            <mat-icon>forum</mat-icon>
+            <mat-icon svgIcon="forum"></mat-icon>
             <p>a server to start chatting</p>
             <button class="gg-cyber-btn" (click)="openCreateServer.emit()">Create Server</button>
           }
@@ -520,3 +520,4 @@ export class ChannelListComponent {
     return 'assets/default-avatar.png';
   }
 }
+

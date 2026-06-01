@@ -3,7 +3,7 @@
   <main class="sync-main">
     @if (!currentUser?.role || currentUser?.role !== 'admin') {
       <div class="sync-access-denied">
-        <span class="ad-icon"><mat-icon>block</mat-icon></span>
+        <span class="ad-icon"><mat-icon svgIcon="block"></mat-icon></span>
         <h2>ACCESS RESTRICTED</h2>
         <p>Admin credentials required to access the sync terminal.</p>
         <a class="sync-btn" routerLink="/dashboard">Return to Hub</a>
@@ -31,14 +31,14 @@
               <span class="sync-spinner"></span>
               SYNCING...
             } @else if (syncComplete) {
-              <mat-icon>check_circle</mat-icon> ALL SYNCED
+              <mat-icon svgIcon="check_circle"></mat-icon> ALL SYNCED
             } @else {
-              <mat-icon>sync</mat-icon> {{ hasSelection ? 'SYNC SELECTED' : 'SYNC ALL' }}
+              <mat-icon svgIcon="sync"></mat-icon> {{ hasSelection ? 'SYNC SELECTED' : 'SYNC ALL' }}
             }
           </button>
           @if (syncing) {
             <button class="sync-btn sync-btn-danger" (click)="cancelSync()">
-              <mat-icon>stop</mat-icon> STOP
+              <mat-icon svgIcon="stop"></mat-icon> STOP
             </button>
           }
           <button class="sync-btn sync-btn-secondary" (click)="loadQueue(false)" [disabled]="syncing || scanning">
@@ -46,14 +46,14 @@
               <span class="sync-spinner"></span>
               SCANNING...
             } @else {
-              <mat-icon>playlist_add</mat-icon> SCAN QUEUE
+              <mat-icon svgIcon="playlist_add"></mat-icon> SCAN QUEUE
             }
           </button>
           <button class="sync-btn sync-btn-tertiary" (click)="loadQueue(true)" [disabled]="syncing || scanning || syncComplete">
-            <mat-icon>refresh</mat-icon> SCAN ALL
+            <mat-icon svgIcon="refresh"></mat-icon> SCAN ALL
           </button>
           <button class="sync-btn sync-btn-broken" (click)="scanBroken()" [disabled]="syncing || scanning">
-            <mat-icon>bug_report</mat-icon> SCAN BROKEN
+            <mat-icon svgIcon="bug_report"></mat-icon> SCAN BROKEN
           </button>
         </div>
       </div>
@@ -67,7 +67,7 @@
             [(ngModel)]="searchQuery"
           />
           @if (searchQuery) {
-            <span class="sync-search-clear" (click)="searchQuery = ''"><mat-icon>close</mat-icon></span>
+            <span class="sync-search-clear" (click)="searchQuery = ''"><mat-icon svgIcon="close"></mat-icon></span>
           }
         </div>
         <div class="sync-page-size-wrap">
@@ -208,7 +208,7 @@
                       <mat-icon>{{ result.success ? 'check' : 'close' }}</mat-icon>
                     </span>
                   } @else if (syncing && current === game.code) {
-                    <span class="sq-status sq-loading"><mat-icon>sync</mat-icon></span>
+                    <span class="sq-status sq-loading"><mat-icon svgIcon="sync"></mat-icon></span>
                   }
                 </div>
                 @if (showDetail.has(game.code)) {
@@ -246,7 +246,7 @@
           <p>No games in queue. All games have been synced within the last week.</p>
           <div class="sync-empty-actions">
             <button class="sync-btn sync-btn-tertiary" (click)="loadQueue(true)">
-              <mat-icon>refresh</mat-icon> SCAN ALL
+              <mat-icon svgIcon="refresh"></mat-icon> SCAN ALL
             </button>
           </div>
         </div>
@@ -254,12 +254,13 @@
 
       @if (results.length > 0) {
         <div class="sync-summary">
-          <span class="ss-ok"><mat-icon>check</mat-icon> {{ successCount }} succeeded</span>
+          <span class="ss-ok"><mat-icon svgIcon="check"></mat-icon> {{ successCount }} succeeded</span>
           @if (failCount > 0) {
-            <span class="ss-fail"><mat-icon>close</mat-icon> {{ failCount }} failed</span>
+            <span class="ss-fail"><mat-icon svgIcon="close"></mat-icon> {{ failCount }} failed</span>
           }
         </div>
       }
     }
   </main>
 </section>
+

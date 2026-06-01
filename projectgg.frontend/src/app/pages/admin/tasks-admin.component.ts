@@ -40,11 +40,11 @@ import { AuthService } from '../../services/auth.service';
     @if (editingTask) {
       <div class="edit-actions">
         <button mat-button (click)="cancelEdit()">
-          <mat-icon>close</mat-icon>
+          <mat-icon svgIcon="close"></mat-icon>
           Cancel Edit
         </button>
         <button mat-flat-button color="warn" (click)="deleteTask()">
-          <mat-icon>delete</mat-icon>
+          <mat-icon svgIcon="delete"></mat-icon>
           Delete Task
         </button>
       </div>
@@ -194,7 +194,7 @@ import { AuthService } from '../../services/auth.service';
                   <span class="status-badge inactive">Inactive</span>
                 }
                 <button class="edit-btn" (click)="editTask(task); $event.stopPropagation()">
-                  <mat-icon>edit</mat-icon>
+                  <mat-icon svgIcon="edit"></mat-icon>
                 </button>
               </div>
             </div>

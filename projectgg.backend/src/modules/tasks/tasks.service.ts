@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { TasksRepository } from './tasks.repository';
 import { XpService } from '../../services/xp.service';
 import { CardCollectionService } from '../card-collection/card-collection.service';
@@ -11,7 +11,7 @@ export class TasksService {
     private readonly repo: TasksRepository,
     private readonly xpService: XpService,
     private readonly cardCollectionService: CardCollectionService,
-    private readonly chatGateway: ChatGateway,
+    @Inject(forwardRef(() => ChatGateway)) private readonly chatGateway: ChatGateway,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
   ) {}
 
@@ -154,7 +154,7 @@ export class TasksService {
   async getDurationTasks(userId: string) {
     const tasks = await this.repo.getAvailable(userId);
     return tasks
-      .filter((task: any) => (task.task_kind === 'duration' || task.task_kind === 'test') && !task.is_daily)
+      .filter((task: any) => (task.task_kind === 'duration') && !task.is_daily)
       .map((task: any) => ({
         ...task,
         duration_minutes: task.duration_minutes || 30,
@@ -216,8 +216,8 @@ export class TasksService {
 
   async completeTask(userId: string, taskId: number, forceComplete = false) {
     const task = await this.repo.getTask(taskId);
-    
-    if ((task.task_kind === 'duration' || task.task_kind === 'test') && !forceComplete) {
+
+    if (task.task_kind === 'duration' && !forceComplete) {
       const progress = await this.repo.getDurationProgress(userId, taskId);
       const requiredSeconds = (task.duration_minutes || 30) * 60;
       if (progress < requiredSeconds) {
@@ -226,8 +226,12 @@ export class TasksService {
     }
 
     const existing = await this.repo.getUserTask(userId, taskId);
-    if (existing?.claimed) {
+    const maxClaims = task.max_claims;
+    if (existing?.claimed && (!maxClaims || maxClaims <= 1)) {
       throw new ForbiddenException('Task already claimed');
+    }
+    if (existing?.claimed && maxClaims && (existing.claims_count ?? 0) >= maxClaims) {
+      throw new ForbiddenException('Maximum claims reached');
     }
 
     await this.repo.getOrCreateUserTask(taskId, userId);
@@ -257,7 +261,7 @@ export class TasksService {
         }
       }
 
-      const notifBody = totalXp > 0 
+      const notifBody = totalXp > 0
         ? `You earned ${totalXp} XP from completing "${task?.title}"`
         : `You completed the task "${task?.title}"`;
 
@@ -265,11 +269,25 @@ export class TasksService {
         await this.chatGateway.createNotification(userId, 'task_completed', 'Task Completed!', notifBody, { taskId, xpAwarded: totalXp });
       } catch {}
 
-      this.chatGateway.broadcastServerEvent('task-completed', {
+      // Per-user task-completed (replaces the global broadcast — the
+      // toast/banner is personal, no need to spam every socket).
+      this.chatGateway.emitTaskCompleted(userId, {
         userId,
         taskId,
         taskTitle: task?.title,
         xpAwarded: totalXp,
+      });
+
+      // Tell the UI to drop the task from the available list and bump
+      // anything that depends on it (e.g., an achievement task with
+      // cards_collected criterion might now be auto-claimable).
+      this.chatGateway.emitTaskUpdate(userId, {
+        type: 'completed',
+        taskId,
+        taskTitle: task?.title,
+        taskKind: task?.task_kind,
+        claimsCount: (existing?.claims_count ?? 0) + 1,
+        maxClaims: maxClaims ?? null,
       });
     } catch (e) {
       // non-critical
@@ -278,10 +296,84 @@ export class TasksService {
     return { success: true, taskId };
   }
 
+  /**
+   * Realtime accumulation tick. Called by the chat gateway every
+   * TASK_TICK_INTERVAL_MS for every user with an active socket. Inserts
+   * one heartbeat per active duration task, then checks each task to
+   * see if it has crossed its threshold and auto-claims it.
+   */
+  async accumulateRealtimeProgress(userId: string, seconds: number): Promise<void> {
+    let taskIds: number[] = [];
+    try {
+      taskIds = await this.repo.getActiveDurationTaskIds(userId);
+    } catch {
+      return;
+    }
+    if (taskIds.length === 0) return;
+
+    for (const taskId of taskIds) {
+      try {
+        await this.repo.insertDurationHeartbeat(userId, taskId, seconds);
+      } catch {
+        continue;
+      }
+      // Emit a progress update so the UI can tick the bar in real time.
+      try {
+        const progress = await this.repo.getDurationProgress(userId, taskId);
+        const task = await this.repo.getTask(taskId);
+        const required = (task?.duration_minutes || 30) * 60;
+        this.chatGateway.emitTaskUpdate(userId, {
+          type: 'progress',
+          taskId,
+          taskKind: 'duration',
+          currentProgress: progress,
+          targetProgress: required,
+          progressPercent: Math.min(100, Math.round((progress / required) * 100)),
+        });
+        // Auto-claim if we just crossed the threshold.
+        if (progress >= required) {
+          try {
+            await this.completeTask(userId, taskId);
+          } catch {
+            // already claimed, or other non-fatal — keep ticking for siblings
+          }
+        }
+      } catch {
+        // non-critical
+      }
+    }
+  }
+
+  /**
+   * Bump the achievement progress for a user. Called whenever something
+   * happens that affects achievement task progress (card draw, card
+   * trade, card favorite, etc). The frontend subscribes to the
+   * task-update event and refreshes its in-memory task cache.
+   */
+  async bumpAchievementProgress(userId: string, hint: 'cards_collected' | 'cards_favorited'): Promise<void> {
+    // We don't have to compute progress here — the client re-fetches
+    // from getAvailableWithProgress which reads get_collection_stats.
+    // We just emit a hint so the UI knows to re-query.
+    this.chatGateway.emitTaskUpdate(userId, {
+      type: 'achievement-bump',
+      hint,
+    });
+  }
+
   async getAvailableWithProgress(userId: string) {
     const tasks = await this.repo.getAvailable(userId);
     const progress = await this.getProfileAchievementProgress(userId);
     const durationProgress = await this.repo.getDurationTaskProgress(userId);
+
+    // Fetch user's claim counts for these tasks
+    const taskIds = tasks.map((t: any) => t.id);
+    const { data: userClaims } = await this.supabase
+      .schema('projectgg')
+      .from('user_tasks')
+      .select('task_id, claims_count')
+      .eq('user_id', userId)
+      .in('task_id', taskIds);
+    const claimMap = new Map<number, number>((userClaims || []).map((c: any) => [c.task_id, c.claims_count ?? 0]));
 
     return tasks.map((task: any) => {
       const achievementKey = task.achievement_type || task.criteria?.achievement_type;
@@ -290,7 +382,7 @@ export class TasksService {
       let current = 0;
       if (task.task_kind === 'achievement' && achievementKey) {
         current = Number(progress[achievementKey] ?? 0);
-      } else if (task.task_kind === 'duration' || task.task_kind === 'test') {
+      } else if (task.task_kind === 'duration') {
         current = durationProgress[task.id] || 0;
       }
 
@@ -298,10 +390,11 @@ export class TasksService {
         ...task,
         current_progress: current,
         target_progress: target,
+        claims_count: claimMap.get(task.id) ?? 0,
         duration_minutes: task.duration_minutes || 30,
-        elapsed_seconds: (task.task_kind === 'duration' || task.task_kind === 'test') ? current : undefined,
+        elapsed_seconds: (task.task_kind === 'duration') ? current : undefined,
         progress_percent: target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 
-                       (task.task_kind === 'duration' || task.task_kind === 'test') ? Math.round((current / ((task.duration_minutes || 30) * 60)) * 100) : 0,
+                       (task.task_kind === 'duration') ? Math.round((current / ((task.duration_minutes || 30) * 60)) * 100) : 0,
         is_achievement: task.task_kind === 'achievement',
       };
     });

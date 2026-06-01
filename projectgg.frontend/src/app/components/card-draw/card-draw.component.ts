@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectorRef, NgZone, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { Observable, forkJoin } from 'rxjs';
 import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
 
 @Component({
@@ -20,7 +21,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
           </span>
         </div>
 
-        <!-- LOADING PHASE: animated messages, NO images -->
+        <!-- LOADING PHASE: animated messages, sits on top of the reel -->
         <div class="reel-loading" *ngIf="loadingData">
           <div class="reel-loading-ring"></div>
           <div class="reel-loading-ring reel-loading-ring-2"></div>
@@ -33,10 +34,13 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
           </div>
         </div>
 
-        <!-- REEL PHASE: actual spinning cards with images -->
-        <div class="reel-container" #reelContainer *ngIf="!loadingData">
+        <!-- REEL: always rendered during the 'reeling' state so images decode
+             WHILE the loading UI is showing, not after. The transform is
+             driven directly from JS (not Angular binding) to keep the
+             animation frame work minimal. -->
+        <div class="reel-container" #reelContainer [class.reel-hidden]="loadingData">
           <div class="reel-scanlines"></div>
-          <div class="reel-track" [style.transform]="trackTransform">
+          <div class="reel-track" #reelTrack>
             <ng-container *ngFor="let card of reelCards; let i = index; trackBy: trackByCard">
               <div class="reel-card" [class.highlight]="i === highlightIndex">
                 <div class="reel-card-inner" [class]="'tier-' + card.card_tier">
@@ -60,7 +64,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
         <!-- SKIP button (only during reel phase) -->
         <div class="reel-bottom" *ngIf="!loadingData && resultCard">
           <button class="reel-skip" (click)="skipReel()">
-            <mat-icon>skip_next</mat-icon> SKIP
+            <mat-icon svgIcon="skip_next"></mat-icon> SKIP
           </button>
         </div>
       </div>
@@ -106,11 +110,11 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
 
                 <div class="result-xp" [class.new-card]="isNew">
                   <ng-container *ngIf="isNew; else duplicateXP">
-                    <mat-icon>auto_awesome</mat-icon>
+                    <mat-icon svgIcon="auto_awesome"></mat-icon>
                     <span>+{{ xpAwarded }} XP • NEW ACQUISITION</span>
                   </ng-container>
                   <ng-template #duplicateXP>
-                    <mat-icon>repeat</mat-icon>
+                    <mat-icon svgIcon="repeat"></mat-icon>
                     <span>+{{ xpAwarded }} XP • DUPLICATE CONVERTED</span>
                   </ng-template>
                 </div>
@@ -302,6 +306,13 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       background: linear-gradient(180deg, rgba(11, 12, 22, 0.85), rgba(8, 9, 18, 0.96));
       box-shadow: inset 0 0 60px rgba(255, 45, 111, 0.09), 0 0 40px rgba(0, 0, 0, 0.5);
       z-index: 2;
+    }
+
+    /* Hide the reel while loading is on top. The DOM is still mounted and
+       decoding images so that when loadingData flips, the reel is already
+       fully laid out and the spin can start on the very next frame. */
+    .reel-container.reel-hidden {
+      visibility: hidden;
     }
 
     .reel-track {
@@ -711,16 +722,13 @@ export class CardDrawComponent implements OnDestroy {
   private finalOffset = 0;
 
   @ViewChild('reelContainer', { static: false }) reelContainerRef?: ElementRef<HTMLElement>;
+  @ViewChild('reelTrack', { static: false }) reelTrackRef?: ElementRef<HTMLElement>;
 
   // Layout constants — must match .reel-card (140px) and .reel-card-inner (110px) in CSS
   private static readonly SLOT_WIDTH = 140;
   private static readonly SLOT_GAP = 16;
   private static readonly PITCH = 140 + 16; // 156
   private static readonly VISIBLE_CARD_WIDTH = 110;
-
-  get trackTransform(): string {
-    return `translate3d(${this.reelOffsetPx}px, 0, 0)`;
-  }
 
   trackByCard(index: number, card: DrawCard): number {
     return index;
@@ -861,6 +869,9 @@ export class CardDrawComponent implements OnDestroy {
     if (this.state !== 'reeling' || !this.resultCard) return;
     this.clearTimers();
 
+    const trackEl = this.reelTrackRef?.nativeElement;
+    if (!trackEl) return;
+
     // Re-measure final position in case container size changed
     this.finalOffset = this.measureFinalOffset();
 
@@ -874,23 +885,19 @@ export class CardDrawComponent implements OnDestroy {
       const tick = (now: number) => {
         const t = Math.min(1, (now - startTime) / duration);
         const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
-        this.reelOffsetPx = startOffset + (endOffset - startOffset) * eased;
-
-        if (now - (this as any)._lastCd >= 32 || t === 1) {
-          (this as any)._lastCd = now;
-          this.zone.run(() => this.cdr.markForCheck());
-        }
+        const px = startOffset + (endOffset - startOffset) * eased;
+        this.reelOffsetPx = px;
+        trackEl.style.transform = `translate3d(${px}px, 0, 0)`;
 
         if (t < 1) {
           this.rafId = requestAnimationFrame(tick);
         } else {
           this.reelOffsetPx = endOffset;
-          this.zone.run(() => this.cdr.markForCheck());
+          trackEl.style.transform = `translate3d(${endOffset}px, 0, 0)`;
           this.rafId = null;
           setTimeout(() => this.zone.run(() => this.showResult()), 400);
         }
       };
-      (this as any)._lastCd = 0;
       this.rafId = requestAnimationFrame(tick);
     });
   }
@@ -900,54 +907,102 @@ export class CardDrawComponent implements OnDestroy {
     this.drawComplete.emit({ card: this.resultCard!, isNew: this.isNew, xp: this.xpAwarded });
   }
 
-  private animateReel(result: DrawResult): void {
-    const realCard = this.normalizeResult(result);
-    this.reelCards[this.highlightIndex] = realCard;
-    this.resultCard = realCard;
-    this.isNew = !!result.is_new;
-    this.xpAwarded = result.xp_awarded ?? 0;
-    this.cdr.markForCheck();
+  private beginSpin(): void {
+    const trackEl = this.reelTrackRef?.nativeElement;
+    if (!trackEl) return;
 
-    // Defer one frame so the .reel-container is laid out and we can measure it
-    this.zone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
-        this.finalOffset = this.measureFinalOffset();
+    const startOffset = this.reelOffsetPx;
+    const endOffset = this.finalOffset;
+    const totalDuration = 5000; // ms — exactly 5 seconds of spinning
+    const startTime = performance.now();
 
-        // Start ~4 slots to the right of final, then spin left to land on the winning card
-        const startOffset = this.finalOffset + 4 * CardDrawComponent.PITCH;
-        const totalDuration = 4800; // ms
-        const startTime = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / totalDuration);
 
-        const animate = (now: number) => {
-          const elapsed = now - startTime;
-          const t = Math.min(1, elapsed / totalDuration);
+      // Ease-out quint: very aggressive deceleration for a smooth "settle" feel
+      const eased = 1 - Math.pow(1 - t, 5);
+      const px = startOffset + (endOffset - startOffset) * eased;
+      this.reelOffsetPx = px;
 
-          // Ease-out quint: very aggressive deceleration for a smooth "settle" feel
-          // 1 - (1-t)^5 starts fast and decelerates smoothly
-          const eased = 1 - Math.pow(1 - t, 5);
+      // Direct DOM write — bypasses Angular's binding/CD entirely. This
+      // is the single most important change for smoothness: the per-frame
+      // cost is now a single style write, not a full CD cycle plus
+      // binding re-evaluation plus setAttribute.
+      trackEl.style.transform = `translate3d(${px}px, 0, 0)`;
 
-          this.reelOffsetPx = startOffset + (this.finalOffset - startOffset) * eased;
-
-          // Trigger change detection every ~32ms (every other frame) for performance
-          if (now - (this as any)._lastCd >= 32 || t === 1) {
-            (this as any)._lastCd = now;
-            this.zone.run(() => this.cdr.markForCheck());
-          }
-
-          if (t < 1) {
-            this.rafId = requestAnimationFrame(animate);
-          } else {
-            // Snap exactly to the final pixel for a crisp landing
-            this.reelOffsetPx = this.finalOffset;
-            this.zone.run(() => this.cdr.markForCheck());
-            this.rafId = null;
-            setTimeout(() => this.zone.run(() => this.showResult()), 600);
-          }
-        };
-        (this as any)._lastCd = 0;
+      if (t < 1) {
         this.rafId = requestAnimationFrame(animate);
-      });
+      } else {
+        // Snap exactly to the final pixel for a crisp landing
+        this.reelOffsetPx = endOffset;
+        trackEl.style.transform = `translate3d(${endOffset}px, 0, 0)`;
+        this.rafId = null;
+        setTimeout(() => this.zone.run(() => this.showResult()), 400);
+      }
+    };
+    this.rafId = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Shared draw sequence:
+   * 1. Reset state to 'reeling' + loadingData=true, start the loading UI.
+   * 2. Fire pool fetch AND claim in parallel — claim returns the actual
+   *    winning card. We wait for BOTH before building the reel, so the
+   *    reel's first render already has the real winner at index 15.
+   * 3. Build the reel array, pre-place the winner, preload all images.
+   * 4. After images are decoded, drop the loading overlay. The reel was
+   *    already pre-positioned at startOffset on the previous frame, so
+   *    the moment it is exposed the spin is already in motion — no
+   *    static state, no stutter, no image-swap layout shift.
+   */
+  private runDrawSequence(claim$: () => Observable<DrawResult>): void {
+    forkJoin({
+      pool: this.chatService.getDailyDrawCards(),
+      result: claim$(),
+    }).subscribe({
+      next: ({ pool, result }) => {
+        if (!result) { this.state = 'idle'; this.cdr.detectChanges(); return; }
+
+        const winner = this.normalizeResult(result);
+        this.reelCards = this.buildReelCards(pool ?? [], winner);
+        this.resultCard = winner;
+        this.isNew = !!result.is_new;
+        this.xpAwarded = result.xp_awarded ?? 0;
+        this.cdr.detectChanges();
+
+        const imageUrls = (pool ?? []).map(c => c.cover_url).filter(Boolean);
+        if (winner.cover_url) imageUrls.push(winner.cover_url);
+        this.preloadImages(imageUrls).then(() => {
+          this.finishLoading();
+          this.beginSpinAfterLoading();
+        });
+      },
+      error: () => {
+        this.state = 'idle';
+        this.cdr.detectChanges();
+      },
     });
+  }
+
+  private beginSpinAfterLoading(): void {
+    // Let the loading UI finish its 100% pulse, then reveal and spin.
+    setTimeout(() => {
+      this.loadingData = false;
+      this.cdr.detectChanges();
+      // Two frames: one for the loading overlay to unmount, one for the
+      // browser to commit layout. Then start spinning.
+      this.zone.runOutsideAngular(() => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          this.finalOffset = this.measureFinalOffset();
+          const startOffset = this.finalOffset + 4 * CardDrawComponent.PITCH;
+          this.reelOffsetPx = startOffset;
+          const trackEl = this.reelTrackRef?.nativeElement;
+          if (trackEl) trackEl.style.transform = `translate3d(${startOffset}px, 0, 0)`;
+          this.beginSpin();
+        }));
+      });
+    }, 200);
   }
 
   startDailyDraw(): void {
@@ -960,28 +1015,7 @@ export class CardDrawComponent implements OnDestroy {
     this.startLoadingSequence();
     this.cdr.markForCheck();
 
-    this.chatService.getDailyDrawCards().subscribe({
-      next: (cards) => {
-        const fallback = this.placeholderCard();
-        this.reelCards = this.buildReelCards(cards ?? [], fallback);
-        const imageUrls = (cards ?? []).map(c => c.cover_url).filter(Boolean);
-        this.preloadImages(imageUrls).then(() => {
-          this.finishLoading();
-          setTimeout(() => {
-            this.loadingData = false;
-            this.cdr.markForCheck();
-            this.chatService.claimDailyDraw().subscribe({
-              next: (result: DrawResult) => {
-                if (!result) { this.state = 'idle'; return; }
-                this.animateReel(result);
-              },
-              error: () => { this.state = 'idle'; },
-            });
-          }, 400);
-        });
-      },
-      error: () => { this.state = 'idle'; }
-    });
+    this.runDrawSequence(() => this.chatService.claimDailyDraw());
   }
 
   startTicketDraw(ticketId: number): void {
@@ -994,42 +1028,7 @@ export class CardDrawComponent implements OnDestroy {
     this.startLoadingSequence();
     this.cdr.markForCheck();
 
-    this.chatService.getDailyDrawCards().subscribe({
-      next: (cards) => {
-        const fallback = this.placeholderCard();
-        this.reelCards = this.buildReelCards(cards ?? [], fallback);
-        const imageUrls = (cards ?? []).map(c => c.cover_url).filter(Boolean);
-        this.preloadImages(imageUrls).then(() => {
-          this.finishLoading();
-          setTimeout(() => {
-            this.loadingData = false;
-            this.cdr.markForCheck();
-            this.chatService.drawWithTicket(ticketId).subscribe({
-              next: (result: DrawResult) => {
-                if (!result) { this.state = 'idle'; return; }
-                this.animateReel(result);
-              },
-              error: () => { this.state = 'idle'; },
-            });
-          }, 400);
-        });
-      },
-      error: () => {
-        this.reelCards = this.buildReelCards([], this.placeholderCard());
-        this.finishLoading();
-        setTimeout(() => {
-          this.loadingData = false;
-          this.cdr.markForCheck();
-          this.chatService.drawWithTicket(ticketId).subscribe({
-            next: (result: DrawResult) => {
-              if (!result) { this.state = 'idle'; return; }
-              this.animateReel(result);
-            },
-            error: () => { this.state = 'idle'; },
-          });
-        }, 400);
-      },
-    });
+    this.runDrawSequence(() => this.chatService.drawWithTicket(ticketId));
   }
 
   closeResult(): void {
@@ -1170,3 +1169,4 @@ export class CardDrawComponent implements OnDestroy {
     return { game_code: '', game_name: '', cover_url: '', rating: 0, card_tier: tier, series_name: '', desc: null, release_year: null, source: null };
   }
 }
+

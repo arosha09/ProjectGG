@@ -358,6 +358,16 @@
   &:hover { text-decoration: underline; }
 }
 
+.header-notif-actions {
+  display: flex; gap: 12px; align-items: center;
+}
+
+.header-notif-clear {
+  background: none; border: none; color: #ff5f6d; cursor: pointer;
+  font-size: 11px; font-weight: 600; font-family: inherit; padding: 0;
+  &:hover { text-decoration: underline; }
+}
+
 .header-notif-tabs {
   display: flex;
   gap: 2px;
@@ -372,7 +382,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 10px;
+  padding: 5px 8px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -383,6 +393,7 @@
   transition: all 0.15s ease;
   white-space: nowrap;
   font-family: inherit;
+  position: relative;
 
   mat-icon {
     font-size: 14px;
@@ -390,9 +401,21 @@
     height: 14px;
   }
 
+  .notif-tab-label {
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-width 0.2s ease, opacity 0.15s ease;
+  }
+
   &:hover {
     background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.08);
     color: var(--text-primary);
+
+    .notif-tab-label {
+      max-width: 80px;
+      opacity: 1;
+    }
   }
 
   &.active {

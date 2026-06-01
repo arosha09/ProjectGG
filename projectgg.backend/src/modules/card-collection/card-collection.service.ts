@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { CardCollectionRepository } from './card-collection.repository';
 import { XpService } from '../../services/xp.service';
+import { TasksService } from '../tasks/tasks.service';
 
 const XP_MAP: Record<string, number> = {
   common: 10,
@@ -21,6 +22,7 @@ export class CardCollectionService {
   constructor(
     private readonly repo: CardCollectionRepository,
     private readonly xpService: XpService,
+    @Inject(forwardRef(() => TasksService)) private readonly tasksService: TasksService,
   ) {}
 
   async getDailyDrawCards(userId: string) {
@@ -35,6 +37,12 @@ export class CardCollectionService {
         await this.xpService.awardCustomXp(userId, result.xp_awarded, 'card_draw', result.game_code);
       } catch { /* non-critical */ }
     }
+    // Tell the realtime task tracker the user's cards_collected count
+    // may have bumped (and any achievement task watching it should
+    // re-evaluate).
+    try {
+      await this.tasksService.bumpAchievementProgress(userId, 'cards_collected');
+    } catch { /* non-critical */ }
     return result;
   }
 
@@ -46,6 +54,9 @@ export class CardCollectionService {
         await this.xpService.awardCustomXp(userId, result.xp_awarded, 'card_draw_ticket', result.game_code);
       } catch { /* non-critical */ }
     }
+    try {
+      await this.tasksService.bumpAchievementProgress(userId, 'cards_collected');
+    } catch { /* non-critical */ }
     return result;
   }
 
@@ -54,7 +65,11 @@ export class CardCollectionService {
   }
 
   async toggleFavorite(userId: string, gameCode: string) {
-    return this.repo.toggleFavorite(userId, gameCode);
+    const result = await this.repo.toggleFavorite(userId, gameCode);
+    try {
+      await this.tasksService.bumpAchievementProgress(userId, 'cards_favorited');
+    } catch { /* non-critical */ }
+    return result;
   }
 
   async getShowcase(userId: string) {

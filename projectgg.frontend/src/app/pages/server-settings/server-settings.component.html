@@ -3,23 +3,23 @@
     <nav class="ss-nav">
       <div class="ss-nav-head">
         <button class="ss-back" (click)="goBack()">
-          <mat-icon>arrow_back</mat-icon>
+          <mat-icon svgIcon="arrow_back"></mat-icon>
           <span>Back to Chat</span>
         </button>
         <h1 class="ss-nav-title">Server Settings</h1>
       </div>
       <div class="ss-nav-items">
         <button class="ss-nav-item" [class.active]="tab === 'overview'" (click)="tab = 'overview'">
-          <mat-icon>settings</mat-icon> Overview
+          <mat-icon svgIcon="settings"></mat-icon> Overview
         </button>
         <button class="ss-nav-item" [class.active]="tab === 'roles'" (click)="tab = 'roles'">
-          <mat-icon>admin_panel_settings</mat-icon> Roles
+          <mat-icon svgIcon="admin_panel_settings"></mat-icon> Roles
         </button>
         <button class="ss-nav-item" [class.active]="tab === 'members'" (click)="tab = 'members'">
-          <mat-icon>people</mat-icon> Members
+          <mat-icon svgIcon="people"></mat-icon> Members
         </button>
         <button class="ss-nav-item" [class.active]="tab === 'channels'" (click)="tab = 'channels'">
-          <mat-icon>tag</mat-icon> Channels
+          <mat-icon svgIcon="tag"></mat-icon> Channels
         </button>
       </div>
     </nav>
@@ -118,11 +118,11 @@
                       <span class="ss-role-perm-count">{{ (role.permissions ?? []).length }} permissions</span>
                       <div class="ss-role-actions">
                         <button class="ss-btn ss-btn-sm" (click)="startEditRole(role)" title="Edit">
-                          <mat-icon>edit</mat-icon>
+                          <mat-icon svgIcon="edit"></mat-icon>
                         </button>
                         @if (role.name !== 'owner') {
                           <button class="ss-btn ss-btn-danger ss-btn-sm" (click)="deleteRole(role.name)" title="Delete">
-                            <mat-icon>delete</mat-icon>
+                            <mat-icon svgIcon="delete"></mat-icon>
                           </button>
                         }
                       </div>
@@ -216,7 +216,7 @@
                     </div>
                   } @else {
                     <button class="ss-btn ss-btn-sm" (click)="startEditChannelRoles(ch)" title="Edit roles">
-                      <mat-icon>edit</mat-icon>
+                      <mat-icon svgIcon="edit"></mat-icon>
                     </button>
                     @if (($any(ch).allowed_roles ?? []).length > 0) {
                       <span class="ss-ch-roles-badge">{{ $any(ch).allowed_roles.length }} role(s)</span>
@@ -232,3 +232,4 @@
     </main>
   </div>
 </div>
+

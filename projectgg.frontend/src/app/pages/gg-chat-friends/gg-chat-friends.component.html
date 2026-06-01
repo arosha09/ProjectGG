@@ -2,7 +2,7 @@
   @if (standalone) {
     <header class="gf-header">
       <button class="ss-back" (click)="goBack()">
-        <mat-icon>arrow_back</mat-icon>
+        <mat-icon svgIcon="arrow_back"></mat-icon>
         <span>Back</span>
       </button>
       <h1 class="gf-title">Friends</h1>
@@ -61,10 +61,10 @@
             </div>
             <div class="gf-actions">
               <button class="gf-action-btn" (click)="onStartDm(friend.other_id)" title="Message">
-                <mat-icon>chat</mat-icon>
+                <mat-icon svgIcon="chat"></mat-icon>
               </button>
               <button class="gf-action-btn gf-action-remove" (click)="removeFriend(friend.id)" title="Remove">
-                <mat-icon>person_remove</mat-icon>
+                <mat-icon svgIcon="person_remove"></mat-icon>
               </button>
             </div>
           </div>
@@ -99,10 +99,10 @@
               </div>
               <div class="gf-actions">
                 <button class="gf-action-btn gf-accept" (click)="acceptRequest(req.id)" title="Accept">
-                  <mat-icon>check</mat-icon>
+                  <mat-icon svgIcon="check"></mat-icon>
                 </button>
                 <button class="gf-action-btn gf-action-remove" (click)="removeFriend(req.id)" title="Decline">
-                  <mat-icon>close</mat-icon>
+                  <mat-icon svgIcon="close"></mat-icon>
                 </button>
               </div>
             </div>
@@ -124,7 +124,7 @@
               </div>
               <div class="gf-actions">
                 <button class="gf-action-btn gf-action-remove" (click)="removeFriend(req.id)" title="Cancel">
-                  <mat-icon>close</mat-icon>
+                  <mat-icon svgIcon="close"></mat-icon>
                 </button>
               </div>
             </div>
@@ -161,7 +161,7 @@
               </div>
               <div class="gf-actions">
                 <button class="gf-action-btn gf-accept" (click)="unblockUser(user.other_id)" title="Unblock">
-                  <mat-icon>person_add</mat-icon>
+                  <mat-icon svgIcon="person_add"></mat-icon>
                 </button>
               </div>
             </div>
@@ -207,7 +207,7 @@
                   <span class="gf-name">{{ user.username }}</span>
                 </div>
                 <button class="gf-action-btn" (click)="sendFriendRequest(user.username)" title="Add Friend">
-                  <mat-icon>person_add</mat-icon>
+                  <mat-icon svgIcon="person_add"></mat-icon>
                 </button>
               </div>
             }
@@ -237,3 +237,4 @@
     }
   </main>
 </div>
+

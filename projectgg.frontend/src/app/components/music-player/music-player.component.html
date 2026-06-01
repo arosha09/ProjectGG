@@ -38,13 +38,13 @@
 
         <div class="cyber-controls">
           <button class="cyber-ctrl-btn" (click)="previous()" type="button" title="Previous">
-            <mat-icon>skip_previous</mat-icon>
+            <mat-icon svgIcon="skip_previous"></mat-icon>
           </button>
           <button class="cyber-play-btn" (click)="togglePlay()" type="button">
             <mat-icon>{{ isPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
           </button>
           <button class="cyber-ctrl-btn" (click)="next()" type="button" title="Next">
-            <mat-icon>skip_next</mat-icon>
+            <mat-icon svgIcon="skip_next"></mat-icon>
           </button>
         </div>
 
@@ -81,7 +81,7 @@
                   <img [src]="item.thumbnail" alt="" class="cyber-result-thumb" loading="lazy" />
                 } @else {
                   <div class="cyber-result-thumb cyber-result-thumb-empty">
-                    <mat-icon>music_note</mat-icon>
+                    <mat-icon svgIcon="music_note"></mat-icon>
                   </div>
                 }
                 <div class="cyber-result-info">
@@ -102,7 +102,7 @@
             <span class="cyber-queue-title">Queue</span>
             <span class="cyber-queue-count">{{ queue.length }} tracks</span>
             <button class="cyber-playlist-save-btn" (click)="saveAsPlaylist()" type="button" title="Save as Playlist">
-              <mat-icon>playlist_add</mat-icon>
+              <mat-icon svgIcon="playlist_add"></mat-icon>
             </button>
           </div>
           <div class="cyber-queue-list">
@@ -112,7 +112,7 @@
                   <img [src]="qTrack.thumbnail" alt="" class="cyber-queue-thumb" />
                 } @else {
                   <div class="cyber-queue-thumb cyber-queue-thumb-empty">
-                    <mat-icon>music_note</mat-icon>
+                    <mat-icon svgIcon="music_note"></mat-icon>
                   </div>
                 }
                 <div class="cyber-queue-info">
@@ -127,7 +127,7 @@
                   </div>
                 }
                 <button class="cyber-queue-remove" (click)="removeFromQueue(i, $event)" type="button">
-                  <mat-icon>close</mat-icon>
+                  <mat-icon svgIcon="close"></mat-icon>
                 </button>
               </div>
             }
@@ -147,10 +147,10 @@
             autofocus
           />
           <button class="cyber-save-confirm" (click)="confirmSavePlaylist()" type="button" title="Save">
-            <mat-icon>check</mat-icon>
+            <mat-icon svgIcon="check"></mat-icon>
           </button>
           <button class="cyber-save-cancel" (click)="cancelSavePlaylist()" type="button" title="Cancel">
-            <mat-icon>close</mat-icon>
+            <mat-icon svgIcon="close"></mat-icon>
           </button>
         </div>
       }
@@ -185,10 +185,10 @@
                     <span class="cyber-playlist-tracks">{{ pl.tracks.length }} tracks</span>
                   </div>
                   <button class="cyber-playlist-play-btn" (click)="loadPlaylist(pl.name)" type="button" title="Play">
-                    <mat-icon>play_arrow</mat-icon>
+                    <mat-icon svgIcon="play_arrow"></mat-icon>
                   </button>
                   <button class="cyber-playlist-del-btn" (click)="deletePlaylist(pl.name)" type="button" title="Delete">
-                    <mat-icon>delete</mat-icon>
+                    <mat-icon svgIcon="delete"></mat-icon>
                   </button>
                 </div>
               }
@@ -222,7 +222,7 @@
                     <span class="cyber-playlist-tracks">{{ pl.trackCount }} tracks</span>
                   </div>
                   <button class="cyber-playlist-play-btn" (click)="loadYoutubePlaylist(pl.id)" type="button" title="Play">
-                    <mat-icon>play_arrow</mat-icon>
+                    <mat-icon svgIcon="play_arrow"></mat-icon>
                   </button>
                 </div>
               }
@@ -246,7 +246,7 @@
               </span>
             } @else {
               <span class="cyber-platform-tag cyber-platform-active">
-                <mat-icon>check_circle</mat-icon>
+                <mat-icon svgIcon="check_circle"></mat-icon>
                 {{ p.name }}
               </span>
             }
@@ -256,3 +256,4 @@
     </div>
   </div>
 }
+

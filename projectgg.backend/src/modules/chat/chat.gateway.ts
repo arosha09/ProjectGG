@@ -7,10 +7,11 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Inject, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, OnModuleDestroy, OnModuleInit, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { DiscordBotService } from './discord-bot.service';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
+import { TasksService } from '../tasks/tasks.service';
 
 type UserStatus = 'online' | 'away' | 'dnd' | 'invisible';
 
@@ -24,13 +25,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   private usersChannel: any = null;
   private heartbeatSweep: ReturnType<typeof setInterval> | null = null;
+  private taskProgressTick: ReturnType<typeof setInterval> | null = null;
   private readonly heartbeatByUser = new Map<string, number>();
   private readonly connectedSockets = new Map<string, Set<string>>();
 
   private readonly HEARTBEAT_TIMEOUT_MS = 45_000;
+  private readonly TASK_TICK_INTERVAL_MS = 10_000;
+  private readonly TASK_TICK_SECONDS = 10;
 
   constructor(
     private readonly discordBot: DiscordBotService,
+    @Inject(forwardRef(() => TasksService)) private readonly tasksService: TasksService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
   ) {}
 
@@ -41,6 +46,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
     this.subscribeToUserStatusChanges();
     this.heartbeatSweep = setInterval(() => this.pruneStaleHeartbeats(), 10_000);
+    this.taskProgressTick = setInterval(() => this.tickTaskProgress(), this.TASK_TICK_INTERVAL_MS);
   }
 
   onModuleDestroy(): void {
@@ -51,6 +57,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (this.heartbeatSweep) {
       clearInterval(this.heartbeatSweep);
       this.heartbeatSweep = null;
+    }
+    if (this.taskProgressTick) {
+      clearInterval(this.taskProgressTick);
+      this.taskProgressTick = null;
     }
   }
 
@@ -228,5 +238,46 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   private normalizeStatus(value: any): UserStatus | null {
     if (value === 'online' || value === 'away' || value === 'dnd' || value === 'invisible') return value;
     return null;
+  }
+
+  /**
+   * Emit a task-update event to a specific user. Called by TasksService
+   * whenever a task's progress or state changes (heartbeat accumulation,
+   * auto-claim, achievement progress bump from a card draw, etc.).
+   */
+  emitTaskUpdate(userId: string, data: any): void {
+    this.sendToUser(userId, 'task-update', data);
+  }
+
+  /**
+   * Emit a task-completed event to a specific user. Same shape as
+   * broadcastServerEvent('task-completed', ...) but per-user so we
+   * don't spam every connected socket.
+   */
+  emitTaskCompleted(userId: string, data: any): void {
+    this.sendToUser(userId, 'task-completed', data);
+  }
+
+  /**
+   * Every TASK_TICK_INTERVAL_MS, accumulate TASK_TICK_SECONDS of progress
+   * for each connected user's active duration tasks. When a task crosses
+   * its threshold, TasksService auto-claims it and emits task-completed.
+   *
+   * The presence of a socket is the tracking signal — the user is
+   * "online" and "active" if they have at least one connected socket.
+   */
+  private async tickTaskProgress(): Promise<void> {
+    const userIds = Array.from(this.connectedSockets.keys());
+    for (const userId of userIds) {
+      // Re-verify the user is still connected (race with disconnect)
+      if (!this.connectedSockets.has(userId) || (this.connectedSockets.get(userId)?.size ?? 0) === 0) {
+        continue;
+      }
+      try {
+        await this.tasksService.accumulateRealtimeProgress(userId, this.TASK_TICK_SECONDS);
+      } catch {
+        // non-critical, keep ticking for the other users
+      }
+    }
   }
 }

@@ -14,7 +14,7 @@
             [class.active]="activeSection === 'profile'"
             (click)="setActiveSection('profile')"
           >
-            <mat-icon>person</mat-icon>
+            <mat-icon svgIcon="person"></mat-icon>
             <span>Profile</span>
           </button>
           <button
@@ -22,7 +22,7 @@
             [class.active]="activeSection === 'password'"
             (click)="setActiveSection('password')"
           >
-            <mat-icon>lock</mat-icon>
+            <mat-icon svgIcon="lock"></mat-icon>
             <span>Password</span>
           </button>
           <button
@@ -30,7 +30,7 @@
             [class.active]="activeSection === 'appearance'"
             (click)="setActiveSection('appearance')"
           >
-            <mat-icon>palette</mat-icon>
+            <mat-icon svgIcon="palette"></mat-icon>
             <span>Appearance</span>
           </button>
           <button
@@ -38,7 +38,7 @@
             [class.active]="activeSection === 'connections'"
             (click)="setActiveSection('connections')"
           >
-            <mat-icon>link</mat-icon>
+            <mat-icon svgIcon="link"></mat-icon>
             <span>Connections</span>
           </button>
         </nav>
@@ -110,7 +110,7 @@
                   @if (verificationSent) {
                     <div class="verify-sent-row">
                       <span class="verify-sent-label"
-                        ><mat-icon>forward_to_inbox</mat-icon> Verification sent</span
+                        ><mat-icon svgIcon="forward_to_inbox"></mat-icon> Verification sent</span
                       >
                       <button
                         class="resend-link"
@@ -161,7 +161,7 @@
                       @if (sendingVerification) {
                         <span class="btn-spinner"></span> SENDING...
                       } @else {
-                        <mat-icon>send</mat-icon> SEND VERIFICATION
+                        <mat-icon svgIcon="send"></mat-icon> SEND VERIFICATION
                       }
                     </button>
                     @if (verifyMessage) {
@@ -178,7 +178,7 @@
                   @if (saving) {
                     <span class="btn-spinner"></span> SAVING...
                   } @else {
-                    <mat-icon>save</mat-icon> SAVE PROFILE
+                    <mat-icon svgIcon="save"></mat-icon> SAVE PROFILE
                   }
                 </button>
               }
@@ -233,7 +233,7 @@
                 @if (changingPassword) {
                   <span class="btn-spinner"></span> CHANGING...
                 } @else {
-                  <mat-icon>lock_reset</mat-icon> CHANGE PASSWORD
+                  <mat-icon svgIcon="lock_reset"></mat-icon> CHANGE PASSWORD
                 }
               </button>
             </div>
@@ -281,10 +281,10 @@
                         <h4>Custom Color</h4>
                         <div class="modal-header-actions">
                           <button class="modal-confirm-btn" (click)="confirmCustomColor()" title="Apply">
-                            <mat-icon>check</mat-icon>
+                            <mat-icon svgIcon="check"></mat-icon>
                           </button>
                           <button class="modal-close-btn" (click)="closeCustomColorModal()" title="Cancel">
-                            <mat-icon>close</mat-icon>
+                            <mat-icon svgIcon="close"></mat-icon>
                           </button>
                         </div>
                       </div>
@@ -361,7 +361,7 @@
                       (click)="cursorSetDropdownOpen = !cursorSetDropdownOpen"
                     >
                       {{ previewCursorSet.label }}
-                      <mat-icon>arrow_drop_down</mat-icon>
+                      <mat-icon svgIcon="arrow_drop_down"></mat-icon>
                     </button>
                     <app-cyber-dropdown
                       [items]="cursorSetItems"
@@ -462,7 +462,7 @@
                             (click)="linkSteam()"
                             [disabled]="linking"
                           >
-                            <mat-icon>login</mat-icon> LINK
+                            <mat-icon svgIcon="login"></mat-icon> LINK
                           </button>
                         }
                       } @else {
@@ -480,7 +480,7 @@
                             (click)="openManualLink(p.id)"
                             [disabled]="linking"
                           >
-                            <mat-icon>add_link</mat-icon> LINK
+                            <mat-icon svgIcon="add_link"></mat-icon> LINK
                           </button>
                         }
                       }
@@ -528,7 +528,7 @@
                             (click)="linkDiscord()"
                             [disabled]="linking"
                           >
-                            <mat-icon>login</mat-icon> LINK
+                            <mat-icon svgIcon="login"></mat-icon> LINK
                           </button>
                         }
                       } @else if (p.id === 'spotify') {
@@ -558,7 +558,7 @@
                             (click)="linkYoutubeMusic()"
                             [disabled]="linking"
                           >
-                            <mat-icon>login</mat-icon> LINK
+                            <mat-icon svgIcon="login"></mat-icon> LINK
                           </button>
                         }
                       } @else if (p.id === 'apple_music') {
@@ -583,10 +583,10 @@
                       (click)="confirmManualLink()"
                       [disabled]="!manualUsername.trim()"
                     >
-                      <mat-icon>check</mat-icon> CONFIRM
+                      <mat-icon svgIcon="check"></mat-icon> CONFIRM
                     </button>
                     <button class="cyber-btn cyber-btn-cancel" (click)="cancelManualLink()">
-                      <mat-icon>close</mat-icon> CANCEL
+                      <mat-icon svgIcon="close"></mat-icon> CANCEL
                     </button>
                   </div>
                 </div>
@@ -609,3 +609,4 @@
     </div>
   </main>
 </section>
+

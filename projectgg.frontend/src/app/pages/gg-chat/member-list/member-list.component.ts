@@ -56,6 +56,9 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
                     }
                     @if (!isSelf(member) && canKick() && !member.roles.includes('owner')) {
                       <button class="gg-member-kick" (click)="confirmKick.emit(member)" title="Kick">X</button>
+                      <button class="gg-member-ban" (click)="confirmBan.emit(member)" title="Ban">
+                        <mat-icon svgIcon="block"></mat-icon>
+                      </button>
                     }
                   </div>
                 </div>
@@ -83,4 +86,6 @@ export class MemberListComponent {
   
   @Output() changeRole = new EventEmitter<{member: GgServerMember, role: string}>();
   @Output() confirmKick = new EventEmitter<GgServerMember>();
+  @Output() confirmBan = new EventEmitter<GgServerMember>();
 }
+
