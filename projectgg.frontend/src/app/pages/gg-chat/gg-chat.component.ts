@@ -127,6 +127,13 @@ export class GgChatComponent implements OnInit, OnDestroy {
   voiceConnecting = false;
   voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
   speakingUsers = new Set<string>();
+  localMicActive = false;
+  // Audio device selection
+  audioInputDevices: MediaDeviceInfo[] = [];
+  audioOutputDevices: MediaDeviceInfo[] = [];
+  selectedInputId: string = 'default';
+  selectedOutputId: string = 'default';
+  showDevicePicker = false;
 
   // DM
   dmConversations: DmConversation[] = [];
@@ -1025,17 +1032,33 @@ export class GgChatComponent implements OnInit, OnDestroy {
         }
         this.cdr.markForCheck();
       };
+      this.voiceService.onLocalSpeaking = (speaking) => {
+        this.localMicActive = speaking;
+        this.cdr.markForCheck();
+      };
 
       await this.voiceService.joinChannel('', String(channel.id));
       this.voiceConnected = true;
       this.voiceChannelId = String(channel.id);
       this.voiceMuted = false;
       this.voiceDeafened = false;
+      this.enumerateAudioDevices();
     } catch (e) {
       console.error('Voice join failed:', e);
     }
     this.voiceConnecting = false;
     this.cdr.markForCheck();
+  }
+
+  private async enumerateAudioDevices(): Promise<void> {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      this.audioInputDevices = devices.filter(d => d.kind === 'audioinput');
+      this.audioOutputDevices = devices.filter(d => d.kind === 'audiooutput');
+      this.cdr.markForCheck();
+    } catch (e) {
+      console.error('Failed to enumerate devices:', e);
+    }
   }
 
   leaveVoice(): void {
@@ -1045,10 +1068,12 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceMuted = false;
     this.voiceDeafened = false;
     this.voiceMembers = [];
+    this.localMicActive = false;
     this.voiceService.onMemberJoined = null;
     this.voiceService.onMemberLeft = null;
     this.voiceService.onUserSpeaking = null;
     this.voiceService.onUserStoppedSpeaking = null;
+    this.voiceService.onLocalSpeaking = null;
   }
 
   toggleVoiceMute(): void {
@@ -1067,6 +1092,30 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.voiceService.mute();
       this.voiceMuted = true;
     }
+  }
+
+  toggleDevicePicker(): void {
+    this.showDevicePicker = !this.showDevicePicker;
+    this.cdr.markForCheck();
+  }
+
+  async selectInputDevice(deviceId: string): Promise<void> {
+    this.selectedInputId = deviceId;
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true },
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      stream.getTracks().forEach(t => t.stop());
+      this.cdr.markForCheck();
+    } catch (e) {
+      console.error('Failed to select input device:', e);
+    }
+  }
+
+  selectOutputDevice(deviceId: string): void {
+    this.selectedOutputId = deviceId;
+    this.cdr.markForCheck();
   }
 
   voiceMemberName(userId: string): string {

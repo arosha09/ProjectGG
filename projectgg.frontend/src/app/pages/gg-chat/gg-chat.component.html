@@ -36,6 +36,11 @@
       [voiceChannelId]="voiceChannelId"
       [voiceMembers]="voiceMembers"
       [members]="members"
+      [showDevicePicker]="showDevicePicker"
+      [audioInputDevices]="audioInputDevices"
+      [audioOutputDevices]="audioOutputDevices"
+      [selectedInputId]="selectedInputId"
+      [selectedOutputId]="selectedOutputId"
       [(serverDropdownOpen)]="serverDropdownOpen"
       (selectServer)="selectServer($event)"
       (goToDms)="goToDms()"
@@ -52,6 +57,9 @@
       (toggleVoiceDeaf)="toggleVoiceDeaf()"
       (toggleVoice)="toggleVoice($event)"
       (leaveVoice)="leaveVoice()"
+      (toggleDevicePicker)="toggleDevicePicker()"
+      (onInputDeviceChange)="selectInputDevice($event)"
+      (onOutputDeviceChange)="selectOutputDevice($event)"
       (openChannelSettings)="openChannelSettings($event)"
     ></app-channel-list>
 
@@ -382,33 +390,45 @@
           } @else {
             <div class="gg-voice-active">
               @if (voiceMembers.length > 0) {
-                <div class="gg-voice-grid">
+                <!-- DISCORD-STYLE: just circle avatars in a row (no name labels) -->
+                <div class="gg-voice-avatars-row">
                   @for (vm of voiceMembers; track vm.userId) {
                     <div class="gg-voice-avatar-card"
                          [class.self]="vm.userId === currentUser?.id"
-                         [class.speaking]="voiceMemberSpeaking(vm.userId)"
-                         [class.muted]="voiceMemberMuted(vm.userId)">
+                         [class.speaking]="voiceMemberSpeaking(vm.userId)">
                       <div class="gg-voice-avatar-ring" [class.speaking]="voiceMemberSpeaking(vm.userId)">
                         <div class="gg-voice-avatar">
                           @if (voiceMemberAvatar(vm.userId)) {
-                            <img [src]="voiceMemberAvatar(vm.userId)!" alt="" />
+                            <img [src]="voiceMemberAvatar(vm.userId)!" alt="{{ voiceMemberName(vm.userId) }}" />
                           } @else {
                             <span class="gg-voice-avatar-initial">{{ voiceMemberName(vm.userId)[0] }}</span>
                           }
                         </div>
-                        @if (voiceMemberMuted(vm.userId) || voiceMemberDeafened(vm.userId)) {
-                          <div class="gg-voice-avatar-status-badge">
-                            <mat-icon>{{ voiceMemberDeafened(vm.userId) ? 'headset_off' : 'mic_off' }}</mat-icon>
-                          </div>
-                        }
                       </div>
-                      <span class="gg-voice-avatar-name">{{ voiceMemberName(vm.userId) }}</span>
-                      @if (vm.userId === currentUser?.id) {
-                        <span class="gg-voice-you-badge">You</span>
+                      @if (voiceMemberMuted(vm.userId) || voiceMemberDeafened(vm.userId)) {
+                        <div class="gg-voice-avatar-status-icon"
+                             [class.muted]="voiceMemberMuted(vm.userId) && !voiceMemberDeafened(vm.userId)"
+                             [class.deafened]="voiceMemberDeafened(vm.userId)">
+                          <mat-icon>{{ voiceMemberDeafened(vm.userId) ? 'headset_off' : 'mic_off' }}</mat-icon>
+                        </div>
                       }
                     </div>
                   }
                 </div>
+
+                <!-- Talking-while-muted warning banner -->
+                @if ((voiceMuted || voiceDeafened) && localMicActive) {
+                  <div class="gg-voice-muted-warning" [class.deafened]="voiceDeafened">
+                    <mat-icon>warning</mat-icon>
+                    <span>
+                      @if (voiceDeafened) {
+                        You're deafened — others can't hear or hear you
+                      } @else {
+                        You're muted — others can't hear you
+                      }
+                    </span>
+                  </div>
+                }
               } @else {
                 <div class="gg-voice-empty">No one is here yet</div>
               }

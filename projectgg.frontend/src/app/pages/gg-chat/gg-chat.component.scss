@@ -1803,17 +1803,33 @@
 
 .gg-voice-connect-screen {
   display: flex; flex-direction: column; align-items: center; gap: 16px;
+  position: relative; padding: 32px;
+  &::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse at center, rgba(0, 255, 136, 0.06) 0%, transparent 60%);
+  }
+  > * { position: relative; z-index: 1; }
 }
 
 .gg-voice-channel-icon-wrap {
-  width: 80px; height: 80px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.15), rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.05));
-  border: 1px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.2);
-  mat-icon { font-size: 36px; width: 36px; height: 36px; color: var(--color-primary); }
+  width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 240, 255, 0.1));
+  border: 2px solid var(--neon-green);
+  box-shadow: 0 0 24px rgba(0, 255, 136, 0.3), inset 0 0 16px rgba(0, 255, 136, 0.15);
+  position: relative;
+  &::before, &::after {
+    content: ''; position: absolute; width: 14px; height: 14px;
+    border: 2px solid var(--neon-cyan);
+  }
+  &::before { top: -6px; left: -6px; border-right: none; border-bottom: none; }
+  &::after { bottom: -6px; right: -6px; border-left: none; border-top: none; }
+  mat-icon { font-size: 42px; width: 42px; height: 42px; color: var(--neon-green); }
 }
 
 .gg-voice-channel-name {
-  margin: 0; font-size: 20px; font-weight: 700; color: var(--text-primary);
+  margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary);
+  text-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+  letter-spacing: 1px;
 }
 
 .gg-voice-channel-desc {
@@ -1822,11 +1838,19 @@
 
 .gg-voice-join-btn {
   display: flex; align-items: center; gap: 8px; padding: 12px 32px;
-  border-radius: 12px; border: none; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 14px;
-  background: var(--neon-green); color: var(--bg-black);
+  border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 14px;
+  background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+  color: var(--bg-black);
+  text-transform: uppercase; letter-spacing: 1.5px;
   transition: all .2s;
+  clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);
+  position: relative;
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
-  &:hover { box-shadow: 0 0 20px rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.3); transform: translateY(-1px); }
+  &:hover {
+    box-shadow: 0 0 24px rgba(0, 255, 136, 0.5);
+    transform: translateY(-1px) scale(1.02);
+    filter: brightness(1.1);
+  }
 }
 
 .gg-voice-connecting-screen {
@@ -1850,37 +1874,56 @@
 }
 
 .gg-voice-active {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 32px; width: 100%; flex: 1; justify-content: flex-start; padding-left: 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 32px; width: 100%; flex: 1;
+  justify-content: flex-start; padding: 48px 24px 24px;
+  position: relative;
+  // cyber grid backdrop
+  &::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse at center top, rgba(0, 255, 136, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at center bottom, rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.04) 0%, transparent 60%);
+  }
+  > * { position: relative; z-index: 1; }
 }
 
-.gg-voice-grid {
-  display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 24px;
-  padding: 32px 16px; width: 100%;
+// DISCORD-STYLE: horizontal row of circle avatars, no name labels
+.gg-voice-avatars-row {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+  gap: 24px; padding: 16px; width: 100%;
 }
 
 .gg-voice-avatar-card {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
-  position: relative;
-  transition: all .3s;
-  &.speaking {
-    .gg-voice-avatar-ring {
-      border: 2px solid var(--neon-green);
-      box-shadow: 0 0 20px rgba(0, 255, 136, 0.6), 0 0 40px rgba(0, 255, 136, 0.3);
-    }
-  }
+  position: relative; transition: all .3s;
 }
 
 .gg-voice-avatar-ring {
-  width: 96px; height: 96px; border-radius: 50%; padding: 3px;
+  width: 88px; height: 88px; border-radius: 50%; padding: 3px;
   background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.2);
   border: 2px solid transparent;
   transition: all .3s;
+  position: relative;
   &.speaking {
     background: var(--neon-green);
     border: 2px solid var(--neon-green);
-    box-shadow: 0 0 16px rgba(0, 255, 136, 0.5),
-                0 0 32px rgba(0, 255, 136, 0.3);
+    box-shadow: 0 0 16px rgba(0, 255, 136, 0.6),
+                0 0 32px rgba(0, 255, 136, 0.4),
+                inset 0 0 12px rgba(0, 255, 136, 0.2);
+    animation: gg-speaking-pulse 1.5s ease-in-out infinite;
   }
+  // cyber corner ticks
+  &::before, &::after {
+    content: ''; position: absolute; width: 10px; height: 10px;
+    border: 2px solid var(--neon-cyan); opacity: 0; transition: opacity .3s;
+  }
+  &::before { top: -4px; left: -4px; border-right: none; border-bottom: none; }
+  &::after { bottom: -4px; right: -4px; border-left: none; border-top: none; }
+}
+
+@keyframes gg-speaking-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(0, 255, 136, 0.6), 0 0 32px rgba(0, 255, 136, 0.4); }
+  50% { box-shadow: 0 0 24px rgba(0, 255, 136, 0.8), 0 0 48px rgba(0, 255, 136, 0.5); }
 }
 
 .gg-voice-avatar {
@@ -1890,48 +1933,91 @@
 }
 
 .gg-voice-avatar-initial {
-  font-size: 28px; font-weight: 800; color: var(--color-primary);
+  font-size: 26px; font-weight: 800; color: var(--color-primary);
+  text-shadow: 0 0 8px rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.5);
 }
 
-.gg-voice-avatar-status-badge {
-  position: absolute; bottom: 0; right: 0; width: 26px; height: 26px;
+// Status icon to the RIGHT of the avatar (Discord-style)
+.gg-voice-avatar-status-icon {
+  position: absolute; right: -6px; bottom: -2px;
+  width: 26px; height: 26px;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: var(--neon-red); border: 2px solid var(--bg-black);
-  mat-icon { font-size: 12px; width: 12px; height: 12px; color: #fff; }
+  border: 2px solid var(--bg-black);
+  z-index: 2;
+  mat-icon { font-size: 14px; width: 14px; height: 14px; color: #fff; }
+  &.muted { background: var(--neon-red); }
+  &.deafened { background: var(--neon-gold); }
 }
 
-.gg-voice-avatar-name {
-  font-size: 12px; font-weight: 600; color: var(--text-primary); max-width: 100px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
-}
-
-.gg-voice-you-badge {
-  font-size: 10px; font-weight: 700; color: var(--color-primary); text-transform: uppercase;
-  background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.1);
-  padding: 2px 8px; border-radius: 4px;
-}
-
-.gg-voice-bottom-bar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 20px; border-radius: 16px;
-  background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.06);
-  border: 1px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.1);
+// Talking-while-muted warning banner
+.gg-voice-muted-warning {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px; border-radius: 8px;
+  background: rgba(255, 51, 102, 0.12);
+  border: 1px solid rgba(255, 51, 102, 0.4);
+  color: #ff6b8b; font-size: 13px; font-weight: 600;
+  animation: gg-warning-pulse 1.5s ease-in-out infinite;
   backdrop-filter: blur(8px);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--neon-red); }
+  &.deafened {
+    background: rgba(255, 170, 0, 0.12);
+    border-color: rgba(255, 170, 0, 0.4);
+    color: #ffb84d;
+    mat-icon { color: var(--neon-gold); }
+  }
 }
 
-.gg-voice-bar-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 48px; height: 48px; border-radius: 50%; border: none;
-  background: var(--bg-elevated); color: var(--text-primary); cursor: pointer;
+@keyframes gg-warning-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 51, 102, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(255, 51, 102, 0.5); }
+}
+
+// ── DEVICE PICKER (Discord-style) ──
+.gg-voice-device-picker {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 12px; margin: 4px 0 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--neon-cyan);
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2), inset 0 0 8px rgba(0, 240, 255, 0.05);
+  backdrop-filter: blur(8px);
+  position: relative;
+  &::before {
+    content: ''; position: absolute; top: -1px; left: 8px; width: 30%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+  }
+}
+
+.gg-vdp-section {
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.gg-vdp-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; color: var(--neon-cyan);
+  text-transform: uppercase; letter-spacing: 1.2px;
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+}
+
+.gg-vdp-select {
+  width: 100%; padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.3);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: inherit; font-size: 11px;
+  cursor: pointer; outline: none;
   transition: all .15s;
-  mat-icon { font-size: 22px; width: 22px; height: 22px; }
-  &:hover { background: var(--border-subtle); }
-  &.active { background: var(--neon-red); color: #fff; }
-}
-
-.gg-voice-bar-disconnect {
-  background: var(--neon-red); color: #fff; margin-left: 8px;
-  &:hover { box-shadow: 0 0 14px rgba(var(--neon-red), 0.4); filter: brightness(1.1); }
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--neon-cyan) 50%),
+                    linear-gradient(135deg, var(--neon-cyan) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 8px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 26px;
+  &:hover { border-color: var(--neon-cyan); }
+  &:focus { border-color: var(--neon-cyan); box-shadow: 0 0 6px rgba(0, 240, 255, 0.3); }
+  option { background: var(--bg-black); color: var(--text-primary); }
 }
 
 // ── VOICE USERS UNDER CHANNEL (sidebar) ──
@@ -2602,7 +2688,7 @@
   .gg-gif-item { width: calc(33.33% - 2px); }
 
   .gg-voice-panel { padding: 16px; }
-  .gg-voice-grid { gap: 16px; padding: 24px 8px; }
+  .gg-voice-avatars-row { gap: 16px; padding: 12px 8px; }
   .gg-voice-avatar-ring { width: 72px; height: 72px; }
 
   .gg-modal { width: calc(100% - 16px); padding: 16px; }
@@ -2637,10 +2723,8 @@
 
   .gg-channels-head { padding: 8px; }
   .gg-voice-panel { padding: 12px; }
-  .gg-voice-grid { gap: 12px; padding: 16px 4px; }
+  .gg-voice-avatars-row { gap: 12px; padding: 8px 4px; }
   .gg-voice-avatar-ring { width: 64px; height: 64px; }
-  .gg-voice-bottom-bar { padding: 8px 12px; gap: 8px; }
-  .gg-voice-bar-btn { width: 40px; height: 40px; }
 
   .gg-friend-row { flex-wrap: wrap; gap: 6px; }
   .gg-friend-actions { width: 100%; justify-content: flex-end; }

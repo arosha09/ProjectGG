@@ -295,6 +295,11 @@ import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from 
             <button type="button" class="gg-voice-control-btn" [class.active]="voiceDeafened" (click)="toggleVoiceDeaf.emit()" title="{{ voiceDeafened ? 'Undeafen' : 'Deafen' }}">
               <mat-icon>{{ voiceDeafened ? 'headset_off' : 'headset' }}</mat-icon>
             </button>
+            @if (voiceConnected) {
+              <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
+                <mat-icon>settings_voice</mat-icon>
+              </button>
+            }
             @if (selectedChannel && selectedChannel.type === 'voice') {
               @if (voiceConnected) {
                 <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
@@ -307,6 +312,40 @@ import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from 
               }
             }
           </div>
+
+          <!-- Device picker dropdown (Discord-style) -->
+          @if (showDevicePicker) {
+            <div class="gg-voice-device-picker">
+              <div class="gg-vdp-section">
+                <div class="gg-vdp-label">
+                  <mat-icon>mic</mat-icon>
+                  <span>Input Device</span>
+                </div>
+                <select class="gg-vdp-select" [value]="selectedInputId" (change)="onInputDeviceChange.emit($any($event.target).value)">
+                  @for (d of audioInputDevices; track d.deviceId) {
+                    <option [value]="d.deviceId">{{ d.label || ('Microphone ' + d.deviceId.slice(0, 6)) }}</option>
+                  }
+                  @if (audioInputDevices.length === 0) {
+                    <option value="default">Default Microphone</option>
+                  }
+                </select>
+              </div>
+              <div class="gg-vdp-section">
+                <div class="gg-vdp-label">
+                  <mat-icon>volume_up</mat-icon>
+                  <span>Output Device</span>
+                </div>
+                <select class="gg-vdp-select" [value]="selectedOutputId" (change)="onOutputDeviceChange.emit($any($event.target).value)">
+                  @for (d of audioOutputDevices; track d.deviceId) {
+                    <option [value]="d.deviceId">{{ d.label || ('Speaker ' + d.deviceId.slice(0, 6)) }}</option>
+                  }
+                  @if (audioOutputDevices.length === 0) {
+                    <option value="default">Default Speaker</option>
+                  }
+                </select>
+              </div>
+            </div>
+          }
         </div>
       } @else {
         <div class="gg-no-server">
@@ -352,6 +391,11 @@ export class ChannelListComponent {
   @Input() voiceChannelId: string | null = null;
   @Input() voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
   @Input() members: GgServerMember[] = [];
+  @Input() showDevicePicker = false;
+  @Input() audioInputDevices: MediaDeviceInfo[] = [];
+  @Input() audioOutputDevices: MediaDeviceInfo[] = [];
+  @Input() selectedInputId = 'default';
+  @Input() selectedOutputId = 'default';
   @Input() serverDropdownOpen = false;
 
   @Output() selectServer = new EventEmitter<GgServer>();
@@ -369,6 +413,9 @@ export class ChannelListComponent {
   @Output() toggleVoiceDeaf = new EventEmitter<void>();
   @Output() toggleVoice = new EventEmitter<GgChannel>();
   @Output() leaveVoice = new EventEmitter<void>();
+  @Output() toggleDevicePicker = new EventEmitter<void>();
+  @Output() onInputDeviceChange = new EventEmitter<string>();
+  @Output() onOutputDeviceChange = new EventEmitter<string>();
   @Output() profileMenuOpenChange = new EventEmitter<boolean>();
   @Output() serverDropdownOpenChange = new EventEmitter<boolean>();
   @Output() openChannelSettings = new EventEmitter<GgChannel>();

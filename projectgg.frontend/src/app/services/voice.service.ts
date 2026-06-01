@@ -27,6 +27,7 @@ export class VoiceService implements OnDestroy {
   onUserSpeaking: ((userId: string) => void) | null = null;
   onUserStoppedSpeaking: ((userId: string) => void) | null = null;
   onAllVoiceState: ((channels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[]) => void) | null = null;
+  onLocalSpeaking: ((speaking: boolean) => void) | null = null;
 
   constructor(
     private readonly auth: AuthService,
@@ -110,6 +111,7 @@ export class VoiceService implements OnDestroy {
     if (!this.analyser) return;
     const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     let wasSpeaking = false;
+    let wasLocalSpeaking = false;
     const threshold = 15;
 
     this.speakCheckInterval = setInterval(() => {
@@ -126,6 +128,11 @@ export class VoiceService implements OnDestroy {
         this.socket.emit('stopped-speaking');
       }
       wasSpeaking = isSpeaking;
+
+      if (isSpeaking !== wasLocalSpeaking) {
+        wasLocalSpeaking = isSpeaking;
+        this.onLocalSpeaking?.(isSpeaking);
+      }
     }, 150);
   }
 
