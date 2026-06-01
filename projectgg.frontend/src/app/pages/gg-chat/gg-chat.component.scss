@@ -2051,25 +2051,50 @@
 
 // Talking-while-muted warning banner
 .gg-voice-muted-warning {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 18px; border-radius: 8px;
-  background: rgba(255, 51, 102, 0.12);
-  border: 1px solid rgba(255, 51, 102, 0.4);
-  color: #ff6b8b; font-size: 13px; font-weight: 600;
-  animation: gg-warning-pulse 1.5s ease-in-out infinite;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 22px; border-radius: 10px;
+  background: rgba(255, 51, 102, 0.15);
+  border: 1.5px solid var(--neon-red);
+  color: #ff6b8b; font-size: 14px; font-weight: 700;
+  letter-spacing: 0.5px;
+  animation: gg-warning-pulse 1.2s ease-in-out infinite;
   backdrop-filter: blur(8px);
-  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--neon-red); }
+  position: relative;
+  text-transform: uppercase;
+  &::before {
+    content: ''; position: absolute; inset: -1px;
+    border-radius: 10px; pointer-events: none;
+    background: linear-gradient(135deg, transparent, rgba(255, 51, 102, 0.2), transparent);
+  }
+  mat-icon {
+    font-size: 22px; width: 22px; height: 22px; color: var(--neon-red);
+    filter: drop-shadow(0 0 6px rgba(255, 51, 102, 0.8));
+    animation: gg-warning-icon-shake 0.6s ease-in-out infinite;
+  }
   &.deafened {
-    background: rgba(255, 170, 0, 0.12);
-    border-color: rgba(255, 170, 0, 0.4);
+    background: rgba(255, 170, 0, 0.15);
+    border-color: var(--neon-gold);
     color: #ffb84d;
-    mat-icon { color: var(--neon-gold); }
+    mat-icon { color: var(--neon-gold); filter: drop-shadow(0 0 6px rgba(255, 170, 0, 0.8)); }
+    &::before { background: linear-gradient(135deg, transparent, rgba(255, 170, 0, 0.2), transparent); }
   }
 }
 
 @keyframes gg-warning-pulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(255, 51, 102, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(255, 51, 102, 0.5); }
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(255, 51, 102, 0.3), 0 0 32px rgba(255, 51, 102, 0.15);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(255, 51, 102, 0.6), 0 0 48px rgba(255, 51, 102, 0.3);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes gg-warning-icon-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
 }
 
 // ── DEVICE PICKER (Discord-style) ──

@@ -93,12 +93,16 @@ export class VoiceService implements OnDestroy {
       audio: { echoCancellation: true, noiseSuppression: true },
     });
 
+    // Audio graph:
+    //   source → gain → destination  (gain controls mute, sent to other users)
+    //   source → analyser           (analyser ALWAYS sees raw audio for talk-detection)
     this.gainNode = this.audioContext.createGain();
-    this.gainNode.gain.value = 0;
+    this.gainNode.gain.value = 1;
 
     this.destination = this.audioContext.createMediaStreamDestination();
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-    source.connect(this.destination);
+    source.connect(this.gainNode);
+    this.gainNode.connect(this.destination);
 
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 256;
@@ -116,17 +120,19 @@ export class VoiceService implements OnDestroy {
     const threshold = 15;
 
     this.speakCheckInterval = setInterval(() => {
-      if (!this.analyser || !this.socket || !this.isConnected) return;
+      if (!this.analyser || !this.isConnected) return;
       this.analyser.getByteFrequencyData(dataArray);
       let sum = 0;
       for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
       const avg = sum / dataArray.length;
       const isSpeaking = avg > threshold;
 
-      if (isSpeaking && !wasSpeaking) {
-        this.socket.emit('speaking');
-      } else if (!isSpeaking && wasSpeaking) {
-        this.socket.emit('stopped-speaking');
+      if (this.socket) {
+        if (isSpeaking && !wasSpeaking) {
+          this.socket.emit('speaking');
+        } else if (!isSpeaking && wasSpeaking) {
+          this.socket.emit('stopped-speaking');
+        }
       }
       wasSpeaking = isSpeaking;
 
@@ -225,15 +231,17 @@ export class VoiceService implements OnDestroy {
   }
 
   mute(): void {
-    if (this.mediaStream) {
-      this.mediaStream.getAudioTracks().forEach(t => (t.enabled = false));
+    // Use gain node to silence the audio going to the destination (other users)
+    // but keep the track enabled so the analyser can still detect local talking
+    if (this.gainNode) {
+      this.gainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
     }
     this.socket?.emit('mute');
   }
 
   unmute(): void {
-    if (this.mediaStream) {
-      this.mediaStream.getAudioTracks().forEach(t => (t.enabled = true));
+    if (this.gainNode) {
+      this.gainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
     }
     this.socket?.emit('unmute');
   }
@@ -244,6 +252,8 @@ export class VoiceService implements OnDestroy {
   }
 
   undeafen(): void {
+    // undeafen implies unmute (deafened state was both muted and deafened)
+    this.unmute();
     this.socket?.emit('undeafen');
   }
 

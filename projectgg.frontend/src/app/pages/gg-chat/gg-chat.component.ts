@@ -1101,20 +1101,35 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   toggleVoiceMute(): void {
     if (this.voiceMuted) {
+      // Turning OFF mute
       this.voiceService.unmute();
       this.voiceMuted = false;
+      if (this.voiceDeafened) {
+        // defeaned state implies muted+deafened. Turning off mute also clears deafen.
+        this.voiceService.undeafen();
+        this.voiceDeafened = false;
+      }
     } else {
+      // Turning ON mute (just mute, don't change deafen state)
       this.voiceService.mute();
       this.voiceMuted = true;
     }
+    this.cdr.markForCheck();
   }
 
   toggleVoiceDeaf(): void {
-    this.voiceDeafened = !this.voiceDeafened;
     if (this.voiceDeafened) {
-      this.voiceService.mute();
+      // Turning OFF deafen: also unmute (since defeaned implies muted+deafened)
+      this.voiceService.undeafen();
+      this.voiceDeafened = false;
+      this.voiceMuted = false;
+    } else {
+      // Turning ON deafen: also mute
+      this.voiceService.deafen();
+      this.voiceDeafened = true;
       this.voiceMuted = true;
     }
+    this.cdr.markForCheck();
   }
 
   toggleDevicePicker(): void {
