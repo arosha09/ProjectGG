@@ -28,6 +28,7 @@ export class VoiceService implements OnDestroy {
   onUserStoppedSpeaking: ((userId: string) => void) | null = null;
   onAllVoiceState: ((channels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[]) => void) | null = null;
   onLocalSpeaking: ((speaking: boolean) => void) | null = null;
+  onMicPermissionError: ((error: string) => void) | null = null;
 
   constructor(
     private readonly auth: AuthService,
@@ -65,7 +66,7 @@ export class VoiceService implements OnDestroy {
 
           const micOk = await this.setupAudio().then(() => true).catch(() => false);
           if (!micOk) {
-            this.notification.triggerStatusMessage('Microphone access is required for voice chat. Please allow mic permissions.');
+            this.onMicPermissionError?.('Microphone access is required for voice chat. Please allow mic permissions and reload.');
           }
 
           this.isConnected = true;

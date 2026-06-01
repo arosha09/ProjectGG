@@ -1,11 +1,19 @@
-<div class="cyber-select-wrap">
+<div class="cyber-select-wrap" [class.open-above]="openAbove()">
+  @if (label()) {
+    <div class="cyber-select-label">
+      @if (icon()) {
+        <mat-icon class="lbl-icon">{{ icon() }}</mat-icon>
+      }
+      <span>{{ label() }}</span>
+    </div>
+  }
   <button class="cyber-select-trigger" type="button" [disabled]="disabled()" (click)="toggle()">
     <span class="sel-text" [class.placeholder]="!selectedLabel">{{ selectedLabel || placeholder() }}</span>
-    <span class="sel-arrow">&#9662;</span>
+    <span class="sel-arrow" [class.up]="open() && openAbove()" [class.down]="open() && !openAbove()">▼</span>
   </button>
 
   @if (open()) {
-    <div class="sel-popup">
+    <div class="sel-popup" [class.above]="openAbove()">
       @for (opt of options(); track opt.value) {
         <button class="sel-option" [class.active]="opt.value === value()" type="button" (click)="select(opt)">
           {{ opt.label }}

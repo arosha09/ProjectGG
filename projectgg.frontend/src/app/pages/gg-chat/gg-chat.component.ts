@@ -128,6 +128,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
   speakingUsers = new Set<string>();
   localMicActive = false;
+  micPermissionError: string | null = null;
   // Audio device selection
   audioInputDevices: MediaDeviceInfo[] = [];
   audioOutputDevices: MediaDeviceInfo[] = [];
@@ -1036,6 +1037,16 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.localMicActive = speaking;
         this.cdr.markForCheck();
       };
+      this.voiceService.onMicPermissionError = (err) => {
+        this.micPermissionError = err;
+        this.voiceConnected = false;
+        this.voiceChannelId = null;
+        this.voiceMuted = false;
+        this.voiceDeafened = false;
+        this.voiceMembers = [];
+        this.localMicActive = false;
+        this.cdr.markForCheck();
+      };
 
       await this.voiceService.joinChannel('', String(channel.id));
       this.voiceConnected = true;
@@ -1069,11 +1080,13 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceDeafened = false;
     this.voiceMembers = [];
     this.localMicActive = false;
+    this.micPermissionError = null;
     this.voiceService.onMemberJoined = null;
     this.voiceService.onMemberLeft = null;
     this.voiceService.onUserSpeaking = null;
     this.voiceService.onUserStoppedSpeaking = null;
     this.voiceService.onLocalSpeaking = null;
+    this.voiceService.onMicPermissionError = null;
   }
 
   toggleVoiceMute(): void {
@@ -1096,6 +1109,11 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   toggleDevicePicker(): void {
     this.showDevicePicker = !this.showDevicePicker;
+    this.cdr.markForCheck();
+  }
+
+  dismissMicError(): void {
+    this.micPermissionError = null;
     this.cdr.markForCheck();
   }
 
@@ -1388,6 +1406,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
     if (this.showAddFriend) { this.showAddFriend = false; this.cdr.markForCheck(); }
     if (this.showInviteLinks) { this.closeInviteLinks(); this.cdr.markForCheck(); }
     if (this.showJoinServer) { this.showJoinServer = false; this.cdr.markForCheck(); }
+    if (this.showDevicePicker) { this.showDevicePicker = false; this.cdr.markForCheck(); }
+    if (this.micPermissionError) { this.micPermissionError = null; this.cdr.markForCheck(); }
   }
 
   @HostListener('window:blur')

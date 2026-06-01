@@ -4,11 +4,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from '../../../services/chat.service';
+import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyber-select/cyber-select.component';
 
 @Component({
   selector: 'app-channel-list',
   standalone: true,
-  imports: [CommonModule, MatIconModule, FormsModule, RouterModule],
+  imports: [CommonModule, MatIconModule, FormsModule, RouterModule, CyberSelectComponent],
   host: { style: 'display: contents' },
   template: `
     <aside class="gg-channels">
@@ -313,37 +314,27 @@ import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from 
             }
           </div>
 
-          <!-- Device picker dropdown (Discord-style) -->
+          <!-- Device picker (Discord-style) - opens above, custom cyber dropdown -->
           @if (showDevicePicker) {
             <div class="gg-voice-device-picker">
-              <div class="gg-vdp-section">
-                <div class="gg-vdp-label">
-                  <mat-icon>mic</mat-icon>
-                  <span>Input Device</span>
-                </div>
-                <select class="gg-vdp-select" [value]="selectedInputId" (change)="onInputDeviceChange.emit($any($event.target).value)">
-                  @for (d of audioInputDevices; track d.deviceId) {
-                    <option [value]="d.deviceId">{{ d.label || ('Microphone ' + d.deviceId.slice(0, 6)) }}</option>
-                  }
-                  @if (audioInputDevices.length === 0) {
-                    <option value="default">Default Microphone</option>
-                  }
-                </select>
-              </div>
-              <div class="gg-vdp-section">
-                <div class="gg-vdp-label">
-                  <mat-icon>volume_up</mat-icon>
-                  <span>Output Device</span>
-                </div>
-                <select class="gg-vdp-select" [value]="selectedOutputId" (change)="onOutputDeviceChange.emit($any($event.target).value)">
-                  @for (d of audioOutputDevices; track d.deviceId) {
-                    <option [value]="d.deviceId">{{ d.label || ('Speaker ' + d.deviceId.slice(0, 6)) }}</option>
-                  }
-                  @if (audioOutputDevices.length === 0) {
-                    <option value="default">Default Speaker</option>
-                  }
-                </select>
-              </div>
+              <app-cyber-select
+                [options]="inputDeviceOptions"
+                [value]="selectedInputId"
+                [openAbove]="true"
+                icon="mic"
+                label="Input Device"
+                placeholder="Default Microphone"
+                (valueChange)="onInputDeviceChange.emit($event)"
+              ></app-cyber-select>
+              <app-cyber-select
+                [options]="outputDeviceOptions"
+                [value]="selectedOutputId"
+                [openAbove]="true"
+                icon="volume_up"
+                label="Output Device"
+                placeholder="Default Speaker"
+                (valueChange)="onOutputDeviceChange.emit($event)"
+              ></app-cyber-select>
             </div>
           }
         </div>
@@ -464,6 +455,26 @@ export class ChannelListComponent {
       return this.voiceMembers;
     }
     return [];
+  }
+
+  get inputDeviceOptions(): CyberSelectOption[] {
+    if (this.audioInputDevices.length === 0) {
+      return [{ value: 'default', label: 'Default Microphone' }];
+    }
+    return this.audioInputDevices.map((d, i) => ({
+      value: d.deviceId,
+      label: d.label || `Microphone ${i + 1}`,
+    }));
+  }
+
+  get outputDeviceOptions(): CyberSelectOption[] {
+    if (this.audioOutputDevices.length === 0) {
+      return [{ value: 'default', label: 'Default Speaker' }];
+    }
+    return this.audioOutputDevices.map((d, i) => ({
+      value: d.deviceId,
+      label: d.label || `Speaker ${i + 1}`,
+    }));
   }
 
   voiceMemberName(userId: string): string {

@@ -369,7 +369,19 @@
       <!-- VOICE CHANNEL -->
       @if (viewMode === 'server' && selectedChannel && selectedChannel.type === 'voice') {
         <div class="gg-voice-panel">
-          @if (voiceConnecting) {
+          @if (micPermissionError) {
+            <div class="gg-voice-mic-error">
+              <mat-icon class="gg-voice-mic-error-icon">mic_off</mat-icon>
+              <h3 class="gg-voice-mic-error-title">Microphone Access Required</h3>
+              <p class="gg-voice-mic-error-msg">{{ micPermissionError }}</p>
+              <div class="gg-voice-mic-error-actions">
+                <button class="gg-voice-mic-retry" (click)="selectChannel(selectedChannel)">
+                  <mat-icon>refresh</mat-icon> Retry
+                </button>
+                <button class="gg-voice-mic-dismiss" (click)="dismissMicError()">Dismiss</button>
+              </div>
+            </div>
+          } @else if (voiceConnecting) {
             <div class="gg-voice-connecting-screen">
               <div class="gg-voice-connecting-ring"></div>
               <mat-icon class="gg-voice-connecting-icon">headset</mat-icon>
@@ -390,7 +402,7 @@
           } @else {
             <div class="gg-voice-active">
               @if (voiceMembers.length > 0) {
-                <!-- DISCORD-STYLE: just circle avatars in a row (no name labels) -->
+                <!-- BIG avatars with display name under, centered -->
                 <div class="gg-voice-avatars-row">
                   @for (vm of voiceMembers; track vm.userId) {
                     <div class="gg-voice-avatar-card"
@@ -404,14 +416,17 @@
                             <span class="gg-voice-avatar-initial">{{ voiceMemberName(vm.userId)[0] }}</span>
                           }
                         </div>
+                        @if (voiceMemberMuted(vm.userId) || voiceMemberDeafened(vm.userId)) {
+                          <div class="gg-voice-avatar-status-icon"
+                               [class.muted]="voiceMemberMuted(vm.userId) && !voiceMemberDeafened(vm.userId)"
+                               [class.deafened]="voiceMemberDeafened(vm.userId)">
+                            <mat-icon>{{ voiceMemberDeafened(vm.userId) ? 'headset_off' : 'mic_off' }}</mat-icon>
+                          </div>
+                        }
                       </div>
-                      @if (voiceMemberMuted(vm.userId) || voiceMemberDeafened(vm.userId)) {
-                        <div class="gg-voice-avatar-status-icon"
-                             [class.muted]="voiceMemberMuted(vm.userId) && !voiceMemberDeafened(vm.userId)"
-                             [class.deafened]="voiceMemberDeafened(vm.userId)">
-                          <mat-icon>{{ voiceMemberDeafened(vm.userId) ? 'headset_off' : 'mic_off' }}</mat-icon>
-                        </div>
-                      }
+                      <span class="gg-voice-avatar-name">
+                        {{ voiceMemberName(vm.userId) }}{{ vm.userId === currentUser?.id ? ' (You)' : '' }}
+                      </span>
                     </div>
                   }
                 </div>
@@ -422,7 +437,7 @@
                     <mat-icon>warning</mat-icon>
                     <span>
                       @if (voiceDeafened) {
-                        You're deafened — others can't hear or hear you
+                        You're deafened — others can't hear you
                       } @else {
                         You're muted — others can't hear you
                       }
