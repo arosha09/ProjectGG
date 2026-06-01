@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectorRef, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
@@ -27,36 +27,41 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
           <div class="reel-loading-core">
             <mat-icon class="reel-loading-icon">memory</mat-icon>
             <div class="reel-loading-progress">
-              <div class="reel-loading-bar"></div>
+              <div class="reel-loading-bar" [style.width.%]="loadingPercent"></div>
             </div>
-            <div class="reel-loading-percent">{{ loadingPercent }}%</div>
+            <div class="reel-loading-percent">{{ loadingPercent | number:'1.0-0' }}%</div>
           </div>
         </div>
 
         <!-- REEL PHASE: actual spinning cards with images -->
-        <div class="reel-stage" *ngIf="!loadingData">
-          <div class="reel-container">
-            <div class="reel-scanlines"></div>
-            <div class="reel-track" [class.fast]="reelPhase === 'fast'" [class.slow]="reelPhase === 'slow'" [class.stop]="reelPhase === 'stop'" [style.transform]="'translateX(' + reelOffsetPx + 'px)'">
-              <ng-container *ngFor="let card of reelCards; let i = index">
-                <div class="reel-card" [class.highlight]="i === highlightIndex">
-                  <div class="reel-card-inner" [class]="'tier-' + card.card_tier">
-                    <ng-container *ngIf="card.cover_url; else noCoverReel">
-                      <img [src]="card.cover_url" alt="" class="reel-card-img" (error)="onImgError($event)" />
-                    </ng-container>
-                    <ng-template #noCoverReel>
-                      <div class="reel-card-placeholder">
-                        <span class="placeholder-icon">🎮</span>
-                        <span class="placeholder-tier">{{ card.card_tier | uppercase }}</span>
-                      </div>
-                    </ng-template>
-                  </div>
+        <div class="reel-container" *ngIf="!loadingData">
+          <div class="reel-scanlines"></div>
+          <div class="reel-track" [style.transform]="trackTransform">
+            <ng-container *ngFor="let card of reelCards; let i = index; trackBy: trackByCard">
+              <div class="reel-card" [class.highlight]="i === highlightIndex">
+                <div class="reel-card-inner" [class]="'tier-' + card.card_tier">
+                  <ng-container *ngIf="card.cover_url; else noCoverReel">
+                    <img [src]="card.cover_url" alt="" class="reel-card-img" (error)="onImgError($event)" />
+                  </ng-container>
+                  <ng-template #noCoverReel>
+                    <div class="reel-card-placeholder">
+                      <span class="placeholder-icon">🎮</span>
+                      <span class="placeholder-tier">{{ card.card_tier | uppercase }}</span>
+                    </div>
+                  </ng-template>
                 </div>
-              </ng-container>
-              <div class="reel-card-glow"></div>
-            </div>
-            <div class="reel-pointer"></div>
+              </div>
+            </ng-container>
+            <div class="reel-card-glow"></div>
           </div>
+          <div class="reel-pointer"></div>
+        </div>
+
+        <!-- SKIP button (only during reel phase) -->
+        <div class="reel-bottom" *ngIf="!loadingData && resultCard">
+          <button class="reel-skip" (click)="skipReel()">
+            <mat-icon>skip_next</mat-icon> SKIP
+          </button>
         </div>
       </div>
     </ng-container>
@@ -174,7 +179,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       flex-direction: column;
       align-items: center;
       gap: 6px;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       z-index: 2;
     }
 
@@ -262,7 +267,6 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       background: rgba(255, 255, 255, 0.08);
       border-radius: 999px;
       overflow: hidden;
-      position: relative;
     }
 
     .reel-loading-bar {
@@ -286,32 +290,18 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       font-family: 'Courier New', monospace;
     }
 
-    /* ── REEL STAGE (cards with images) ── */
-    .reel-stage {
-      width: 100%;
-      max-width: 880px;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2;
-      animation: stage-in 0.4s ease-out;
-    }
-
-    @keyframes stage-in {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
+    /* ── REEL CONTAINER (cards with images) ── */
     .reel-container {
       position: relative;
       width: 100%;
+      max-width: 820px;
       height: 220px;
       overflow: hidden;
       border-top: 1px solid rgba(255, 45, 111, 0.45);
       border-bottom: 1px solid rgba(255, 45, 111, 0.45);
       background: linear-gradient(180deg, rgba(11, 12, 22, 0.85), rgba(8, 9, 18, 0.96));
       box-shadow: inset 0 0 60px rgba(255, 45, 111, 0.09), 0 0 40px rgba(0, 0, 0, 0.5);
+      z-index: 2;
     }
 
     .reel-track {
@@ -322,14 +312,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       left: 0;
       height: 100%;
       align-items: center;
-      transition: transform 3.2s cubic-bezier(0.14, 0.84, 0.16, 1);
       will-change: transform;
-    }
-
-    .reel-track.fast { filter: saturate(1.1); }
-
-    .reel-track.stop {
-      transition: transform 0.8s cubic-bezier(0.08, 0.74, 0.08, 1);
     }
 
     .reel-card {
@@ -348,7 +331,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       border-radius: 8px;
       overflow: hidden;
       border: 2px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.3s;
+      transition: transform 0.3s, box-shadow 0.3s;
       background: var(--bg-dark);
     }
 
@@ -445,6 +428,44 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       background: linear-gradient(180deg, rgba(255,255,255,0.06), transparent 18%, transparent 82%, rgba(255,255,255,0.04));
       pointer-events: none;
       opacity: 0.55;
+    }
+
+    /* ── SKIP BUTTON ── */
+    .reel-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+      z-index: 2;
+    }
+
+    .reel-skip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 45, 111, 0.4);
+      border-radius: 6px;
+      color: rgba(241, 247, 255, 0.85);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+      &:hover {
+        background: rgba(255, 45, 111, 0.18);
+        border-color: rgba(255, 45, 111, 0.8);
+        color: #fff;
+        box-shadow: 0 0 14px rgba(255, 45, 111, 0.4);
+      }
+
+      &:active { transform: scale(0.97); }
     }
 
     /* ── RESULT ── */
@@ -654,7 +675,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
     }
 
     @media (max-width: 780px) {
-      .reel-container { height: 196px; }
+      .reel-container { max-width: calc(100vw - 24px); height: 196px; }
       .result-body { grid-template-columns: 1fr; }
       .result-art { max-width: 280px; margin: 0 auto; }
       .result-header h3 { font-size: 20px; }
@@ -663,12 +684,11 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
     }
   `],
 })
-export class CardDrawComponent {
+export class CardDrawComponent implements OnDestroy {
   @Input() ticketCount = 0;
   @Output() drawComplete = new EventEmitter<{ card: DrawCard; isNew: boolean; xp: number }>();
 
   state: 'idle' | 'reeling' | 'result' = 'idle';
-  reelPhase: 'fast' | 'slow' | 'stop' = 'fast';
   reelCards: DrawCard[] = [];
   highlightIndex = 15;
   reelOffsetPx = 0;
@@ -684,6 +704,15 @@ export class CardDrawComponent {
   private reelTimers: ReturnType<typeof setTimeout>[] = [];
   private loadingTimers: ReturnType<typeof setTimeout>[] = [];
   private percentInterval: ReturnType<typeof setInterval> | null = null;
+  private rafId: number | null = null;
+
+  get trackTransform(): string {
+    return `translate3d(${this.reelOffsetPx}px, 0, 0)`;
+  }
+
+  trackByCard(index: number, card: DrawCard): number {
+    return index;
+  }
 
   private readonly loadingMessages = [
     'initializing neural link...',
@@ -703,7 +732,11 @@ export class CardDrawComponent {
     legendary: '#ffd700',
   };
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone,
+  ) {}
 
   tierColor(tier: string): string {
     return this.tierColors[tier] || this.tierColors['common'];
@@ -753,6 +786,14 @@ export class CardDrawComponent {
       clearInterval(this.percentInterval);
       this.percentInterval = null;
     }
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.clearTimers();
   }
 
   private startLoadingSequence(): void {
@@ -807,9 +848,10 @@ export class CardDrawComponent {
   skipReel(): void {
     if (this.state !== 'reeling' || !this.resultCard) return;
     this.clearTimers();
-    this.reelPhase = 'stop';
-    this.reelOffsetPx = this.getFinalOffset();
-    this.showResult();
+    const finalOffset = this.getFinalOffset();
+    this.reelOffsetPx = finalOffset;
+    this.cdr.markForCheck();
+    setTimeout(() => this.showResult(), 400);
   }
 
   private showResult(): void {
@@ -817,39 +859,71 @@ export class CardDrawComponent {
     this.drawComplete.emit({ card: this.resultCard!, isNew: this.isNew, xp: this.xpAwarded });
   }
 
-  private runReel(result: DrawResult): void {
+  private animateReel(result: DrawResult): void {
     const realCard = this.normalizeResult(result);
     this.reelCards[this.highlightIndex] = realCard;
     this.resultCard = realCard;
     this.isNew = !!result.is_new;
     this.xpAwarded = result.xp_awarded ?? 0;
+    this.cdr.markForCheck();
 
     const finalOffset = this.getFinalOffset();
+    // Spin through several full "slots" past the final position so it looks like a real spin
+    const startOffset = 200; // start slightly to the right of center
+    const totalDuration = 4500; // ms
+    const startTime = performance.now();
 
-    this.reelTimers.push(
-      setTimeout(() => {
-        this.reelOffsetPx = finalOffset * 0.3;
-        this.reelPhase = 'slow';
-      }, 3000),
-      setTimeout(() => {
-        this.reelOffsetPx = finalOffset;
-        this.reelPhase = 'stop';
-      }, 4400),
-      setTimeout(() => {
-        this.showResult();
-      }, 5000),
-    );
+    // Run animation outside Angular's zone for smoothness, but call back into zone for change detection
+    this.zone.runOutsideAngular(() => {
+      const animate = (now: number) => {
+        const elapsed = now - startTime;
+        let progress: number;
+
+        if (elapsed < 3000) {
+          // Fast phase: 0–3s, linear motion from startOffset to (finalOffset + a few extra slots)
+          const t = elapsed / 3000;
+          progress = t;
+        } else if (elapsed < totalDuration) {
+          // Slow phase: 3s–4.5s, ease-out from (finalOffset + extra) to finalOffset
+          const t = (elapsed - 3000) / (totalDuration - 3000);
+          const eased = 1 - Math.pow(1 - t, 3);
+          progress = 1 + eased * 0.15;
+        } else {
+          // Final
+          this.reelOffsetPx = finalOffset;
+          this.zone.run(() => this.cdr.markForCheck());
+          setTimeout(() => this.zone.run(() => this.showResult()), 500);
+          this.rafId = null;
+          return;
+        }
+
+        // Start at +200, pass through finalOffset + 4 slots worth, then land on finalOffset
+        const overshoot = 4 * 156; // ~4 extra slots
+        const phase1End = finalOffset + overshoot;
+        if (elapsed < 3000) {
+          this.reelOffsetPx = startOffset + (phase1End - startOffset) * progress;
+        } else {
+          const t = (elapsed - 3000) / (totalDuration - 3000);
+          const eased = 1 - Math.pow(1 - t, 3);
+          this.reelOffsetPx = phase1End + (finalOffset - phase1End) * eased;
+        }
+
+        this.zone.run(() => this.cdr.markForCheck());
+        this.rafId = requestAnimationFrame(animate);
+      };
+      this.rafId = requestAnimationFrame(animate);
+    });
   }
 
   startDailyDraw(): void {
     this.clearTimers();
     this.state = 'reeling';
-    this.reelPhase = 'fast';
     this.reelOffsetPx = 0;
     this.resultCard = null;
     this.loadingData = true;
     this.reelCards = [];
     this.startLoadingSequence();
+    this.cdr.markForCheck();
 
     this.chatService.getDailyDrawCards().subscribe({
       next: (cards) => {
@@ -860,10 +934,11 @@ export class CardDrawComponent {
           this.finishLoading();
           setTimeout(() => {
             this.loadingData = false;
+            this.cdr.markForCheck();
             this.chatService.claimDailyDraw().subscribe({
               next: (result: DrawResult) => {
                 if (!result) { this.state = 'idle'; return; }
-                this.runReel(result);
+                this.animateReel(result);
               },
               error: () => { this.state = 'idle'; },
             });
@@ -877,12 +952,12 @@ export class CardDrawComponent {
   startTicketDraw(ticketId: number): void {
     this.clearTimers();
     this.state = 'reeling';
-    this.reelPhase = 'fast';
     this.reelOffsetPx = 0;
     this.resultCard = null;
     this.loadingData = true;
     this.reelCards = [];
     this.startLoadingSequence();
+    this.cdr.markForCheck();
 
     this.chatService.getDailyDrawCards().subscribe({
       next: (cards) => {
@@ -893,10 +968,11 @@ export class CardDrawComponent {
           this.finishLoading();
           setTimeout(() => {
             this.loadingData = false;
+            this.cdr.markForCheck();
             this.chatService.drawWithTicket(ticketId).subscribe({
               next: (result: DrawResult) => {
                 if (!result) { this.state = 'idle'; return; }
-                this.runReel(result);
+                this.animateReel(result);
               },
               error: () => { this.state = 'idle'; },
             });
@@ -908,10 +984,11 @@ export class CardDrawComponent {
         this.finishLoading();
         setTimeout(() => {
           this.loadingData = false;
+          this.cdr.markForCheck();
           this.chatService.drawWithTicket(ticketId).subscribe({
             next: (result: DrawResult) => {
               if (!result) { this.state = 'idle'; return; }
-              this.runReel(result);
+              this.animateReel(result);
             },
             error: () => { this.state = 'idle'; },
           });
