@@ -136,6 +136,27 @@ export class GamesSyncService {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
   }
 
+  /** Returns true if the name (normalized alphanumeric) has a sequel suffix (II, III, 2, 3, etc.) immediately after the given prefix. */
+  private static hasSequelSuffixAfter(normalizedName: string, prefix: string): boolean {
+    if (!normalizedName.startsWith(prefix)) return false;
+    const suffix = normalizedName.slice(prefix.length);
+    if (suffix.length === 0) return false;
+    // Check if suffix starts with a Roman numeral or Arabic digit (sequel indicator)
+    return /^(I{1,3}|IV|VI{0,3}|IX|X{1,3}|XIV|XIX|XL|L|LX{0,3}|XC{0,2}|C{1,3}|CD|D|DC{0,3}|CM|M{0,4}|\d)/i.test(suffix);
+  }
+
+  /** Returns true if the name ends with a Roman numeral (I, IV, IX…) or Arabic digit (1, 2…). */
+  private static hasTrailingNumeral(name: string): boolean {
+    return /\b(I{1,3}|IV|VI{0,3}|IX|X{1,3}|XIV|XIX|XL|L|LX{0,3}|XC{0,2}|C{1,3}|CD|D|DC{0,3}|CM|M{0,4})\b\s*$/i.test(name)
+      || /\d+\s*$/.test(name);
+  }
+
+  /** If the name has no trailing numeral, append " I" (first game in series). */
+  private static inferFirstGameName(name: string): string {
+    if (GamesSyncService.hasTrailingNumeral(name)) return name;
+    return `${name} I`;
+  }
+
   private async isValidImageUrl(url: string): Promise<boolean> {
     try {
       const controller = new AbortController();
@@ -176,7 +197,7 @@ export class GamesSyncService {
     }
   }
 
-  async searchExternal(query: string): Promise<SyncSearchResultDto[]> {
+  async searchExternal(query: string, loose = false): Promise<SyncSearchResultDto[]> {
     const seenMap = new Map<string, SyncSearchResultDto>();
     const ownedSet = await this.searchLocal(query);
 
@@ -242,12 +263,17 @@ export class GamesSyncService {
       }
     }
 
-    // 3. Precision filter — only keep results whose normalized name contains the full normalized query
+    // 3. Precision filter — only keep results whose normalized name starts with the normalized query,
+    //    and exclude results with sequel numbers (II, III, 2, 3, etc.) after the query prefix
     let entries = Array.from(seenMap.values());
     const normalizedQuery = GamesSyncService.normalizeForCompare(query);
-    entries = entries.filter((r) =>
-      GamesSyncService.normalizeForCompare(r.name).includes(normalizedQuery),
-    );
+    if (!loose) {
+      entries = entries.filter((r) => {
+        const normalized = GamesSyncService.normalizeForCompare(r.name);
+        return normalized.startsWith(normalizedQuery) &&
+          !GamesSyncService.hasSequelSuffixAfter(normalized, normalizedQuery);
+      });
+    }
 
     // 4. Validate cover images — drop results with broken covers
     entries = (
@@ -266,15 +292,22 @@ export class GamesSyncService {
       /\b(DLC|Add.?[Oo]n|Addon|Season\s+Pass|Pre.?[Oo]rder|Preorder|Bonus\s+Content)\b/i;
     entries = entries.filter((r) => !dlcPattern.test(r.name));
     entries.sort((a, b) => {
-      const aExact =
-        GamesSyncService.normalizeForCompare(a.name) === normalizedQuery
-          ? 0
-          : 1;
-      const bExact =
-        GamesSyncService.normalizeForCompare(b.name) === normalizedQuery
-          ? 0
-          : 1;
-      return aExact - bExact;
+      const aNorm = GamesSyncService.normalizeForCompare(a.name);
+      const bNorm = GamesSyncService.normalizeForCompare(b.name);
+      // Exact match first
+      const aExact = aNorm === normalizedQuery ? 0 : 1;
+      const bExact = bNorm === normalizedQuery ? 0 : 1;
+      if (aExact !== bExact) return aExact - bExact;
+      // Starts with query second
+      const aStarts = aNorm.startsWith(normalizedQuery) ? 0 : 1;
+      const bStarts = bNorm.startsWith(normalizedQuery) ? 0 : 1;
+      if (aStarts !== bStarts) return aStarts - bStarts;
+      // Contains query third
+      const aContains = aNorm.includes(normalizedQuery) ? 0 : 1;
+      const bContains = bNorm.includes(normalizedQuery) ? 0 : 1;
+      if (aContains !== bContains) return aContains - bContains;
+      // Shortest name last (less likely to be a sequel)
+      return a.name.length - b.name.length;
     });
 
     // 5. If exact match not found, try precise RAWG search
@@ -298,6 +331,13 @@ export class GamesSyncService {
           }
         }
       }
+    }
+
+    // 6. If no results and name has no trailing numeral, retry with " I" (first game in series)
+    if (entries.length === 0 && !GamesSyncService.hasTrailingNumeral(query)) {
+      const inferred = GamesSyncService.inferFirstGameName(query);
+      const retryResults = await this.searchExternal(inferred);
+      return retryResults;
     }
 
     return entries;
@@ -499,8 +539,10 @@ export class GamesSyncService {
           code,
           success: false,
           message: `Steam OK but DB write failed: ${e.message ?? e}`,
+          search_name: name,
         };
       }
+      steamResult.search_name = name;
       return steamResult;
     }
 
@@ -545,8 +587,10 @@ export class GamesSyncService {
           code,
           success: false,
           message: `GOG OK but DB write failed: ${e.message ?? e}`,
+          search_name: name,
         };
       }
+      gogResult.search_name = name;
       return gogResult;
     }
 
@@ -561,8 +605,10 @@ export class GamesSyncService {
           code,
           success: false,
           message: `RAWG OK but DB write failed: ${e.message ?? e}`,
+          search_name: name,
         };
       }
+      raggResult.search_name = name;
       return raggResult;
     }
 
@@ -606,15 +652,29 @@ export class GamesSyncService {
           code,
           success: false,
           message: `SteamGridDB OK but DB write failed: ${e.message ?? e}`,
+          search_name: name,
         };
       }
+      sgdbResult.search_name = name;
       return sgdbResult;
+    }
+
+    // If all sources failed and the name has no trailing numeral, retry with " I" (first game in series)
+    if (!GamesSyncService.hasTrailingNumeral(name)) {
+      const inferred = GamesSyncService.inferFirstGameName(name);
+      const retryResult = await this.syncGame(code, inferred);
+      if (retryResult.success) {
+        retryResult.message = `${retryResult.message} (inferred "${inferred}" as first in series)`;
+        retryResult.search_name = inferred;
+        return retryResult;
+      }
     }
 
     return {
       code,
       success: false,
       message: 'Not found on Steam, GOG, RAWG, or SteamGridDB',
+      search_name: name,
     };
   }
 
@@ -720,6 +780,54 @@ export class GamesSyncService {
     );
 
     if (error) throw error;
+    return result;
+  }
+
+  async importToGame(code: string, data: {
+    name: string;
+    cover_url?: string;
+    genres?: string[];
+    external_id?: string;
+    source?: string;
+    rating?: number | null;
+    release_year?: number | null;
+    desc?: string;
+    platforms?: string[];
+    sources?: string[];
+  }): Promise<SyncResultDto> {
+    const result: SyncResultDto = {
+      code,
+      success: true,
+      message: `Manually imported from ${data.source ?? 'external'}`,
+      cover_url: data.cover_url,
+      genres: data.genres ?? [],
+      source: data.source,
+      rating: data.rating ?? null,
+      release_year: data.release_year ?? null,
+      desc: data.desc,
+      external_id: data.external_id,
+      platforms: data.platforms ?? ['pc'],
+      sources: data.sources ?? ['pc'],
+    };
+
+    const ALL_COLUMNS = ['cover_url', 'genres', 'rating', 'platforms', 'desc', 'sources', 'release_year'];
+    await this.persistSync(code, result, []);
+
+    // Lock all columns so future syncs don't overwrite
+    const { data: lockData } = await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .select('locked_columns')
+      .eq('code', code)
+      .single();
+    const currentLocked: string[] = lockData?.locked_columns ?? [];
+    const mergedLocked = [...new Set([...currentLocked, ...ALL_COLUMNS])];
+    await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .update({ locked_columns: mergedLocked })
+      .eq('code', code);
+
     return result;
   }
 
@@ -1001,7 +1109,17 @@ export class GamesSyncService {
       if (items.length === 0)
         return { code, success: false, message: 'Not on Steam' };
 
-      const best = items[0];
+      const normalizedQuery = GamesSyncService.normalizeForCompare(name);
+      // Pick best match: prefer exact name match, then shortest name (fewer sequel suffixes)
+      const best = items.reduce((a: any, b: any) => {
+        const aNorm = GamesSyncService.normalizeForCompare(a.name);
+        const bNorm = GamesSyncService.normalizeForCompare(b.name);
+        const aExact = aNorm === normalizedQuery ? 0 : 1;
+        const bExact = bNorm === normalizedQuery ? 0 : 1;
+        if (aExact !== bExact) return aExact < bExact ? a : b;
+        // Tie-break: prefer shorter name (less likely to be a sequel)
+        return a.name.length <= b.name.length ? a : b;
+      });
       const appId = best.id;
 
       const detailUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=en`;
@@ -1060,7 +1178,15 @@ export class GamesSyncService {
       if (results.length === 0)
         return { code, success: false, message: 'Not on RAWG' };
 
-      const game = results[0];
+      const normalizedQuery = GamesSyncService.normalizeForCompare(name);
+      const game = results.reduce((a: any, b: any) => {
+        const aNorm = GamesSyncService.normalizeForCompare(a.name);
+        const bNorm = GamesSyncService.normalizeForCompare(b.name);
+        const aExact = aNorm === normalizedQuery ? 0 : 1;
+        const bExact = bNorm === normalizedQuery ? 0 : 1;
+        if (aExact !== bExact) return aExact < bExact ? a : b;
+        return a.name.length <= b.name.length ? a : b;
+      });
       const detailUrl = `https://api.rawg.io/api/games/${game.id}?key=${this.raggApiKey}`;
       const detailRes = await fetch(detailUrl);
       if (!detailRes.ok)
@@ -1132,7 +1258,16 @@ export class GamesSyncService {
       if (games.length === 0)
         return { code, success: false, message: 'Not on SteamGridDB' };
 
-      const gameId = games[0].id;
+      const normalizedQuery = GamesSyncService.normalizeForCompare(name);
+      const bestGame = games.reduce((a: any, b: any) => {
+        const aNorm = GamesSyncService.normalizeForCompare(a.name);
+        const bNorm = GamesSyncService.normalizeForCompare(b.name);
+        const aExact = aNorm === normalizedQuery ? 0 : 1;
+        const bExact = bNorm === normalizedQuery ? 0 : 1;
+        if (aExact !== bExact) return aExact < bExact ? a : b;
+        return a.name.length <= b.name.length ? a : b;
+      });
+      const gameId = bestGame.id;
       const gridsUrl = `https://www.steamgriddb.com/api/v2/grids/game/${gameId}`;
       const gridsRes = await fetch(gridsUrl, {
         headers: { Authorization: `Bearer ${this.steamGridDbKey}` },
@@ -1193,7 +1328,15 @@ export class GamesSyncService {
       if (products.length === 0)
         return { code, success: false, message: 'Not on GOG' };
 
-      const best = products[0];
+      const normalizedQuery = GamesSyncService.normalizeForCompare(name);
+      const best = products.reduce((a: any, b: any) => {
+        const aNorm = GamesSyncService.normalizeForCompare(a.name);
+        const bNorm = GamesSyncService.normalizeForCompare(b.name);
+        const aExact = aNorm === normalizedQuery ? 0 : 1;
+        const bExact = bNorm === normalizedQuery ? 0 : 1;
+        if (aExact !== bExact) return aExact < bExact ? a : b;
+        return a.name.length <= b.name.length ? a : b;
+      });
       const gogId = best.id;
 
       const detailUrl = `https://api.gog.com/products/${gogId}?expand=description,screenshots`;

@@ -12,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { TasksService, Task } from '../../services/tasks.service';
 import { AuthService } from '../../services/auth.service';
+import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
 
 @Component({
   selector: 'app-tasks-admin',
@@ -29,6 +30,7 @@ import { AuthService } from '../../services/auth.service';
     MatButtonModule,
     MatIconModule,
     MatTableModule,
+    CyberConfirmComponent,
   ],
   template: `
   <div class="admin-tasks">
@@ -158,6 +160,10 @@ import { AuthService } from '../../services/auth.service';
       </mat-form-field>
 
       <div class="toggle-row">
+        <mat-slide-toggle formControlName="is_daily">Daily (resets every day)</mat-slide-toggle>
+      </div>
+
+      <div class="toggle-row">
         <mat-slide-toggle formControlName="active">Active</mat-slide-toggle>
       </div>
 
@@ -182,6 +188,10 @@ import { AuthService } from '../../services/auth.service';
                 <span class="task-item-title">{{ task.title }}</span>
                 <span class="task-item-meta">
                   {{ task.task_kind === 'duration' ? 'Duration' : 'Achievement' }}
+                  @if (task.is_daily) {
+                    <span class="dot">·</span>
+                    <span class="daily-badge">Daily</span>
+                  }
                   <span class="dot">·</span>
                   @for (reward of task.rewards ?? [{ type: task.reward_type, amount: task.reward_amount }]; track reward.type + '-' + reward.amount) {
                     +{{ reward.amount }} {{ reward.type === 'tickets' ? 'Tickets' : 'XP' }}
@@ -206,6 +216,17 @@ import { AuthService } from '../../services/auth.service';
       }
     </div>
   </div>
+
+  @if (confirmData) {
+    <app-cyber-confirm
+      [message]="confirmData.message"
+      [confirmLabel]="confirmData.confirmLabel"
+      [cancelLabel]="confirmData.cancelLabel"
+      [showCancel]="confirmData.showCancel"
+      (confirm)="executeConfirm()"
+      (cancel)="dismissConfirm()"
+    ></app-cyber-confirm>
+  }
   `,
   styles: [`
     :host { display: block; }
@@ -375,6 +396,16 @@ import { AuthService } from '../../services/auth.service';
         margin: 0 4px;
       }
     }
+    .daily-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(52, 152, 219, 0.15);
+      color: #3498db;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
     .task-item-status {
       display: flex;
       align-items: center;
@@ -432,6 +463,7 @@ export class TasksAdminComponent implements OnInit {
   form: FormGroup;
   tasks: Task[] = [];
   editingTask: Task | null = null;
+  confirmData: { message: string; action: () => void; confirmLabel: string; cancelLabel: string; showCancel: boolean } | null = null;
 
   get isDevAdmin(): boolean {
     const user = this.auth.getCurrentUser();
@@ -461,6 +493,7 @@ export class TasksAdminComponent implements OnInit {
       start_at: [null],
       end_at: [null],
       active: [true],
+      is_daily: [false],
     });
   }
 
@@ -495,6 +528,7 @@ export class TasksAdminComponent implements OnInit {
       start_at: task.start_at ? new Date(task.start_at) : null,
       end_at: task.end_at ? new Date(task.end_at) : null,
       active: task.active ?? true,
+      is_daily: task.is_daily ?? false,
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -512,6 +546,7 @@ export class TasksAdminComponent implements OnInit {
       bonus_reward_type: 'tickets',
       bonus_reward_amount: 0,
       active: true,
+      is_daily: false,
     });
   }
 
@@ -536,6 +571,7 @@ export class TasksAdminComponent implements OnInit {
       start_at: v.start_at ? new Date(v.start_at).toISOString() : undefined,
       end_at: v.end_at ? new Date(v.end_at).toISOString() : undefined,
       active: !!v.active,
+      is_daily: !!v.is_daily,
     };
 
     if (this.editingTask) {
@@ -569,14 +605,29 @@ export class TasksAdminComponent implements OnInit {
 
   deleteTask(): void {
     if (!this.editingTask) return;
-    if (!confirm(`Delete task "${this.editingTask.title}"?`)) return;
-    
-    this.tasksService.deleteTask(this.editingTask.id).subscribe({
-      next: () => {
-        this.cancelEdit();
-        this.loadTasks();
-      },
-      error: () => {},
-    });
+    this.showCyberConfirm(`Delete task "${this.editingTask.title}"?`, () => {
+      this.tasksService.deleteTask(this.editingTask!.id).subscribe({
+        next: () => {
+          this.cancelEdit();
+          this.loadTasks();
+        },
+        error: () => {},
+      });
+    }, 'Delete', 'Cancel');
+  }
+
+  showCyberConfirm(message: string, action: () => void, confirmLabel = 'Confirm', cancelLabel = 'Cancel'): void {
+    this.confirmData = { message, action, confirmLabel, cancelLabel, showCancel: true };
+  }
+
+  executeConfirm(): void {
+    if (this.confirmData?.action) {
+      this.confirmData.action();
+    }
+    this.confirmData = null;
+  }
+
+  dismissConfirm(): void {
+    this.confirmData = null;
   }
 }

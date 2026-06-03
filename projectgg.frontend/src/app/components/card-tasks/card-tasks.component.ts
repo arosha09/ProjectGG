@@ -23,7 +23,7 @@ interface TaskDef {
         @for (task of taskDefs; track task.type) {
           <div class="task-row">
             <div class="task-icon-wrap">
-              <mat-icon>{{ task.icon }}</mat-icon>
+              <mat-icon [svgIcon]="task.icon"></mat-icon>
             </div>
             <div class="task-info">
               <span class="task-label">{{ task.label }}</span>
@@ -36,7 +36,7 @@ interface TaskDef {
             <div class="task-reward">
               <span class="reward-text">{{ task.reward }}</span>
               @if (isComplete(task.type, task.threshold)) {
-                <mat-icon class="reward-check">check_circle</mat-icon>
+                <mat-icon class="reward-check" svgIcon="check_circle"></mat-icon>
               }
             </div>
           </div>

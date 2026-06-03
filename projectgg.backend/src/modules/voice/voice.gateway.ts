@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { VoiceService } from './voice.service';
+import { UsersRepository } from 'src/repositories/users.repository';
 
 interface VoiceClient {
   socketId: string;
@@ -29,8 +30,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(VoiceGateway.name);
   private clients = new Map<string, VoiceClient>(); // socketId -> client info
   private channelMembers = new Map<string, Set<string>>(); // channelId -> Set<socketId>
+  private nudgeRateLimit = new Map<string, number[]>(); // userId -> timestamps
 
-  constructor(private readonly voiceService: VoiceService) {}
+  constructor(
+    private readonly voiceService: VoiceService,
+    private readonly usersRepository: UsersRepository,
+  ) {}
 
   handleConnection(client: Socket): void {
     this.logger.log(`Voice client connected: ${client.id}`);
@@ -73,7 +78,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!this.channelMembers.has(channelId)) this.channelMembers.set(channelId, new Set());
     this.channelMembers.get(channelId)!.add(client.id);
 
-    // Send existing members to the newly joined client
     const existingMembers = Array.from(this.channelMembers.get(channelId)!)
       .map(sid => this.clients.get(sid))
       .filter((c): c is VoiceClient => c !== undefined && c.socketId !== client.id);
@@ -89,7 +93,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleLeaveChannel(@ConnectedSocket() client: Socket): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
-
     this.removeClient(client.id, info);
     client.leave(info.channelId);
   }
@@ -101,11 +104,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
-
-    // Relay to Discord voice channel
     await this.voiceService.playAudio(data.guildId, Buffer.from(data.audio));
-
-    // Relay to other clients in the same channel
     client.to(info.channelId).emit('audio-frame', {
       userId: info.userId,
       audio: data.audio,
@@ -124,5 +123,47 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const info = this.clients.get(client.id);
     if (!info) return;
     client.to(info.channelId).emit('user-unmuted', { userId: info.userId });
+  }
+
+  emitToUser(userId: string, event: string, data: any): void {
+    this.server.to(`user:${userId}`).emit(event, data);
+  }
+
+  isInSameChannel(senderId: string, recipientId: string): boolean {
+    const senderClient = Array.from(this.clients.values()).find(c => c.userId === senderId);
+    if (!senderClient) return false;
+    const recipientClient = Array.from(this.clients.values()).find(c => c.userId === recipientId);
+    if (!recipientClient) return false;
+    return senderClient.channelId === recipientClient.channelId;
+  }
+
+  checkNudgeRateLimit(userId: string): boolean {
+    const now = Date.now();
+    const timestamps = this.nudgeRateLimit.get(userId) ?? [];
+    const recent = timestamps.filter(t => t > now - 5000);
+    recent.push(now);
+    this.nudgeRateLimit.set(userId, recent);
+    return recent.length <= 3;
+  }
+
+  async sendNudgeToUser(senderId: string, recipientId: string): Promise<{ success: boolean; reason?: string }> {
+    if (!this.checkNudgeRateLimit(senderId)) {
+      return { success: false, reason: 'Rate limit exceeded' };
+    }
+
+    const recipientSettings = await this.usersRepository.getUserSettings(recipientId);
+    if (recipientSettings?.allow_incoming_nudges === false) {
+      return { success: false, reason: 'Recipient has disabled incoming nudges' };
+    }
+
+    const sender = await this.usersRepository.findById({ userId: senderId });
+    const senderUsername = sender?.username ?? senderId;
+
+    this.emitToUser(recipientId, 'voice-nudge', {
+      fromUserId: senderId,
+      fromUsername: senderUsername,
+    });
+
+    return { success: true };
   }
 }

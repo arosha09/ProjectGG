@@ -35,6 +35,14 @@
           </button>
           <button
             class="nav-item"
+            [class.active]="activeSection === 'notifications'"
+            (click)="setActiveSection('notifications')"
+          >
+            <mat-icon svgIcon="notifications"></mat-icon>
+            <span>Notifications & Sounds</span>
+          </button>
+          <button
+            class="nav-item"
             [class.active]="activeSection === 'connections'"
             (click)="setActiveSection('connections')"
           >
@@ -100,7 +108,7 @@
                     placeholder="your@email.com"
                   />
                   @if (emailVerified) {
-                    <mat-icon class="verified-badge">check_circle</mat-icon>
+                    <mat-icon class="verified-badge" svgIcon="check_circle"></mat-icon>
                   }
                 </div>
               </div>
@@ -386,8 +394,8 @@
 
                 <div class="cursor-preview-area">
                   <div
+                    #cursorPreviewBox
                     class="cursor-preview-box"
-                    [style.cursor]="previewCursorSet.cursors[previewCursorType]"
                   >
                     <p>Move your cursor here to preview</p>
                     <mat-label class="preview-type-label">{{ previewTypeLabel }}</mat-label>
@@ -399,6 +407,254 @@
                     Confirm Cursor Set
                   </button>
                   <span class="cursor-current-label">Applied: {{ appliedCursorSet.label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Notifications & Sounds Section -->
+        @if (activeSection === 'notifications') {
+          <div class="settings-panel notifications-panel">
+            <div class="panel-header">
+              <h2>Notifications & Sounds</h2>
+              <p>Customize sound effects and notification preferences</p>
+            </div>
+
+            <div class="panel-body">
+              <div class="sound-panel">
+                <h3>Sound Set</h3>
+                <p class="section-desc">
+                  Customize sound effects. Use Silent Mode to mute everything instantly.
+                </p>
+
+                <div class="sound-service-modes">
+                  <button
+                    class="sound-mode-btn silent-btn"
+                    [class.active]="soundSilentMode"
+                    type="button"
+                    (click)="toggleSilentMode()"
+                  >
+                    <mat-icon svgIcon="volume_off"></mat-icon>
+                    SILENT MODE
+                  </button>
+                </div>
+
+                <div class="sound-set-picker">
+                  <label class="field-label">Sound Set</label>
+                  <div class="sound-selector-wrapper">
+                    <button
+                      class="cyber-btn"
+                      type="button"
+                      (click)="soundDropdownOpen = !soundDropdownOpen"
+                    >
+                      {{ currentSoundSetLabel }}
+                      <mat-icon svgIcon="arrow_drop_down"></mat-icon>
+                    </button>
+                    <app-cyber-dropdown
+                      [items]="soundSetItems"
+                      [isOpen]="soundDropdownOpen"
+                      (itemSelect)="soundDropdownOpen = false"
+                    ></app-cyber-dropdown>
+                  </div>
+                </div>
+
+                <div class="sound-volume-row">
+                  <label class="field-label">Volume</label>
+                  <div class="sound-volume-control">
+                    <mat-icon class="vol-icon" svgIcon="volume_down"></mat-icon>
+                    <input
+                      type="range"
+                      class="cyber-range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      [value]="soundVolume"
+                      (input)="onSoundVolumeChange($any($event.target).value)"
+                    />
+                    <mat-icon class="vol-icon" svgIcon="volume_up"></mat-icon>
+                    <span class="vol-label">{{ (soundVolume * 100) | number:'1.0-0' }}%</span>
+                  </div>
+                </div>
+
+                <div class="sound-sections">
+                  <div class="sound-section-group">
+                    <h4 class="sound-group-title">Cursor</h4>
+                    <div class="sound-event-row">
+                      <span class="event-label">Hover</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('cursor_hover')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('cursor_hover')" (change)="toggleSoundEvent('cursor_hover')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row">
+                      <span class="event-label">Click</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('cursor_click')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('cursor_click')" (change)="toggleSoundEvent('cursor_click')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="sound-section-group">
+                    <h4 class="sound-group-title">Notifications</h4>
+                    <div class="sound-event-row">
+                      <span class="event-label">Messages</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('notification_msg')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('notification_msg')" (change)="toggleSoundEvent('notification_msg')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row">
+                      <span class="event-label">Mentions</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('notification_mention')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('notification_mention')" (change)="toggleSoundEvent('notification_mention')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row">
+                      <span class="event-label">Friend Requests</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('notification_friend_req')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('notification_friend_req')" (change)="toggleSoundEvent('notification_friend_req')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="sound-section-group">
+                    <h4 class="sound-group-title">Alerts</h4>
+                    <div class="sound-event-row">
+                      <span class="event-label">Errors</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('alert_error')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('alert_error')" (change)="toggleSoundEvent('alert_error')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row">
+                      <span class="event-label">Disconnects</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('alert_disconnect')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('alert_disconnect')" (change)="toggleSoundEvent('alert_disconnect')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row">
+                      <span class="event-label">Warnings</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('alert_warning')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('alert_warning')" (change)="toggleSoundEvent('alert_warning')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="sound-section-group">
+                    <h4 class="sound-group-title">Voice</h4>
+                    <div class="sound-event-row">
+                      <span class="event-label">Join</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('voice_join')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('voice_join')" (change)="toggleSoundEvent('voice_join')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row">
+                      <span class="event-label">Leave</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('voice_leave')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('voice_leave')" (change)="toggleSoundEvent('voice_leave')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row sound-paired-row">
+                      <div class="sound-paired-rows">
+                        <div class="sound-event-row">
+                          <span class="event-label">Mute</span>
+                          <button class="sound-preview-btn" type="button" (click)="previewSound('voice_mute')" title="Preview Mute">
+                            <mat-icon svgIcon="play_arrow"></mat-icon>
+                          </button>
+                        </div>
+                        <div class="sound-event-row">
+                          <span class="event-label">Unmute</span>
+                          <button class="sound-preview-btn" type="button" (click)="previewSound('voice_unmute')" title="Preview Unmute">
+                            <mat-icon svgIcon="play_arrow"></mat-icon>
+                          </button>
+                        </div>
+                      </div>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isMuteGroupEnabled()" (change)="toggleMuteGroup()" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row sound-paired-row">
+                      <div class="sound-paired-rows">
+                        <div class="sound-event-row">
+                          <span class="event-label">Deafen</span>
+                          <button class="sound-preview-btn" type="button" (click)="previewSound('voice_deafen')" title="Preview Deafen">
+                            <mat-icon svgIcon="play_arrow"></mat-icon>
+                          </button>
+                        </div>
+                        <div class="sound-event-row">
+                          <span class="event-label">Undeafen</span>
+                          <button class="sound-preview-btn" type="button" (click)="previewSound('voice_undeafen')" title="Preview Undeafen">
+                            <mat-icon svgIcon="play_arrow"></mat-icon>
+                          </button>
+                        </div>
+                      </div>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isDeafenGroupEnabled()" (change)="toggleDeafenGroup()" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                    <div class="sound-event-row nudge-event">
+                      <span class="event-label">Nudge</span>
+                      <button class="sound-preview-btn" type="button" (click)="previewSound('nudge')" title="Preview">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <label class="toggle-label">
+                        <input type="checkbox" [checked]="isSoundEventEnabled('nudge')" (change)="toggleSoundEvent('nudge')" />
+                        <span class="toggle-switch"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sound-nudge-row">
+                  <label class="toggle-label">
+                    <input
+                      type="checkbox"
+                      [checked]="soundAllowIncomingNudges"
+                      (change)="toggleSoundAllowIncomingNudges()"
+                    />
+                    <span class="toggle-switch"></span>
+                    <span class="toggle-text">Allow incoming nudges</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -596,7 +852,7 @@
                   [class.import-ok]="!importError"
                   [class.import-err]="importError"
                 >
-                  <mat-icon>{{ importError ? 'error' : 'cloud_download' }}</mat-icon>
+                  <mat-icon [svgIcon]="importError ? 'error' : 'cloud_download'"></mat-icon>
                   <span>{{ importResult }}</span>
                 </div>
               }
@@ -606,5 +862,16 @@
       </div>
     </div>
   </main>
+
+  @if (confirmData) {
+    <app-cyber-confirm
+      [message]="confirmData.message"
+      [confirmLabel]="confirmData.confirmLabel"
+      [cancelLabel]="confirmData.cancelLabel"
+      [showCancel]="confirmData.showCancel"
+      (confirm)="executeConfirm()"
+      (cancel)="dismissConfirm()"
+    ></app-cyber-confirm>
+  }
 </section>
 

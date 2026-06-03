@@ -23,6 +23,7 @@ export interface SyncResult {
   genres?: string[];
   platforms?: string[];
   release_year?: number | null;
+  search_name?: string;
 }
 
 @Injectable({
@@ -125,10 +126,11 @@ export class GamesService {
     return this.http.delete<{ locked_columns: string[] }>(`${this.apiUrl}/games/sync/lock/${code}/${column}`);
   }
 
-  syncGame(code: string, name?: string): Observable<SyncResult> {
+  syncGame(code: string, name?: string, searchOnly: boolean = false): Observable<SyncResult | any[]> {
     const params: any = {};
     if (name) params.name = name;
-    return this.http.post<SyncResult>(`${this.apiUrl}/games/sync/${code}`, null, { params });
+    if (searchOnly) params.search_only = 'true';
+    return this.http.post<SyncResult | any[]>(`${this.apiUrl}/games/sync/${code}`, null, { params });
   }
 
   getMissingSeries(): Observable<string[]> {
@@ -165,6 +167,21 @@ export class GamesService {
     sources?: string[];
   }): Observable<any> {
     return this.http.post(`${this.apiUrl}/games/sync/import`, data);
+  }
+
+  importToGame(code: string, data: {
+    name: string;
+    cover_url?: string;
+    genres?: string[];
+    external_id?: string;
+    source?: string;
+    rating?: number | null;
+    release_year?: number | null;
+    desc?: string;
+    platforms?: string[];
+    sources?: string[];
+  }): Observable<SyncResult> {
+    return this.http.post<SyncResult>(`${this.apiUrl}/games/sync/import-to-game/${code}`, data);
   }
 
   private normalizeGame(game: GameApiItem): Game {

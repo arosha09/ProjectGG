@@ -160,10 +160,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
     if (this.currentUser?.avatar) return this.currentUser.avatar;
     const gender = this.currentUser?.gender?.toLowerCase();
     if (gender == null) return null;
-    if (gender === 'prefer not to say') return 'assets/avatars/unknown.png';
-    if (gender === 'male')   return 'assets/avatars/male.png';
-    if (gender === 'female') return 'assets/avatars/female.png';
-    return 'assets/avatars/unknown.png';
+    if (gender === 'prefer not to say') return '/assets/avatars/unknown.png';
+    if (gender === 'male')   return '/assets/avatars/male.png';
+    if (gender === 'female') return '/assets/avatars/female.png';
+    return '/assets/avatars/unknown.png';
   }
 
   get genderLabel(): string {
@@ -345,8 +345,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
     if (!this.currentUser?.id) return;
     this.favoriteGamesLoading = true;
     this.chatService.getUserShowcase(this.currentUser?.id).subscribe({
-      next: (games) => {
-        this.favoriteGames = (games ?? []).slice(0, 10);
+      next: (res) => {
+        const games = res?.items ?? [];
+        this.favoriteGames = games.slice(0, 10);
         this.debugData.showcase = this.favoriteGames;
         this.favoriteGamesLoading = false;
         this.cdr.markForCheck();

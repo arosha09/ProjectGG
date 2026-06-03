@@ -61,13 +61,23 @@ export class GgChatFriendsComponent implements OnInit {
     socket.on('profile-update', (data: { userId: string; profile: any }) => {
       this.handleProfileUpdate(data);
     });
-    socket.on('user-status', (payload: any) => {
-      const userId = String(payload?.userId ?? payload?.user_id ?? '');
-      const visibleStatus = payload?.sys_status ?? payload?.status ?? payload?.visibleStatus;
-      if (userId && visibleStatus) {
-        this.memberStatuses[userId] = visibleStatus;
-        this.cdr.markForCheck();
-      }
+    socket.on('friend-request', () => {
+      this.loadFriends();
+    });
+    socket.on('friend-accepted', () => {
+      this.loadFriends();
+    });
+    socket.on('friend-removed', () => {
+      this.loadFriends();
+    });
+    socket.on('friend-request-rejected', () => {
+      this.loadFriends();
+    });
+    socket.on('friend-request-cancelled', () => {
+      this.loadFriends();
+    });
+    socket.on('friend-request-sent', () => {
+      this.loadFriends();
     });
   }
 

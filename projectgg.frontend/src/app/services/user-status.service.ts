@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, NgZone } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { ChatService } from './chat.service';
 import { AuthService } from './auth.service';
@@ -14,9 +14,14 @@ export class UserStatusService {
   private readonly chatService = inject(ChatService);
   private readonly auth = inject(AuthService);
   private readonly voiceService = inject(VoiceService);
+  private readonly ngZone = inject(NgZone);
   private socketInitialized = false;
   private socketListenersAttached = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private visibilityHandler: (() => void) | null = null;
+
+  private readonly HEARTBEAT_VISIBLE_MS = 15_000;
+  private readonly HEARTBEAT_HIDDEN_MS = 30_000;
 
   readonly currentStatus$ = this.visibleStatus$.asObservable();
   readonly preferredStatus$ = this.explicitStatus$.asObservable();
@@ -35,18 +40,12 @@ export class UserStatusService {
 
     this.auth.currentUser$.subscribe((user) => {
       if (!user) {
-        // User logged out (or session cleared) — tear down everything so
-        // we don't reconnect a socket with an empty userId, and so the
-        // backend's handleDisconnect marks us as invisible.
         this.performFullDisconnect();
         return;
       }
 
       this.syncFromUser(user);
 
-      // Only attach socket listeners once. connect() is idempotent so
-      // calling it on every user update is fine, but socket.on() is not —
-      // it would stack duplicate listeners and leak memory.
       if (this.socketListenersAttached) return;
       this.socketListenersAttached = true;
 
@@ -77,6 +76,8 @@ export class UserStatusService {
           if (preferred) localStorage.setItem(this.storageKey, preferred);
         } catch {}
       });
+
+      this.attachVisibilityListener();
     });
   }
 
@@ -91,33 +92,15 @@ export class UserStatusService {
     this.visibleStatus$.next(this.resolveVisible(this.explicitStatus$.value, connected));
   }
 
-  /**
-   * Called when the user is signing out (or otherwise permanently leaving).
-   * Stops the heartbeat timer and sets local visible status to 'invisible'
-   * (or 'away' if the user preferred 'away'). The localStorage entry
-   * (projectgg:status) is left alone — it holds the PREFERRED status
-   * (sys_status), which is what should be restored on next login.
-   *
-   * The DB write happens server-side: chat.gateway.handleDisconnect calls
-   * setDisconnectedPresence, which sets status='invisible' while
-   * preserving sys_status.
-   */
   markDisconnecting(): void {
     this.stopHeartbeat();
+    this.detachVisibilityListener();
     this.visibleStatus$.next(this.resolveVisible(this.explicitStatus$.value, false));
   }
 
-  /**
-   * Full disconnect: stops the heartbeat, leaves the voice channel if
-   * connected, and disconnects the chat socket so the backend's
-   * handleDisconnect can mark the user as invisible (sys_status
-   * preserved). Triggered automatically when currentUser$ emits null
-   * (i.e. on logout, token refresh failure, or auth guard redirect).
-   */
   performFullDisconnect(): void {
     this.markDisconnecting();
     try {
-      // Leave voice channel if connected — safe to call when not in voice
       this.voiceService.leaveChannel();
     } catch {}
     try {
@@ -132,8 +115,6 @@ export class UserStatusService {
       this.explicitStatus$.next(preferred);
       try { localStorage.setItem(this.storageKey, preferred); } catch {}
     }
-    // Only resolve visible status if we have a clear idea of the connection,
-    // otherwise trust the status from the server
     if (visible) {
       this.visibleStatus$.next(visible);
     } else {
@@ -156,14 +137,52 @@ export class UserStatusService {
     return status === 'away' ? 'away' : 'invisible';
   }
 
-  private startHeartbeat(): void {
-    if (this.heartbeatTimer) return;
-    const socket = this.chatService.connect();
-    this.heartbeatTimer = setInterval(() => {
-      if (socket.connected) {
-        socket.emit('heartbeat');
+  private attachVisibilityListener(): void {
+    if (this.visibilityHandler) return;
+    this.visibilityHandler = () => {
+      if (document.hidden) {
+        this.onHidden();
+      } else {
+        this.onVisible();
       }
-    }, 15000);
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
+  private detachVisibilityListener(): void {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+  }
+
+  private onVisible(): void {
+    const socket = this.chatService.connect();
+    if (socket.connected) {
+      socket.emit('heartbeat');
+    }
+    this.restartHeartbeat(this.HEARTBEAT_VISIBLE_MS);
+  }
+
+  private onHidden(): void {
+    this.restartHeartbeat(this.HEARTBEAT_HIDDEN_MS);
+  }
+
+  private startHeartbeat(): void {
+    const interval = document.hidden ? this.HEARTBEAT_HIDDEN_MS : this.HEARTBEAT_VISIBLE_MS;
+    this.restartHeartbeat(interval);
+  }
+
+  private restartHeartbeat(intervalMs: number): void {
+    this.stopHeartbeat();
+    this.ngZone.runOutsideAngular(() => {
+      this.heartbeatTimer = setInterval(() => {
+        const socket = this.chatService.connect();
+        if (socket.connected) {
+          socket.emit('heartbeat');
+        }
+      }, intervalMs);
+    });
   }
 
   private stopHeartbeat(): void {

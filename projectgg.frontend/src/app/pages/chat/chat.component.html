@@ -19,7 +19,7 @@
       <!-- LEFT SIDEBAR — CHANNELS -->
       <aside class="sidebar sidebar-channels">
         <div class="sidebar-server">
-          <mat-icon>dns</mat-icon>
+          <mat-icon svgIcon="dns"></mat-icon>
           <span>ProjectGG Server</span>
         </div>
 
@@ -37,7 +37,7 @@
             @for (group of channelGroups; track group.name) {
               @if (group.name) {
                 <div class="channel-category">
-                  <mat-icon class="cat-arrow">expand_more</mat-icon>
+                  <mat-icon class="cat-arrow" svgIcon="expand_more"></mat-icon>
                   <span>{{ group.name }}</span>
                 </div>
               }
@@ -50,10 +50,10 @@
                     (click)="selectChannel(ch)"
                     (contextmenu)="onChannelContextMenu($event, ch)"
                   >
-                    <mat-icon class="ch-icon">{{ channelIcon(ch.type) }}</mat-icon>
+                    <mat-icon class="ch-icon" [svgIcon]="channelIcon(ch.type)"></mat-icon>
                     <span class="ch-name">{{ ch.name }}</span>
                     @if (!canSendInChannel(ch.id)) {
-                      <mat-icon class="ch-lock">lock</mat-icon>
+                      <mat-icon class="ch-lock" svgIcon="lock"></mat-icon>
                     }
                   </div>
                 }
@@ -92,7 +92,7 @@
           <div class="chat-main-container">
 
             <div class="channel-header">
-              <mat-icon class="ch-icon">{{ channelIcon(selectedChannel.type) }}</mat-icon>
+              <mat-icon class="ch-icon" [svgIcon]="channelIcon(selectedChannel.type)"></mat-icon>
               <h2>{{ selectedChannel.name }}</h2>
             </div>
 
@@ -156,7 +156,7 @@
             <footer class="chat-footer-panel">
               @if (selectedChannel && !canSendInChannel(selectedChannel.id)) {
                 <div class="no-permission-bar">
-                  <mat-icon>lock</mat-icon>
+                  <mat-icon svgIcon="lock"></mat-icon>
                   <span>You don't have permission to send messages in <strong>#{{ selectedChannel.name }}</strong></span>
                 </div>
               } @else {
@@ -172,7 +172,7 @@
                 }
                 <div class="chat-input-toolbar">
                   <button mat-button class="chat-action-btn" (click)="fileInput.click()" title="Upload image">
-                    <mat-icon>attach_file</mat-icon>
+                    <mat-icon svgIcon="attach_file"></mat-icon>
                   </button>
                   <button mat-button class="chat-action-btn" (click)="toggleGifPicker()" title="GIF">
                     <span>GIF</span>
@@ -212,7 +212,7 @@
                     rows="1"
                   ></textarea>
                   <button mat-button (click)="sendMessage()" [disabled]="!messageText.trim() && !pendingUpload && !gifToSend || sending">
-                    <mat-icon>send</mat-icon>
+                    <mat-icon svgIcon="send"></mat-icon>
                     SEND
                   </button>
                 </div>
@@ -222,7 +222,7 @@
           </div>
         } @else {
           <div class="no-channel">
-            <mat-icon>forum</mat-icon>
+            <mat-icon svgIcon="forum"></mat-icon>
             <p>Select a channel to start chatting</p>
           </div>
         }

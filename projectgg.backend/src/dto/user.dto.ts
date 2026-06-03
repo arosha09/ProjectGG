@@ -24,4 +24,13 @@ export class UserDto {
 
   @ApiPropertyOptional({ example: 'cyber' })
   cursor_preference?: string;
+
+  @ApiPropertyOptional({ example: 'cyber' })
+  sound_profile?: string;
+
+  @ApiPropertyOptional({ example: true })
+  allow_incoming_nudges?: boolean;
+
+  @ApiPropertyOptional({ example: [] })
+  disabled_notification_kinds?: string[];
 }

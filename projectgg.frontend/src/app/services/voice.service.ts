@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 import { StatusNotificationService } from './notification.service';
+import { SoundService } from './sound.service';
 
 @Injectable({ providedIn: 'root' })
 export class VoiceService implements OnDestroy {
@@ -15,6 +16,8 @@ export class VoiceService implements OnDestroy {
   private speakCheckInterval: ReturnType<typeof setInterval> | null = null;
   private isConnected = false;
   private currentChannel: { guildId: string; channelId: string } | null = null;
+  private _deafened = false;
+  private _intentionalLeave = false;
 
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
   onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
@@ -29,10 +32,13 @@ export class VoiceService implements OnDestroy {
   onAllVoiceState: ((channels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[]) => void) | null = null;
   onLocalSpeaking: ((speaking: boolean) => void) | null = null;
   onMicPermissionError: ((error: string) => void) | null = null;
+  onVoiceNudge: ((fromUserId: string, fromUsername: string) => void) | null = null;
+  onDisconnected: (() => void) | null = null;
 
   constructor(
     private readonly auth: AuthService,
     private readonly notification: StatusNotificationService,
+    private readonly sound: SoundService,
   ) {}
 
   get connected(): boolean {
@@ -44,11 +50,15 @@ export class VoiceService implements OnDestroy {
   }
 
   async joinChannel(guildId: string, channelId: string): Promise<void> {
+    this._intentionalLeave = false;
     if (this.isConnected) await this.leaveChannel();
 
     const wsUrl = environment.apiUrl.replace('http://', 'http://').replace(':3000/api', ':3000');
     this.socket = io(`${wsUrl}/voice`, {
       transports: ['websocket'],
+      reconnection: false,
+      reconnectionAttempts: 0,
+      reconnectionDelay: 0,
     });
 
     return new Promise((resolve, reject) => {
@@ -71,6 +81,7 @@ export class VoiceService implements OnDestroy {
 
           this.isConnected = true;
           this.currentChannel = { guildId, channelId };
+          this.sound.play('voice_join');
           clearTimeout(timeout);
           resolve();
         } catch (e) {
@@ -82,6 +93,18 @@ export class VoiceService implements OnDestroy {
       this.socket!.on('connect_error', (err) => {
         clearTimeout(timeout);
         reject(err);
+      });
+
+      this.socket!.on('disconnect', () => {
+        if (this.isConnected) {
+          this.isConnected = false;
+          this._deafened = false;
+          const s = this.socket;
+          this.socket = null;
+          s?.disconnect();
+          s?.close();
+          this.onDisconnected?.();
+        }
       });
     });
   }
@@ -190,6 +213,10 @@ export class VoiceService implements OnDestroy {
     this.socket.on('all-voice-state', (data: { channels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[] }) => {
       this.onAllVoiceState?.(data.channels);
     });
+
+    this.socket.on('voice-nudge', (data: { fromUserId: string; fromUsername: string }) => {
+      this.onVoiceNudge?.(data.fromUserId, data.fromUsername);
+    });
   }
 
   private playAudioFrame(audioData: ArrayBuffer): void {
@@ -212,6 +239,8 @@ export class VoiceService implements OnDestroy {
       this.analyser = null;
     }
 
+    this.isConnected = false;
+
     if (this.socket) {
       this.socket.emit('leave-channel');
       this.socket.disconnect();
@@ -228,15 +257,16 @@ export class VoiceService implements OnDestroy {
 
     this.isConnected = false;
     this.currentChannel = null;
+    this._deafened = false;
+    this.sound.play('voice_leave');
   }
 
   mute(): void {
-    // Use gain node to silence the audio going to the destination (other users)
-    // but keep the track enabled so the analyser can still detect local talking
     if (this.gainNode) {
       this.gainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
     }
     this.socket?.emit('mute');
+    if (!this._deafened) this.sound.play('voice_mute');
   }
 
   unmute(): void {
@@ -244,17 +274,21 @@ export class VoiceService implements OnDestroy {
       this.gainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
     }
     this.socket?.emit('unmute');
+    if (!this._deafened) this.sound.play('voice_unmute');
   }
 
   deafen(): void {
+    this._deafened = true;
     this.mute();
     this.socket?.emit('deafen');
+    this.sound.play('voice_deafen');
   }
 
   undeafen(): void {
-    // undeafen implies unmute (deafened state was both muted and deafened)
+    this._deafened = false;
     this.unmute();
     this.socket?.emit('undeafen');
+    this.sound.play('voice_undeafen');
   }
 
   ngOnDestroy(): void {

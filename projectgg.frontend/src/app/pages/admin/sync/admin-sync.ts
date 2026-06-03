@@ -39,6 +39,12 @@ export class AdminSync {
   uploadStatus: Map<string, string> = new Map();
   currentSyncingDetail = '';
 
+  // Candidate picker state
+  pickingFor: string | null = null;
+  pickingName = '';
+  candidates: any[] = [];
+  showCandidates = false;
+
   constructor(
     private readonly games: GamesService,
     private readonly auth: AuthService,
@@ -288,17 +294,20 @@ export class AdminSync {
     const game = this.queue[index];
     this.current = game.code;
     this.currentSyncingDetail = '';
-    this.status = `[${index + 1}/${this.total}] Syncing ${game.name} (${game.code})...`;
+    const searchLabel = this.needsInferFirst(game.name) ? ` (searching "${game.name} I")` : '';
+    this.status = `[${index + 1}/${this.total}] Searching ${game.name} (${game.code})${searchLabel}...`;
     this.cdr.detectChanges();
 
+    // Search for candidates first
     this.games.syncGame(game.code, game.name).subscribe({
-      next: (result: SyncResult) => {
+      next: (result: any) => {
         const syncResult: SyncResult = {
           code: game.code,
           success: result.success,
           message: result.message,
           source: result.source || this.extractSource(result.message),
           rating: result.rating,
+          search_name: result.search_name,
         };
         this.results.push(syncResult);
         this.completed = index + 1;
@@ -317,6 +326,86 @@ export class AdminSync {
         setTimeout(() => this.processNext(index + 1), 500);
       },
     });
+  }
+
+  /** Start interactive pick: search for candidates and let user choose */
+  startPick(game: { code: string; name: string }): void {
+    this.pickingFor = game.code;
+    this.pickingName = game.name;
+    this.candidates = [];
+    this.showCandidates = true;
+    this.status = `Searching for "${game.name}"...`;
+    this.cdr.detectChanges();
+
+    const searchName = this.needsInferFirst(game.name) ? `${game.name} I` : game.name;
+    this.games.syncGame(game.code, searchName, true).subscribe({
+      next: (result: any) => {
+        if (Array.isArray(result)) {
+          this.candidates = result;
+        } else {
+          this.candidates = [result];
+        }
+        this.status = `Found ${this.candidates.length} candidate(s) for "${game.name}"`;
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.status = `Search failed: ${err.message}`;
+        this.showCandidates = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  /** User picks a candidate — import it and lock all columns */
+  pickCandidate(candidate: any): void {
+    if (!this.pickingFor) return;
+    const gameCode = this.pickingFor;
+    this.status = `Importing "${candidate.name}" to ${gameCode}...`;
+    this.cdr.detectChanges();
+
+    this.games.importToGame(gameCode, {
+      name: candidate.name,
+      cover_url: candidate.cover_url,
+      genres: candidate.genres,
+      external_id: candidate.id ? String(candidate.id) : undefined,
+      source: candidate.sources?.[0],
+      rating: candidate.rating,
+      release_year: candidate.release_year,
+      desc: candidate.desc,
+      platforms: candidate.platforms,
+      sources: candidate.sources,
+    }).subscribe({
+      next: (res) => {
+        this.results.push({
+          code: gameCode,
+          success: true,
+          message: `Manually picked "${candidate.name}" — all columns locked`,
+          source: candidate.sources?.[0],
+          rating: candidate.rating,
+          search_name: candidate.name,
+        });
+        this.status = `Imported "${candidate.name}" and locked all columns for ${gameCode}`;
+        this.showCandidates = false;
+        this.pickingFor = null;
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.status = `Import failed: ${err.message}`;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  cancelPick(): void {
+    this.showCandidates = false;
+    this.pickingFor = null;
+    this.status = '';
+    this.cdr.detectChanges();
+  }
+
+  /** Trigger search_only mode and show candidates (for the queue button) */
+  searchAndPick(game: { code: string; name: string }): void {
+    this.startPick(game);
   }
 
   private extractSource(message: string): string {
@@ -350,5 +439,21 @@ export class AdminSync {
 
   get failCount(): number {
     return this.results.filter((r) => !r.success).length;
+  }
+
+  private needsInferFirst(name: string): boolean {
+    return !/\b(I{1,3}|IV|VI{0,3}|IX|X{1,3}|XIV|XIX|XL|L|LX{0,3}|XC{0,2}|C{1,3}|CD|D|DC{0,3}|CM|M{0,4})\b\s*$/i.test(name)
+      && !/\d+\s*$/.test(name);
+  }
+
+  clearResults(): void {
+    this.results = [];
+    this.completed = 0;
+    this.total = 0;
+    this.syncComplete = false;
+    this.current = '';
+    this.status = '';
+    this.showDetail.clear();
+    this.cdr.detectChanges();
   }
 }

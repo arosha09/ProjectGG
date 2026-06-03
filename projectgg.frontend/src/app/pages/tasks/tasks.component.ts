@@ -124,8 +124,8 @@ export class TasksComponent implements OnInit, OnDestroy {
             this.completeMsg = `Task auto-completed: ${task.title}`;
             this.achievementCategories = this.achievementCategories.map(cat => ({
               ...cat,
-              tasks: cat.tasks.filter(t => t.id !== task.id)
-            })).filter(cat => cat.tasks.length > 0);
+              tasks: cat.tasks.map(t => t.id === task.id ? { ...t, completed: true } : t)
+            }));
           }
           setTimeout(() => { this.completeMsg = null; this.cdr.markForCheck(); }, 4000);
         }
@@ -295,6 +295,7 @@ export class TasksComponent implements OnInit, OnDestroy {
     const now = new Date();
     
     this.dailyTasks = tasks.filter(t => {
+      if (t.is_daily) return true;
       if (t.task_kind === 'duration' && t.start_at) {
         const start = new Date(t.start_at);
         const end = t.end_at ? new Date(t.end_at) : null;
@@ -303,7 +304,7 @@ export class TasksComponent implements OnInit, OnDestroy {
         return isSameDay || (now >= start && (!end || now <= end));
       }
       return false;
-    }).map(t => ({ ...t, is_daily: true }));
+    });
 
     const achievementTasks = tasks.filter(t => t.task_kind === 'achievement' || t.is_achievement);
     const categoryMap = new Map<string, Task[]>();
@@ -386,6 +387,7 @@ export class TasksComponent implements OnInit, OnDestroy {
   }
 
   isTaskReadyToClaim(task: Task): boolean {
+    if (this.isTaskCompleted(task)) return false;
     if (task.max_claims && task.claims_count !== undefined && task.claims_count >= task.max_claims) return false;
     if (task.task_kind === 'duration' || task.task_kind === 'test') {
       const elapsed = task.elapsed_seconds || 0;
@@ -393,6 +395,10 @@ export class TasksComponent implements OnInit, OnDestroy {
       return elapsed >= required;
     }
     return this.progressPercent(task) >= 100;
+  }
+
+  isTaskCompleted(task: Task): boolean {
+    return !!(task as any).completed;
   }
 
   decodeCriteria(criteria: any): string {

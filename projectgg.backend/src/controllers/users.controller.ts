@@ -203,4 +203,33 @@ export class UsersController {
     await this.usersService.updateProfile(userId, { cursor_preference });
     return { cursor_preference };
   }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('settings')
+  async getSettings(@Req() req: any): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] }> {
+    const userId = req.user.id;
+    const settings = await this.usersService.getUserSettings(userId);
+    return {
+      sound_profile: settings?.sound_profile ?? 'cyber',
+      allow_incoming_nudges: settings?.allow_incoming_nudges ?? true,
+      disabled_notification_kinds: settings?.disabled_notification_kinds ?? [],
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Put('settings')
+  async updateSettings(
+    @Req() req: any,
+    @Body() body: { sound_profile?: string; allow_incoming_nudges?: boolean; disabled_notification_kinds?: string[] },
+  ): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] }> {
+    const userId = req.user.id;
+    const updated = await this.usersService.updateUserSettings(userId, body);
+    return {
+      sound_profile: updated?.sound_profile ?? 'cyber',
+      allow_incoming_nudges: updated?.allow_incoming_nudges ?? true,
+      disabled_notification_kinds: updated?.disabled_notification_kinds ?? [],
+    };
+  }
 }

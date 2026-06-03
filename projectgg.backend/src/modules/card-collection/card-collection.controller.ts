@@ -51,14 +51,16 @@ export class CardCollectionController {
   @ApiQuery({ name: 'page_size', type: Number, required: false })
   @ApiQuery({ name: 'tier', type: String, required: false })
   @ApiQuery({ name: 'search', type: String, required: false })
+  @ApiQuery({ name: 'sort_by', type: String, required: false })
   async getCollection(
     @Req() req: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('page_size', new DefaultValuePipe(24), ParseIntPipe) pageSize: number,
     @Query('tier') tier?: string,
     @Query('search') search?: string,
+    @Query('sort_by') sortBy?: string,
   ) {
-    return this.cardService.getCollection(req.user.id, page, pageSize, tier, search);
+    return this.cardService.getCollection(req.user.id, page, pageSize, tier, search, sortBy);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -78,8 +80,16 @@ export class CardCollectionController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('showcase/:userId')
-  async getShowcase(@Param('userId') userId: string) {
-    return this.cardService.getShowcase(userId);
+  @ApiQuery({ name: 'page', type: Number, required: false })
+  @ApiQuery({ name: 'page_size', type: Number, required: false })
+  @ApiQuery({ name: 'sort_by', type: String, required: false })
+  async getShowcase(
+    @Param('userId') userId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('page_size', new DefaultValuePipe(50), ParseIntPipe) pageSize: number,
+    @Query('sort_by') sortBy?: string,
+  ) {
+    return this.cardService.getShowcase(userId, page, pageSize, sortBy);
   }
 
   // ── Trading ──
@@ -89,14 +99,50 @@ export class CardCollectionController {
   @Post('trade')
   async createTrade(
     @Req() req: any,
-    @Body() body: { proposerCardId: number; receiverId: string; receiverCardId: number; allowUnfair?: boolean },
+    @Body() body: {
+      proposerCardIds: number[];
+      receiverId: string;
+      receiverCardIds: number[];
+      allowUnfair?: boolean;
+      message?: string;
+      parentTradeId?: number;
+      // Backwards-compat: single-card fields (used by older clients)
+      proposerCardId?: number;
+      receiverCardId?: number;
+    },
   ) {
+    const proposerCardIds = body.proposerCardIds?.length
+      ? body.proposerCardIds
+      : (body.proposerCardId ? [body.proposerCardId] : []);
+    const receiverCardIds = body.receiverCardIds?.length
+      ? body.receiverCardIds
+      : (body.receiverCardId ? [body.receiverCardId] : []);
+
     return this.cardService.createTrade(
       req.user.id,
-      body.proposerCardId,
+      proposerCardIds,
       body.receiverId,
-      body.receiverCardId,
-      body.allowUnfair,
+      receiverCardIds,
+      !!body.allowUnfair,
+      body.message ?? null,
+      body.parentTradeId ?? null,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('trade/:tradeId/counter')
+  async counterTrade(
+    @Req() req: any,
+    @Param('tradeId') tradeId: string,
+    @Body() body: { counterProposerCardIds: number[]; counterReceiverCardIds: number[]; message?: string },
+  ) {
+    return this.cardService.counterTrade(
+      Number(tradeId),
+      req.user.id,
+      body.counterProposerCardIds || [],
+      body.counterReceiverCardIds || [],
+      body.message ?? null,
     );
   }
 
@@ -105,10 +151,18 @@ export class CardCollectionController {
   @Get('trade/fairness')
   async checkTradeFairness(
     @Req() req: any,
-    @Query('proposerCardId') proposerCardId: string,
-    @Query('receiverCardId') receiverCardId: string,
+    @Query('proposerCardIds') proposerCardIds?: string,
+    @Query('receiverCardIds') receiverCardIds?: string,
+    @Query('proposerCardId') proposerCardId?: string,
+    @Query('receiverCardId') receiverCardId?: string,
   ) {
-    return this.cardService.checkTradeFairness(Number(proposerCardId), Number(receiverCardId));
+    const pIds = proposerCardIds
+      ? proposerCardIds.split(',').map(Number).filter(Boolean)
+      : (proposerCardId ? [Number(proposerCardId)] : []);
+    const rIds = receiverCardIds
+      ? receiverCardIds.split(',').map(Number).filter(Boolean)
+      : (receiverCardId ? [Number(receiverCardId)] : []);
+    return this.cardService.checkTradeFairness(pIds, rIds);
   }
 
   @UseGuards(JwtAuthGuard)

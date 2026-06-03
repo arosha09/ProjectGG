@@ -38,12 +38,12 @@
       @if (!item.adminOnly || isAdmin) {
         @if (item.link) {
           <a class="cyber-menu-item" [routerLink]="item.link" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); itemSelect.emit(item)">
-            @if (item.icon) { <mat-icon>{{item.icon}}</mat-icon> }
+            @if (item.icon) { <mat-icon [svgIcon]="item.icon"></mat-icon> }
             {{ item.label }}
           </a>
         } @else {
           <button class="cyber-menu-item" type="button" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); selectItem(item)">
-            @if (item.icon) { <mat-icon>{{item.icon}}</mat-icon> }
+            @if (item.icon) { <mat-icon [svgIcon]="item.icon"></mat-icon> }
             {{ item.label }}
           </button>
         }

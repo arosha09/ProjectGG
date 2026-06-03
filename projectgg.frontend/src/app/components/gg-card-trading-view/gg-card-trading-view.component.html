@@ -42,16 +42,18 @@
   }
 
   @if (activeTab !== 'propose' && activeTab !== 'gift') {
-    <div class="trading-filter-bar">
+    <div class="trading-filter-bar" (click)="$event.stopPropagation()">
       <div class="trading-search-wrap">
-        <mat-icon class="trading-search-icon">search</mat-icon>
+        <mat-icon class="trading-search-icon" svgIcon="search"></mat-icon>
         <input type="text" class="trading-search" [(ngModel)]="tradeSearch" placeholder="Search by username or game..." />
       </div>
-      <select class="trading-sort" [(ngModel)]="tradeSort">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="name">By name</option>
-      </select>
+      <div class="sort-dropdown-wrap trading-sort-wrap">
+        <button class="sort-trigger" type="button" (click)="tradeSortOpen = !tradeSortOpen">
+          <span>{{ tradeSort === 'newest' ? 'Newest first' : tradeSort === 'oldest' ? 'Oldest first' : 'By name' }}</span>
+          <span class="sort-arrow">▼</span>
+        </button>
+        <app-cyber-dropdown [items]="tradeSortItems" [isOpen]="tradeSortOpen" (itemSelect)="tradeSortOpen = false"></app-cyber-dropdown>
+      </div>
     </div>
   }
 
@@ -62,7 +64,7 @@
         <div class="trading-empty">Loading...</div>
       } @else if (incomingTrades.length === 0) {
         <div class="trading-empty">
-          <mat-icon class="empty-icon">inbox</mat-icon>
+          <mat-icon class="empty-icon" svgIcon="inbox"></mat-icon>
           <h3>No incoming trades</h3>
           <p>Trades from other users will appear here.</p>
         </div>
@@ -71,7 +73,7 @@
           <div class="trade-card">
             <div class="trade-header">
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.proposer_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.proposer_tier">{{ trade.proposer_tier }}</div>
@@ -81,7 +83,7 @@
                 <mat-icon svgIcon="arrow_forward"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">You</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
@@ -93,7 +95,7 @@
                 <img loading="lazy" decoding="async" [src]="trade.proposer_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
                 <div class="trade-card-name">{{ trade.proposer_game_code }}</div>
               </div>
-              <mat-icon class="trade-swap-icon">compare_arrows</mat-icon>
+              <mat-icon class="trade-swap-icon" svgIcon="compare_arrows"></mat-icon>
               <div class="trade-card-side">
                 <img loading="lazy" decoding="async" [src]="trade.receiver_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
                 <div class="trade-card-name">{{ trade.receiver_game_code }}</div>
@@ -123,7 +125,7 @@
         <div class="trading-empty">Loading...</div>
       } @else if (outgoingTrades.length === 0) {
         <div class="trading-empty">
-          <mat-icon class="empty-icon">outbox</mat-icon>
+          <mat-icon class="empty-icon" svgIcon="outbox"></mat-icon>
           <h3>No outgoing trades</h3>
           <p>Click "Propose Trade" to start one.</p>
         </div>
@@ -141,7 +143,7 @@
                 <mat-icon svgIcon="arrow_forward"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.receiver_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
@@ -153,7 +155,7 @@
                 <img loading="lazy" decoding="async" [src]="trade.proposer_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
                 <div class="trade-card-name">{{ trade.proposer_game_code }}</div>
               </div>
-              <mat-icon class="trade-swap-icon">compare_arrows</mat-icon>
+              <mat-icon class="trade-swap-icon" svgIcon="compare_arrows"></mat-icon>
               <div class="trade-card-side">
                 <img loading="lazy" decoding="async" [src]="trade.receiver_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
                 <div class="trade-card-name">{{ trade.receiver_game_code }}</div>
@@ -180,7 +182,7 @@
         <div class="trading-empty">Loading...</div>
       } @else if (completedTrades.length === 0) {
         <div class="trading-empty">
-          <mat-icon class="empty-icon">history</mat-icon>
+          <mat-icon class="empty-icon" svgIcon="history"></mat-icon>
           <h3>No trade history</h3>
           <p>Accepted, rejected, and cancelled trades will appear here.</p>
         </div>
@@ -189,7 +191,7 @@
           <div class="trade-card trade-card-completed" [class]="'status-' + trade.trade_status">
             <div class="trade-header">
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.proposer_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.proposer_tier">{{ trade.proposer_tier }}</div>
@@ -199,7 +201,7 @@
                 <mat-icon svgIcon="arrow_forward"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.receiver_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
@@ -211,7 +213,7 @@
                 <img loading="lazy" decoding="async" [src]="trade.proposer_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
                 <div class="trade-card-name">{{ trade.proposer_game_code }}</div>
               </div>
-              <mat-icon class="trade-swap-icon">compare_arrows</mat-icon>
+              <mat-icon class="trade-swap-icon" svgIcon="compare_arrows"></mat-icon>
               <div class="trade-card-side">
                 <img loading="lazy" decoding="async" [src]="trade.receiver_cover || ''" alt="" class="trade-card-img" (error)="$event.target.style.display='none'" />
                 <div class="trade-card-name">{{ trade.receiver_game_code }}</div>
@@ -228,19 +230,29 @@
   @if (activeTab === 'propose') {
     <div class="propose-trade">
       <div class="propose-section">
-        <h3 class="propose-section-title">1. SELECT YOUR CARD</h3>
+        <div class="propose-section-header">
+          <h3 class="propose-section-title">1. SELECT YOUR CARD</h3>
+          <div class="sort-dropdown-wrap">
+            <button class="sort-trigger" type="button" (click)="proposerSortOpen = !proposerSortOpen">
+              <span>{{ proposerSort | titlecase }}</span>
+              <span class="sort-arrow">▼</span>
+            </button>
+            <app-cyber-dropdown [items]="proposerSortItems" [isOpen]="proposerSortOpen" (itemSelect)="proposerSortOpen = false"></app-cyber-dropdown>
+          </div>
+        </div>
         @if (loadingProposerCards) {
           <div class="propose-loading">Loading your collection...</div>
         } @else {
           <div class="card-picker">
             @for (card of proposerCards; track card.id) {
-              <div class="picker-card" [class.selected]="selectedProposerCard?.id === card.id" [class]="'tier-' + card.card_tier" (click)="selectProposerCard(card)">
+              <div class="picker-card" [class.selected]="isProposerSelected(card)" [class]="'tier-' + card.card_tier" (click)="toggleProposerCard(card)">
                 <img loading="lazy" decoding="async" [src]="card.cover_url || ''" alt="" class="picker-card-img" (error)="$event.target.style.display='none'" />
                 <div class="picker-card-tier" [class]="'tier-' + card.card_tier">{{ card.card_tier }}</div>
                 <div class="picker-card-name">{{ card.game_name || card.game_code }}</div>
               </div>
             }
           </div>
+          <app-paginator class="picker-paginator" [currentPage]="proposerCardPage" [totalPages]="proposerCardTotalPages" (pageChange)="goToProposerPage($event)"></app-paginator>
         }
       </div>
 
@@ -250,7 +262,7 @@
           @if (friends.length > 0) {
             @for (friend of friends; track friend.id) {
               <div class="friend-chip" [class.selected]="selectedReceiverId === friend.other_id" (click)="selectReceiverFriend(friend)">
-                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                 <span>{{ friend.other_username }}</span>
               </div>
             }
@@ -264,7 +276,7 @@
               <div class="user-search-results">
                 @for (user of userSearchResults; track user.id) {
                   <div class="user-search-item" (click)="selectUser(user)">
-                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                     <span>{{ user.username }}</span>
                   </div>
                 }
@@ -276,7 +288,16 @@
 
       @if (selectedReceiverId) {
         <div class="propose-section">
-          <h3 class="propose-section-title">3. SELECT RECEIVER'S CARD</h3>
+          <div class="propose-section-header">
+            <h3 class="propose-section-title">3. SELECT RECEIVER'S CARD</h3>
+            <div class="sort-dropdown-wrap">
+              <button class="sort-trigger" type="button" (click)="receiverSortOpen = !receiverSortOpen">
+                <span>{{ receiverSort | titlecase }}</span>
+                <span class="sort-arrow">▼</span>
+              </button>
+              <app-cyber-dropdown [items]="receiverSortItems" [isOpen]="receiverSortOpen" (itemSelect)="receiverSortOpen = false"></app-cyber-dropdown>
+            </div>
+          </div>
           @if (loadingReceiverCards) {
             <div class="propose-loading">Loading their collection...</div>
           } @else if (receiverCards.length === 0) {
@@ -284,13 +305,14 @@
           } @else {
             <div class="card-picker">
               @for (card of receiverCards; track card.id) {
-                <div class="picker-card" [class.selected]="selectedReceiverCard?.id === card.id" [class]="'tier-' + card.card_tier" (click)="selectReceiverCard(card)">
+                <div class="picker-card" [class.selected]="isReceiverSelected(card)" [class]="'tier-' + card.card_tier" (click)="toggleReceiverCard(card)">
                   <img loading="lazy" decoding="async" [src]="card.cover_url || ''" alt="" class="picker-card-img" (error)="$event.target.style.display='none'" />
                   <div class="picker-card-tier" [class]="'tier-' + card.card_tier">{{ card.card_tier }}</div>
                   <div class="picker-card-name">{{ card.game_name || card.game_code }}</div>
                 </div>
               }
             </div>
+            <app-paginator class="picker-paginator" [currentPage]="receiverCardPage" [totalPages]="receiverCardTotalPages" (pageChange)="goToReceiverPage($event)"></app-paginator>
           }
         </div>
       }
@@ -329,7 +351,7 @@
     <div class="trades-list">
       @if (giftHistory.length === 0) {
         <div class="trading-empty">
-          <mat-icon class="empty-icon">card_giftcard</mat-icon>
+          <mat-icon class="empty-icon" svgIcon="card_giftcard"></mat-icon>
           <h3>No gifts yet</h3>
           <p>Sent and received gifts will appear here.</p>
         </div>
@@ -338,7 +360,7 @@
           <div class="trade-card trade-card-gift">
             <div class="trade-header">
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="gift.proposer_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="gift.proposer_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ gift.proposer_id === currentUserId ? 'You' : gift.proposer_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + gift.proposer_tier">{{ gift.proposer_tier }}</div>
@@ -348,7 +370,7 @@
                 <mat-icon svgIcon="card_giftcard"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="gift.receiver_avatar || '/assets/default-avatar.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="gift.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ gift.receiver_id === currentUserId ? 'You' : gift.receiver_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + gift.receiver_tier">{{ gift.receiver_tier }}</div>
@@ -374,7 +396,16 @@
   @if (activeTab === 'gift') {
     <div class="propose-trade">
       <div class="propose-section">
-        <h3 class="propose-section-title">SELECT CARD TO GIFT</h3>
+        <div class="propose-section-header">
+          <h3 class="propose-section-title">SELECT CARD TO GIFT</h3>
+          <div class="sort-dropdown-wrap">
+            <button class="sort-trigger" type="button" (click)="proposerSortOpen = !proposerSortOpen">
+              <span>{{ proposerSort | titlecase }}</span>
+              <span class="sort-arrow">▼</span>
+            </button>
+            <app-cyber-dropdown [items]="proposerSortItems" [isOpen]="proposerSortOpen" (itemSelect)="proposerSortOpen = false"></app-cyber-dropdown>
+          </div>
+        </div>
         @if (loadingProposerCards) {
           <div class="propose-loading">Loading your collection...</div>
         } @else {
@@ -387,6 +418,7 @@
               </div>
             }
           </div>
+          <app-paginator class="picker-paginator" [currentPage]="proposerCardPage" [totalPages]="proposerCardTotalPages" (pageChange)="goToProposerPage($event)"></app-paginator>
         }
       </div>
 
@@ -396,7 +428,7 @@
           @if (friends.length > 0) {
             @for (friend of friends; track friend.id) {
               <div class="friend-chip" [class.selected]="giftReceiverId === friend.other_id" (click)="selectGiftReceiver(friend)">
-                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                 <span>{{ friend.other_username }}</span>
               </div>
             }
@@ -407,7 +439,7 @@
               <div class="user-search-results">
                 @for (user of userSearchResults; track user.id) {
                   <div class="user-search-item" (click)="selectUserForGift(user)">
-                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/default-avatar.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                     <span>{{ user.username }}</span>
                   </div>
                 }

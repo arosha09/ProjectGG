@@ -14,6 +14,7 @@ import { MailModule } from './mail/mail.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { MusicModule } from './modules/music/music.module';
 import { CardCollectionModule } from './modules/card-collection/card-collection.module';
+import { JamModule } from './modules/jam/jam.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', 'src/.env'] }),
@@ -30,6 +31,7 @@ import { CardCollectionModule } from './modules/card-collection/card-collection.
     TasksModule,
     MusicModule,
     CardCollectionModule,
+    JamModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

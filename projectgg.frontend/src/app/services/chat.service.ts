@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
@@ -29,6 +30,7 @@ export interface GgServer {
   name: string;
   owner_id: string;
   avatar_url: string | null;
+  banner_url: string | null;
   created_at: string;
 }
 
@@ -138,6 +140,10 @@ export class ChatService {
       this.socket = io(`${wsUrl}/chat`, {
         transports: ['websocket'],
         query: { userId: user?.id ?? '' },
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10_000,
+        reconnectionAttempts: Infinity,
       });
     }
     return this.socket;
@@ -276,7 +282,11 @@ export class ChatService {
   }
 
   // ===== SERVER SETTINGS =====
-  updateServer(id: number, data: { name?: string; avatar_url?: string }): Observable<GgServer> {
+  getServer(id: number): Observable<GgServer> {
+    return this.http.get<GgServer>(`${this.apiUrl}/gg/servers/${id}`);
+  }
+
+  updateServer(id: number, data: { name?: string; avatar_url?: string; banner_url?: string }): Observable<GgServer> {
     return this.http.patch<GgServer>(`${this.apiUrl}/gg/servers/${id}`, data);
   }
 
@@ -285,6 +295,13 @@ export class ChatService {
     fd.append('file', file);
     fd.append('serverId', String(serverId));
     return this.http.post<GgServer>(`${this.apiUrl}/gg/servers/upload-avatar`, fd);
+  }
+
+  uploadServerBanner(serverId: number, file: File): Observable<GgServer> {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('serverId', String(serverId));
+    return this.http.post<GgServer>(`${this.apiUrl}/gg/servers/upload-banner`, fd);
   }
 
   // ===== INVITE LINKS =====
@@ -312,6 +329,10 @@ export class ChatService {
   // ===== FRIENDS =====
   getFriends(): Observable<FriendsData> {
     return this.http.get<FriendsData>(`${this.apiUrl}/gg/friends`);
+  }
+
+  getUserById(userId: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/gg/users/${userId}`);
   }
 
   sendFriendRequest(username: string): Observable<any> {
@@ -379,9 +400,13 @@ export class ChatService {
     return this.http.patch(`${this.apiUrl}/gg/notifications/read-all`, {});
   }
 
-  clearAllNotifications(): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/gg/notifications`);
-  }
+clearAllNotifications(): Observable<any> {
+  return this.http.delete(`${this.apiUrl}/gg/notifications`);
+}
+
+deleteNotification(id: number): Observable<any> {
+  return this.http.delete(`${this.apiUrl}/gg/notifications/${id}`);
+}
 
   // ===== CARD COLLECTION =====
 
@@ -401,11 +426,41 @@ export class ChatService {
     return this.http.get<any[]>(`${this.apiUrl}/cards/tickets`);
   }
 
-  getCardCollection(page = 1, pageSize = 24, tier?: string, search?: string): Observable<any[]> {
+  getCardCollection(page = 1, pageSize = 24, tier?: string, search?: string, sortBy?: string): Observable<{ items: any[]; total: number }> {
     let url = `${this.apiUrl}/cards/collection?page=${page}&page_size=${pageSize}`;
     if (tier) url += `&tier=${tier}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
-    return this.http.get<any[]>(url);
+    if (sortBy) url += `&sort_by=${sortBy}`;
+    return this.http.get<any[]>(url).pipe(
+      map((rows) => this.unwrapPaginatedRows(rows)),
+    );
+  }
+
+  getUserShowcase(userId: string, page = 1, pageSize = 50, sortBy?: string): Observable<{ items: any[]; total: number }> {
+    let url = `${this.apiUrl}/cards/showcase/${userId}?page=${page}&page_size=${pageSize}`;
+    if (sortBy) url += `&sort_by=${sortBy}`;
+    return this.http.get<any[]>(url).pipe(
+      map((rows) => this.unwrapPaginatedRows(rows)),
+    );
+  }
+
+  private unwrapPaginatedRows(rows: any[]): { items: any[]; total: number } {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { items: [], total: 0 };
+    }
+    const first = rows[0];
+    if (first && typeof first === 'object' && 'total_count' in first) {
+      const total = Number(first.total_count) || 0;
+      const items = first.empty_page ? [] : rows.map((r) => {
+        if (r === first) {
+          const { total_count, empty_page, ...rest } = r;
+          return rest;
+        }
+        return r;
+      });
+      return { items, total };
+    }
+    return { items: rows, total: rows.length };
   }
 
   getCollectionStats(): Observable<any> {
@@ -416,16 +471,61 @@ export class ChatService {
     return this.http.patch<boolean>(`${this.apiUrl}/cards/collection/${gameCode}/favorite`, {});
   }
 
-  getUserShowcase(userId: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/cards/showcase/${userId}`);
+  getUserShowcaseRaw(userId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/cards/showcase/${userId}`).pipe(
+      map((rows) => {
+        // Strip pagination metadata before returning raw rows
+        if (!Array.isArray(rows) || rows.length === 0) return rows;
+        return rows.map((r) => {
+          if (r && typeof r === 'object' && 'total_count' in r && Object.keys(r).length <= 2) {
+            return {};
+          }
+          if (r && typeof r === 'object' && 'total_count' in r) {
+            const { total_count, empty_page, ...rest } = r;
+            return rest;
+          }
+          return r;
+        }).filter(r => r && Object.keys(r).length > 0);
+      }),
+    );
   }
 
-  createCardTrade(proposerCardId: number, receiverId: string, receiverCardId: number, allowUnfair = false): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/cards/trade`, { proposerCardId, receiverId, receiverCardId, allowUnfair });
+  createCardTrade(
+    proposerCardIds: number[],
+    receiverId: string,
+    receiverCardIds: number[],
+    allowUnfair = false,
+    message?: string,
+    parentTradeId?: number,
+  ): Observable<any> {
+    const body: any = { proposerCardIds, receiverId, receiverCardIds, allowUnfair };
+    if (message) body.message = message;
+    if (parentTradeId) body.parentTradeId = parentTradeId;
+    return this.http.post<any>(`${this.apiUrl}/cards/trade`, body);
   }
 
-  checkTradeFairness(proposerCardId: number, receiverCardId: number): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/cards/trade/fairness`, { params: { proposerCardId, receiverCardId } });
+  counterCardTrade(
+    tradeId: number,
+    counterProposerCardIds: number[],
+    counterReceiverCardIds: number[],
+    message?: string,
+  ): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/cards/trade/${tradeId}/counter`, {
+      counterProposerCardIds,
+      counterReceiverCardIds,
+      message,
+    });
+  }
+
+  checkTradeFairness(
+    proposerCardIds: number[],
+    receiverCardIds: number[],
+  ): Observable<any> {
+    const params: any = {
+      proposerCardIds: proposerCardIds.join(','),
+      receiverCardIds: receiverCardIds.join(','),
+    };
+    return this.http.get<any>(`${this.apiUrl}/cards/trade/fairness`, { params });
   }
 
   giftCard(gifterCardId: number, receiverId: string): Observable<any> {

@@ -217,10 +217,35 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   private pruneStaleHeartbeats(): void {
     const now = Date.now();
+    const socketMap: Map<string, Socket> | undefined = (this.server?.sockets as any)?.sockets;
     for (const [userId, lastBeat] of this.heartbeatByUser.entries()) {
-      if (now - lastBeat > this.HEARTBEAT_TIMEOUT_MS && !this.connectedSockets.has(userId)) {
+      const stale = now - lastBeat > this.HEARTBEAT_TIMEOUT_MS;
+      if (!stale) continue;
+
+      const socketIds = this.connectedSockets.get(userId);
+      if (!socketIds || socketIds.size === 0) {
         this.heartbeatByUser.delete(userId);
         void this.setDisconnectedPresence(userId);
+        continue;
+      }
+
+      // Clean up ghost sockets: IDs in our map but no longer in Socket.IO's internal registry
+      // (happens when browser freezes/kills the tab without a clean disconnect)
+      let liveCount = 0;
+      for (const sid of socketIds) {
+        if (socketMap?.has(sid)) {
+          liveCount++;
+        } else {
+          socketIds.delete(sid);
+        }
+      }
+
+      if (liveCount === 0) {
+        this.connectedSockets.delete(userId);
+        this.heartbeatByUser.delete(userId);
+        void this.setDisconnectedPresence(userId);
+      } else if (socketIds.size !== liveCount) {
+        this.connectedSockets.set(userId, socketIds);
       }
     }
   }

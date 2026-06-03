@@ -26,7 +26,7 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
             }
           } @else {
             @for (member of members; track member.user_id) {
-              <div class="gg-member">
+              <div class="gg-member" (contextmenu)="onMemberContextMenu($event, member)">
                 <div class="gg-member-avatar">
                   <div class="gg-avatar-sk"></div>
                   <img loading="lazy" decoding="async" [src]="resolveAvatar(member, 'avatar_url')" alt="" class="gg-member-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
@@ -88,5 +88,11 @@ export class MemberListComponent {
   @Output() changeRole = new EventEmitter<{member: GgServerMember, role: string}>();
   @Output() confirmKick = new EventEmitter<GgServerMember>();
   @Output() confirmBan = new EventEmitter<GgServerMember>();
+  @Output() memberContextMenu = new EventEmitter<{event: MouseEvent; member: GgServerMember}>();
+
+  onMemberContextMenu(event: MouseEvent, member: GgServerMember): void {
+    event.preventDefault();
+    this.memberContextMenu.emit({ event, member });
+  }
 }
 

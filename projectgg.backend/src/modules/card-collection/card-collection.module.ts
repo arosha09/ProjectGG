@@ -7,9 +7,16 @@ import { AuthModule } from '../../auth/auth.module';
 import { XpModule } from '../xp.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
-  imports: [AuthModule, forwardRef(() => XpModule), forwardRef(() => TasksModule), RealtimeModule],
+  imports: [
+    AuthModule,
+    forwardRef(() => XpModule),
+    forwardRef(() => TasksModule),
+    forwardRef(() => ChatModule),
+    RealtimeModule,
+  ],
   controllers: [CardCollectionController],
   providers: [CardCollectionService, CardCollectionRepository, supabaseProvider],
   exports: [CardCollectionService],

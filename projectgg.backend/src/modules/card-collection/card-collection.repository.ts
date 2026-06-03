@@ -17,6 +17,26 @@ export class CardCollectionRepository {
     return 'common';
   }
 
+  private async incrementStaticTotal(userId: string, count = 1): Promise<void> {
+    const { error } = await this.supabase.rpc('increment_static_total_cards', {
+      in_user_id: userId,
+      in_count: count,
+    });
+    if (error) {
+      const { data } = await this.supabase
+        .schema('projectgg')
+        .from('users')
+        .select('static_total_cards')
+        .eq('id', userId)
+        .single();
+      await this.supabase
+        .schema('projectgg')
+        .from('users')
+        .update({ static_total_cards: (data?.static_total_cards ?? 0) + count })
+        .eq('id', userId);
+    }
+  }
+
   private mapDrawCard(row: any): any {
     return {
       game_code: row?.game_code ?? row?.code ?? '',
@@ -51,33 +71,49 @@ export class CardCollectionRepository {
     if (gamesErr) throw new InternalServerErrorException(`claimDailyDraw games: ${gamesErr.message}`);
     if (!games || games.length === 0) throw new InternalServerErrorException('No games available for draw');
 
-    const game = games[Math.floor(Math.random() * games.length)];
-    const tier = game.tier || this.inferTier(game.rating);
-
-    const { data: existing } = await this.supabase
+    // Fetch all games the user already owns
+    const { data: owned } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('game_code', game.code)
-      .limit(1);
+      .select('game_code')
+      .eq('user_id', userId);
+    const ownedCodes = new Set((owned ?? []).map((r: any) => r.game_code));
 
-    const isNew = !existing || existing.length === 0;
+    // Pick a random unowned game (up to 50 attempts)
+    let game: any = null;
+    for (let i = 0; i < 50; i++) {
+      const candidate = games[Math.floor(Math.random() * games.length)];
+      if (!ownedCodes.has(candidate.code)) {
+        game = candidate;
+        break;
+      }
+    }
+
+    // Fallback: if all games owned, pick any random game and grant reduced XP
+    const isNew = !!game;
+    if (!game) {
+      game = games[Math.floor(Math.random() * games.length)];
+    }
+
+    const tier = game.tier || this.inferTier(game.rating);
     const xpMap: Record<string, number> = { legendary: 250, epic: 100, rare: 50, uncommon: 25, common: 10 };
     const xp = isNew ? (xpMap[tier] || 10) : 10;
 
-    const { error: insertErr } = await this.supabase
-      .schema('projectgg')
-      .from('card_collections')
-      .insert({
-        user_id: userId,
-        game_code: game.code,
-        tier,
-        xp_earned: xp,
-        is_favorite: false,
-        drawn_at: new Date().toISOString(),
-      });
-    if (insertErr) throw new InternalServerErrorException(`claimDailyDraw insert: ${insertErr.message}`);
+    if (isNew) {
+      const { error: insertErr } = await this.supabase
+        .schema('projectgg')
+        .from('card_collections')
+        .insert({
+          user_id: userId,
+          game_code: game.code,
+          tier,
+          xp_earned: xp,
+          is_favorite: false,
+          drawn_at: new Date().toISOString(),
+        });
+      if (insertErr) throw new InternalServerErrorException(`claimDailyDraw insert: ${insertErr.message}`);
+      await this.incrementStaticTotal(userId);
+    }
 
     return {
       game_code: game.code,
@@ -146,6 +182,7 @@ export class CardCollectionRepository {
         drawn_at: new Date().toISOString(),
       });
     if (insertErr) throw new InternalServerErrorException(`drawWithTicket insert: ${insertErr.message}`);
+    if (isNew) await this.incrementStaticTotal(userId);
 
     return {
       game_code: game.code,
@@ -162,17 +199,29 @@ export class CardCollectionRepository {
     };
   }
 
-  async getUserCollection(userId: string, page: number, pageSize: number, tier?: string, search?: string): Promise<any[]> {
+  async getUserCollection(userId: string, page: number, pageSize: number, tier?: string, search?: string, sortBy?: string): Promise<any[]> {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
+
+    let countQuery = this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    if (tier) countQuery = countQuery.eq('tier', tier);
+    if (search) countQuery = countQuery.ilike('game_code', `%${search}%`);
+    const { count: totalCount, error: countErr } = await countQuery;
+    if (countErr) throw new InternalServerErrorException(`getUserCollection count: ${countErr.message}`);
+
+    const sortColumn = sortBy === 'name' ? 'game_code' : sortBy === 'tier' ? 'tier_order' : 'drawn_at';
+    const ascending = sortBy !== 'tier' && sortBy !== 'newest';
 
     let query = this.supabase
       .schema('projectgg')
       .from('card_collections')
       .select('id, user_id, game_code, tier, xp_earned, is_favorite, drawn_at')
       .eq('user_id', userId)
-      .order('drawn_at', { ascending: false })
-      .range(from, to);
+      .order(sortColumn, { ascending });
 
     if (tier) {
       query = query.eq('tier', tier);
@@ -181,22 +230,69 @@ export class CardCollectionRepository {
       query = query.ilike('game_code', `%${search}%`);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.range(from, to);
     if (error) throw new InternalServerErrorException(`getUserCollection: ${error.message}`);
+    return await this.mapCollectionRows(data, totalCount);
+  }
 
-    if (!data || data.length === 0) return [];
+  async getUserShowcase(userId: string, page = 1, pageSize = 50, sortBy?: string): Promise<any[]> {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    // Join with games_master for cover, name, etc.
-    const gameCodes = [...new Set(data.map((r: any) => r.game_code).filter(Boolean))];
+    const { count: totalCount, error: countErr } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_favorite', true);
+    if (countErr) throw new InternalServerErrorException(`getUserShowcase count: ${countErr.message}`);
+
+    const sortColumn = sortBy === 'name' ? 'game_code' : sortBy === 'tier' ? 'tier_order' : 'drawn_at';
+    const ascending = sortBy !== 'tier' && sortBy !== 'newest';
+
+    const { data, error } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id, user_id, game_code, tier, xp_earned, is_favorite, drawn_at')
+      .eq('user_id', userId)
+      .eq('is_favorite', true)
+      .order(sortColumn, { ascending })
+      .range(from, to);
+    if (error) throw new InternalServerErrorException(`getUserShowcase: ${error.message}`);
+
+    return await this.mapCollectionRows(data, totalCount);
+  }
+
+  private async mapCollectionRows(data: any[] | null, totalCount: number | null): Promise<any[]> {
+    if (!data || data.length === 0) {
+      if (totalCount && totalCount > 0) {
+        return [{ total_count: totalCount, empty_page: true }];
+      }
+      return [];
+    }
+
+    const rows = await this.joinGamesMaster(data);
+
+    if (totalCount !== null && totalCount !== undefined) {
+      rows[0] = { ...rows[0], total_count: totalCount };
+    }
+    return rows;
+  }
+
+  private async joinGamesMaster(rows: any[]): Promise<any[]> {
+    if (!rows.length) return rows;
+    const gameCodes = [...new Set(rows.map((r: any) => r.game_code).filter(Boolean))];
+    if (!gameCodes.length) return rows;
+
     const { data: games, error: gamesErr } = await this.supabase
       .schema('projectgg')
       .from('games_master')
       .select('code, name, cover_url, rating, desc, genres, platforms, series_name, sequence_release')
       .in('code', gameCodes);
-    if (gamesErr) throw new InternalServerErrorException(`getUserCollection games: ${gamesErr.message}`);
+    if (gamesErr) throw new InternalServerErrorException(`joinGamesMaster: ${gamesErr.message}`);
     const gameMap = new Map<string, any>((games || []).map((g: any) => [g.code, g]));
 
-    return data.map((row: any) => {
+    return rows.map((row: any) => {
       const game = gameMap.get(row.game_code) ?? {};
       return {
         id: row.id,
@@ -243,104 +339,97 @@ export class CardCollectionRepository {
     return newValue;
   }
 
-  async getUserShowcase(userId: string): Promise<any[]> {
-    // Get user's favorites (showcase = favorite cards)
-    const { data, error } = await this.supabase
-      .schema('projectgg')
-      .from('card_collections')
-      .select('id, user_id, game_code, tier, xp_earned, is_favorite, drawn_at')
-      .eq('user_id', userId)
-      .eq('is_favorite', true)
-      .order('drawn_at', { ascending: false })
-      .limit(12);
-    if (error) throw new InternalServerErrorException(`getUserShowcase: ${error.message}`);
+  async createTrade(
+    proposerId: string,
+    proposerCardIds: number[],
+    receiverId: string,
+    receiverCardIds: number[],
+    allowUnfair = false,
+    message: string | null = null,
+    parentTradeId: number | null = null,
+  ): Promise<number> {
+    if (!proposerCardIds?.length) throw new InternalServerErrorException('No proposer cards provided');
+    if (!receiverCardIds?.length) throw new InternalServerErrorException('No receiver cards provided');
 
-    if (!data || data.length === 0) return [];
-
-    const gameCodes = [...new Set(data.map((r: any) => r.game_code).filter(Boolean))];
-    const { data: games, error: gamesErr } = await this.supabase
-      .schema('projectgg')
-      .from('games_master')
-      .select('code, name, cover_url, rating, desc, genres, platforms, series_name')
-      .in('code', gameCodes);
-    if (gamesErr) throw new InternalServerErrorException(`getUserShowcase games: ${gamesErr.message}`);
-    const gameMap = new Map<string, any>((games || []).map((g: any) => [g.code, g]));
-
-    return data.map((row: any) => {
-      const game = gameMap.get(row.game_code) ?? {};
-      return {
-        id: row.id,
-        user_id: row.user_id,
-        game_code: row.game_code,
-        tier: row.tier,
-        card_tier: row.tier,
-        xp_earned: row.xp_earned,
-        is_favorite: row.is_favorite,
-        drawn_at: row.drawn_at,
-        game_name: (game as any).name ?? null,
-        name: (game as any).name ?? null,
-        cover_url: (game as any).cover_url ?? null,
-        rating: (game as any).rating ?? null,
-        desc: (game as any).desc ?? null,
-        genres: (game as any).genres ?? [],
-        platforms: (game as any).platforms ?? [],
-        series_name: (game as any).series_name ?? null,
-      };
-    });
-  }
-
-  async createTrade(proposerId: string, proposerCardId: number, receiverId: string, receiverCardId: number, allowUnfair?: boolean): Promise<number> {
-    // Verify proposer owns the offered card
-    const { data: proposerCard, error: proposerErr } = await this.supabase
+    // Verify proposer owns every offered card and pull their game_codes
+    const { data: proposerCards, error: proposerErr } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
       .select('id, user_id, game_code')
-      .eq('id', proposerCardId)
-      .single();
-    if (proposerErr || !proposerCard) throw new InternalServerErrorException('Proposer card not found');
-    if (proposerCard.user_id !== proposerId) throw new InternalServerErrorException('You do not own this card');
+      .in('id', proposerCardIds);
+    if (proposerErr) throw new InternalServerErrorException(`createTrade proposer: ${proposerErr.message}`);
+    if (!proposerCards || proposerCards.length !== proposerCardIds.length) {
+      throw new InternalServerErrorException('One or more proposer cards not found');
+    }
+    for (const c of proposerCards as any[]) {
+      if (c.user_id !== proposerId) throw new InternalServerErrorException('You do not own one of the offered cards');
+    }
 
-    // Verify receiver owns the requested card
-    const { data: receiverCard, error: receiverErr } = await this.supabase
+    // Verify receiver owns every requested card
+    const { data: receiverCards, error: receiverErr } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
       .select('id, user_id, game_code')
-      .eq('id', receiverCardId)
-      .single();
-    if (receiverErr || !receiverCard) throw new InternalServerErrorException('Receiver card not found');
-    if (receiverCard.user_id !== receiverId) throw new InternalServerErrorException('Receiver does not own this card');
+      .in('id', receiverCardIds);
+    if (receiverErr) throw new InternalServerErrorException(`createTrade receiver: ${receiverErr.message}`);
+    if (!receiverCards || receiverCards.length !== receiverCardIds.length) {
+      throw new InternalServerErrorException('One or more receiver cards not found');
+    }
+    for (const c of receiverCards as any[]) {
+      if (c.user_id !== receiverId) throw new InternalServerErrorException('Receiver does not own one of the requested cards');
+    }
 
-    // Check for duplicates: proposer already has receiver's card, or receiver already has proposer's card
-    const { data: proposerHasReceiver } = await this.supabase
-      .schema('projectgg')
-      .from('card_collections')
-      .select('id')
-      .eq('user_id', proposerId)
-      .eq('game_code', (receiverCard as any).game_code)
-      .limit(1);
-    if (proposerHasReceiver && proposerHasReceiver.length > 0) throw new InternalServerErrorException('You already have this card');
+    // No duplicate game_codes within each side
+    const pCodes = (proposerCards as any[]).map(c => c.game_code);
+    const rCodes = (receiverCards as any[]).map(c => c.game_code);
+    if (new Set(pCodes).size !== pCodes.length) {
+      throw new InternalServerErrorException('Duplicate cards on proposer side');
+    }
+    if (new Set(rCodes).size !== rCodes.length) {
+      throw new InternalServerErrorException('Duplicate cards on receiver side');
+    }
 
-    const { data: receiverHasProposer } = await this.supabase
-      .schema('projectgg')
-      .from('card_collections')
-      .select('id')
-      .eq('user_id', receiverId)
-      .eq('game_code', (proposerCard as any).game_code)
-      .limit(1);
-    if (receiverHasProposer && receiverHasProposer.length > 0) throw new InternalServerErrorException('Receiver already has this card');
+    // Check proposer doesn't already own any of the requested game_codes
+    for (const code of rCodes) {
+      const { data: has } = await this.supabase
+        .schema('projectgg')
+        .from('card_collections')
+        .select('id')
+        .eq('user_id', proposerId)
+        .eq('game_code', code)
+        .limit(1);
+      if (has && has.length > 0) throw new InternalServerErrorException(`You already have a card for ${code}`);
+    }
+    // Check receiver doesn't already own any of the offered game_codes
+    for (const code of pCodes) {
+      const { data: has } = await this.supabase
+        .schema('projectgg')
+        .from('card_collections')
+        .select('id')
+        .eq('user_id', receiverId)
+        .eq('game_code', code)
+        .limit(1);
+      if (has && has.length > 0) throw new InternalServerErrorException(`Receiver already has a card for ${code}`);
+    }
+
+    const insertRow: any = {
+      proposer_id: proposerId,
+      proposer_cards: proposerCardIds,
+      receiver_id: receiverId,
+      receiver_cards: receiverCardIds,
+      proposer_card: proposerCardIds[0],
+      receiver_card: receiverCardIds[0],
+      status: 'pending',
+      type: 'trade',
+      allow_unfair: allowUnfair,
+    };
+    if (message) insertRow.message = message;
+    if (parentTradeId) insertRow.parent_trade_id = parentTradeId;
 
     const { data, error } = await this.supabase
       .schema('projectgg')
       .from('card_trades')
-      .insert({
-        proposer_id: proposerId,
-        proposer_card: proposerCardId,
-        receiver_id: receiverId,
-        receiver_card: receiverCardId,
-        status: 'pending',
-        type: 'trade',
-        allow_unfair: allowUnfair ?? false,
-      })
+      .insert(insertRow)
       .select('id')
       .single();
     if (error) throw new InternalServerErrorException(`createTrade: ${error.message}`);
@@ -356,6 +445,21 @@ export class CardCollectionRepository {
       .single();
     if (error || !data) return 'common';
     return data.tier ?? 'common';
+  }
+
+  async getCardTiers(cardIds: number[]): Promise<Record<number, string>> {
+    if (!cardIds?.length) return {};
+    const { data, error } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id, tier')
+      .in('id', cardIds);
+    if (error) return {};
+    const map: Record<number, string> = {};
+    for (const row of (data || []) as any[]) {
+      map[row.id] = row.tier ?? 'common';
+    }
+    return map;
   }
 
   async getCardById(cardId: number): Promise<any> {
@@ -398,8 +502,10 @@ export class CardCollectionRepository {
       .from('card_trades')
       .insert({
         proposer_id: gifterId,
+        proposer_cards: [gifterCardId],
         proposer_card: gifterCardId,
         receiver_id: receiverId,
+        receiver_cards: [gifterCardId],
         receiver_card: gifterCardId,
         status: 'accepted',
         type: 'gift',
@@ -408,13 +514,37 @@ export class CardCollectionRepository {
       });
     if (tradeErr) throw new InternalServerErrorException(`giftCard trade record: ${tradeErr.message}`);
 
-    // Transfer ownership
-    const { error } = await this.supabase
+    // Fetch full card details before deleting
+    const { data: fullCard } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
-      .update({ user_id: receiverId })
+      .select('game_code, tier, xp_earned, is_favorite, drawn_at')
+      .eq('id', gifterCardId)
+      .single();
+
+    // Delete original entry from gifter's collection
+    const { error: delErr } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .delete()
       .eq('id', gifterCardId);
-    if (error) throw new InternalServerErrorException(`giftCard: ${error.message}`);
+    if (delErr) throw new InternalServerErrorException(`giftCard delete: ${delErr.message}`);
+
+    // Insert new entry for receiver (preserves XP, tier, drawn_at)
+    const { error: insErr } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .insert({
+        user_id: receiverId,
+        game_code: fullCard?.game_code,
+        tier: fullCard?.tier,
+        xp_earned: fullCard?.xp_earned ?? 0,
+        is_favorite: false,
+        drawn_at: fullCard?.drawn_at ?? new Date().toISOString(),
+      });
+    if (insErr) throw new InternalServerErrorException(`giftCard insert: ${insErr.message}`);
+    await this.incrementStaticTotal(receiverId);
+
     return gifterCardId;
   }
 
@@ -427,49 +557,129 @@ export class CardCollectionRepository {
       .eq('id', tradeId)
       .single();
     if (tradeErr || !trade) throw new InternalServerErrorException('Trade not found');
-    if (trade.receiver_id !== userId) throw new InternalServerErrorException('Not authorized to accept this trade');
+
+    // Determine which side is being accepted (receiver accepts original; proposer accepts counter)
+    const isCounter = !!trade.parent_trade_id;
+    const isReceiver = trade.receiver_id === userId;
+    const isProposer = trade.proposer_id === userId;
+    if (!isReceiver && !(isCounter && isProposer)) {
+      throw new InternalServerErrorException('Not authorized to accept this trade');
+    }
     if (trade.status !== 'pending') throw new InternalServerErrorException('Trade is no longer pending');
 
-    // Check receiver doesn't already have the proposer's card
-    const proposerCard = await this.getCardById(trade.proposer_card);
-    if (proposerCard) {
-      const { data: existing } = await this.supabase
+    // For a counter, the "active" side is the counter_ arrays (counter_proposer_cards belong to original receiver,
+    // counter_receiver_cards belong to original proposer). For the original, it's proposer_cards/receiver_cards.
+    const proposerCardIds: number[] = isCounter
+      ? (trade.counter_proposer_cards?.length ? trade.counter_proposer_cards : trade.proposer_cards)
+      : (trade.proposer_cards?.length ? trade.proposer_cards : [trade.proposer_card]);
+    const receiverCardIds: number[] = isCounter
+      ? (trade.counter_receiver_cards?.length ? trade.counter_receiver_cards : trade.receiver_cards)
+      : (trade.receiver_cards?.length ? trade.receiver_cards : [trade.receiver_card]);
+
+    if (!proposerCardIds?.length || !receiverCardIds?.length) {
+      throw new InternalServerErrorException('Trade is missing card references');
+    }
+
+    // Fetch card details to validate duplicates by game_code
+    const { data: proposerCards } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id, user_id, game_code')
+      .in('id', proposerCardIds);
+    const { data: receiverCards } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id, user_id, game_code')
+      .in('id', receiverCardIds);
+
+    for (const c of (proposerCards || []) as any[]) {
+      if (c.user_id !== trade.proposer_id) throw new InternalServerErrorException('Proposer no longer owns a card in this trade');
+    }
+    for (const c of (receiverCards || []) as any[]) {
+      if (c.user_id !== trade.receiver_id) throw new InternalServerErrorException('Receiver no longer owns a card in this trade');
+    }
+
+    // Duplicate checks (no side may already have any of the other side's game_codes)
+    for (const c of (proposerCards || []) as any[]) {
+      const { data: has } = await this.supabase
         .schema('projectgg')
         .from('card_collections')
         .select('id')
-        .eq('user_id', userId)
-        .eq('game_code', proposerCard.game_code)
+        .eq('user_id', trade.receiver_id)
+        .eq('game_code', c.game_code)
         .limit(1);
-      if (existing && existing.length > 0) throw new InternalServerErrorException('You already have this card');
+      if (has && has.length > 0) throw new InternalServerErrorException(`Receiver already has a card for ${c.game_code}`);
     }
-
-    // Check proposer doesn't already have the receiver's card
-    const receiverCard = await this.getCardById(trade.receiver_card);
-    if (receiverCard) {
-      const { data: existing } = await this.supabase
+    for (const c of (receiverCards || []) as any[]) {
+      const { data: has } = await this.supabase
         .schema('projectgg')
         .from('card_collections')
         .select('id')
         .eq('user_id', trade.proposer_id)
-        .eq('game_code', receiverCard.game_code)
+        .eq('game_code', c.game_code)
         .limit(1);
-      if (existing && existing.length > 0) throw new InternalServerErrorException('Proposer already has this card');
+      if (has && has.length > 0) throw new InternalServerErrorException(`Proposer already has a card for ${c.game_code}`);
     }
 
-    // Swap ownership
-    const { error: swapErr1 } = await this.supabase
+    // Fetch full card details before deleting
+    const { data: proposerCardsFull } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
-      .update({ user_id: userId })
-      .eq('id', trade.receiver_card);
-    if (swapErr1) throw new InternalServerErrorException(`acceptTrade swap1: ${swapErr1.message}`);
+      .select('id, game_code, tier, xp_earned, drawn_at')
+      .in('id', proposerCardIds);
+    const { data: receiverCardsFull } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .select('id, game_code, tier, xp_earned, drawn_at')
+      .in('id', receiverCardIds);
 
-    const { error: swapErr2 } = await this.supabase
+    // Delete original entries from both parties
+    const { error: delErr1 } = await this.supabase
       .schema('projectgg')
       .from('card_collections')
-      .update({ user_id: trade.proposer_id })
-      .eq('id', trade.proposer_card);
-    if (swapErr2) throw new InternalServerErrorException(`acceptTrade swap2: ${swapErr2.message}`);
+      .delete()
+      .in('id', receiverCardIds);
+    if (delErr1) throw new InternalServerErrorException(`acceptTrade delete receiver cards: ${delErr1.message}`);
+
+    const { error: delErr2 } = await this.supabase
+      .schema('projectgg')
+      .from('card_collections')
+      .delete()
+      .in('id', proposerCardIds);
+    if (delErr2) throw new InternalServerErrorException(`acceptTrade delete proposer cards: ${delErr2.message}`);
+
+    // Insert new entries — receiver's cards go to proposer, proposer's cards go to receiver
+    const receiverRows = (receiverCardsFull || []).map((c: any) => ({
+      user_id: trade.proposer_id,
+      game_code: c.game_code,
+      tier: c.tier,
+      xp_earned: c.xp_earned ?? 0,
+      is_favorite: false,
+      drawn_at: c.drawn_at ?? new Date().toISOString(),
+    }));
+    if (receiverRows.length) {
+      const { error: insErr1 } = await this.supabase
+        .schema('projectgg')
+        .from('card_collections')
+        .insert(receiverRows);
+      if (insErr1) throw new InternalServerErrorException(`acceptTrade insert receiver cards: ${insErr1.message}`);
+    }
+
+    const proposerRows = (proposerCardsFull || []).map((c: any) => ({
+      user_id: trade.receiver_id,
+      game_code: c.game_code,
+      tier: c.tier,
+      xp_earned: c.xp_earned ?? 0,
+      is_favorite: false,
+      drawn_at: c.drawn_at ?? new Date().toISOString(),
+    }));
+    if (proposerRows.length) {
+      const { error: insErr2 } = await this.supabase
+        .schema('projectgg')
+        .from('card_collections')
+        .insert(proposerRows);
+      if (insErr2) throw new InternalServerErrorException(`acceptTrade insert proposer cards: ${insErr2.message}`);
+    }
 
     // Update trade status
     const { error: updateErr } = await this.supabase
@@ -526,46 +736,79 @@ export class CardCollectionRepository {
     if (tradesErr) throw new InternalServerErrorException(`getUserTrades: ${tradesErr.message}`);
     if (!trades || trades.length === 0) return [];
 
-    // Collect user IDs and card IDs for joins
+    // Collect user IDs and card IDs from both single and array columns
     const userIds = [...new Set(trades.flatMap(t => [t.proposer_id, t.receiver_id]))];
-    const cardIds = [...new Set(trades.flatMap(t => [t.proposer_card, t.receiver_card]))];
+    const cardIds: number[] = [];
+    for (const t of trades as any[]) {
+      for (const id of t.proposer_cards || []) cardIds.push(id);
+      for (const id of t.receiver_cards || []) cardIds.push(id);
+      for (const id of t.counter_proposer_cards || []) cardIds.push(id);
+      for (const id of t.counter_receiver_cards || []) cardIds.push(id);
+      if (t.proposer_card) cardIds.push(t.proposer_card);
+      if (t.receiver_card) cardIds.push(t.receiver_card);
+    }
+    const uniqueCardIds = [...new Set(cardIds.filter(Boolean))];
 
     // Fetch users
     const { data: users, error: usersErr } = await this.supabase
       .schema('projectgg')
       .from('users')
-      .select('id, username, avatar')
+      .select('id, username, avatar, name, gender, status')
       .in('id', userIds);
     if (usersErr) throw new InternalServerErrorException(`getUserTrades users: ${usersErr.message}`);
     const userMap = new Map<string, any>((users || []).map((u: any) => [u.id, u]));
 
     // Fetch cards
-    const { data: cards, error: cardsErr } = await this.supabase
-      .schema('projectgg')
-      .from('card_collections')
-      .select('id, game_code, tier')
-      .in('id', cardIds);
+    const { data: cards, error: cardsErr } = uniqueCardIds.length
+      ? await this.supabase
+          .schema('projectgg')
+          .from('card_collections')
+          .select('id, game_code, tier')
+          .in('id', uniqueCardIds)
+      : { data: [] as any[], error: null as any };
     if (cardsErr) throw new InternalServerErrorException(`getUserTrades cards: ${cardsErr.message}`);
     const cardMap = new Map<number, any>((cards || []).map((c: any) => [c.id, c]));
 
     // Fetch game covers
-    const gameCodes = [...new Set((cards || []).map((c: any) => c.game_code).filter(Boolean))];
-    const { data: games, error: gamesErr } = await this.supabase
-      .schema('projectgg')
-      .from('games_master')
-      .select('code, cover_url')
-      .in('code', gameCodes);
+    const gameCodes = [...new Set(((cards || []) as any[]).map((c: any) => c.game_code).filter(Boolean))];
+    const { data: games, error: gamesErr } = gameCodes.length
+      ? await this.supabase
+          .schema('projectgg')
+          .from('games_master')
+          .select('code, cover_url, name')
+          .in('code', gameCodes)
+      : { data: [] as any[], error: null as any };
     if (gamesErr) throw new InternalServerErrorException(`getUserTrades games: ${gamesErr.message}`);
     const gameMap = new Map<string, any>((games || []).map((g: any) => [g.code, g]));
+
+    const expandCards = (ids: number[] | null | undefined) => {
+      if (!ids?.length) return [];
+      return ids.map((id: number) => {
+        const c = cardMap.get(id);
+        const game = c ? gameMap.get((c as any).game_code) : null;
+        return {
+          card_id: id,
+          game_code: (c as any)?.game_code ?? null,
+          game_name: (game as any)?.name ?? null,
+          cover_url: (game as any)?.cover_url ?? null,
+          tier: (c as any)?.tier ?? null,
+        };
+      });
+    };
 
     // Assemble result
     return trades.map((t: any) => {
       const proposer = userMap.get(t.proposer_id);
       const receiver = userMap.get(t.receiver_id);
-      const proposerCard = cardMap.get(t.proposer_card);
-      const receiverCard = cardMap.get(t.receiver_card);
-      const proposerGame = proposerCard ? gameMap.get((proposerCard as any).game_code) : null;
-      const receiverGame = receiverCard ? gameMap.get((receiverCard as any).game_code) : null;
+
+      const proposerCards = expandCards(t.proposer_cards?.length ? t.proposer_cards : (t.proposer_card ? [t.proposer_card] : []));
+      const receiverCards = expandCards(t.receiver_cards?.length ? t.receiver_cards : (t.receiver_card ? [t.receiver_card] : []));
+      const counterProposerCards = expandCards(t.counter_proposer_cards);
+      const counterReceiverCards = expandCards(t.counter_receiver_cards);
+
+      // For backwards compat with frontend single-card fields, expose the first card
+      const proposerCard = proposerCards[0];
+      const receiverCard = receiverCards[0];
 
       return {
         trade_id: t.id,
@@ -574,17 +817,25 @@ export class CardCollectionRepository {
         proposer_id: t.proposer_id,
         proposer_name: (proposer as any)?.username ?? null,
         proposer_avatar: (proposer as any)?.avatar ?? null,
-        proposer_tier: (proposerCard as any)?.tier ?? null,
-        proposer_card_id: t.proposer_card,
-        proposer_game_code: (proposerCard as any)?.game_code ?? null,
-        proposer_cover: (proposerGame as any)?.cover_url ?? null,
+        proposer_tier: proposerCard?.tier ?? null,
+        proposer_card_id: proposerCard?.card_id ?? t.proposer_card ?? null,
+        proposer_game_code: proposerCard?.game_code ?? null,
+        proposer_cover: proposerCard?.cover_url ?? null,
+        proposer_cards: proposerCards,
+        proposer_cards_count: proposerCards.length,
         receiver_id: t.receiver_id,
         receiver_name: (receiver as any)?.username ?? null,
         receiver_avatar: (receiver as any)?.avatar ?? null,
-        receiver_tier: (receiverCard as any)?.tier ?? null,
-        receiver_card_id: t.receiver_card,
-        receiver_game_code: (receiverCard as any)?.game_code ?? null,
-        receiver_cover: (receiverGame as any)?.cover_url ?? null,
+        receiver_tier: receiverCard?.tier ?? null,
+        receiver_card_id: receiverCard?.card_id ?? t.receiver_card ?? null,
+        receiver_game_code: receiverCard?.game_code ?? null,
+        receiver_cover: receiverCard?.cover_url ?? null,
+        receiver_cards: receiverCards,
+        receiver_cards_count: receiverCards.length,
+        counter_proposer_cards: counterProposerCards,
+        counter_receiver_cards: counterReceiverCards,
+        parent_trade_id: t.parent_trade_id ?? null,
+        message: t.message ?? null,
         allow_unfair: t.allow_unfair ?? false,
         created_at: t.created_at,
         resolved_at: t.resolved_at,
@@ -597,7 +848,20 @@ export class CardCollectionRepository {
       in_user_id: userId,
     });
     if (error) throw new InternalServerErrorException(`get_collection_stats: ${error.message}`);
-    return data?.[0] || null;
+    const stats = data?.[0] || {};
+
+    const { data: user } = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .select('static_total_cards, favorite_cards')
+      .eq('id', userId)
+      .single();
+
+    return {
+      ...stats,
+      static_total_cards: user?.static_total_cards ?? 0,
+      favorite_cards: user?.favorite_cards ?? 0,
+    };
   }
 
   async awardDrawTicket(userId: string, source: string): Promise<number> {

@@ -26,6 +26,8 @@ import { ChannelListComponent } from './channel-list/channel-list.component';
 import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
 import { GgCardTradingViewComponent } from '../../components/gg-card-trading-view/gg-card-trading-view.component';
 import { CyberEmojiPickerComponent } from '../../components/cyber-emoji-picker/cyber-emoji-picker.component';
+import { VoiceNudgeService } from '../../services/voice-nudge.service';
+import { SoundService } from '../../services/sound.service';
 
 @Component({
   selector: 'app-gg-chat',
@@ -45,7 +47,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   socket: Socket | null = null;
 
   // View mode
-  viewMode: 'dm' | 'server' | 'create-server' | 'profile' | 'friends' | 'trading' | 'trading-inline' | 'gift-inline' = 'dm';
+  viewMode: 'dm' | 'server' | 'create-server' | 'create-channel' | 'profile' | 'friends' | 'trading' | 'trading-inline' | 'gift-inline' = 'dm';
 
   // Servers
   servers: GgServer[] = [];
@@ -123,13 +125,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
   // Voice
   voiceConnected = false;
   voiceChannelId: string | null = null;
+  voiceGuildId: string | null = null;
   voiceMuted = false;
   voiceDeafened = false;
+  showMutedWarning = false;
+  private mutedWarningTimer: any = null;
   voiceConnecting = false;
   voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
   speakingUsers = new Set<string>();
   localMicActive = false;
   micPermissionError: string | null = null;
+  showVoiceReconnectConfirm = false;
+  pendingVoiceChannel: GgChannel | null = null;
   // Audio device selection
   audioInputDevices: MediaDeviceInfo[] = [];
   audioOutputDevices: MediaDeviceInfo[] = [];
@@ -168,16 +175,24 @@ export class GgChatComponent implements OnInit, OnDestroy {
   profileUser: any = null;
   profileFavorites: any[] = [];
   profileFavoritesLoading = false;
+  rankImgLoaded = false;
+  avatarImgLoaded = false;
   profileFavoritesError = '';
   profileConnections: any[] = [];
   profileAccounts: any[] = [];
   profileMusic: any[] = [];
   memberStatuses: Record<string, string> = {};
-tradeFilterUserId = '';
+  private pendingServerId: string | null = null;
+  private pendingChannelId: string | null = null;
+  private pendingDmId: string | null = null;
+  tradeFilterUserId = '';
   tradeFilterUsername = '';
+  tradeFilterAvatar: string | null = null;
+  focusTradeId: number | null = null;
 
   // Context menu
   contextMenu: { x: number; y: number; msg: ChatMessage } | null = null;
+  voiceContextMenu: { x: number; y: number; vm: any } | null = null;
 
   // Emoji picker popup (reactions)
   emojiPickerMsg: ChatMessage | null = null;
@@ -217,10 +232,13 @@ tradeFilterUserId = '';
     private readonly userStatus: UserStatusService,
     private readonly usersService: UsersService,
     private readonly xpService: XpService,
+    private readonly nudgeService: VoiceNudgeService,
+    private readonly soundService: SoundService,
   ) {}
 
   ngOnInit(): void {
     this.currentUser = this.auth.getCurrentUser();
+    this.soundService.init();
     if (!this.auth.isAuthenticated()) {
       this.router.navigate(['/login']);
       return;
@@ -230,11 +248,70 @@ tradeFilterUserId = '';
       this.currentStatus = status;
       this.cdr.markForCheck();
     });
-    this.viewMode = 'dm';
+    // Check if a header-nav trade notification requested a focus
+    try {
+      const raw = sessionStorage.getItem('gg_trade_focus');
+      if (raw) {
+        const payload = JSON.parse(raw);
+        sessionStorage.removeItem('gg_trade_focus');
+        if (payload?.tradeId) {
+          this.focusTradeId = Number(payload.tradeId);
+          this.tradeFilterUserId = payload.otherUserId || '';
+          this.tradeFilterUsername = payload.otherUsername || '';
+          this.tradeFilterAvatar = payload.otherAvatar || null;
+          this.viewMode = 'trading';
+        }
+      }
+    } catch { /* non-critical */ }
+    if (this.viewMode !== 'trading') {
+      const saved = localStorage.getItem('gg_chat_view') as 'dm' | 'server' | 'friends' | 'trading' | 'trading-inline' | 'gift-inline' | 'profile' | null;
+      this.viewMode = (saved && ['dm', 'server', 'friends', 'trading', 'trading-inline', 'gift-inline', 'profile'].includes(saved)) ? saved : 'dm';
+      if (this.viewMode === 'server') {
+        this.pendingServerId = localStorage.getItem('gg_chat_server');
+        this.pendingChannelId = localStorage.getItem('gg_chat_channel');
+      }
+      if (this.viewMode === 'dm') {
+        const dmId = localStorage.getItem('gg_chat_dm');
+        if (dmId) this.pendingDmId = dmId;
+      }
+      if (this.viewMode === 'trading' || this.viewMode === 'trading-inline' || this.viewMode === 'gift-inline') {
+        this.tradeFilterUserId = localStorage.getItem('gg_chat_trade_user') || '';
+        this.tradeFilterUsername = localStorage.getItem('gg_chat_trade_name') || '';
+        this.tradeFilterAvatar = localStorage.getItem('gg_chat_trade_avatar') || null;
+        const focusId = localStorage.getItem('gg_chat_trade_focus');
+        if (focusId) this.focusTradeId = Number(focusId);
+      }
+      if (this.viewMode === 'profile') {
+        const profileUserId = localStorage.getItem('gg_chat_profile');
+        if (profileUserId) {
+          this.viewMode = 'dm';
+          this.usersService.getUserDetails(profileUserId).subscribe({
+            next: (details) => {
+              if (details) {
+                this.openProfile({ ...details, otherUserId: details.id, otherUsername: details.username, id: details.id });
+              }
+            },
+            error: () => {},
+          });
+        }
+      }
+    }
     this.loadServers();
     this.loadDmData();
     this.loadNotifications();
     this.connectSocket();
+
+    try {
+      const saved = localStorage.getItem('pendingVoiceReconnect');
+      if (saved) {
+        const { guildId, channelId } = JSON.parse(saved);
+        if (guildId && channelId) {
+          this.pendingVoiceChannel = { id: channelId, guildId, server_id: guildId, name: '', type: 'voice' } as any;
+          this.showVoiceReconnectConfirm = true;
+          this.cdr.markForCheck();
+        }
+      }
+    } catch {}
   }
 
   // ===== DATA LOADING =====
@@ -258,10 +335,18 @@ tradeFilterUserId = '';
         }
         this.memberStatuses = newStatuses;
         this.dmLoading = false;
+        if (this.pendingDmId && data) {
+          const match = data.find(c => String(c.id) === this.pendingDmId);
+          this.pendingDmId = null;
+          if (match) {
+            this.selectDm(match);
+          }
+        }
         this.cdr.markForCheck();
       },
       error: () => {
         this.dmLoading = false;
+        this.pendingDmId = null;
         this.cdr.markForCheck();
       },
     });
@@ -305,18 +390,65 @@ tradeFilterUserId = '';
         this.servers = data;
         this.serverLoading = false;
         this.loading = false;
+        if (this.pendingServerId) {
+          const match = this.servers.find(s => String(s.id) === this.pendingServerId);
+          this.pendingServerId = null;
+          if (match) {
+            this.selectServer(match);
+          } else {
+            this.viewMode = 'dm';
+          }
+        }
         this.cdr.markForCheck();
       },
       error: () => {
         this.serverLoading = false;
         this.loading = false;
+        this.pendingServerId = null;
         this.cdr.markForCheck();
       },
     });
   }
 
+  private persistView(): void {
+    localStorage.setItem('gg_chat_view', this.viewMode);
+    if (this.selectedServer) {
+      localStorage.setItem('gg_chat_server', String(this.selectedServer.id));
+    } else {
+      localStorage.removeItem('gg_chat_server');
+    }
+    if (this.selectedChannel) {
+      localStorage.setItem('gg_chat_channel', String(this.selectedChannel.id));
+    } else {
+      localStorage.removeItem('gg_chat_channel');
+    }
+    if (this.selectedDm) {
+      localStorage.setItem('gg_chat_dm', String(this.selectedDm.id));
+    } else {
+      localStorage.removeItem('gg_chat_dm');
+    }
+    if (this.profileUser) {
+      const userId = String(this.profileUser.otherUserId ?? this.profileUser.id ?? '');
+      if (userId) localStorage.setItem('gg_chat_profile', userId);
+    } else {
+      localStorage.removeItem('gg_chat_profile');
+    }
+    if (this.viewMode === 'trading' || this.viewMode === 'trading-inline' || this.viewMode === 'gift-inline') {
+      if (this.tradeFilterUserId) localStorage.setItem('gg_chat_trade_user', this.tradeFilterUserId);
+      if (this.tradeFilterUsername) localStorage.setItem('gg_chat_trade_name', this.tradeFilterUsername);
+      if (this.tradeFilterAvatar) localStorage.setItem('gg_chat_trade_avatar', this.tradeFilterAvatar);
+      if (this.focusTradeId) localStorage.setItem('gg_chat_trade_focus', String(this.focusTradeId));
+    } else if (this.viewMode !== 'profile') {
+      localStorage.removeItem('gg_chat_trade_user');
+      localStorage.removeItem('gg_chat_trade_name');
+      localStorage.removeItem('gg_chat_trade_avatar');
+      localStorage.removeItem('gg_chat_trade_focus');
+    }
+  }
+
   goToDms(): void {
     this.viewMode = 'dm';
+    this.persistView();
     this.selectedServer = null;
     this.selectedChannel = null;
     this.messages = [];
@@ -325,6 +457,7 @@ tradeFilterUserId = '';
 
   openFriendsView(): void {
     this.viewMode = 'friends';
+    this.persistView();
     this.selectedServer = null;
     this.selectedChannel = null;
     this.selectedDm = null;
@@ -336,6 +469,7 @@ tradeFilterUserId = '';
 
   openTradingView(): void {
     this.viewMode = 'trading';
+    this.persistView();
     this.selectedServer = null;
     this.selectedChannel = null;
     this.selectedDm = null;
@@ -353,6 +487,7 @@ tradeFilterUserId = '';
     this.messages = [];
     this.selectedDm = null;
     this.dmMessages = [];
+    this.persistView();
     this.loadChannels(server.id);
     this.loadMembers(server.id);
   }
@@ -379,8 +514,18 @@ tradeFilterUserId = '';
         this.servers = [...this.servers, server];
         this.creatingServer = false;
         this.viewMode = 'server';
-        this.selectServer(server);
         this.cdr.markForCheck();
+        if (this.newServerAvatarFile) {
+          this.chatService.uploadServerAvatar(server.id, this.newServerAvatarFile).subscribe({
+            next: (updated) => {
+              this.servers = this.servers.map(s => s.id === updated.id ? updated : s);
+              if (this.selectedServer?.id === updated.id) {
+                this.selectedServer = updated;
+              }
+              this.cdr.markForCheck();
+            },
+          });
+        }
       },
       error: (err) => {
         this.creatingServer = false;
@@ -424,12 +569,24 @@ tradeFilterUserId = '';
       next: (data) => {
         this.channels = data;
         this.channelLoading = false;
+        if (this.pendingChannelId) {
+          const match = data.find(c => String(c.id) === this.pendingChannelId);
+          this.pendingChannelId = null;
+          if (match) {
+            if (!this.showVoiceReconnectConfirm || match.type !== 'voice') {
+              this.selectChannel(match);
+              this.cdr.markForCheck();
+              return;
+            }
+          }
+        }
         const first = data.find(c => c.type === 'text');
         if (first) this.selectChannel(first);
         this.cdr.markForCheck();
       },
       error: () => {
         this.channelLoading = false;
+        this.pendingChannelId = null;
         this.cdr.markForCheck();
       },
     });
@@ -438,8 +595,11 @@ tradeFilterUserId = '';
   selectChannel(channel: GgChannel): void {
     this.selectedChannel = channel;
     this.selectedDm = null;
+    this.persistView();
     if (channel.type === 'voice') {
-      this.toggleVoice(channel);
+      if (!this.showVoiceReconnectConfirm && !(this.voiceConnected && this.voiceChannelId === String(channel.id))) {
+        this.toggleVoice(channel);
+      }
       return;
     }
     this.dmMessages = [];
@@ -447,10 +607,11 @@ tradeFilterUserId = '';
   }
 
   openCreateChannel(): void {
-    this.showCreateChannel = true;
+    this.viewMode = 'create-channel';
     this.newChannelName = '';
     this.newChannelType = 'text';
     this.newChannelPrivate = false;
+    this.cdr.markForCheck();
   }
 
   createChannel(): void {
@@ -458,10 +619,8 @@ tradeFilterUserId = '';
     if (!name || !this.selectedServer) return;
     const allowedRoles = this.newChannelPrivate ? ['admin', 'moderator', 'member'] : undefined;
     this.chatService.createChannel(this.selectedServer.id, name, this.newChannelType, allowedRoles).subscribe({
-      next: (ch) => {
-        this.channels = [...this.channels, ch];
-        this.showCreateChannel = false;
-        this.selectChannel(ch);
+      next: () => {
+        this.viewMode = 'server';
         this.cdr.markForCheck();
       },
       error: (err) => this.showCyberAlert(err.error?.message ?? 'Failed to create channel'),
@@ -471,6 +630,12 @@ tradeFilterUserId = '';
   // ===== CHANNEL SETTINGS =====
 
   openChannelSettings(channel: GgChannel): void {
+    if (this.selectedServer) {
+      this.router.navigate(['/gg-chat/server', this.selectedServer.id, 'settings'], {
+        queryParams: { tab: 'channels' },
+      });
+      return;
+    }
     this.channelSettingsChannel = channel;
     this.channelSettingsRoles = [...(channel.allowed_roles ?? [])];
     this.showChannelSettings = true;
@@ -499,18 +664,19 @@ tradeFilterUserId = '';
   }
 
   deleteChannel(channel: GgChannel): void {
-    if (!confirm(`Delete #${channel.name}?`)) return;
-    this.chatService.deleteChannel(channel.id).subscribe({
-      next: () => {
-        this.channels = this.channels.filter(c => c.id !== channel.id);
-        if (this.selectedChannel?.id === channel.id) {
-          this.selectedChannel = this.channels.find(c => c.type === 'text') ?? null;
-          this.messages = [];
-          if (this.selectedChannel) this.loadMessages(this.selectedChannel.id);
-        }
-        this.cdr.markForCheck();
-      },
-    });
+    this.showCyberConfirm(`Delete #${channel.name}?`, () => {
+      this.chatService.deleteChannel(channel.id).subscribe({
+        next: () => {
+          this.channels = this.channels.filter(c => c.id !== channel.id);
+          if (this.selectedChannel?.id === channel.id) {
+            this.selectedChannel = this.channels.find(c => c.type === 'text') ?? null;
+            this.messages = [];
+            if (this.selectedChannel) this.loadMessages(this.selectedChannel.id);
+          }
+          this.cdr.markForCheck();
+        },
+      });
+    }, 'Delete', 'Cancel');
   }
 
   // ===== MESSAGES (Server) =====
@@ -1029,8 +1195,7 @@ tradeFilterUserId = '';
   private async joinVoice(channel: GgChannel): Promise<void> {
     this.voiceConnecting = true;
     this.voiceMembers = [];
-        this.speakingUsers.clear();
-      this.speakingUsers.clear();
+    this.speakingUsers = new Set();
     this.cdr.markForCheck();
     try {
       const currentUserId = this.auth.getCurrentUser()?.id;
@@ -1044,7 +1209,7 @@ tradeFilterUserId = '';
       };
       this.voiceService.onMemberLeft = (userId) => {
         this.voiceMembers = this.voiceMembers.filter(m => m.userId !== userId);
-          this.speakingUsers.delete(userId);
+        this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== userId));
         this.cdr.markForCheck();
       };
       this.voiceService.onExistingMembers = (members) => {
@@ -1057,17 +1222,70 @@ tradeFilterUserId = '';
       };
       this.voiceService.onLocalSpeaking = (speaking) => {
         this.localMicActive = speaking;
-        // Also add the current user to speakingUsers so their own avatar glows
-        // (server doesn't echo speaking event back to the speaker)
         const currentUserId = this.auth.getCurrentUser()?.id;
         if (currentUserId) {
           if (speaking) {
-            this.speakingUsers.add(currentUserId);
+            if (!this.speakingUsers.has(currentUserId)) {
+              this.speakingUsers = new Set([...this.speakingUsers, currentUserId]);
+            }
           } else {
-            this.speakingUsers.delete(currentUserId);
+            if (this.speakingUsers.has(currentUserId)) {
+              this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== currentUserId));
+            }
           }
         }
+        if (speaking) {
+          if (this.mutedWarningTimer) {
+            clearTimeout(this.mutedWarningTimer);
+            this.mutedWarningTimer = null;
+          }
+          this.showMutedWarning = true;
+        } else {
+          if (this.mutedWarningTimer) {
+            clearTimeout(this.mutedWarningTimer);
+          }
+          this.mutedWarningTimer = setTimeout(() => {
+            this.showMutedWarning = false;
+            this.cdr.markForCheck();
+          }, 2500);
+        }
         this.cdr.markForCheck();
+      };
+      this.voiceService.onUserMuted = (userId) => {
+        this.voiceMembers = this.voiceMembers.map(m =>
+          m.userId === userId ? { ...m, muted: true } : m
+        );
+        this.cdr.markForCheck();
+      };
+      this.voiceService.onUserUnmuted = (userId) => {
+        this.voiceMembers = this.voiceMembers.map(m =>
+          m.userId === userId ? { ...m, muted: false } : m
+        );
+        this.cdr.markForCheck();
+      };
+      this.voiceService.onUserDeafened = (userId) => {
+        this.voiceMembers = this.voiceMembers.map(m =>
+          m.userId === userId ? { ...m, muted: true, deafened: true } : m
+        );
+        this.cdr.markForCheck();
+      };
+      this.voiceService.onUserUndeafened = (userId) => {
+        this.voiceMembers = this.voiceMembers.map(m =>
+          m.userId === userId ? { ...m, muted: false, deafened: false } : m
+        );
+        this.cdr.markForCheck();
+      };
+      this.voiceService.onUserSpeaking = (userId) => {
+        if (!this.speakingUsers.has(userId)) {
+          this.speakingUsers = new Set([...this.speakingUsers, userId]);
+          this.cdr.markForCheck();
+        }
+      };
+      this.voiceService.onUserStoppedSpeaking = (userId) => {
+        if (this.speakingUsers.has(userId)) {
+          this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== userId));
+          this.cdr.markForCheck();
+        }
       };
       this.voiceService.onMicPermissionError = (err) => {
         this.micPermissionError = err;
@@ -1079,10 +1297,25 @@ tradeFilterUserId = '';
         this.localMicActive = false;
         this.cdr.markForCheck();
       };
+      this.voiceService.onVoiceNudge = (fromUserId, fromUsername) => {
+        this.nudgeService.handleIncomingNudge(fromUserId, fromUsername);
+        this.cdr.markForCheck();
+      };
+      this.voiceService.onDisconnected = () => {
+        this.voiceConnected = false;
+        this.voiceMembers = [];
+        this.speakingUsers = new Set();
+        this.localMicActive = false;
+        this.pendingVoiceChannel = channel;
+        this.showVoiceReconnectConfirm = true;
+        localStorage.removeItem('pendingVoiceReconnect');
+        this.cdr.markForCheck();
+      };
 
       await this.voiceService.joinChannel('', String(channel.id));
       this.voiceConnected = true;
       this.voiceChannelId = String(channel.id);
+      this.voiceGuildId = String((channel as any).server_id ?? '');
       this.voiceMuted = false;
       this.voiceDeafened = false;
       this.enumerateAudioDevices();
@@ -1105,20 +1338,70 @@ tradeFilterUserId = '';
   }
 
   leaveVoice(): void {
+    this.voiceService.onDisconnected = null;
     this.voiceService.leaveChannel();
     this.voiceConnected = false;
     this.voiceChannelId = null;
+    this.voiceGuildId = null;
     this.voiceMuted = false;
     this.voiceDeafened = false;
     this.voiceMembers = [];
     this.localMicActive = false;
+    this.showMutedWarning = false;
+    localStorage.removeItem('pendingVoiceReconnect');
+    if (this.mutedWarningTimer) {
+      clearTimeout(this.mutedWarningTimer);
+      this.mutedWarningTimer = null;
+    }
     this.micPermissionError = null;
     this.voiceService.onMemberJoined = null;
     this.voiceService.onMemberLeft = null;
     this.voiceService.onUserSpeaking = null;
     this.voiceService.onUserStoppedSpeaking = null;
+    this.voiceService.onUserMuted = null;
+    this.voiceService.onUserUnmuted = null;
+    this.voiceService.onUserDeafened = null;
+    this.voiceService.onUserUndeafened = null;
     this.voiceService.onLocalSpeaking = null;
     this.voiceService.onMicPermissionError = null;
+    this.voiceService.onVoiceNudge = null;
+    this.voiceService.onDisconnected = null;
+    this.showVoiceReconnectConfirm = false;
+    this.pendingVoiceChannel = null;
+  }
+
+  confirmVoiceReconnect(): void {
+    const ch = this.pendingVoiceChannel;
+    this.showVoiceReconnectConfirm = false;
+    this.pendingVoiceChannel = null;
+    localStorage.removeItem('pendingVoiceReconnect');
+    if (ch) this.joinVoice(ch);
+  }
+
+  cancelVoiceReconnect(): void {
+    this.showVoiceReconnectConfirm = false;
+    this.pendingVoiceChannel = null;
+    this.voiceChannelId = null;
+    this.voiceGuildId = null;
+    localStorage.removeItem('pendingVoiceReconnect');
+    this.cdr.markForCheck();
+  }
+
+  private showMutedWarningForDuration(): void {
+    this.showMutedWarning = true;
+    if (this.mutedWarningTimer) clearTimeout(this.mutedWarningTimer);
+    this.mutedWarningTimer = setTimeout(() => {
+      this.showMutedWarning = false;
+      this.cdr.markForCheck();
+    }, 2500);
+  }
+
+  private syncLocalVoiceMemberState(muted: boolean, deafened: boolean): void {
+    const currentUserId = this.auth.getCurrentUser()?.id;
+    if (!currentUserId) return;
+    this.voiceMembers = this.voiceMembers.map(m =>
+      m.userId === currentUserId ? { ...m, muted, deafened } : m
+    );
   }
 
   toggleVoiceMute(): void {
@@ -1131,10 +1414,13 @@ tradeFilterUserId = '';
         this.voiceService.undeafen();
         this.voiceDeafened = false;
       }
+      this.syncLocalVoiceMemberState(false, this.voiceDeafened);
     } else {
       // Turning ON mute (just mute, don't change deafen state)
       this.voiceService.mute();
       this.voiceMuted = true;
+      this.syncLocalVoiceMemberState(true, this.voiceDeafened);
+      this.showMutedWarningForDuration();
     }
     this.cdr.markForCheck();
   }
@@ -1145,11 +1431,14 @@ tradeFilterUserId = '';
       this.voiceService.undeafen();
       this.voiceDeafened = false;
       this.voiceMuted = false;
+      this.syncLocalVoiceMemberState(false, false);
     } else {
       // Turning ON deafen: also mute
       this.voiceService.deafen();
       this.voiceDeafened = true;
       this.voiceMuted = true;
+      this.syncLocalVoiceMemberState(true, true);
+      this.showMutedWarningForDuration();
     }
     this.cdr.markForCheck();
   }
@@ -1201,6 +1490,7 @@ tradeFilterUserId = '';
     this.selectedChannel = null;
     this.selectedServer = null;
     this.messages = [];
+    this.persistView();
     this.loadDmMessages(conv.id);
   }
 
@@ -1371,7 +1661,182 @@ tradeFilterUserId = '';
     });
 
     this.socket.on('notification', () => {
+      this.soundService.play('notification_msg');
       this.loadNotifications();
+    });
+
+    this.socket.on('server-created', (server: any) => {
+      if (server && !this.servers.find(s => s.id === server.id)) {
+        this.servers = [...this.servers, server];
+        if (this.showCreateServer) {
+          this.selectServer(server);
+        }
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('server-updated', (server: any) => {
+      if (!server?.id) return;
+      const idx = this.servers.findIndex(s => s.id === server.id);
+      if (idx >= 0) {
+        this.servers = this.servers.map((s, i) => i === idx ? { ...s, ...server } : s);
+        if (this.selectedServer?.id === server.id) {
+          this.selectedServer = { ...this.selectedServer, ...server };
+        }
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('server-deleted', (payload: any) => {
+      const serverId = payload?.serverId;
+      if (!serverId) return;
+      this.servers = this.servers.filter(s => s.id !== serverId);
+      if (this.selectedServer?.id === serverId) {
+        this.selectedServer = null;
+        this.selectedChannel = null;
+        this.viewMode = 'dm';
+      }
+      this.cdr.markForCheck();
+    });
+
+    this.socket.on('channel-created', (channel: any) => {
+      if (!channel?.id || !this.selectedServer || channel.server_id !== this.selectedServer.id) return;
+      if (!this.channels.find(c => c.id === channel.id)) {
+        this.channels = [...this.channels, channel];
+        if (this.showCreateChannel) {
+          this.selectChannel(channel);
+        }
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('channel-deleted', (payload: any) => {
+      const channelId = payload?.channelId;
+      const serverId = payload?.serverId;
+      if (!channelId) return;
+      if (this.selectedServer && serverId === this.selectedServer.id) {
+        this.channels = this.channels.filter(c => c.id !== channelId);
+        if (this.selectedChannel?.id === channelId) {
+          this.selectedChannel = this.channels[0] ?? null;
+        }
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('channel-roles-updated', (payload: any) => {
+      if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
+      this.loadChannels(this.selectedServer.id);
+    });
+
+    this.socket.on('member-joined', (payload: any) => {
+      if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
+      if (payload?.userId && !this.members.find(m => String(m.user_id) === String(payload.userId))) {
+        this.members = [...this.members, {
+          user_id: payload.userId,
+          server_id: payload.serverId,
+          roles: payload.roles ?? ['member'],
+          username: payload.username ?? 'Unknown',
+          avatar_url: payload.avatar_url ?? null,
+          status: 'online',
+          joined_at: new Date().toISOString(),
+        }];
+        if (payload.userId && payload.username) {
+          this.memberStatuses = { ...this.memberStatuses, [String(payload.userId)]: 'online' };
+        }
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('member-left', (payload: any) => {
+      if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
+      if (payload?.userId) {
+        this.members = this.members.filter(m => String(m.user_id) !== String(payload.userId));
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('member-roles-updated', (payload: any) => {
+      if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
+      if (payload?.userId && payload?.roles) {
+        this.members = this.members.map(m =>
+          String(m.user_id) === String(payload.userId) ? { ...m, roles: payload.roles } : m
+        );
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('member-kicked', (payload: any) => {
+      if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
+      if (payload?.userId) {
+        this.members = this.members.filter(m => String(m.user_id) !== String(payload.userId));
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('member-banned', (payload: any) => {
+      if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
+      if (payload?.userId) {
+        this.members = this.members.filter(m => String(m.user_id) !== String(payload.userId));
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('kicked-from-server', (payload: any) => {
+      const serverId = payload?.serverId;
+      if (!serverId) return;
+      this.servers = this.servers.filter(s => s.id !== serverId);
+      if (this.selectedServer?.id === serverId) {
+        this.selectedServer = null;
+        this.selectedChannel = null;
+        this.viewMode = 'dm';
+      }
+      this.cdr.markForCheck();
+    });
+
+    this.socket.on('banned-from-server', (payload: any) => {
+      const serverId = payload?.serverId;
+      if (!serverId) return;
+      this.servers = this.servers.filter(s => s.id !== serverId);
+      if (this.selectedServer?.id === serverId) {
+        this.selectedServer = null;
+        this.selectedChannel = null;
+        this.viewMode = 'dm';
+      }
+      this.cdr.markForCheck();
+    });
+
+    this.socket.on('friend-removed', () => {
+      this.loadFriends();
+    });
+
+    this.socket.on('friend-request-rejected', () => {
+      this.loadFriends();
+    });
+
+    this.socket.on('friend-request-cancelled', () => {
+      this.loadFriends();
+    });
+
+    this.socket.on('friend-request-sent', () => {
+      this.loadFriends();
+    });
+
+    this.socket.on('dm-conversation-created', () => {
+      this.loadDmConversations();
+    });
+
+    this.socket.on('dm-conversation-updated', (payload: any) => {
+      const convId = payload?.conversationId;
+      if (!convId) return;
+      const conv = this.dmConversations.find(c => c.id === convId);
+      if (conv) {
+        conv.lastMessage = payload.lastMessage ?? conv.lastMessage;
+        conv.lastMessageAt = payload.lastMessageAt ?? conv.lastMessageAt;
+        this.dmConversations = [...this.dmConversations];
+        this.cdr.markForCheck();
+      } else {
+        this.loadDmConversations();
+      }
     });
   }
 
@@ -1694,6 +2159,45 @@ tradeFilterUserId = '';
     this.contextMenu = null;
   }
 
+  openVoiceContextMenu(event: MouseEvent, vm: any): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.voiceContextMenu = { x: event.clientX, y: event.clientY, vm };
+    this.cdr.markForCheck();
+  }
+
+  closeVoiceContextMenu(): void {
+    this.voiceContextMenu = null;
+  }
+
+  onVoiceContextNudge(vm: any): void {
+    this.nudgeService.sendNudge(vm.userId, vm.username ?? '');
+    this.closeVoiceContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  onMemberContextMenu(event: { event: MouseEvent; member: any }): void {
+    const vm = {
+      userId: event.member.user_id,
+      username: event.member.username,
+    };
+    this.openVoiceContextMenu(event.event, vm);
+  }
+
+  onVoiceContextMute(vm: any): void {
+    this.closeVoiceContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  onVoiceContextDeafen(vm: any): void {
+    this.closeVoiceContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  isNudged(userId: string): boolean {
+    return this.nudgeService.isRecentlyNudged(userId);
+  }
+
   openEmojiPickerFromCtx(event: MouseEvent, msg: ChatMessage): void {
     event.stopPropagation();
     this.emojiPickerMsg = msg;
@@ -1723,7 +2227,10 @@ tradeFilterUserId = '';
   // ===== AVATAR HELPERS =====
 
   defaultAvatar(): string {
-    return 'assets/default-avatar.png';
+    const g = this.currentUser?.gender?.toLowerCase();
+    if (g === 'male') return '/assets/avatars/male.png';
+    if (g === 'female') return '/assets/avatars/female.png';
+    return '/assets/avatars/unknown.png';
   }
 
   onAvatarError(event: Event): void {
@@ -1736,6 +2243,9 @@ tradeFilterUserId = '';
     for (const key of keys) {
       if (user[key]) return user[key];
     }
+    const gender = user.gender?.toLowerCase();
+    if (gender === 'male') return '/assets/avatars/male.png';
+    if (gender === 'female') return '/assets/avatars/female.png';
     return this.defaultAvatar();
   }
 
@@ -1776,11 +2286,14 @@ tradeFilterUserId = '';
 
   openProfile(user: any): void {
     this.profileUser = user;
+    this.rankImgLoaded = false;
+    this.avatarImgLoaded = false;
     this.profileFavorites = [];
     this.profileFavoritesError = '';
     this.profileFavoritesLoading = false;
     this.profileConnections = [];
     this.viewMode = 'profile';
+    this.persistView();
     const userId = String(user?.otherUserId ?? user?.id ?? '');
     if (userId) {
       // fetch full user details (display name, platforms, etc.)
@@ -1830,8 +2343,9 @@ tradeFilterUserId = '';
   private loadProfileFavorites(userId: string): void {
     this.profileFavoritesLoading = true;
     this.chatService.getUserShowcase(userId).subscribe({
-      next: (cards) => {
-        this.profileFavorites = (cards ?? []).slice(0, 10);
+      next: (res) => {
+        const cards = res?.items ?? [];
+        this.profileFavorites = cards.slice(0, 10);
         this.profileFavoritesLoading = false;
         this.profileFavoritesError = '';
         this.cdr.markForCheck();
@@ -1868,29 +2382,53 @@ tradeFilterUserId = '';
     });
   }
 
-  openTradingViewWithUser(userId: string, username?: string): void {
+  openTradingViewWithUser(userId: string, username?: string, avatar?: string | null): void {
     this.tradeFilterUserId = userId;
     this.tradeFilterUsername = username ?? '';
+    this.tradeFilterAvatar = avatar ?? null;
     this.viewMode = 'trading';
+    this.persistView();
     this.loadCardTrades();
   }
 
-  openInlineTrading(userId: string, username: string): void {
-    this.tradeFilterUserId = userId;
-    this.tradeFilterUsername = username;
-    this.viewMode = 'trading-inline';
+  openTradingViewWithTrade(tradeId: number, otherUserId: string, otherUsername: string, otherAvatar: string | null): void {
+    this.tradeFilterUserId = otherUserId;
+    this.tradeFilterUsername = otherUsername;
+    this.tradeFilterAvatar = otherAvatar;
+    this.focusTradeId = tradeId;
+    this.viewMode = 'trading';
+    this.selectedServer = null;
+    this.selectedChannel = null;
+    this.selectedDm = null;
+    this.messages = [];
+    this.dmMessages = [];
+    this.dmOptionsOpen = false;
+    this.serverDropdownOpen = false;
+    this.persistView();
+    this.loadCardTrades();
   }
 
-  openInlineGift(userId: string, username: string): void {
+  openInlineTrading(userId: string, username: string, avatar: string | null = null): void {
     this.tradeFilterUserId = userId;
     this.tradeFilterUsername = username;
+    this.tradeFilterAvatar = avatar;
+    this.viewMode = 'trading-inline';
+    this.persistView();
+  }
+
+  openInlineGift(userId: string, username: string, avatar: string | null = null): void {
+    this.tradeFilterUserId = userId;
+    this.tradeFilterUsername = username;
+    this.tradeFilterAvatar = avatar;
     this.viewMode = 'gift-inline';
+    this.persistView();
   }
 
   closeInlineTrade(): void {
     this.tradeFilterUserId = '';
     this.tradeFilterUsername = '';
-    this.viewMode = this.selectedServer ? 'server' : 'dm';
+    this.tradeFilterAvatar = null;
+    this.viewMode = this.selectedDm ? 'dm' : (this.selectedServer ? 'server' : 'dm');
   }
 
   // ===== CREATE SERVER FLOW =====
@@ -2033,6 +2571,11 @@ tradeFilterUserId = '';
   }
 
   ngOnDestroy(): void {
+    const wasChannelId = this.voiceChannelId;
+    const wasGuildId = this.voiceGuildId;
     if (this.voiceConnected) this.leaveVoice();
+    if (wasChannelId && wasGuildId) {
+      localStorage.setItem('pendingVoiceReconnect', JSON.stringify({ guildId: wasGuildId, channelId: wasChannelId }));
+    }
   }
 }

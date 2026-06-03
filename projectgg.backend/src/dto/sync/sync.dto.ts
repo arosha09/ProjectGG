@@ -64,6 +64,9 @@ export class SyncResultDto {
 
   @ApiPropertyOptional({ example: ['steam', 'rawg'] })
   sources?: string[];
+
+  @ApiPropertyOptional({ example: "Assassin's Creed I" })
+  search_name?: string;
 }
 
 export class SyncSearchResultDto {

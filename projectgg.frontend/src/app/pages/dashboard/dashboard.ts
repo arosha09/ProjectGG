@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { Subject } from 'rxjs';
+import { Subject, interval } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { GamesService } from '../../services/games.service';
@@ -57,6 +57,7 @@ export class Dashboard implements OnInit, OnDestroy {
   readonly pageSize = 12;
   readonly libraryPageSize = 12;
   readonly seriesPageSize = 12;
+  readonly cardPageSize = 10;
 
   currentUser: any = null;
   allGames: Game[] = [];
@@ -93,10 +94,14 @@ export class Dashboard implements OnInit, OnDestroy {
   // Card collection
   cardStats: any = null;
   cards: any[] = [];
+  cardTotal = 0;
+  cardCurrentPage = 1;
+  cardSort: 'newest' | 'name' | 'tier' = 'newest';
   cardDrawTickets: any[] = [];
   recentDrawCode: string | null = null;
 
   @ViewChild('drawRef') drawRef?: CardDrawComponent;
+  private cardRefreshSub: any = null;
   
   // ... (keep existing properties)
 
@@ -145,15 +150,63 @@ export class Dashboard implements OnInit, OnDestroy {
       this.currentStatus = status;
       this.cdr.markForCheck();
     });
+
+    this.connectSocket();
+
+    // Poll card collection every 15s as a live-update fallback
+    this.cardRefreshSub = interval(15000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.loadCardStats();
+        this.loadCardCollection();
+      });
   }
 
-  loadCardCollection(): void {
+  private connectSocket(): void {
+    const socket = this.chatService.connect();
+    socket.on('cards:updated', () => {
+      this.loadCardCollection();
+      this.loadCardStats();
+      this.loadDrawTickets();
+    });
+    socket.on('trade:new', () => {
+      this.loadCardCollection();
+    });
+    socket.on('trade:completed', () => {
+      this.loadCardCollection();
+      this.loadCardStats();
+    });
+    socket.on('task-completed', () => {
+      this.loadCardStats();
+    });
+  }
+
+  loadCardCollection(page?: number, sort?: string): void {
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (!userId) return;
-    this.chatService.getCardCollection().subscribe({
-      next: (cards) => { this.cards = cards; this.cdr.markForCheck(); },
-      error: () => { this.cards = []; this.cdr.markForCheck(); }
+    if (page) this.cardCurrentPage = page;
+    if (sort) this.cardSort = sort as 'newest' | 'name' | 'tier';
+    this.chatService.getCardCollection(this.cardCurrentPage, this.cardPageSize, undefined, undefined, this.cardSort).subscribe({
+      next: (res) => {
+        this.cards = (res?.items ?? []) as any[];
+        this.cardTotal = res?.total ?? 0;
+        this.cdr.markForCheck();
+      },
+      error: () => { this.cards = []; this.cardTotal = 0; this.cdr.markForCheck(); }
     });
+  }
+
+  goToCardPage(page: number): void {
+    if (page === this.cardCurrentPage) return;
+    this.loadCardCollection(page);
+  }
+
+  onCardSortChange(sort: string): void {
+    this.loadCardCollection(1, sort);
+  }
+
+  get cardTotalPages(): number {
+    return Math.max(1, Math.ceil(this.cardTotal / this.cardPageSize));
   }
 
   toggleFavorite(gameCode: string): void {
@@ -307,6 +360,10 @@ export class Dashboard implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    if (this.cardRefreshSub) {
+      this.cardRefreshSub.unsubscribe();
+      this.cardRefreshSub = null;
+    }
   }
 
   private loadData(): void {
@@ -640,9 +697,9 @@ export class Dashboard implements OnInit, OnDestroy {
 
   getDefaultAvatar(gender?: string): string {
     const g = gender?.toLowerCase();
-    if (g === 'male') return 'assets/avatars/male.png';
-    if (g === 'female') return 'assets/avatars/female.png';
-    return 'assets/avatars/unknown.png';
+    if (g === 'male') return '/assets/avatars/male.png';
+    if (g === 'female') return '/assets/avatars/female.png';
+    return '/assets/avatars/unknown.png';
   }
 
   logout(): void {

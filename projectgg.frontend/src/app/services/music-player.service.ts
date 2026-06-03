@@ -60,12 +60,16 @@ export class MusicPlayerService implements OnDestroy {
   private readonly shuffle$ = new BehaviorSubject<boolean>(false);
   private readonly repeat$ = new BehaviorSubject<'off' | 'all' | 'one'>('off');
   private readonly volume$ = new BehaviorSubject<number>(0.8);
+  private readonly frequencyData$ = new BehaviorSubject<number[]>(new Array(30).fill(0));
 
   private player: any = null;
   private apiLoaded = false;
   private playerReady = false;
   private progressInterval: ReturnType<typeof setInterval> | null = null;
   private progressRaf: number | null = null;
+  private vizRaf: number | null = null;
+  private prevFreqBars: number[] = new Array(30).fill(0);
+  private vizFrameCount = 0;
 
   readonly track$ = this.currentTrack$.asObservable();
   readonly playing$ = this.isPlaying$.asObservable();
@@ -84,6 +88,7 @@ export class MusicPlayerService implements OnDestroy {
   readonly shuffleObs$ = this.shuffle$.asObservable();
   readonly repeatObs$ = this.repeat$.asObservable();
   readonly volumeObs$ = this.volume$.asObservable();
+  readonly freqData$ = this.frequencyData$.asObservable();
 
   constructor(
     private readonly http: HttpClient,
@@ -141,6 +146,10 @@ export class MusicPlayerService implements OnDestroy {
     });
   }
 
+  fetchYoutubePlaylistTracksPreview(playlistId: string): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/platform/youtube/playlists/${playlistId}/tracks`);
+  }
+
   savePlaylist(name: string): void {
     const tracks = this.queue$.value;
     if (!tracks.length) return;
@@ -183,6 +192,14 @@ export class MusicPlayerService implements OnDestroy {
     });
   }
 
+  addToQueue(track: Track): void {
+    const current = this.queue$.value;
+    const exists = current.some(t => t.videoId === track.videoId);
+    if (!exists) {
+      this.queue$.next([...current, track]);
+    }
+  }
+
   deletePlaylist(name: string): void {
     const pl = this.playlists$.value.find(p => p.name === name);
     if (!pl) return;
@@ -198,6 +215,7 @@ export class MusicPlayerService implements OnDestroy {
     this.destroy$.complete();
     this.clearProgressInterval();
     this.stopProgressRaf();
+    this.stopVizLoop();
     try { this.player?.destroy(); } catch {}
   }
 
@@ -305,16 +323,19 @@ export class MusicPlayerService implements OnDestroy {
         this.isPlaying$.next(true);
         try { this.duration$.next(this.player?.getDuration() ?? 0); } catch {}
         this.startProgressSync();
+        this.startVizLoop();
         break;
       case YT?.PlayerState?.PAUSED:
         this.isPlaying$.next(false);
         this.stopProgressRaf();
+        this.startVizLoop();
         break;
       case YT?.PlayerState?.ENDED:
       case YT?.PlayerState?.CUED:
         this.isPlaying$.next(false);
         this.clearProgressInterval();
         this.stopProgressRaf();
+        this.startVizLoop();
         this.progress$.next(0);
         this.currentTime$.next(0);
         if (this.repeat$.value === 'one') {
@@ -330,8 +351,10 @@ export class MusicPlayerService implements OnDestroy {
   togglePlay(): void {
     if (!this.player || !this.currentTrack$.value) return;
     if (this.isPlaying$.value) {
+      this.isPlaying$.next(false);
       this.player.pauseVideo();
     } else {
+      this.isPlaying$.next(true);
       this.player.playVideo();
     }
   }
@@ -538,6 +561,64 @@ export class MusicPlayerService implements OnDestroy {
     if (this.progressRaf !== null) {
       cancelAnimationFrame(this.progressRaf);
       this.progressRaf = null;
+    }
+  }
+
+  startVizLoop(): void {
+    if (this.vizRaf !== null) return;
+    const barCount = 30;
+
+    const tick = () => {
+      let shouldContinue = true;
+      this.vizFrameCount++;
+
+      if (this.vizFrameCount % 3 !== 0) {
+        this.vizRaf = requestAnimationFrame(tick);
+        return;
+      }
+
+      this.ngZone.run(() => {
+        if (!this.isPlaying$.value) {
+          // Decay to zero
+          let allZero = true;
+          const decayed = this.prevFreqBars.map(v => {
+            const next = v * 0.88;
+            if (next > 0.5) allZero = false;
+            return next < 0.5 ? 0 : next;
+          });
+          this.prevFreqBars = decayed;
+          this.frequencyData$.next([...decayed]);
+          if (allZero) {
+            this.vizRaf = null;
+            shouldContinue = false;
+          }
+        } else {
+          // Generate simulated spectrum
+          const bars = this.prevFreqBars.map((prev, i) => {
+            const norm = i / barCount;
+            const energy = 1 - norm * 0.6;
+            const target = Math.random() * 255 * energy;
+            const speed = target > prev ? 0.35 : 0.18;
+            const next = prev + (target - prev) * speed;
+            return Math.max(0, Math.min(255, next));
+          });
+          this.prevFreqBars = bars;
+          this.frequencyData$.next([...bars]);
+        }
+      });
+
+      if (shouldContinue) {
+        this.vizRaf = requestAnimationFrame(tick);
+      }
+    };
+
+    this.vizRaf = requestAnimationFrame(tick);
+  }
+
+  private stopVizLoop(): void {
+    if (this.vizRaf !== null) {
+      cancelAnimationFrame(this.vizRaf);
+      this.vizRaf = null;
     }
   }
 

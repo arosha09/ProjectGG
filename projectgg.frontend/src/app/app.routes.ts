@@ -108,6 +108,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: '404',
+    redirectTo: 'home',
+    pathMatch: 'full'
+  },
+  {
     path: '**',
     redirectTo: 'home'
   }

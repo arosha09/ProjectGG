@@ -129,21 +129,28 @@ export class CursorService {
     el.id = 'cursor-set-styles';
     el.innerHTML = `
       html, body {
-        cursor: ${set.cursors['default']};
+        cursor: ${set.cursors['default']} !important;
       }
       *, *::before, *::after {
-        cursor: inherit;
+        cursor: inherit !important;
       }
-      a[href], button, [role="button"], input[type="submit"], input[type="button"],
-      .mat-mdc-button-base, .mdc-button, .clickable,
-      .gg-server-icon, .gg-channel, .gg-dm-icon,
-      .gg-friends-btn, .gg-add-friend-btn,
-      .gg-friend-row, .gg-type-option,
-      .gg-modal-close, .gg-friend-action-btn,
-      [onclick] {
+      a[href], button, input[type="submit"], input[type="button"],
+      input[type="checkbox"], input[type="radio"], input[type="range"],
+      select, summary, label, [onclick],
+      [role="button"], [role="tab"], [role="menuitem"], [role="option"],
+      [role="switch"], [role="checkbox"], [role="radio"], [role="listbox"],
+      [role="combobox"], [role="menuitemcheckbox"], [role="menuitemradio"],
+      [tabindex]:not([tabindex="-1"]):not([disabled]),
+      .mat-mdc-button-base, .mdc-button, .mat-mdc-select, .mat-mdc-option,
+      .mat-mdc-menu-item, .mat-mdc-chip, .mat-mdc-tab, .mat-mdc-list-item,
+      .mat-mdc-radio-button, .mat-mdc-checkbox, .mat-mdc-slide-toggle,
+      .mat-mdc-slider, .mat-mdc-paginator, .mdc-switch, .mdc-radio,
+      .mdc-checkbox, .mdc-tab, mat-icon, .clickable,
+      .profile-trigger, .header-notif-wrap, .header-notif-item,
+      .mini-viz-art, .mini-player-info {
         cursor: ${set.cursors['pointer']} !important;
       }
-      input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+      input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]),
       textarea,
       [contenteditable],
       [contenteditable="true"],

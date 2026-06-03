@@ -1,9 +1,11 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { ChatService } from '../../services/chat.service';
+import { PaginatorComponent } from '../paginator/paginator.component';
+import { CyberDropdownComponent, DropdownItem } from '../cyber-dropdown/cyber-dropdown.component';
 
 interface TradeFairnessResult {
   isFair: boolean;
@@ -23,7 +25,7 @@ interface TradeFriend {
   selector: 'app-card-collection',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, PaginatorComponent, CyberDropdownComponent],
   template: `
     <section class="collection-shell">
       <div class="collection-header">
@@ -33,7 +35,7 @@ interface TradeFriend {
           <p class="collection-subtitle">Cards collected in your arsenal.</p>
         </div>
         <div class="collection-count-wrap">
-          <span class="collection-count">{{ totalCards }} total cards</span>
+          <span class="collection-count" [class.count-flash]="countFlashing">{{ displayCount }} total cards</span>
         </div>
       </div>
 
@@ -279,7 +281,7 @@ interface TradeFriend {
         <span class="btn-spinner"></span>
         Working...
       } @else {
-        <mat-icon svgIcon="{{ tradeMode === 'trade' ? 'swap_horiz' : 'card_giftcard' }}"></mat-icon>
+        <mat-icon [svgIcon]="tradeMode === 'trade' ? 'swap_horiz' : 'card_giftcard'"></mat-icon>
         {{ tradeMode === 'trade' ? 'Propose Trade' : 'Send Gift' }}
       }
     </button>
@@ -322,6 +324,13 @@ interface TradeFriend {
             {{ tier }}
           </button>
         }
+        <div class="sort-dropdown-wrap">
+          <button class="sort-trigger" type="button" (click)="sortDropdownOpen = !sortDropdownOpen">
+            <span>{{ sortBy | titlecase }}</span>
+            <span class="sort-arrow">▼</span>
+          </button>
+          <app-cyber-dropdown [items]="sortItems" [isOpen]="sortDropdownOpen" (itemSelect)="sortDropdownOpen = false"></app-cyber-dropdown>
+        </div>
         <input
           class="filter-search"
           [(ngModel)]="searchQuery"
@@ -332,7 +341,7 @@ interface TradeFriend {
 
       <!-- CARD GRID -->
       <div class="card-grid">
-        @for (card of displayCards; track card.game_code) {
+        @for (card of pagedCards; track card.game_code) {
           <mat-card
             class="owned-card"
             [class.selected-card]="selectedCard?.id === card.id"
@@ -345,7 +354,7 @@ interface TradeFriend {
               [class.active]="card.is_favorite"
               (click)="toggleFav.emit(card.game_code); $event.stopPropagation()"
             >
-              <mat-icon>{{ card.is_favorite ? 'star' : 'star_border' }}</mat-icon>
+              <mat-icon [svgIcon]="card.is_favorite ? 'star' : 'star_border'"></mat-icon>
             </button>
             <div class="card-media owned-media" [class.has-image]="!!card.cover_url">
               <div class="tier-badge" [ngClass]="'tier-' + card.card_tier">
@@ -377,6 +386,13 @@ interface TradeFriend {
           </div>
         }
       </div>
+
+      <app-paginator
+        class="collection-paginator"
+        [currentPage]="page"
+        [totalPages]="totalPages"
+        (pageChange)="onPageChange($event)"
+      ></app-paginator>
     </section>
   `,
   styles: [
@@ -436,28 +452,64 @@ interface TradeFriend {
         min-width: 120px;
       }
 
-      /* ── TOTAL CARDS badge: no glow ── */
+      /* ── TOTAL CARDS badge: cyberpunk neon ── */
       .collection-count {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         width: fit-content;
-        padding: 6px 12px;
-        border-radius: 999px;
+        padding: 6px 16px;
+        border-radius: 6px;
         font-size: 12px;
         letter-spacing: 2px;
         text-transform: uppercase;
         color: #0b0e16;
         background: linear-gradient(135deg, #5bd9ff, #ff4d84);
         font-weight: 900;
-        box-shadow: none;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 0 0 12px rgba(91, 217, 255, 0.35), 0 0 24px rgba(255, 45, 111, 0.15), inset 0 0 8px rgba(255, 255, 255, 0.15);
+        position: relative;
+        transition: box-shadow 0.4s;
+      }
+
+      .collection-count::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: 8px;
+        padding: 1.5px;
+        background: linear-gradient(135deg, #5bd9ff, #ff4d84, #5bd9ff);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        opacity: 0.6;
+      }
+
+      .collection-count::after {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(91, 217, 255, 0.15), rgba(255, 45, 111, 0.08));
+        filter: blur(8px);
+        z-index: -1;
+      }
+
+      .collection-count.count-flash {
+        box-shadow: 0 0 20px rgba(91, 217, 255, 0.6), 0 0 40px rgba(255, 45, 111, 0.3), inset 0 0 12px rgba(255, 255, 255, 0.3);
       }
 
       .collection-count.secondary {
         background: rgba(255, 255, 255, 0.05);
         color: rgba(241, 247, 255, 0.82);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: none;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.06);
+      }
+
+      .collection-count.secondary::before,
+      .collection-count.secondary::after {
+        display: none;
       }
 
       /* ── STATS ROW ── */
@@ -1098,6 +1150,7 @@ interface TradeFriend {
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.06);
+        position: relative;
       }
 
       /* Base filter button */
@@ -1261,6 +1314,34 @@ interface TradeFriend {
         background: rgba(0, 0, 0, 0.24);
         color: #f4f7ff;
         outline: none;
+      }
+
+      .sort-dropdown-wrap {
+        position: relative;
+
+        .sort-trigger {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 7px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(0, 0, 0, 0.24);
+          color: rgba(241, 247, 255, 0.8);
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &:hover {
+            border-color: rgba(255, 45, 111, 0.45);
+            color: #fff;
+          }
+
+          .sort-arrow {
+            font-size: 8px;
+            opacity: 0.6;
+          }
+        }
       }
 
       .filter-search::placeholder {
@@ -1501,6 +1582,11 @@ interface TradeFriend {
         max-width: 280px;
       }
 
+      .collection-paginator {
+        display: block;
+        margin-top: 18px;
+      }
+
       @media (max-width: 720px) {
         .collection-header {
           flex-direction: column;
@@ -1519,26 +1605,64 @@ interface TradeFriend {
     `,
   ],
 })
-export class CardCollectionComponent {
+export class CardCollectionComponent implements OnChanges {
   constructor(private readonly chatService: ChatService) {}
 
   @Input() cards: any[] = [];
   @Input() totalCards = 0;
   @Input() page = 1;
-  @Input() pageSize = 24;
+  @Input() pageSize = 10;
   @Input() stats: any = null;
   @Input() highlightGameCode: string | null = null;
   @Output() toggleFav = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() tierFilter = new EventEmitter<string | null>();
   @Output() searchChange = new EventEmitter<string>();
+  @Output() sortChange = new EventEmitter<string>();
   @Output() startTrade = new EventEmitter<any>();
+
+  displayCount = 0;
+  countFlashing = false;
+  private countRaf: number | null = null;
 
   defaultCover = '';
   activeTier: string | null = null;
   showFavoritesOnly = false;
   searchQuery = '';
+  sortBy: 'newest' | 'name' | 'tier' = 'newest';
+  sortDropdownOpen = false;
+  sortItems: DropdownItem[] = [
+    { label: 'Newest', action: () => this.onSortChange('newest') },
+    { label: 'Name', action: () => this.onSortChange('name') },
+    { label: 'Tier', action: () => this.onSortChange('tier') },
+  ];
   selectedCard: any = null;
+
+  ngOnChanges(changes: any): void {
+    if (changes.totalCards && changes.totalCards.currentValue !== changes.totalCards.previousValue) {
+      this.animateCount(changes.totalCards.previousValue ?? 0, changes.totalCards.currentValue);
+    }
+  }
+
+  private animateCount(from: number, to: number): void {
+    if (this.countRaf !== null) cancelAnimationFrame(this.countRaf);
+    this.countFlashing = true;
+    const duration = Math.min(1000, Math.max(300, Math.abs(to - from) * 40));
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      this.displayCount = Math.round(from + (to - from) * eased);
+      if (t < 1) {
+        this.countRaf = requestAnimationFrame(tick);
+      } else {
+        this.displayCount = to;
+        this.countRaf = null;
+        setTimeout(() => { this.countFlashing = false; }, 600);
+      }
+    };
+    this.countRaf = requestAnimationFrame(tick);
+  }
   viewMode: 'details' | 'trade' = 'details';
   tradeMode: 'trade' | 'gift' = 'trade';
   friendQuery = '';
@@ -1587,7 +1711,7 @@ export class CardCollectionComponent {
   }
 
   get totalPages() {
-    return Math.ceil(this.totalCards / this.pageSize);
+    return Math.max(1, Math.ceil(this.totalCards / this.pageSize));
   }
 
   get displayCards(): any[] {
@@ -1598,6 +1722,15 @@ export class CardCollectionComponent {
       const matchesSearch = !query || String(card.game_name ?? '').toLowerCase().includes(query);
       return matchesFavorites && matchesTier && matchesSearch;
     });
+  }
+
+  get pagedCards(): any[] {
+    return this.displayCards;
+  }
+
+  onPageChange(page: number): void {
+    this.page = page;
+    this.pageChange.emit(page);
   }
 
   tierColor(tier: string): string {
@@ -1731,8 +1864,8 @@ export class CardCollectionComponent {
   private loadFriendCards(userId: string): void {
     this.friendCardsLoading = true;
     this.chatService.getUserShowcase(userId).subscribe({
-      next: (cards) => {
-        this.friendCards = cards ?? [];
+      next: (res) => {
+        this.friendCards = res?.items ?? [];
         this.friendCardsLoading = false;
       },
       error: () => {
@@ -1753,7 +1886,7 @@ export class CardCollectionComponent {
     const receiverCardId = this.getCardId(this.selectedReceiverCard);
     if (!proposerCardId || !receiverCardId) return;
 
-    this.chatService.checkTradeFairness(proposerCardId, receiverCardId).subscribe({
+    this.chatService.checkTradeFairness([proposerCardId], [receiverCardId]).subscribe({
       next: (result) => {
         this.fairnessCheck = result;
         if (!result?.isFair) this.overrideUnfair = false;
@@ -1773,7 +1906,7 @@ export class CardCollectionComponent {
     this.tradeError = null;
     const allowUnfair = !!this.overrideUnfair || !!this.fairnessCheck?.isFair;
 
-    this.chatService.createCardTrade(proposerCardId, this.selectedFriend.id, receiverCardId, allowUnfair).subscribe({
+    this.chatService.createCardTrade([proposerCardId], this.selectedFriend.id, [receiverCardId], allowUnfair).subscribe({
       next: () => {
         this.tradeBusy = false;
         this.tradeMessage = 'Trade proposal sent.';
@@ -1817,15 +1950,29 @@ export class CardCollectionComponent {
 
   filterTier(tier: string | null): void {
     this.activeTier = tier;
+    this.page = 1;
+    this.pageChange.emit(1);
     this.tierFilter.emit(tier);
   }
 
   toggleFavoritesFilter(): void {
     this.showFavoritesOnly = !this.showFavoritesOnly;
+    this.page = 1;
+    this.pageChange.emit(1);
   }
 
   onSearch(): void {
+    this.page = 1;
+    this.pageChange.emit(1);
     this.searchChange.emit(this.searchQuery);
+  }
+
+  onSortChange(sort: string): void {
+    this.sortBy = sort as 'newest' | 'name' | 'tier';
+    this.sortDropdownOpen = false;
+    this.page = 1;
+    this.pageChange.emit(1);
+    this.sortChange.emit(sort);
   }
 
   goPage(p: number): void {

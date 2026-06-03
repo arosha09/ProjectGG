@@ -10,7 +10,7 @@ export class UsersService {
     return this.usersRepository.findById(params);
   }
 
-  async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean; cursor_preference?: string }): Promise<UserDto | null> {
+  async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean; cursor_preference?: string; sound_profile?: string; allow_incoming_nudges?: boolean; disabled_notification_kinds?: string[] }): Promise<UserDto | null> {
     return this.usersRepository.updateProfile(userId, updates);
   }
 
@@ -32,5 +32,13 @@ export class UsersService {
 
   async getUserAvatarUrl(userId: string): Promise<string | null> {
     return this.usersRepository.getUserAvatarUrl(userId);
+  }
+
+  async getUserSettings(userId: string): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] } | null> {
+    return this.usersRepository.getUserSettings(userId);
+  }
+
+  async updateUserSettings(userId: string, updates: { sound_profile?: string; allow_incoming_nudges?: boolean; disabled_notification_kinds?: string[] }): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] } | null> {
+    return this.usersRepository.updateUserSettings(userId, updates);
   }
 }

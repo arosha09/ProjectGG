@@ -25,6 +25,7 @@ export interface GgServer {
   name: string;
   owner_id: string;
   avatar_url: string | null;
+  banner_url: string | null;
   created_at: string;
 }
 
@@ -77,6 +78,28 @@ export class ChatService {
 
   private db() {
     return this.supabase.schema('projectgg');
+  }
+
+  async resolveSignedUrl(url: string | null): Promise<string | null> {
+    if (!url) return null;
+    const marker = '/storage/v1/object/';
+    const idx = url.indexOf(marker);
+    if (idx !== -1) {
+      const rest = url.substring(idx + marker.length);
+      const parts = rest.split('/');
+      if (parts[0] === 'sign') {
+        const bucket = parts[1];
+        const path = parts.slice(2).join('/');
+        const { data } = await this.supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
+        return data?.signedUrl ?? url;
+      }
+      const bucket = parts[1];
+      const path = parts.slice(2).join('/');
+      const { data } = await this.supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
+      return data?.signedUrl ?? url;
+    }
+    const { data } = await this.supabase.storage.from('chat_uploads').createSignedUrl(url, 60 * 60 * 24 * 7);
+    return data?.signedUrl ?? url;
   }
 
   // ===== MESSAGES =====
@@ -143,7 +166,12 @@ export class ChatService {
       .select('server_id, gg_servers(*)')
       .eq('user_id', userId);
     if (error) throw error;
-    return (data ?? []).map((s: any) => s.gg_servers).filter(Boolean);
+    const servers = (data ?? []).map((s: any) => s.gg_servers).filter(Boolean);
+    for (const s of servers) {
+      s.avatar_url = await this.resolveSignedUrl(s.avatar_url);
+      s.banner_url = await this.resolveSignedUrl(s.banner_url);
+    }
+    return servers;
   }
 
   async getServer(serverId: number): Promise<GgServer | null> {
@@ -153,6 +181,10 @@ export class ChatService {
       .eq('id', serverId)
       .single();
     if (error) return null;
+    if (data) {
+      data.avatar_url = await this.resolveSignedUrl(data.avatar_url);
+      data.banner_url = await this.resolveSignedUrl(data.banner_url);
+    }
     return data;
   }
 
@@ -213,7 +245,7 @@ export class ChatService {
   }
 
   async updateServer(
-    serverId: number, userId: string, data: Partial<Pick<GgServer, 'name' | 'avatar_url'>>,
+    serverId: number, userId: string, data: Partial<Pick<GgServer, 'name' | 'avatar_url' | 'banner_url'>>,
   ): Promise<GgServer> {
     const { data: server } = await this.db()
       .from('gg_servers')
@@ -225,6 +257,7 @@ export class ChatService {
     const updateData: any = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
+    if (data.banner_url !== undefined) updateData.banner_url = data.banner_url;
     const { data: updated, error } = await this.db()
       .from('gg_servers')
       .update(updateData)
@@ -232,7 +265,63 @@ export class ChatService {
       .select()
       .single();
     if (error) throw error;
+    if (updated) {
+      updated.avatar_url = await this.resolveSignedUrl(updated.avatar_url);
+      updated.banner_url = await this.resolveSignedUrl(updated.banner_url);
+    }
     return updated;
+  }
+
+  // ===== SERVER ROLES =====
+
+  async getServerRoles(serverId: number): Promise<any[]> {
+    const { data, error } = await this.db()
+      .from('gg_server_roles')
+      .select('*')
+      .eq('server_id', serverId)
+      .order('position', { ascending: true });
+    if (error) {
+      const msg = (error.message ?? error.code ?? '') as string;
+      if (error.code === '42P01' || error.code === '42703' || msg.includes('column') || msg.includes('schema cache')) {
+        return [
+          { name: 'owner', color: '#ffd700', is_owner: true, permissions: ['manage_server', 'manage_channels', 'manage_roles', 'manage_messages', 'manage_members', 'kick_members'] },
+          { name: 'admin', color: '#ff4444', permissions: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members'] },
+          { name: 'moderator', color: '#00f0ff', permissions: ['manage_messages', 'kick_members'] },
+          { name: 'member', color: '#888888', permissions: [] },
+        ];
+      }
+      throw error;
+    }
+    return data ?? [];
+  }
+
+  async createServerRole(serverId: number, userId: string, name: string, color?: string, permissions?: string[]): Promise<any> {
+    const server = await this.db().from('gg_servers').select('owner_id').eq('id', serverId).single();
+    if (!server.data || server.data.owner_id !== userId) throw new BadRequestException('Only the owner can create roles');
+    const { data, error } = await this.db()
+      .from('gg_server_roles')
+      .insert({ server_id: serverId, name: name.trim(), color: color || '#00f0ff', permissions: permissions ?? [] })
+      .select()
+      .single();
+    if (error) {
+      const msg = (error.message ?? error.code ?? '') as string;
+      if (error.code === '42P01' || error.code === '42703' || msg.includes('column') || msg.includes('schema cache')) {
+        return { name: name.trim(), color: color || '#00f0ff', permissions: permissions ?? [] };
+      }
+      throw error;
+    }
+    return data;
+  }
+
+  async deleteServerRole(serverId: number, userId: string, roleName: string): Promise<void> {
+    const server = await this.db().from('gg_servers').select('owner_id').eq('id', serverId).single();
+    if (!server.data || server.data.owner_id !== userId) throw new BadRequestException('Only the owner can delete roles');
+    const { error } = await this.db()
+      .from('gg_server_roles')
+      .delete()
+      .eq('server_id', serverId)
+      .eq('name', roleName);
+    if (error && error.code !== '42P01' && !((error.message ?? '') as string).includes('schema cache')) throw error;
   }
 
   // ===== CHANNELS =====
@@ -628,6 +717,17 @@ export class ChatService {
     return (data ?? []).map(u => ({ ...u, avatar: this.resolveAvatar(u.avatar, u.gender) }));
   }
 
+  async getUserPublicById(userId: string): Promise<any> {
+    const { data, error } = await this.db()
+      .from('users')
+      .select('id, username, avatar, name, gender, status, sys_status')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return { ...data, avatar: this.resolveAvatar(data.avatar, data.gender) };
+  }
+
   async sendFriendRequest(userId: string, friendUsername: string): Promise<any> {
     const { data: friend } = await this.db()
       .from('users')
@@ -918,6 +1018,15 @@ export class ChatService {
     const { error } = await this.db()
       .from('notifications')
       .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  }
+
+  async deleteNotification(userId: string, notificationId: number): Promise<void> {
+    const { error } = await this.db()
+      .from('notifications')
+      .delete()
+      .eq('id', notificationId)
       .eq('user_id', userId);
     if (error) throw error;
   }

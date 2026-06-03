@@ -39,37 +39,92 @@
         <!-- OVERVIEW -->
         @if (tab === 'overview') {
           <section class="ss-section">
-            <h2 class="ss-section-title">Server Name</h2>
-            @if (editingServer) {
-              <div class="ss-edit-row">
-                <input class="ss-input" [(ngModel)]="editServerName" placeholder="Server name" (keyup.enter)="editingServer = false" />
-                <button class="ss-btn ss-btn-primary" (click)="editingServer = false">Save</button>
-                <button class="ss-btn" (click)="editingServer = false">Cancel</button>
-              </div>
-            } @else {
-              <div class="ss-info-row">
-                <span class="ss-info-value">{{ serverId }}</span>
-                @if (isOwner) {
-                  <button class="ss-btn" (click)="editingServer = true">Edit</button>
+            <!-- Discord-style banner + icon card -->
+            <div class="ss-server-card">
+              <!-- Banner area -->
+              <div class="ss-banner-zone" (mouseenter)="bannerHover = true" (mouseleave)="bannerHover = false">
+                @if (bannerPreview || server?.banner_url) {
+                  @if (!bannerLoaded) {
+                    <div class="ss-img-skeleton ss-banner-skeleton"></div>
+                  }
+                  <img class="ss-banner-img" [class.ss-img-hidden]="!bannerLoaded" [src]="bannerPreview || server!.banner_url" alt="" (load)="bannerLoaded = true" />
+                } @else {
+                  <div class="ss-banner-placeholder">
+                    <mat-icon svgIcon="image"></mat-icon>
+                  </div>
                 }
+                @if (isOwner) {
+                  <label class="ss-edit-overlay" [class.visible]="bannerHover" title="Change Banner">
+                    <mat-icon svgIcon="edit"></mat-icon>
+                    <input type="file" accept="image/*" hidden (change)="onBannerSelected($event)" />
+                  </label>
+                  @if (server?.banner_url) {
+                    <button class="ss-remove-overlay" [class.visible]="bannerHover" title="Remove Banner" (click)="removeBanner(); $event.stopPropagation()">
+                      <mat-icon svgIcon="delete"></mat-icon>
+                    </button>
+                  }
+                }
+                <!-- Glitch scanline accent -->
+                <div class="ss-banner-scanlines"></div>
               </div>
-            }
-          </section>
 
-          <section class="ss-section">
-            <h2 class="ss-section-title">Stats</h2>
-            <div class="ss-stats-row">
-              <div class="ss-stat">
-                <span class="ss-stat-num">{{ members.length }}</span>
-                <span class="ss-stat-label">Members</span>
+              <!-- Icon overlapping banner -->
+              <div class="ss-icon-anchor">
+                <div class="ss-icon-ring">
+                  @if (avatarPreview || server?.avatar_url) {
+                    @if (!iconLoaded) {
+                      <div class="ss-img-skeleton ss-icon-skeleton"></div>
+                    }
+                    <img class="ss-icon-img" [class.ss-img-hidden]="!iconLoaded" [src]="avatarPreview || server!.avatar_url" alt="" (load)="iconLoaded = true" />
+                  } @else {
+                    <div class="ss-icon-initial">{{ server?.name?.charAt(0) || '?' }}</div>
+                  }
+                  @if (isOwner) {
+                    <label class="ss-icon-edit" (mouseenter)="iconHover = true" (mouseleave)="iconHover = false">
+                      <mat-icon svgIcon="edit"></mat-icon>
+                      <input type="file" accept="image/*" hidden (change)="onAvatarSelected($event)" />
+                    </label>
+                  }
+                  <!-- Orbiting glow ring -->
+                  <div class="ss-icon-glow"></div>
+                </div>
               </div>
-              <div class="ss-stat">
-                <span class="ss-stat-num">{{ channels.length }}</span>
-                <span class="ss-stat-label">Channels</span>
-              </div>
-              <div class="ss-stat">
-                <span class="ss-stat-num">{{ roles.length }}</span>
-                <span class="ss-stat-label">Roles</span>
+
+              <!-- Server info below icon -->
+              <div class="ss-card-body">
+                @if (editingServer) {
+                  <div class="ss-name-edit-row">
+                    <input class="ss-input" [(ngModel)]="editServerName" placeholder="Server name" (keyup.enter)="saveServerName()" />
+                    <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="saveServerName()">Save</button>
+                    <button class="ss-btn ss-btn-sm" (click)="editingServer = false; editServerName = server?.name || ''">Cancel</button>
+                  </div>
+                } @else {
+                  <div class="ss-name-row">
+                    <span class="ss-server-name">{{ server?.name || 'Server' }}</span>
+                    @if (isOwner) {
+                      <button class="ss-name-edit-btn" (click)="editingServer = true" title="Edit Name">
+                        <mat-icon svgIcon="edit"></mat-icon>
+                      </button>
+                    }
+                  </div>
+                }
+
+                <div class="ss-card-stats">
+                  <div class="ss-card-stat">
+                    <span class="ss-card-stat-num">{{ members.length }}</span>
+                    <span class="ss-card-stat-label">Members</span>
+                  </div>
+                  <div class="ss-card-divider"></div>
+                  <div class="ss-card-stat">
+                    <span class="ss-card-stat-num">{{ channels.length }}</span>
+                    <span class="ss-card-stat-label">Channels</span>
+                  </div>
+                  <div class="ss-card-divider"></div>
+                  <div class="ss-card-stat">
+                    <span class="ss-card-stat-num">{{ roles.length }}</span>
+                    <span class="ss-card-stat-label">Roles</span>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -190,7 +245,7 @@
             <div class="ss-channel-list">
               @for (ch of channels; track ch.id) {
                 <div class="ss-channel-card">
-                  <mat-icon class="ss-ch-icon">{{ ch.type === 'voice' ? 'volume_up' : 'tag' }}</mat-icon>
+                  <mat-icon class="ss-ch-icon" [svgIcon]="ch.type === 'voice' ? 'volume_up' : 'tag'"></mat-icon>
                   <span class="ss-ch-name">{{ ch.name }}</span>
                   <span class="ss-ch-type">{{ ch.type }}</span>
                   @if (editingChannelRoles?.ch === ch) {

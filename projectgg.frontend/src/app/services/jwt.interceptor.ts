@@ -28,8 +28,19 @@ export class JwtInterceptor implements HttpInterceptor {
 
     return next.handle(request).pipe(
       catchError((error) => {
-        if (error instanceof HttpErrorResponse && error.status === 401 && !request.url.includes('/auth/refresh')) {
-          return this.handle401Error(request, next);
+        if (error instanceof HttpErrorResponse) {
+          if (error.status === 401 && !request.url.includes('/auth/refresh')) {
+            return this.handle401Error(request, next);
+          }
+          if (error.status === 404) {
+            return throwError(() => error);
+          }
+          if (error.status === 0) {
+            console.warn('[JwtInterceptor] Network error — logging out');
+            this.authService.logout();
+            this.router.navigate(['/login'], { queryParams: { disconnected: 'true' } });
+            return throwError(() => error);
+          }
         }
         return throwError(() => error);
       })

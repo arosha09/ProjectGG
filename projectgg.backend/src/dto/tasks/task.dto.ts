@@ -12,6 +12,7 @@ export class CreateTaskDto {
   start_at?: string;
   end_at?: string | null;
   active?: boolean;
+  is_daily?: boolean;
 }
 
 export class UpdateTaskDto {
@@ -28,4 +29,5 @@ export class UpdateTaskDto {
   start_at?: string;
   end_at?: string | null;
   active?: boolean;
+  is_daily?: boolean;
 }

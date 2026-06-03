@@ -122,7 +122,7 @@ interface Trade {
                     <div class="trade-card-mini" [style.border-color]="tierColor(trade.proposer_tier)">
                       <img loading="lazy" decoding="async" [src]="trade.proposer_cover || defaultCover" alt="" class="trade-card-img" (error)="onImgError($event)" />
                     </div>
-                    <mat-icon class="trade-arrow">swap_horiz</mat-icon>
+                    <mat-icon class="trade-arrow" svgIcon="swap_horiz"></mat-icon>
                     <div class="trade-card-mini" [style.border-color]="tierColor(trade.receiver_tier)">
                       <img loading="lazy" decoding="async" [src]="trade.receiver_cover || defaultCover" alt="" class="trade-card-img" (error)="onImgError($event)" />
                     </div>

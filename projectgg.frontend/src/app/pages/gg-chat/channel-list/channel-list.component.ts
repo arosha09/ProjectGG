@@ -5,12 +5,14 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from '../../../services/chat.service';
 import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyber-select/cyber-select.component';
+import { CyberDropdownComponent, DropdownItem } from '../../../components/cyber-dropdown/cyber-dropdown.component';
+import { VoiceNudgeService } from '../../../services/voice-nudge.service';
 
 @Component({
   selector: 'app-channel-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, FormsModule, RouterModule, CyberSelectComponent],
+  imports: [CommonModule, MatIconModule, FormsModule, RouterModule, CyberSelectComponent, CyberDropdownComponent],
   host: { style: 'display: contents' },
   template: `
     <aside class="gg-channels">
@@ -38,7 +40,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               <span class="gg-user-name">{{ currentUser?.username ?? 'Unknown' }}</span>
               <span class="gg-user-status-text">{{ currentStatus }}</span>
             </div>
-            <mat-icon class="gg-user-menu-arrow" [class.open]="profileMenuOpen">expand_more</mat-icon>
+            <mat-icon class="gg-user-menu-arrow" [class.open]="profileMenuOpen" svgIcon="expand_more"></mat-icon>
           </div>
 
           @if (profileMenuOpen) {
@@ -63,8 +65,48 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               </div>
             </div>
           }
+
+          @if (showDevicePicker) {
+            <div class="gg-voice-device-picker">
+              <app-cyber-select
+                [options]="inputDeviceOptions"
+                [value]="selectedInputId"
+                [openAbove]="true"
+                icon="mic"
+                label="Input Device"
+                placeholder="Default Microphone"
+                (valueChange)="onInputDeviceChange.emit($event)"
+              ></app-cyber-select>
+              <app-cyber-select
+                [options]="outputDeviceOptions"
+                [value]="selectedOutputId"
+                [openAbove]="true"
+                icon="volume_up"
+                label="Output Device"
+                placeholder="Default Speaker"
+                (valueChange)="onOutputDeviceChange.emit($event)"
+              ></app-cyber-select>
+            </div>
+          }
+
+          <div class="gg-user-status-controls">
+            <button type="button" class="gg-voice-control-btn" [class.active]="voiceMuted" (click)="toggleVoiceMute.emit()" title="{{ voiceMuted ? 'Unmute' : 'Mute' }}">
+              <mat-icon [svgIcon]="voiceMuted ? 'mic_off' : 'mic'"></mat-icon>
+            </button>
+            <button type="button" class="gg-voice-control-btn" [class.active]="voiceDeafened" (click)="toggleVoiceDeaf.emit()" title="{{ voiceDeafened ? 'Undeafen' : 'Deafen' }}">
+              <mat-icon [svgIcon]="voiceDeafened ? 'headset_off' : 'headset'"></mat-icon>
+            </button>
+            @if (voiceConnected) {
+              <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
+                <mat-icon svgIcon="settings_voice"></mat-icon>
+              </button>
+              <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
+                <mat-icon svgIcon="phone_off"></mat-icon>
+              </button>
+            }
+          </div>
         </div>
-      } @else if (viewMode === 'dm' || viewMode === 'friends' || viewMode === 'trading') {
+      } @else if (viewMode === 'dm' || viewMode === 'friends' || viewMode === 'trading' || viewMode === 'trading-inline' || viewMode === 'gift-inline') {
         <div class="gg-channels-head">
           <span class="gg-channels-title">Direct Messages</span>
         </div>
@@ -80,7 +122,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
             }
           </div>
 
-          <div class="gg-channel gg-trading-btn" [class.active]="viewMode === 'trading'" (click)="openTradingView.emit()">
+          <div class="gg-channel gg-trading-btn" [class.active]="viewMode === 'trading' || viewMode === 'trading-inline' || viewMode === 'gift-inline'" (click)="openTradingView.emit()">
             <mat-icon class="gg-ch-icon" svgIcon="style"></mat-icon>
             <span class="gg-ch-name">Trade</span>
           </div>
@@ -138,7 +180,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               <span class="gg-user-name">{{ currentUser?.username ?? 'Unknown' }}</span>
               <span class="gg-user-status-text">{{ currentStatus }}</span>
             </div>
-            <mat-icon class="gg-user-menu-arrow" [class.open]="profileMenuOpen">expand_more</mat-icon>
+            <mat-icon class="gg-user-menu-arrow" [class.open]="profileMenuOpen" svgIcon="expand_more"></mat-icon>
           </div>
 
           @if (profileMenuOpen) {
@@ -163,6 +205,46 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               </div>
             </div>
           }
+
+          @if (showDevicePicker) {
+            <div class="gg-voice-device-picker">
+              <app-cyber-select
+                [options]="inputDeviceOptions"
+                [value]="selectedInputId"
+                [openAbove]="true"
+                icon="mic"
+                label="Input Device"
+                placeholder="Default Microphone"
+                (valueChange)="onInputDeviceChange.emit($event)"
+              ></app-cyber-select>
+              <app-cyber-select
+                [options]="outputDeviceOptions"
+                [value]="selectedOutputId"
+                [openAbove]="true"
+                icon="volume_up"
+                label="Output Device"
+                placeholder="Default Speaker"
+                (valueChange)="onOutputDeviceChange.emit($event)"
+              ></app-cyber-select>
+            </div>
+          }
+
+          <div class="gg-user-status-controls">
+            <button type="button" class="gg-voice-control-btn" [class.active]="voiceMuted" (click)="toggleVoiceMute.emit()" title="{{ voiceMuted ? 'Unmute' : 'Mute' }}">
+              <mat-icon [svgIcon]="voiceMuted ? 'mic_off' : 'mic'"></mat-icon>
+            </button>
+            <button type="button" class="gg-voice-control-btn" [class.active]="voiceDeafened" (click)="toggleVoiceDeaf.emit()" title="{{ voiceDeafened ? 'Undeafen' : 'Deafen' }}">
+              <mat-icon [svgIcon]="voiceDeafened ? 'headset_off' : 'headset'"></mat-icon>
+            </button>
+            @if (voiceConnected) {
+              <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
+                <mat-icon svgIcon="settings_voice"></mat-icon>
+              </button>
+              <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
+                <mat-icon svgIcon="phone_off"></mat-icon>
+              </button>
+            }
+          </div>
         </div>
       } @else if (selectedServer) {
         <div class="gg-channels-head">
@@ -171,16 +253,11 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
             <button class="gg-ch-actions" (click)="toggleServerDropdown()" title="Server Menu">
               <mat-icon svgIcon="expand_more"></mat-icon>
             </button>
-            @if (serverDropdownOpen) {
-              <div class="gg-server-dropdown" (click)="$event.stopPropagation()">
-                <button class="gg-dropdown-item" (click)="onInviteLinks()">
-                  <mat-icon svgIcon="link"></mat-icon> Invite
-                </button>
-                <a class="gg-dropdown-item" routerLink="/gg-chat/server/{{ selectedServer.id }}/settings" (click)="closeServerDropdown()">
-                  <mat-icon svgIcon="settings"></mat-icon> Settings
-                </a>
-              </div>
-            }
+            <app-cyber-dropdown
+              [items]="serverDropdownItems"
+              [isOpen]="serverDropdownOpen"
+              (itemSelect)="onServerDropdownSelect($event)"
+            ></app-cyber-dropdown>
           </div>
         </div>
 
@@ -202,7 +279,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
                   [class.active]="selectedChannel?.id === ch.id"
                   (click)="selectChannel.emit(ch)"
                 >
-                  <mat-icon class="gg-ch-icon">{{ isChannelPrivate(ch) ? 'lock' : channelIcon(ch.type) }}</mat-icon>
+                  <mat-icon class="gg-ch-icon" [svgIcon]="isChannelPrivate(ch) ? 'lock' : channelIcon(ch.type)"></mat-icon>
                   <span class="gg-ch-name">{{ ch.name }}</span>
                   @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
                     <span class="gg-ch-voice-count">{{ voiceChannelUsers(chId(ch)).length }}</span>
@@ -217,7 +294,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
                 @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
                   <div class="gg-voice-under-users">
                     @for (vu of voiceChannelUsers(chId(ch)); track vu.userId) {
-                      <div class="gg-voice-under-user" [class.speaking]="voiceMemberSpeaking(vu.userId)">
+                      <div class="gg-voice-under-user" [class.speaking]="voiceMemberSpeaking(vu.userId)" [class.nudged]="nudgeService.isRecentlyNudged(vu.userId)" (contextmenu)="voiceContextMenuRequest.emit({ event: $event, vm: vu })">
                         <div class="gg-voice-under-avatar">
                           @if (voiceMemberAvatar(vu.userId)) {
                             <img loading="lazy" decoding="async" [src]="voiceMemberAvatar(vu.userId)!" alt="" />
@@ -227,10 +304,10 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
                         </div>
                         <span class="gg-voice-under-name">{{ voiceMemberName(vu.userId) }}</span>
                         @if (vu.muted) {
-                          <mat-icon class="gg-voice-under-status muted">mic_off</mat-icon>
+                          <mat-icon class="gg-voice-under-status muted" svgIcon="mic_off"></mat-icon>
                         }
                         @if (vu.deafened) {
-                          <mat-icon class="gg-voice-under-status deafened">headset_off</mat-icon>
+                          <mat-icon class="gg-voice-under-status deafened" svgIcon="headset_off"></mat-icon>
                         }
                       </div>
                     }
@@ -241,7 +318,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
           }
 
           <div class="gg-channel gg-channel-add" (click)="openCreateChannel.emit()">
-            <mat-icon class="gg-ch-icon">add</mat-icon>
+            <mat-icon class="gg-ch-icon" svgIcon="add"></mat-icon>
             <span class="gg-ch-name">Add Channel</span>
           </div>
         </div>
@@ -264,7 +341,7 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
               <span class="gg-user-name">{{ currentUser?.username ?? 'You' }}</span>
               <span class="gg-user-status-text">{{ currentStatus }}</span>
             </div>
-            <mat-icon class="gg-user-menu-arrow" [class.open]="profileMenuOpen">expand_more</mat-icon>
+            <mat-icon class="gg-user-menu-arrow" [class.open]="profileMenuOpen" svgIcon="expand_more"></mat-icon>
           </div>
 
           @if (profileMenuOpen) {
@@ -316,26 +393,18 @@ import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyb
 
           <div class="gg-user-status-controls">
             <button type="button" class="gg-voice-control-btn" [class.active]="voiceMuted" (click)="toggleVoiceMute.emit()" title="{{ voiceMuted ? 'Unmute' : 'Mute' }}">
-              <mat-icon>{{ voiceMuted ? 'mic_off' : 'mic' }}</mat-icon>
+              <mat-icon [svgIcon]="voiceMuted ? 'mic_off' : 'mic'"></mat-icon>
             </button>
             <button type="button" class="gg-voice-control-btn" [class.active]="voiceDeafened" (click)="toggleVoiceDeaf.emit()" title="{{ voiceDeafened ? 'Undeafen' : 'Deafen' }}">
-              <mat-icon>{{ voiceDeafened ? 'headset_off' : 'headset' }}</mat-icon>
+              <mat-icon [svgIcon]="voiceDeafened ? 'headset_off' : 'headset'"></mat-icon>
             </button>
             @if (voiceConnected) {
               <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
                 <mat-icon svgIcon="settings_voice"></mat-icon>
               </button>
-            }
-            @if (selectedChannel && selectedChannel.type === 'voice') {
-              @if (voiceConnected) {
-                <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
-                  <mat-icon svgIcon="phone_off"></mat-icon>
-                </button>
-              } @else {
-                <button type="button" class="gg-voice-control-btn gg-voice-connect" (click)="toggleVoice.emit(selectedChannel)" title="Join Voice Channel">
-                  <mat-icon svgIcon="call"></mat-icon>
-                </button>
-              }
+              <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
+                <mat-icon svgIcon="phone_off"></mat-icon>
+              </button>
             }
           </div>
         </div>
@@ -412,6 +481,9 @@ export class ChannelListComponent {
   @Output() profileMenuOpenChange = new EventEmitter<boolean>();
   @Output() serverDropdownOpenChange = new EventEmitter<boolean>();
   @Output() openChannelSettings = new EventEmitter<GgChannel>();
+  @Output() voiceContextMenuRequest = new EventEmitter<{ event: MouseEvent; vm: any }>();
+
+  constructor(public readonly nudgeService: VoiceNudgeService) {}
 
   readonly statusOptions = [
     { id: 'online', label: 'Online', icon: '●' },
@@ -437,6 +509,17 @@ export class ChannelListComponent {
 
   onInviteLinks(): void {
     this.openInviteLinks.emit();
+    this.closeServerDropdown();
+  }
+
+  get serverDropdownItems(): DropdownItem[] {
+    return [
+      { label: 'Invite', icon: 'link', action: () => this.onInviteLinks() },
+      { label: 'Settings', icon: 'settings', link: `/gg-chat/server/${this.selectedServer?.id}/settings` },
+    ];
+  }
+
+  onServerDropdownSelect(item: DropdownItem): void {
     this.closeServerDropdown();
   }
 
@@ -508,17 +591,24 @@ export class ChannelListComponent {
     return this.currentUser?.avatar ?? this.currentUser?.avatar_url ?? '';
   }
 
+  private genderAvatar(gender?: string): string {
+    const g = gender?.toLowerCase();
+    if (g === 'male') return '/assets/avatars/male.png';
+    if (g === 'female') return '/assets/avatars/female.png';
+    return '/assets/avatars/unknown.png';
+  }
+
   onAvatarError(event: Event): void {
     const img = event.target as HTMLImageElement;
-    if (img) img.src = 'assets/default-avatar.png';
+    if (img) img.src = this.genderAvatar(this.currentUser?.gender);
   }
 
   resolveAvatar(user: any, ...keys: string[]): string {
-    if (!user) return 'assets/default-avatar.png';
+    if (!user) return this.genderAvatar(this.currentUser?.gender);
     for (const key of keys) {
       if (user[key]) return user[key];
     }
-    return 'assets/default-avatar.png';
+    return this.genderAvatar(user.gender);
   }
 }
 

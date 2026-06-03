@@ -122,21 +122,48 @@ export class TasksRepository {
 
     const { data: claimed, error: claimErr } = await this.pc()
       .from('user_tasks')
-      .select('task_id, claimed, claims_count')
+      .select('task_id, claimed, claims_count, claimed_at')
       .eq('user_id', userId);
     if (claimErr) throw new InternalServerErrorException(`getAvailable user_tasks: ${claimErr.message}`);
 
     const claimMap = new Map<number, any>((claimed || []).map((c: any) => [c.task_id, c]));
+    const today = new Date().toDateString();
 
     return (tasks || [])
+      .map((t: any) => {
+        const userClaim = claimMap.get(t.id);
+        const wasClaimed = !!userClaim?.claimed;
+        const isDaily = t.is_daily === true;
+
+        // For daily tasks: only completed if claimed today
+        let isCompleted = false;
+        if (wasClaimed && userClaim?.claimed_at) {
+          if (isDaily) {
+            const claimedDate = new Date(userClaim.claimed_at).toDateString();
+            isCompleted = claimedDate === today;
+          } else {
+            isCompleted = !t.max_claims || t.max_claims <= 1;
+          }
+        }
+
+        const maxClaims = t.max_claims;
+        const claimsRemaining = maxClaims && maxClaims > 1
+          ? (userClaim?.claims_count ?? 0) < maxClaims
+          : !isCompleted;
+        return { ...t, completed: isCompleted, claims_count: userClaim?.claims_count ?? 0 };
+      })
       .filter((t: any) => {
+        if (t.completed) return true;
         const userClaim = claimMap.get(t.id);
         if (!userClaim || !userClaim.claimed) return true;
+        // Daily tasks that were claimed on a previous day are available again
+        if (t.is_daily) return true;
         const maxClaims = t.max_claims;
         if (!maxClaims || maxClaims <= 1) return false;
         return (userClaim.claims_count ?? 0) < maxClaims;
       })
       .sort((a: any, b: any) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
         const ta = a.task_kind === 'achievement' ? 0 : a.task_kind === 'duration' ? 1 : 2;
         const tb = b.task_kind === 'achievement' ? 0 : b.task_kind === 'duration' ? 1 : 2;
         return ta - tb;
@@ -169,7 +196,20 @@ export class TasksRepository {
   async getCollectionStats(userId: string): Promise<any> {
     const { data, error } = await this.supabase.rpc('get_collection_stats', { in_user_id: userId });
     if (error) throw new InternalServerErrorException(`get_collection_stats failed: ${error.message}`);
-    return data?.[0] || null;
+    const stats = data?.[0] || {};
+
+    const { data: user } = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .select('static_total_cards, favorite_cards')
+      .eq('id', userId)
+      .single();
+
+    return {
+      ...stats,
+      static_total_cards: user?.static_total_cards ?? 0,
+      favorite_cards: user?.favorite_cards ?? 0,
+    };
   }
 
   async getDurationProgress(userId: string, taskId: number): Promise<number> {
@@ -231,7 +271,7 @@ export class TasksRepository {
   async getActiveDurationTaskIds(userId: string): Promise<number[]> {
     const { data: tasks, error } = await this.pc()
       .from('tasks')
-      .select('id, max_claims')
+      .select('id, max_claims, is_daily')
        .in('task_kind', ['duration'])
       .eq('active', true);
     if (error) {
@@ -242,18 +282,25 @@ export class TasksRepository {
     const ids = tasks.map(t => t.id);
     const { data: claims, error: claimErr } = await this.pc()
       .from('user_tasks')
-      .select('task_id, claimed, claims_count')
+      .select('task_id, claimed, claims_count, claimed_at')
       .eq('user_id', userId)
       .in('task_id', ids);
     if (claimErr) {
       throw new InternalServerErrorException(`getActiveDurationTaskIds claims: ${claimErr.message}`);
     }
     const claimMap = new Map<number, any>((claims || []).map((c: any) => [c.task_id, c]));
+    const today = new Date().toDateString();
 
     return tasks
       .filter(t => {
         const c = claimMap.get(t.id);
         if (!c || !c.claimed) return true;
+        // Daily tasks: reset if claimed on a previous day
+        if (t.is_daily) {
+          const claimedDate = new Date(c.claimed_at).toDateString();
+          if (claimedDate === today) return false; // already completed today
+          return true; // completed on a previous day → available again
+        }
         const max = t.max_claims;
         if (!max || max <= 1) return false;
         return (c.claims_count ?? 0) < max;

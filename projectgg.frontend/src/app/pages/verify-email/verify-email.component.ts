@@ -20,12 +20,12 @@ import { environment } from '../../../environments/environment';
           <div class="verify-spinner"></div>
           <h2>Verifying...</h2>
         } @else if (success) {
-          <mat-icon class="verify-icon success">check_circle</mat-icon>
+          <mat-icon class="verify-icon success" svgIcon="check_circle"></mat-icon>
           <h2>Email Verified</h2>
           <p>Your email has been successfully verified.</p>
           <a class="verify-btn" routerLink="/settings">Go to Settings</a>
         } @else if (showInput) {
-          <mat-icon class="verify-icon input-icon">vpn_key</mat-icon>
+          <mat-icon class="verify-icon input-icon" svgIcon="vpn_key"></mat-icon>
           <h2>Enter Verification Code</h2>
           <p>Check your email for the 6-character code.</p>
           <div class="code-input-wrap">
@@ -39,7 +39,7 @@ import { environment } from '../../../environments/environment';
           }
           <a class="verify-btn" routerLink="/settings" style="margin-top:12px;font-size:11px;opacity:.6;">Back to Settings</a>
         } @else {
-          <mat-icon class="verify-icon error">cancel</mat-icon>
+          <mat-icon class="verify-icon error" svgIcon="cancel"></mat-icon>
           <h2>Verification Failed</h2>
           <app-status-message type="error" [message]="errorMessage || 'Invalid or expired verification code.'" />
           <a class="verify-btn" routerLink="/settings">Back to Settings</a>

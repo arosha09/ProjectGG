@@ -1,7 +1,7 @@
 <div class="cyber-date-wrap">
   <button class="cyber-date-trigger" type="button" [disabled]="disabled()" (click)="toggle()">
     <span class="date-text" [class.placeholder]="!selDate()">{{ selDate() ? displayText : placeholder() }}</span>
-    <mat-icon class="cal-icon" [style.color]="iconColor()">calendar_today</mat-icon>
+    <mat-icon class="cal-icon" svgIcon="calendar_today" [style.color]="iconColor()"></mat-icon>
   </button>
 
   @if (open()) {

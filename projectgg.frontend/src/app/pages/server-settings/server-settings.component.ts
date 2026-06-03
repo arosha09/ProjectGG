@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -49,7 +49,23 @@ export class ServerSettingsComponent implements OnInit {
   // Members
   usernameCache: Record<string, string> = {};
 
+  // Avatar/Banner
+  avatarPreview: string | null = null;
+  bannerPreview: string | null = null;
+  uploadingAvatar = false;
+  uploadingBanner = false;
+  bannerHover = false;
+  iconHover = false;
+  bannerLoaded = false;
+  iconLoaded = false;
+
   readonly allPermissions = ALL_PERMISSIONS;
+
+  private setServer(s: GgServer): void {
+    this.bannerLoaded = false;
+    this.iconLoaded = false;
+    this.server = s;
+  }
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -57,6 +73,7 @@ export class ServerSettingsComponent implements OnInit {
     private readonly chatService: ChatService,
     private readonly auth: AuthService,
     private readonly usersService: UsersService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -73,25 +90,99 @@ export class ServerSettingsComponent implements OnInit {
 
   loadAll(): void {
     this.loading = true;
+    this.cdr.markForCheck();
+
+    let loaded = 0;
+    const checkDone = () => {
+      loaded++;
+      if (loaded >= 4) {
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    };
+
     this.chatService.getChannels(this.serverId).subscribe({
-      next: (ch) => { this.channels = ch; },
+      next: (ch) => { this.channels = ch; checkDone(); },
+      error: () => checkDone(),
     });
     this.chatService.getServerRoles(this.serverId).subscribe({
       next: (r: any[]) => {
         this.roles = r;
-        // Ensure owner role exists in the list
         if (!this.roles.find((role: any) => role.name === 'owner')) {
           this.roles.unshift({ name: 'owner', color: '#ffd700', is_owner: true, permissions: ALL_PERMISSIONS.map((p: any) => p.id) });
         }
+        checkDone();
       },
+      error: () => checkDone(),
     });
     this.chatService.getServerMembers(this.serverId).subscribe({
       next: (m: any[]) => {
         this.members = m;
         this.loadUsernames();
-        this.loading = false;
+        checkDone();
       },
-      error: () => { this.loading = false; },
+      error: () => checkDone(),
+    });
+    this.chatService.getServer(this.serverId).subscribe({
+      next: (s) => {
+        this.setServer(s);
+        this.editServerName = s.name;
+        checkDone();
+      },
+      error: () => checkDone(),
+    });
+  }
+
+  // ===== SERVER OVERVIEW =====
+
+  saveServerName(): void {
+    if (!this.editServerName.trim() || !this.server) return;
+    this.chatService.updateServer(this.serverId, { name: this.editServerName.trim() }).subscribe({
+      next: (updated) => {
+        this.setServer(updated);
+        this.editingServer = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  onAvatarSelected(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.avatarPreview = URL.createObjectURL(file);
+    this.uploadingAvatar = true;
+    this.cdr.markForCheck();
+    this.chatService.uploadServerAvatar(this.serverId, file).subscribe({
+      next: (updated) => {
+        this.setServer(updated);
+        this.avatarPreview = null;
+        this.uploadingAvatar = false;
+        this.cdr.markForCheck();
+      },
+      error: () => { this.avatarPreview = null; this.uploadingAvatar = false; this.cdr.markForCheck(); },
+    });
+  }
+
+  onBannerSelected(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.bannerPreview = URL.createObjectURL(file);
+    this.uploadingBanner = true;
+    this.cdr.markForCheck();
+    this.chatService.uploadServerBanner(this.serverId, file).subscribe({
+      next: (updated) => {
+        this.setServer(updated);
+        this.bannerPreview = null;
+        this.uploadingBanner = false;
+        this.cdr.markForCheck();
+      },
+      error: () => { this.bannerPreview = null; this.uploadingBanner = false; this.cdr.markForCheck(); },
+    });
+  }
+
+  removeBanner(): void {
+    this.chatService.updateServer(this.serverId, { banner_url: '' }).subscribe({
+      next: (updated) => { this.setServer(updated); this.cdr.markForCheck(); },
     });
   }
 

@@ -27,7 +27,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
           <div class="reel-loading-ring"></div>
           <div class="reel-loading-ring reel-loading-ring-2"></div>
           <div class="reel-loading-core">
-            <mat-icon class="reel-loading-icon">memory</mat-icon>
+            <mat-icon class="reel-loading-icon" svgIcon="memory"></mat-icon>
             <div class="reel-loading-progress">
               <div class="reel-loading-bar" [style.width.%]="loadingPercent"></div>
             </div>
@@ -41,6 +41,10 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
              animation frame work minimal. -->
         <div class="reel-container" #reelContainer [class.reel-hidden]="loadingData">
           <div class="reel-scanlines"></div>
+          <div class="reel-corner reel-corner-tl"></div>
+          <div class="reel-corner reel-corner-tr"></div>
+          <div class="reel-corner reel-corner-bl"></div>
+          <div class="reel-corner reel-corner-br"></div>
           <div class="reel-track" #reelTrack>
             <ng-container *ngFor="let card of reelCards; let i = index; trackBy: trackByCard">
               <div class="reel-card" [class.highlight]="i === highlightIndex">
@@ -302,11 +306,85 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       max-width: 820px;
       height: 220px;
       overflow: hidden;
-      border-top: 1px solid rgba(255, 45, 111, 0.45);
-      border-bottom: 1px solid rgba(255, 45, 111, 0.45);
       background: linear-gradient(180deg, rgba(11, 12, 22, 0.85), rgba(8, 9, 18, 0.96));
       box-shadow: inset 0 0 60px rgba(255, 45, 111, 0.09), 0 0 40px rgba(0, 0, 0, 0.5);
       z-index: 2;
+
+      /* Cyberpunk neon border */
+      border: 1px solid transparent;
+      background-clip: padding-box;
+    }
+
+    .reel-container::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 10px;
+      padding: 2px;
+      background: linear-gradient(90deg, #ff2d6f, #5bd9ff, #aa44ff, #ff2d6f);
+      background-size: 300% 100%;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      animation: border-drift 4s linear infinite;
+    }
+
+    .reel-container::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 12px;
+      background: linear-gradient(90deg, rgba(255, 45, 111, 0.15), rgba(91, 217, 255, 0.1), rgba(170, 68, 255, 0.15));
+      filter: blur(12px);
+      z-index: -1;
+      opacity: 0.8;
+      animation: border-glow-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes border-drift {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 300% 0%; }
+    }
+
+    @keyframes border-glow-pulse {
+      0%, 100% { opacity: 0.5; filter: blur(10px); }
+      50% { opacity: 1; filter: blur(14px); }
+    }
+
+    /* Corner brackets */
+    .reel-container .reel-corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: #5bd9ff;
+      border-style: solid;
+      z-index: 25;
+      opacity: 0.7;
+    }
+
+    .reel-container .reel-corner-tl {
+      top: 1px;
+      left: 1px;
+      border-width: 2px 0 0 2px;
+    }
+
+    .reel-container .reel-corner-tr {
+      top: 1px;
+      right: 1px;
+      border-width: 2px 2px 0 0;
+    }
+
+    .reel-container .reel-corner-bl {
+      bottom: 1px;
+      left: 1px;
+      border-width: 0 0 2px 2px;
+    }
+
+    .reel-container .reel-corner-br {
+      bottom: 1px;
+      right: 1px;
+      border-width: 0 2px 2px 0;
     }
 
     /* Hide the reel while loading is on top. The DOM is still mounted and
@@ -324,7 +402,7 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       left: 0;
       height: 100%;
       align-items: center;
-      will-change: transform;
+      will-change: transform, filter;
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
       transform-style: preserve-3d;
@@ -365,6 +443,13 @@ import { ChatService, DrawCard, DrawResult } from '../../services/chat.service';
       transform: scale(1.16);
       border-width: 2px;
       z-index: 10;
+      animation: highlight-settle 0.6s ease-out;
+    }
+
+    @keyframes highlight-settle {
+      0% { transform: scale(1); }
+      60% { transform: scale(1.22); }
+      100% { transform: scale(1.16); }
     }
 
     .reel-card-img {
@@ -873,26 +958,38 @@ export class CardDrawComponent implements OnDestroy {
     const trackEl = this.reelTrackRef?.nativeElement;
     if (!trackEl) return;
 
-    // Re-measure final position in case container size changed
     this.finalOffset = this.measureFinalOffset();
 
-    // Animate smoothly to the final position over 350ms, then show result
     const startOffset = this.reelOffsetPx;
     const endOffset = this.finalOffset;
     const duration = 350;
     const startTime = performance.now();
+    let lastPx = startOffset;
+    let lastTime = startTime;
 
     this.zone.runOutsideAngular(() => {
       const tick = (now: number) => {
         const t = Math.min(1, (now - startTime) / duration);
-        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        const eased = 1 - Math.pow(1 - t, 3);
         const px = startOffset + (endOffset - startOffset) * eased;
-        this.reelOffsetPx = px;
-        trackEl.style.transform = `translate3d(${px}px, 0, 0)`;
 
         if (t < 1) {
+          this.reelOffsetPx = px;
+          trackEl.style.transform = `translate3d(${px}px, 0, 0)`;
+
+          const dt = now - lastTime;
+          if (dt > 0) {
+            const velocity = Math.abs(px - lastPx) / dt;
+            const blurFactor = 1 - Math.min(1, eased * 1.4);
+            const blur = Math.min(4, velocity * 0.18 * blurFactor);
+            trackEl.style.filter = blur > 0.2 ? `blur(${blur.toFixed(1)}px)` : '';
+          }
+          lastPx = px;
+          lastTime = now;
+
           this.rafId = requestAnimationFrame(tick);
         } else {
+          trackEl.style.filter = '';
           this.reelOffsetPx = endOffset;
           trackEl.style.transform = `translate3d(${endOffset}px, 0, 0)`;
           this.rafId = null;
@@ -914,30 +1011,43 @@ export class CardDrawComponent implements OnDestroy {
 
     const startOffset = this.reelOffsetPx;
     const endOffset = this.finalOffset;
-    const totalDuration = 5000; // ms — exactly 5 seconds of spinning
+    const totalDuration = 5500;
     const startTime = performance.now();
+    let lastPx = startOffset;
+    let lastTime = startTime;
+    const totalDist = Math.abs(endOffset - startOffset);
 
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / totalDuration);
 
-      // Ease-out quint: very aggressive deceleration for a smooth "settle" feel
+      // Pure ease-out quint — smooth deceleration, no oscillation snap
       const eased = 1 - Math.pow(1 - t, 5);
       const px = startOffset + (endOffset - startOffset) * eased;
-      this.reelOffsetPx = px;
-
-      // Direct DOM write — bypasses Angular's binding/CD entirely. This
-      // is the single most important change for smoothness: the per-frame
-      // cost is now a single style write, not a full CD cycle plus
-      // binding re-evaluation plus setAttribute.
-      trackEl.style.transform = `translate3d(${px}px, 0, 0)`;
 
       if (t < 1) {
+        this.reelOffsetPx = px;
+        trackEl.style.transform = `translate3d(${px}px, 0, 0)`;
+
+        // Velocity-based motion blur fades naturally with speed
+        const dt = now - lastTime;
+        if (dt > 0) {
+          const velocity = Math.abs(px - lastPx) / dt;
+          const progress = eased;
+          // Reduce blur influence near the end to avoid un-blur pop
+          const blurFactor = 1 - Math.min(1, progress * 1.4);
+          const blur = Math.min(4, velocity * 0.18 * blurFactor);
+          trackEl.style.filter = blur > 0.2 ? `blur(${blur.toFixed(1)}px)` : '';
+        }
+        lastPx = px;
+        lastTime = now;
+
         this.rafId = requestAnimationFrame(animate);
       } else {
-        // Snap exactly to the final pixel for a crisp landing
-        this.reelOffsetPx = endOffset;
+        // Clear everything and land crisply
+        trackEl.style.filter = '';
         trackEl.style.transform = `translate3d(${endOffset}px, 0, 0)`;
+        this.reelOffsetPx = endOffset;
         this.rafId = null;
         setTimeout(() => this.zone.run(() => this.showResult()), 400);
       }

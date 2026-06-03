@@ -1,4 +1,4 @@
-import { Component, input, output, signal, effect, OnInit, OnDestroy, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, output, signal, effect, OnInit, OnDestroy, HostListener, ChangeDetectionStrategy, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { Subscription, Subject, filter, map, takeUntil } from 'rxjs';
@@ -7,6 +7,7 @@ import { CyberDropdownComponent, DropdownItem } from '../cyber-dropdown/cyber-dr
 import { ChatService, AppNotification } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
 import { MusicPlayerService, Track } from '../../services/music-player.service';
+import { SoundService } from '../../services/sound.service';
 import { Socket } from 'socket.io-client';
 
 @Component({
@@ -17,7 +18,7 @@ import { Socket } from 'socket.io-client';
   templateUrl: './header-nav.component.html',
   styleUrls: ['./header-nav.component.scss'],
 })
-export class HeaderNavComponent implements OnInit, OnDestroy {
+export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
   mobileMenuOpen = false;
   hideDivider = false;
   private destroy$ = new Subject<void>();
@@ -37,10 +38,16 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
   musicRepeat: 'off' | 'all' | 'one' = 'off';
   musicVolume = 0.8;
   musicProgress = 0;
+  vizBars: number[] = new Array(10).fill(0);
+  titleScrolling = false;
+  queue: Track[] = [];
+
+  @ViewChild('miniTitleInfo') miniTitleInfoRef?: ElementRef<HTMLElement>;
 
   readonly statusChange = output<string>();
   readonly profileToggle = output<void>();
   readonly logout = output<void>();
+  readonly tradeOpened = output<{ tradeId: number; otherUserId: string; otherUsername: string; otherAvatar: string | null }>();
 
   readonly displayAvatar = signal<string | null>(null);
 
@@ -73,6 +80,8 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
     private readonly chatService: ChatService,
     private readonly auth: AuthService,
     public readonly musicService: MusicPlayerService,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly sound: SoundService,
   ) {
     effect(() => {
       this.displayAvatar.set(this.avatarUrl() ?? '/assets/avatars/unknown.png');
@@ -80,12 +89,31 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.musicService.track$.pipe(takeUntil(this.destroy$)).subscribe(t => this.musicTrack = t);
-    this.musicService.playing$.pipe(takeUntil(this.destroy$)).subscribe(p => this.musicPlaying = p);
-    this.musicService.prog$.pipe(takeUntil(this.destroy$)).subscribe(p => this.musicProgress = p);
-    this.musicService.shuffleObs$.pipe(takeUntil(this.destroy$)).subscribe(s => this.musicShuffle = s);
-    this.musicService.repeatObs$.pipe(takeUntil(this.destroy$)).subscribe(r => this.musicRepeat = r);
-    this.musicService.volumeObs$.pipe(takeUntil(this.destroy$)).subscribe(v => this.musicVolume = v);
+    this.musicService.track$.pipe(takeUntil(this.destroy$)).subscribe(t => {
+      this.titleScrolling = false;
+      this.musicTrack = t;
+      this.cdr.markForCheck();
+    });
+    this.musicService.playing$.pipe(takeUntil(this.destroy$)).subscribe(p => { this.musicPlaying = p; this.cdr.markForCheck(); });
+    this.musicService.prog$.pipe(takeUntil(this.destroy$)).subscribe(p => { this.musicProgress = p; this.cdr.markForCheck(); });
+    this.musicService.shuffleObs$.pipe(takeUntil(this.destroy$)).subscribe(s => { this.musicShuffle = s; this.cdr.markForCheck(); });
+    this.musicService.repeatObs$.pipe(takeUntil(this.destroy$)).subscribe(r => { this.musicRepeat = r; this.cdr.markForCheck(); });
+    this.musicService.volumeObs$.pipe(takeUntil(this.destroy$)).subscribe(v => { this.musicVolume = v; this.cdr.markForCheck(); });
+    this.musicService.queueObs$.pipe(takeUntil(this.destroy$)).subscribe(q => { this.queue = q; this.cdr.markForCheck(); });
+    this.musicService.freqData$.pipe(takeUntil(this.destroy$)).subscribe(data => {
+      const step = data.length / 10;
+      this.vizBars = Array.from({ length: 10 }, (_, i) => {
+        const idx = Math.min(Math.floor(i * step), data.length - 1);
+        return data[idx];
+      });
+      this.cdr.markForCheck();
+    });
+
+    // Restart viz loop if music is already playing (e.g. navigating back to this page)
+    if (this.musicService.isPlayingValue) {
+      this.musicService.startVizLoop();
+    }
+
     this.routerSub = this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       map(() => this.activatedRoute),
@@ -107,7 +135,32 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
     this.socket?.off('notification', this._notifHandler);
   }
 
-  private _notifHandler = () => this.loadNotifications();
+  ngAfterViewChecked(): void {
+    this.checkTitleOverflow();
+  }
+
+  private checkTitleOverflow(): void {
+    const el = this.miniTitleInfoRef?.nativeElement;
+    if (!el) return;
+    const shouldScroll = el.scrollWidth > el.clientWidth + 2;
+    if (shouldScroll !== this.titleScrolling) {
+      this.titleScrolling = shouldScroll;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private _notifHandler = (data: { type?: string; title?: string }) => {
+      this.sound.play(this.mapNotifTypeToSound(data?.type, data?.title));
+      this.loadNotifications();
+    };
+
+  private mapNotifTypeToSound(type?: string, title?: string): 'notification_msg' | 'notification_mention' | 'notification_friend_req' | 'notification_msg' {
+    const t = type?.toLowerCase() ?? '';
+    const tt = title?.toLowerCase() ?? '';
+    if (tt.includes('friend') || t.includes('friend')) return 'notification_friend_req';
+    if (tt.includes('mention') || t.includes('mention')) return 'notification_mention';
+    return 'notification_msg';
+  }
 
   private initNotifications(): void {
     if (!this.auth.isAuthenticated()) return;
@@ -154,6 +207,22 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
     });
   }
 
+  handleNotifClick(n: AppNotification): void {
+    this.markNotifRead(n);
+    const type = n.type?.toLowerCase() ?? '';
+    const isTrade = type.includes('trade') || type.includes('swap') || type.includes('card');
+    if (isTrade && n.data?.tradeId) {
+      const otherUserId = n.data.fromUserId ?? n.data.otherUserId ?? '';
+      this.tradeOpened.emit({
+        tradeId: Number(n.data.tradeId),
+        otherUserId,
+        otherUsername: '',
+        otherAvatar: null,
+      });
+      this.showNotifications = false;
+    }
+  }
+
   markAllNotifRead(): void {
     this.chatService.markAllNotificationsRead().subscribe(() => {
       this.notifications.forEach(n => n.read = true);
@@ -165,6 +234,13 @@ export class HeaderNavComponent implements OnInit, OnDestroy {
     this.chatService.clearAllNotifications().subscribe(() => {
       this.notifications = [];
       this.unreadCount = 0;
+    });
+  }
+
+  deleteNotif(n: AppNotification): void {
+    this.chatService.deleteNotification(n.id).subscribe(() => {
+      this.notifications = this.notifications.filter(x => x.id !== n.id);
+      this.unreadCount = this.notifications.filter(x => !x.read).length;
     });
   }
 

@@ -4,48 +4,43 @@
     <span>PROJECT GG</span>
   </a>
 
-  @if (musicTrack) {
+  @if (musicTrack && (musicPlaying || queue.length > 0)) {
     <div class="mini-player">
-      <div class="mini-player-art" (click)="musicService.toggleExpanded()">
-        @if (musicTrack.thumbnail) {
-          <img loading="lazy" decoding="async" [src]="musicTrack.thumbnail" alt="" class="mini-player-thumb" />
-        } @else {
-          <div class="mini-player-thumb-placeholder">
-            <mat-icon>music_note</mat-icon>
-          </div>
+      <div class="mini-viz-art" (click)="musicService.toggleExpanded()">
+        @for (b of vizBars; track $index) {
+          <div class="mini-viz-art-bar" [style.height.px]="b / 255 * 20 + 1" [style.--i]="$index"></div>
         }
       </div>
 
-      @if (musicPlaying) {
-        <div class="mini-viz">
-          @for (b of [1,2,3,4,5]; track b) {
-            <div class="mini-viz-bar" [style.--i]="b"></div>
-          }
-        </div>
-      }
-
-      <div class="mini-player-info" (click)="musicService.toggleExpanded()">
-        <span class="mini-player-title">{{ musicTrack.title }}</span>
+      <div class="mini-player-info" #miniTitleInfo [class.scrolling-active]="titleScrolling" (click)="musicService.toggleExpanded()">
+        @if (titleScrolling) {
+          <span class="mini-player-title scrolling">
+            <span class="mini-player-title-text">{{ musicTrack.title }}</span>
+            <span class="mini-player-title-text" aria-hidden="true">{{ musicTrack.title }}</span>
+          </span>
+        } @else {
+          <span class="mini-player-title">{{ musicTrack.title }}</span>
+        }
       </div>
 
       <div class="mini-player-controls">
         <button class="mini-ctrl" (click)="musicService.toggleShuffle()" [class.active]="musicShuffle" type="button" title="Shuffle">
-          <mat-icon>shuffle</mat-icon>
+          <mat-icon svgIcon="shuffle"></mat-icon>
         </button>
         <button class="mini-ctrl" (click)="musicService.previous()" type="button" title="Previous">
-          <mat-icon>skip_previous</mat-icon>
+          <mat-icon svgIcon="skip_previous"></mat-icon>
         </button>
         <button class="mini-play" (click)="musicService.togglePlay()" type="button">
-          <mat-icon>{{ musicPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+          <mat-icon [svgIcon]="musicPlaying ? 'pause' : 'play_arrow'"></mat-icon>
         </button>
         <button class="mini-ctrl" (click)="musicService.next()" type="button" title="Next">
-          <mat-icon>skip_next</mat-icon>
+          <mat-icon svgIcon="skip_next"></mat-icon>
         </button>
         <button class="mini-ctrl" (click)="musicService.cycleRepeat()" [class.active]="musicRepeat !== 'off'" type="button" title="Repeat">
           @if (musicRepeat === 'one') {
-            <mat-icon>repeat_one</mat-icon>
+            <mat-icon svgIcon="repeat_one"></mat-icon>
           } @else {
-            <mat-icon>repeat</mat-icon>
+            <mat-icon svgIcon="repeat"></mat-icon>
           }
         </button>
       </div>
@@ -53,11 +48,11 @@
       <div class="mini-volume-wrap">
         <button class="mini-ctrl" (click)="toggleMute()" type="button" title="Volume">
           @if (musicVolume === 0) {
-            <mat-icon>volume_off</mat-icon>
+            <mat-icon svgIcon="volume_off"></mat-icon>
           } @else if (musicVolume < 0.5) {
-            <mat-icon>volume_down</mat-icon>
+            <mat-icon svgIcon="volume_down"></mat-icon>
           } @else {
-            <mat-icon>volume_up</mat-icon>
+            <mat-icon svgIcon="volume_up"></mat-icon>
           }
         </button>
         <input
@@ -127,9 +122,14 @@
     <div class="header-notif-panel" (click)="$event.stopPropagation()">
       <div class="header-notif-header">
         <span>Notifications</span>
-        @if (unreadCount > 0) {
-          <button class="header-notif-mark-read" (click)="markAllNotifRead()">Mark all read</button>
-        }
+        <div class="header-notif-actions">
+          @if (unreadCount > 0) {
+            <button class="header-notif-mark-read" (click)="markAllNotifRead()">Mark all read</button>
+          }
+          @if (notifications.length > 0) {
+            <button class="header-notif-clear-all" (click)="clearAllNotifications()">Clear all</button>
+          }
+        </div>
       </div>
       
       <div class="header-notif-tabs">
@@ -139,7 +139,7 @@
             [class.active]="notifCategory === cat.id"
             (click)="notifCategory = cat.id"
           >
-            <mat-icon>{{ cat.icon }}</mat-icon>
+            <mat-icon [svgIcon]="cat.icon"></mat-icon>
             <span>{{ cat.label }}</span>
             @if (getCategoryUnreadCount(cat.id) > 0) {
               <span class="notif-tab-badge">{{ getCategoryUnreadCount(cat.id) }}</span>
@@ -151,23 +151,23 @@
       <div class="header-notif-list">
         @if (filteredNotifications.length === 0) {
           <div class="header-notif-empty">
-            <mat-icon>inbox</mat-icon>
+            <mat-icon svgIcon="inbox"></mat-icon>
             <p>No notifications</p>
           </div>
         }
         @for (n of filteredNotifications; track n.id) {
-          <div class="header-notif-item" [class.unread]="!n.read" (click)="markNotifRead(n)">
+          <div class="header-notif-item" [class.unread]="!n.read" (click)="handleNotifClick(n)">
             <div class="header-notif-icon" [class]="'cat-' + getNotifCategory(n)">
               @if (n.type === 'friend_request' || n.type === 'friend_accepted') {
-                <mat-icon>person_add</mat-icon>
+                <mat-icon svgIcon="person_add"></mat-icon>
               } @else if (n.type === 'task_completed' || n.type === 'mission_complete' || n.type === 'achievement') {
-                <mat-icon>emoji_events</mat-icon>
+                <mat-icon svgIcon="emoji_events"></mat-icon>
               } @else if (n.type === 'card_trade' || n.type === 'trade') {
-                <mat-icon>swap_horiz</mat-icon>
+                <mat-icon svgIcon="swap_horiz"></mat-icon>
               } @else if (n.type === 'xp_reward' || n.type === 'level_up') {
-                <mat-icon>bolt</mat-icon>
+                <mat-icon svgIcon="bolt"></mat-icon>
               } @else {
-                <mat-icon>notifications</mat-icon>
+                <mat-icon svgIcon="notifications"></mat-icon>
               }
             </div>
             <div class="header-notif-body">
@@ -175,7 +175,12 @@
               <div class="header-notif-text">{{ n.body }}</div>
               <div class="header-notif-cat-tag">{{ getNotifCategory(n) }}</div>
             </div>
-            <div class="header-notif-time">{{ n.created_at | date:'short' }}</div>
+            <div class="header-notif-time">
+              <span>{{ n.created_at | date:'short' }}</span>
+              <button class="header-notif-dismiss" (click)="deleteNotif(n); $event.stopPropagation()" title="Dismiss">
+                <mat-icon svgIcon="close"></mat-icon>
+              </button>
+            </div>
           </div>
         }
       </div>

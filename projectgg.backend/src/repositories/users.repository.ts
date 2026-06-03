@@ -47,7 +47,7 @@ export class UsersRepository {
         return (data as UserDto) ?? null;
     }
 
-    async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean; cursor_preference?: string }): Promise<UserDto | null> {
+    async updateProfile(userId: string, updates: { name?: string; username?: string; email?: string; avatar?: string; email_verified?: boolean; cursor_preference?: string; sound_profile?: string; allow_incoming_nudges?: boolean; disabled_notification_kinds?: string[] }): Promise<UserDto | null> {
         const { data, error } = await this.supabase
             .schema('projectgg')
             .from('users')
@@ -61,6 +61,37 @@ export class UsersRepository {
         }
 
         return data as UserDto;
+    }
+
+    async getUserSettings(userId: string): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] } | null> {
+        const { data, error } = await this.supabase
+            .schema('projectgg')
+            .from('users')
+            .select('sound_profile, allow_incoming_nudges, disabled_notification_kinds')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) {
+            throw new InternalServerErrorException(`getUserSettings failed: ${error.message}`);
+        }
+
+        return data ?? null;
+    }
+
+    async updateUserSettings(userId: string, updates: { sound_profile?: string; allow_incoming_nudges?: boolean; disabled_notification_kinds?: string[] }): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] } | null> {
+        const { data, error } = await this.supabase
+            .schema('projectgg')
+            .from('users')
+            .update(updates)
+            .eq('id', userId)
+            .select('sound_profile, allow_incoming_nudges, disabled_notification_kinds')
+            .single();
+
+        if (error) {
+            throw new InternalServerErrorException(`updateUserSettings failed: ${error.message}`);
+        }
+
+        return data;
     }
 
     private getExtension(contentType: string): string {

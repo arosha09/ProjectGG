@@ -663,6 +663,255 @@
       }
     }
   }
+
+}
+
+// Sound Panel (used in Notifications & Sounds section)
+.sound-panel {
+  h3 {
+    font-size: 16px; font-weight: 700; margin: 0 0 8px;
+    color: var(--accent-color); font-family: 'Orbitron', sans-serif;
+  }
+
+  .section-desc {
+    font-size: 13px; color: rgba(230, 255, 240, 0.5); margin: 0 0 20px;
+  }
+
+  .sound-set-picker {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+
+    .field-label {
+      white-space: nowrap;
+      margin: 0;
+    }
+
+    .sound-selector-wrapper {
+      position: relative;
+      display: inline-block;
+
+      app-cyber-dropdown ::ng-deep .cyber-menu {
+        position: absolute !important;
+        top: calc(100% + 8px) !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        z-index: 1000 !important;
+        margin: 0 !important;
+      }
+    }
+  }
+
+  .sound-service-modes {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+
+    .sound-mode-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border: 2px solid var(--border-color);
+      border-radius: 2px;
+      background: rgba(0, 0, 0, 0.3);
+      color: rgba(230, 255, 240, 0.7);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: 'Share Tech Mono', monospace;
+      letter-spacing: 0.5px;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:hover {
+        border-color: var(--accent-color);
+        background: rgba(0, 240, 255, 0.08);
+        color: var(--accent-color);
+      }
+
+      &.silent-btn.active {
+        border-color: var(--neon-red);
+        background: rgba(255, 23, 68, 0.1);
+        color: var(--neon-red);
+        box-shadow: 0 0 16px rgba(255, 23, 68, 0.3);
+        animation: silentPulse 2s ease-in-out infinite;
+
+        mat-icon {
+          text-shadow: 0 0 8px rgba(255, 23, 68, 0.6);
+        }
+      }
+    }
+  }
+
+  .sound-volume-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    .field-label {
+      white-space: nowrap;
+      margin: 0;
+      min-width: 70px;
+    }
+
+    .sound-volume-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+
+      .vol-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: var(--accent-color);
+        opacity: 0.7;
+      }
+
+      .cyber-range {
+        flex: 1;
+        -webkit-appearance: none;
+        appearance: none;
+        height: 4px;
+        background: rgba(0, 240, 255, 0.15);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+
+        &::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: var(--accent-color);
+          box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+          cursor: pointer;
+        }
+
+        &:hover::-webkit-slider-thumb {
+          box-shadow: 0 0 14px rgba(0, 240, 255, 0.8);
+        }
+      }
+
+      .vol-label {
+        font-size: 12px;
+        color: var(--accent-color);
+        font-family: 'Share Tech Mono', monospace;
+        min-width: 38px;
+        text-align: right;
+      }
+    }
+  }
+
+  .sound-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+
+    .sound-section-group {
+      border: 1px solid rgba(0, 240, 255, 0.08);
+      border-radius: 2px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.15);
+
+      .sound-group-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--accent-color);
+        margin: 0 0 10px;
+        font-family: 'Share Tech Mono', monospace;
+      }
+
+      .sound-event-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 0;
+
+        .event-label {
+          flex: 1;
+          font-size: 12px;
+          color: rgba(230, 255, 240, 0.7);
+          font-family: 'Share Tech Mono', monospace;
+        }
+
+        &.nudge-event .event-label {
+          color: var(--neon-gold);
+        }
+      }
+
+      .sound-preview-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: rgba(0, 240, 255, 0.05);
+        border: 1px solid rgba(0, 240, 255, 0.2);
+        border-radius: 2px;
+        cursor: pointer;
+        color: var(--accent-color);
+        transition: all 0.2s;
+        padding: 0;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &:hover {
+          background: rgba(0, 240, 255, 0.15);
+          border-color: var(--accent-color);
+          box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+        }
+      }
+
+      .sound-paired-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .sound-paired-rows {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+
+          .sound-event-row {
+            padding: 3px 0;
+          }
+        }
+      }
+    }
+  }
+
+  .sound-nudge-row {
+    padding: 10px 0;
+    border-top: 1px solid rgba(0, 240, 255, 0.06);
+    margin-bottom: 20px;
+
+    .toggle-text {
+      color: var(--neon-gold);
+    }
+  }
+}
+
+@keyframes silentPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 23, 68, 0.25); }
+  50% { box-shadow: 0 0 20px rgba(255, 23, 68, 0.45); }
 }
 
 // Connection Platforms Styling
@@ -1249,4 +1498,56 @@
 @keyframes skPulse {
   0%, 100% { opacity: .5; }
   50% { opacity: 1; }
+}
+
+// Toggle Switch (used in sound panel)
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    display: none;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 18px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    border-radius: 9px;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      background: rgba(0, 240, 255, 0.4);
+      border-radius: 50%;
+      transition: all 0.25s ease;
+    }
+  }
+
+  input[type="checkbox"]:checked + .toggle-switch {
+    background: rgba(0, 240, 255, 0.15);
+    border-color: var(--accent-color);
+
+    &::after {
+      left: 20px;
+      background: var(--accent-color);
+      box-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+    }
+  }
+
+  .toggle-text {
+    font-size: 12px;
+    color: rgba(230, 255, 240, 0.8);
+    font-family: 'Share Tech Mono', monospace;
+  }
 }

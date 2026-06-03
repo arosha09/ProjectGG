@@ -2,6 +2,7 @@
   <div class="cyber-player-backdrop" (click)="collapse()"></div>
   <div class="cyber-player-expanded">
     <div class="cyber-player-expanded-inner" (click)="$event.stopPropagation()">
+
       <div class="cyber-now-playing">
         <div class="cyber-art-container">
           @if (track?.thumbnail) {
@@ -9,16 +10,9 @@
             <div class="cyber-art-glow"></div>
           } @else {
             <div class="cyber-album-art cyber-art-placeholder">
-              <mat-icon class="cyber-placeholder-icon">music_note</mat-icon>
+              <mat-icon svgIcon="music_note"></mat-icon>
             </div>
           }
-          <!-- @if (isPlaying) {
-            <div class="cyber-visualizer-ring">
-              @for (bar of [1,2,3,4,5,6,7,8,9,10,11,12]; track bar) {
-                <div class="cyber-ring-bar" [style.--i]="bar"></div>
-              }
-            </div>
-          } -->
         </div>
 
         <div class="cyber-track-info">
@@ -37,202 +31,284 @@
         </div>
 
         <div class="cyber-controls">
+          <button class="cyber-ctrl-btn" [class.active]="shuffle" (click)="music.toggleShuffle()" type="button" title="Shuffle">
+            <mat-icon svgIcon="shuffle"></mat-icon>
+          </button>
           <button class="cyber-ctrl-btn" (click)="previous()" type="button" title="Previous">
             <mat-icon svgIcon="skip_previous"></mat-icon>
           </button>
           <button class="cyber-play-btn" (click)="togglePlay()" type="button">
-            <mat-icon>{{ isPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+            <mat-icon [svgIcon]="isPlaying ? 'pause' : 'play_arrow'"></mat-icon>
           </button>
           <button class="cyber-ctrl-btn" (click)="next()" type="button" title="Next">
             <mat-icon svgIcon="skip_next"></mat-icon>
           </button>
+          <button class="cyber-ctrl-btn" [class.active]="repeat !== 'off'" (click)="music.cycleRepeat()" type="button" title="Repeat">
+            @if (repeat === 'one') {
+              <mat-icon svgIcon="repeat_one"></mat-icon>
+            } @else {
+              <mat-icon svgIcon="repeat"></mat-icon>
+            }
+          </button>
         </div>
 
-        <!-- @if (isPlaying) {
-          <div class="cyber-visualizer">
-            @for (bar of [1,2,3,4,5,6,7,8,9,10]; track bar) {
-              <div class="cyber-viz-bar" [style.--i]="bar"></div>
-            }
-          </div>
-        } -->
-      </div>
-
-      <div class="cyber-search-section">
-        <div class="cyber-search-wrap">
-          <mat-icon class="cyber-search-icon">search</mat-icon>
-          <input
-            class="cyber-search-input"
-            type="text"
-            placeholder="Search for music..."
-            [(ngModel)]="searchQuery"
-            (input)="onSearchInput()"
-            (focus)="onSearchFocus()"
-          />
-          @if (searching) {
-            <span class="cyber-search-spinner"></span>
-          }
+        <div class="cyber-jam-toggle">
+          <button class="cyber-jam-btn" [class.active]="showJamPanel" (click)="showJamPanel = !showJamPanel" type="button" title="Jam Session">
+            <mat-icon svgIcon="group"></mat-icon>
+            <span class="cyber-jam-label">JAM</span>
+          </button>
         </div>
 
-        @if (showResults && searchResults.length > 0) {
-          <div class="cyber-results-list">
-            @for (item of searchResults; track item.videoId) {
-              <button class="cyber-result-item" (click)="selectTrack(item)" type="button">
-                @if (item.thumbnail) {
-                  <img [src]="item.thumbnail" alt="" class="cyber-result-thumb" loading="lazy" />
-                } @else {
-                  <div class="cyber-result-thumb cyber-result-thumb-empty">
-                    <mat-icon svgIcon="music_note"></mat-icon>
-                  </div>
-                }
-                <div class="cyber-result-info">
-                  <span class="cyber-result-title">{{ item.title }}</span>
-                  <span class="cyber-result-artist">{{ item.artist }}</span>
-                </div>
-                <mat-icon class="cyber-result-play-icon">play_circle</mat-icon>
-              </button>
-            }
-          </div>
+        @if (showJamPanel) {
+          <app-jam-panel [currentTrack]="track" (addToQueue)="addTrackToJamQueue($event)"></app-jam-panel>
         }
       </div>
 
-      @if (queue.length > 0) {
-        <div class="cyber-queue-section">
-          <div class="cyber-queue-header">
-            <mat-icon class="cyber-queue-icon">queue_music</mat-icon>
-            <span class="cyber-queue-title">Queue</span>
-            <span class="cyber-queue-count">{{ queue.length }} tracks</span>
-            <button class="cyber-playlist-save-btn" (click)="saveAsPlaylist()" type="button" title="Save as Playlist">
-              <mat-icon svgIcon="playlist_add"></mat-icon>
+      <div class="cyber-scroll-content">
+        <div class="cyber-search-section">
+          <div class="cyber-search-wrap">
+            <mat-icon class="cyber-search-icon" svgIcon="search"></mat-icon>
+            <input
+              class="cyber-search-input"
+              type="text"
+              placeholder="Search for music..."
+              [(ngModel)]="searchQuery"
+              (input)="onSearchInput()"
+              (focus)="onSearchFocus()"
+            />
+            @if (searching) {
+              <span class="cyber-search-spinner"></span>
+            }
+          </div>
+
+          @if (showResults && searchResults.length > 0) {
+            <div class="cyber-results-list">
+              @for (item of searchResults; track item.videoId) {
+                <button class="cyber-result-item" (click)="selectTrack(item)" type="button">
+                  @if (item.thumbnail) {
+                    <div class="cyber-thumb-clip cyber-result-thumb"><img [src]="item.thumbnail" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                  } @else {
+                    <div class="cyber-result-thumb cyber-result-thumb-empty">
+                      <mat-icon svgIcon="music_note"></mat-icon>
+                    </div>
+                  }
+                  <div class="cyber-result-info">
+                    <span class="cyber-result-title">{{ item.title }}</span>
+                    <span class="cyber-result-artist">{{ item.artist }}</span>
+                  </div>
+                  <mat-icon svgIcon="play_circle"></mat-icon>
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        @if (queue.length > 0) {
+          <div class="cyber-queue-section">
+            <div class="cyber-queue-header">
+              <mat-icon svgIcon="queue_music"></mat-icon>
+              <span class="cyber-queue-title">Queue</span>
+              <span class="cyber-queue-count">{{ queue.length }} tracks</span>
+              <button class="cyber-playlist-save-btn" (click)="saveAsPlaylist()" type="button" title="Save as Playlist">
+                <mat-icon svgIcon="playlist_add"></mat-icon>
+              </button>
+            </div>
+            <div class="cyber-queue-list">
+              @for (qTrack of queue; track qTrack.videoId; let i = $index) {
+                <div class="cyber-queue-item" [class.active]="i === queueIndex" (click)="skipTo(i)">
+                  @if (qTrack.thumbnail) {
+                    <div class="cyber-thumb-clip cyber-queue-thumb"><img loading="lazy" decoding="async" [src]="qTrack.thumbnail" alt="" class="cyber-thumb-img" /></div>
+                  } @else {
+                    <div class="cyber-queue-thumb cyber-queue-thumb-empty">
+                      <mat-icon svgIcon="music_note"></mat-icon>
+                    </div>
+                  }
+                  <div class="cyber-queue-info">
+                    <span class="cyber-queue-name">{{ qTrack.title }}</span>
+                    <span class="cyber-queue-artist">{{ qTrack.artist }}</span>
+                  </div>
+                  @if (i === queueIndex) {
+                    <div class="cyber-queue-playing">
+                      @for (b of [1,2,3]; track b) {
+                        <div class="cyber-mini-bar" [style.--i]="b"></div>
+                      }
+                    </div>
+                  }
+                  <button class="cyber-queue-remove" (click)="removeFromQueue(i, $event)" type="button">
+                    <mat-icon svgIcon="close"></mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (showSaveInput) {
+          <div class="cyber-save-playlist-form">
+            <input
+              class="cyber-save-input"
+              type="text"
+              placeholder="Playlist name..."
+              [(ngModel)]="savePlaylistName"
+              (keyup.enter)="confirmSavePlaylist()"
+              (keyup.escape)="cancelSavePlaylist()"
+              autofocus
+            />
+            <button class="cyber-save-confirm" (click)="confirmSavePlaylist()" type="button" title="Save">
+              <mat-icon svgIcon="check"></mat-icon>
+            </button>
+            <button class="cyber-save-cancel" (click)="cancelSavePlaylist()" type="button" title="Cancel">
+              <mat-icon svgIcon="close"></mat-icon>
             </button>
           </div>
-          <div class="cyber-queue-list">
-            @for (qTrack of queue; track qTrack.videoId; let i = $index) {
-              <div class="cyber-queue-item" [class.active]="i === queueIndex" (click)="skipTo(i)">
-                @if (qTrack.thumbnail) {
-                  <img loading="lazy" decoding="async" [src]="qTrack.thumbnail" alt="" class="cyber-queue-thumb" />
-                } @else {
-                  <div class="cyber-queue-thumb cyber-queue-thumb-empty">
-                    <mat-icon svgIcon="music_note"></mat-icon>
-                  </div>
-                }
-                <div class="cyber-queue-info">
-                  <span class="cyber-queue-name">{{ qTrack.title }}</span>
-                  <span class="cyber-queue-artist">{{ qTrack.artist }}</span>
-                </div>
-                @if (i === queueIndex) {
-                  <div class="cyber-queue-playing">
-                    @for (b of [1,2,3]; track b) {
-                      <div class="cyber-mini-bar" [style.--i]="b"></div>
+        }
+
+        <div class="cyber-playlists-section">
+          <div class="cyber-playlists-header">
+            <mat-icon svgIcon="library_music"></mat-icon>
+            <span class="cyber-playlists-title">Playlists</span>
+            <div class="cyber-playlists-tabs">
+              <button
+                class="cyber-playlists-tab"
+                [class.active]="playlistsTab === 'saved'"
+                (click)="switchPlaylistsTab('saved')"
+                type="button"
+              >Saved</button>
+              <button
+                class="cyber-playlists-tab"
+                [class.active]="playlistsTab === 'youtube'"
+                (click)="switchPlaylistsTab('youtube')"
+                type="button"
+              >YouTube</button>
+            </div>
+          </div>
+
+          @if (playlistsTab === 'saved') {
+            @if (playlists.length > 0) {
+              <div class="cyber-playlists-list">
+                @for (pl of playlists; track pl.name) {
+                  <div class="cyber-playlist-item" [class.expanded]="expandedPlaylist === pl.name">
+                    <div class="cyber-playlist-row">
+                      <div class="cyber-playlist-info" (click)="togglePlaylistExpand(pl.name)">
+                        <mat-icon svgIcon="expand_more" class="cyber-playlist-chevron" [class.rotated]="expandedPlaylist === pl.name"></mat-icon>
+                        <div class="cyber-playlist-text">
+                          <span class="cyber-playlist-name">{{ pl.name }}</span>
+                          <span class="cyber-playlist-tracks">{{ pl.tracks.length }} tracks</span>
+                        </div>
+                      </div>
+                      <button class="cyber-playlist-play-btn" (click)="loadPlaylist(pl.name); $event.stopPropagation()" type="button" title="Play">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                      <button class="cyber-playlist-del-btn" (click)="deletePlaylist(pl.name); $event.stopPropagation()" type="button" title="Delete">
+                        <mat-icon svgIcon="delete"></mat-icon>
+                      </button>
+                    </div>
+                    @if (expandedPlaylist === pl.name) {
+                      <div class="cyber-playlist-tracks-list">
+                        @for (trk of pl.tracks; track trk.video_id) {
+                          <div class="cyber-playlist-track-row">
+                            <button class="cyber-playlist-track" (click)="playPlaylistTrack(trk)" type="button">
+                              @if (trk.thumbnail) {
+                                <div class="cyber-thumb-clip cyber-pl-track-thumb"><img [src]="trk.thumbnail" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                              } @else {
+                                <div class="cyber-pl-track-thumb cyber-pl-track-thumb-empty">
+                                  <mat-icon svgIcon="music_note"></mat-icon>
+                                </div>
+                              }
+                              <div class="cyber-pl-track-info">
+                                <span class="cyber-playlist-track-name">{{ trk.title }}</span>
+                                <span class="cyber-playlist-track-artist">{{ trk.artist }}</span>
+                              </div>
+                              <mat-icon svgIcon="play_circle" class="cyber-pl-track-play"></mat-icon>
+                            </button>
+                            <button class="cyber-pl-add-btn" (click)="addSavedPlaylistTrackToQueue(trk); $event.stopPropagation()" type="button" title="Add to queue">
+                              <mat-icon svgIcon="add"></mat-icon>
+                            </button>
+                          </div>
+                        }
+                      </div>
                     }
                   </div>
                 }
-                <button class="cyber-queue-remove" (click)="removeFromQueue(i, $event)" type="button">
-                  <mat-icon svgIcon="close"></mat-icon>
-                </button>
+              </div>
+            } @else {
+              <div class="cyber-playlists-empty">
+                <span>No saved playlists yet</span>
               </div>
             }
-          </div>
-        </div>
-      }
-
-      @if (showSaveInput) {
-        <div class="cyber-save-playlist-form">
-          <input
-            class="cyber-save-input"
-            type="text"
-            placeholder="Playlist name..."
-            [(ngModel)]="savePlaylistName"
-            (keyup.enter)="confirmSavePlaylist()"
-            (keyup.escape)="cancelSavePlaylist()"
-            autofocus
-          />
-          <button class="cyber-save-confirm" (click)="confirmSavePlaylist()" type="button" title="Save">
-            <mat-icon svgIcon="check"></mat-icon>
-          </button>
-          <button class="cyber-save-cancel" (click)="cancelSavePlaylist()" type="button" title="Cancel">
-            <mat-icon svgIcon="close"></mat-icon>
-          </button>
-        </div>
-      }
-
-      <div class="cyber-playlists-section">
-        <div class="cyber-playlists-header">
-          <mat-icon class="cyber-playlists-icon">library_music</mat-icon>
-          <span class="cyber-playlists-title">Playlists</span>
-          <div class="cyber-playlists-tabs">
-            <button
-              class="cyber-playlists-tab"
-              [class.active]="playlistsTab === 'saved'"
-              (click)="switchPlaylistsTab('saved')"
-              type="button"
-            >Saved</button>
-            <button
-              class="cyber-playlists-tab"
-              [class.active]="playlistsTab === 'youtube'"
-              (click)="switchPlaylistsTab('youtube')"
-              type="button"
-            >YouTube</button>
-          </div>
-        </div>
-
-        @if (playlistsTab === 'saved') {
-          @if (playlists.length > 0) {
-            <div class="cyber-playlists-list">
-              @for (pl of playlists; track pl.name) {
-                <div class="cyber-playlist-item">
-                  <div class="cyber-playlist-info" (click)="loadPlaylist(pl.name)">
-                    <span class="cyber-playlist-name">{{ pl.name }}</span>
-                    <span class="cyber-playlist-tracks">{{ pl.tracks.length }} tracks</span>
-                  </div>
-                  <button class="cyber-playlist-play-btn" (click)="loadPlaylist(pl.name)" type="button" title="Play">
-                    <mat-icon svgIcon="play_arrow"></mat-icon>
-                  </button>
-                  <button class="cyber-playlist-del-btn" (click)="deletePlaylist(pl.name)" type="button" title="Delete">
-                    <mat-icon svgIcon="delete"></mat-icon>
-                  </button>
-                </div>
-              }
-            </div>
-          } @else {
-            <div class="cyber-playlists-empty">
-              <span>No saved playlists yet</span>
-            </div>
           }
-        }
 
-        @if (playlistsTab === 'youtube') {
-          @if (loadingYoutubePlaylists) {
-            <div class="cyber-playlists-sk">
-              @for (_ of [1,2,3]; track _) {
-                <div class="sk-pl-row">
-                  <div class="sk-pl-info">
-                    <div class="sk-pl-name"></div>
-                    <div class="sk-pl-count"></div>
+          @if (playlistsTab === 'youtube') {
+            @if (loadingYoutubePlaylists) {
+              <div class="cyber-playlists-sk">
+                @for (_ of [1,2,3]; track _) {
+                  <div class="sk-pl-row">
+                    <div class="sk-pl-info">
+                      <div class="sk-pl-name"></div>
+                      <div class="sk-pl-count"></div>
+                    </div>
+                    <div class="sk-pl-btn"></div>
                   </div>
-                  <div class="sk-pl-btn"></div>
-                </div>
-              }
-            </div>
-          } @else if (youtubePlaylists.length > 0) {
-            <div class="cyber-playlists-list">
-              @for (pl of youtubePlaylists; track pl.id) {
-                <div class="cyber-playlist-item">
-                  <div class="cyber-playlist-info" (click)="loadYoutubePlaylist(pl.id)">
-                    <span class="cyber-playlist-name">{{ pl.title }}</span>
-                    <span class="cyber-playlist-tracks">{{ pl.trackCount }} tracks</span>
+                }
+              </div>
+            } @else if (youtubePlaylists.length > 0) {
+              <div class="cyber-playlists-list">
+                @for (pl of youtubePlaylists; track pl.id) {
+                  <div class="cyber-playlist-item" [class.expanded]="expandedYoutubePlaylist === pl.id">
+                    <div class="cyber-playlist-row">
+                      <div class="cyber-playlist-info" (click)="toggleYoutubePlaylistExpand(pl.id)">
+                        <mat-icon svgIcon="expand_more" class="cyber-playlist-chevron" [class.rotated]="expandedYoutubePlaylist === pl.id"></mat-icon>
+                        @if (pl.thumbnail) {
+                          <div class="cyber-thumb-clip cyber-playlist-thumb"><img [src]="pl.thumbnail" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                        }
+                        <div class="cyber-playlist-text">
+                          <span class="cyber-playlist-name">{{ pl.title }}</span>
+                          <span class="cyber-playlist-tracks">{{ pl.trackCount }} tracks</span>
+                        </div>
+                      </div>
+                      <button class="cyber-playlist-play-btn" (click)="loadYoutubePlaylist(pl.id); $event.stopPropagation()" type="button" title="Play">
+                        <mat-icon svgIcon="play_arrow"></mat-icon>
+                      </button>
+                    </div>
+                    @if (expandedYoutubePlaylist === pl.id) {
+                      <div class="cyber-playlist-tracks-list">
+                        @if (loadingYoutubePreview) {
+                          <div class="cyber-playlist-loading">Loading tracks...</div>
+                        } @else {
+                          @for (trk of expandedYoutubeTracks; track trk.videoId) {
+                            <div class="cyber-playlist-track-row">
+                              <button class="cyber-playlist-track" (click)="selectTrack(trk)" type="button">
+                                @if (trk.thumbnail) {
+                                  <div class="cyber-thumb-clip cyber-pl-track-thumb"><img [src]="trk.thumbnail" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                                } @else {
+                                  <div class="cyber-pl-track-thumb cyber-pl-track-thumb-empty">
+                                    <mat-icon svgIcon="music_note"></mat-icon>
+                                  </div>
+                                }
+                                <div class="cyber-pl-track-info">
+                                  <span class="cyber-playlist-track-name">{{ trk.title }}</span>
+                                  <span class="cyber-playlist-track-artist">{{ trk.artist }}</span>
+                                </div>
+                                <mat-icon svgIcon="play_circle" class="cyber-pl-track-play"></mat-icon>
+                              </button>
+                              <button class="cyber-pl-add-btn" (click)="addTrackToJamQueue(trk); $event.stopPropagation()" type="button" title="Add to queue">
+                                <mat-icon svgIcon="add"></mat-icon>
+                              </button>
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
                   </div>
-                  <button class="cyber-playlist-play-btn" (click)="loadYoutubePlaylist(pl.id)" type="button" title="Play">
-                    <mat-icon svgIcon="play_arrow"></mat-icon>
-                  </button>
-                </div>
-              }
-            </div>
-          } @else {
-            <div class="cyber-playlists-empty">
-              <span>Connect YouTube Music in Settings to see your playlists</span>
-            </div>
+                }
+              </div>
+            } @else {
+              <div class="cyber-playlists-empty">
+                <span>Connect YouTube Music in Settings to see your playlists</span>
+              </div>
+            }
           }
-        }
+        </div>
       </div>
 
       <div class="cyber-platforms-section">
@@ -253,7 +329,7 @@
           }
         </div>
       </div>
+
     </div>
   </div>
 }
-

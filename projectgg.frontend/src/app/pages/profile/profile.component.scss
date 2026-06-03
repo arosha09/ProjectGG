@@ -493,7 +493,7 @@
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 6px;
-  cursor: pointer !important;
+  cursor: pointer;
   border: 2px solid transparent;
   transition: border-color .2s, box-shadow .2s;
   background: rgba(255,255,255,.03);

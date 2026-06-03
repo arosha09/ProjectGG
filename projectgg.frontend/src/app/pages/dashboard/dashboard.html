@@ -51,7 +51,7 @@
 
 		<div class="cyber-search-section">
 			<div class="cyber-search-wrap">
-				<mat-icon class="cyber-search-icon">search</mat-icon>
+				<mat-icon class="cyber-search-icon" svgIcon="search"></mat-icon>
 				<input
 					class="cyber-search-input"
 					type="text"
@@ -158,10 +158,14 @@
 		<app-card-collection
 			class="card-collection-section"
 			[cards]="cards"
-			[totalCards]="cards.length"
+			[totalCards]="cardTotal"
+			[page]="cardCurrentPage"
+			[pageSize]="cardPageSize"
 			[stats]="cardStats"
 			[highlightGameCode]="recentDrawCode"
 			(toggleFav)="toggleFavorite($event)"
+			(pageChange)="goToCardPage($event)"
+			(sortChange)="onCardSortChange($event)"
 		></app-card-collection>
 
 	</main>

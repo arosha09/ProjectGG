@@ -53,31 +53,35 @@
           @for (cat of achievementCategories; track cat.category) {
             <div class="achievement-category" [class.collapsed]="isCategoryCollapsed(cat.category)">
               <div class="category-header" (click)="toggleCategory(cat.category)">
-                <mat-icon class="category-icon">folder</mat-icon>
+                <mat-icon class="category-icon" svgIcon="folder"></mat-icon>
                 <span>{{ cat.category }}</span>
                 <span class="category-count">{{ cat.tasks.length }}</span>
-                <mat-icon class="category-chevron" [class.rotated]="!isCategoryCollapsed(cat.category)">expand_more</mat-icon>
+                <mat-icon class="category-chevron" svgIcon="expand_more" [class.rotated]="!isCategoryCollapsed(cat.category)"></mat-icon>
               </div>
               <div class="category-body">
                 <div class="tasks-grid">
                   @for (task of cat.tasks; track task.id) {
-                    <mat-card class="task-card" [class.task-ready]="isTaskReadyToClaim(task)">
+                    <mat-card class="task-card" [class.task-ready]="isTaskReadyToClaim(task)" [class.task-completed]="isTaskCompleted(task)">
                       <div class="task-card-top">
-                        <div class="task-icon-wrap">
-                          <mat-icon svgIcon="emoji_events"></mat-icon>
+                        <div class="task-icon-wrap" [class.completed-icon]="isTaskCompleted(task)">
+                          <mat-icon [svgIcon]="isTaskCompleted(task) ? 'check_circle' : 'emoji_events'"></mat-icon>
                         </div>
                         <div class="task-info">
-                          <h3>{{ task.title }}</h3>
+                          <h3 [class.completed-text]="isTaskCompleted(task)">{{ task.title }}</h3>
                           @if (task.description) {
                             <p class="task-desc">{{ task.description }}</p>
                           }
                           <div class="task-progress-wrap">
                             <div class="task-progress-meta">
                               <span class="task-kind">Achievement</span>
-                              <span class="task-progress-label">{{ progressLabel(task) }}</span>
+                              @if (isTaskCompleted(task)) {
+                                <span class="task-progress-label completed-label">Completed</span>
+                              } @else {
+                                <span class="task-progress-label">{{ progressLabel(task) }}</span>
+                              }
                             </div>
                             <div class="task-progress-bar">
-                              <div class="task-progress-fill" [style.width.%]="progressPercent(task)" [class.fill-complete]="isTaskReadyToClaim(task)"></div>
+                              <div class="task-progress-fill" [style.width.%]="isTaskCompleted(task) ? 100 : progressPercent(task)" [class.fill-complete]="isTaskReadyToClaim(task) || isTaskCompleted(task)"></div>
                             </div>
                           </div>
                         </div>
@@ -85,16 +89,23 @@
 
                       <div class="task-rewards">
                         @for (reward of task.rewards ?? [{ type: task.reward_type, amount: task.reward_amount }]; track reward.type + '-' + reward.amount) {
-                          <span class="reward-badge" [class.xp-badge]="reward.type === 'xp'" [class.ticket-badge]="reward.type === 'tickets'">
-                            <mat-icon>{{ reward.type === 'tickets' ? 'confirmation_number' : 'bolt' }}</mat-icon>
+                          <span class="reward-badge" [class.xp-badge]="reward.type === 'xp'" [class.ticket-badge]="reward.type === 'tickets'" [class.claimed-badge]="isTaskCompleted(task)">
+                            <mat-icon [svgIcon]="reward.type === 'tickets' ? 'confirmation_number' : 'bolt'"></mat-icon>
                             +{{ reward.amount }} {{ reward.type === 'tickets' ? 'Tickets' : 'XP' }}
                           </span>
                         }
                       </div>
 
-                      <div class="task-kind-pill achievement">Achievement</div>
+                      <div class="task-kind-pill achievement" [class.completed-pill]="isTaskCompleted(task)">
+                        {{ isTaskCompleted(task) ? 'Completed' : 'Achievement' }}
+                      </div>
 
-                      @if (canManualComplete) {
+                      @if (isTaskCompleted(task)) {
+                        <div class="completed-badge">
+                          <mat-icon svgIcon="check_circle"></mat-icon>
+                          Completed
+                        </div>
+                      } @else if (canManualComplete) {
                         <button
                           class="task-complete-btn admin-complete"
                           [disabled]="completingId === task.id"
@@ -126,7 +137,7 @@
                             Claim Reward
                           }
                         </button>
-                      } @else if (!isTaskReadyToClaim(task)) {
+                      } @else {
                         <div class="progress-indicator">
                           <mat-icon svgIcon="schedule"></mat-icon>
                           {{ progressPercent(task) }}% Complete
@@ -160,7 +171,7 @@
             <mat-card class="task-card" [class.task-ready]="isTaskReadyToClaim(task)">
               <div class="task-card-top">
                 <div class="task-icon-wrap">
-                  <mat-icon>{{ isAchievement(task) ? 'emoji_events' : isDuration(task) ? 'timer' : 'assignment' }}</mat-icon>
+                  <mat-icon [svgIcon]="isAchievement(task) ? 'emoji_events' : isDuration(task) ? 'timer' : 'assignment'"></mat-icon>
                 </div>
                 <div class="task-info">
                   <h3>{{ task.title }}</h3>
@@ -184,7 +195,7 @@
               <div class="task-rewards">
                 @for (reward of task.rewards ?? [{ type: task.reward_type, amount: task.reward_amount }]; track reward.type + '-' + reward.amount) {
                   <span class="reward-badge" [class.xp-badge]="reward.type === 'xp'" [class.ticket-badge]="reward.type === 'tickets'">
-                    <mat-icon>{{ reward.type === 'tickets' ? 'confirmation_number' : 'bolt' }}</mat-icon>
+                    <mat-icon [svgIcon]="reward.type === 'tickets' ? 'confirmation_number' : 'bolt'"></mat-icon>
                     +{{ reward.amount }} {{ reward.type === 'tickets' ? 'Tickets' : 'XP' }}
                   </span>
                 }
@@ -265,41 +276,6 @@
           }
         </div>
       }
-    }
-
-    @if (collectionStats && (activeTab === 'achievements' || activeTab === 'daily')) {
-      <div class="stats-panel">
-        <div class="stats-header">
-          <h3>Your Arsenal</h3>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <span class="stat-value">{{ collectionStats.total_cards }}</span>
-            <span class="stat-label">Current Arsenal</span>
-          </div>
-          <div class="stat-item highlight">
-            <span class="stat-value">{{ collectionStats.static_total_cards }}</span>
-            <span class="stat-label">Total Collected</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ collectionStats.favorite_cards }}</span>
-            <span class="stat-label">Favorites</span>
-          </div>
-        </div>
-        @if (collectionStats.legendary > 0 || collectionStats.epic > 0) {
-          <div class="tier-stats">
-            @if (collectionStats.legendary > 0) {
-              <span class="tier-badge legendary">{{ collectionStats.legendary }} LEG</span>
-            }
-            @if (collectionStats.epic > 0) {
-              <span class="tier-badge epic">{{ collectionStats.epic }} EPIC</span>
-            }
-            @if (collectionStats.rare > 0) {
-              <span class="tier-badge rare">{{ collectionStats.rare }} RARE</span>
-            }
-          </div>
-        }
-      </div>
     }
   </main>
 </section>

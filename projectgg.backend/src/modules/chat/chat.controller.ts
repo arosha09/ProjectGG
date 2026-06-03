@@ -25,6 +25,18 @@ export class ChatController {
     private readonly configService: ConfigService,
   ) {}
 
+  private async getServerMemberIds(serverId: number): Promise<string[]> {
+    const members = await this.chatService.getServerMembers(serverId);
+    return members.map((m: any) => String(m.user_id));
+  }
+
+  private async notifyServerMembers(serverId: number, event: string, data: any): Promise<void> {
+    const memberIds = await this.getServerMemberIds(serverId);
+    for (const uid of memberIds) {
+      this.chatGateway.sendToUser(uid, event, data);
+    }
+  }
+
   // ================================================================
   // LEGACY DISCORD ENDPOINTS (keep for backward compat)
   // ================================================================
@@ -255,6 +267,7 @@ export class ChatController {
   async createServer(@Req() req: any, @Body() body: { name: string }) {
     if (!body.name?.trim()) throw new BadRequestException('Server name required');
     const server = await this.chatService.createServer(body.name.trim(), req.user.id);
+    this.chatGateway.sendToUser(req.user.id, 'server-created', server);
     return server;
   }
 
@@ -267,6 +280,7 @@ export class ChatController {
     @Body() body: { name?: string; avatar_url?: string },
   ) {
     const server = await this.chatService.updateServer(Number(id), req.user.id, body);
+    await this.notifyServerMembers(Number(id), 'server-updated', server);
     return server;
   }
 
@@ -304,18 +318,103 @@ export class ChatController {
     if (uploadError) {
       throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    const { data: { publicUrl } } = this.supabase.storage
+    return this.chatService.updateServer(serverId, req.user.id, { avatar_url: filename }).then(async (updated) => {
+      await this.notifyServerMembers(serverId, 'server-updated', updated);
+      return updated;
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/upload-banner')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadServerBanner(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { serverId: string },
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    const serverId = Number(body.serverId);
+    const server = await this.chatService.getServer(serverId);
+    if (!server) throw new BadRequestException('Server not found');
+    if (server.owner_id !== req.user.id) throw new BadRequestException('Not authorized');
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Allowed: jpeg, png, gif, webp');
+    }
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File too large (max 5MB)');
+    }
+
+    const ext = extname(file.originalname);
+    const filename = `server_banner_${serverId}_${Date.now()}_${randomBytes(4).toString('hex')}${ext}`;
+    const fileBuffer = fs.readFileSync(file.path);
+    const { error: uploadError } = await this.supabase.storage
       .from('chat_uploads')
-      .getPublicUrl(filename);
-    return this.chatService.updateServer(serverId, req.user.id, { avatar_url: publicUrl });
+      .upload(filename, fileBuffer, { contentType: file.mimetype });
+    fs.unlinkSync(file.path);
+    if (uploadError) {
+      throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    return this.chatService.updateServer(serverId, req.user.id, { banner_url: filename }).then(async (updated) => {
+      await this.notifyServerMembers(serverId, 'server-updated', updated);
+      return updated;
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Delete('gg/servers/:id')
   async deleteServer(@Req() req: any, @Param('id') id: string) {
-    await this.chatService.deleteServer(Number(id), req.user.id);
+    const serverId = Number(id);
+    const memberIds = await this.getServerMemberIds(serverId);
+    await this.chatService.deleteServer(serverId, req.user.id);
+    for (const uid of memberIds) {
+      this.chatGateway.sendToUser(uid, 'server-deleted', { serverId });
+    }
     return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/servers/:id')
+  async getServer(@Req() req: any, @Param('id') id: string) {
+    return this.chatService.getServer(Number(id));
+  }
+
+  // ================================================================
+  // GG CHAT — SERVER ROLES
+  // ================================================================
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/servers/:serverId/roles')
+  async getServerRoles(@Param('serverId') serverId: string) {
+    return this.chatService.getServerRoles(Number(serverId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/roles')
+  async createServerRole(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Body() body: { name: string; color?: string; permissions?: string[] },
+  ) {
+    return this.chatService.createServerRole(Number(serverId), req.user.id, body.name, body.color, body.permissions);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/servers/:serverId/roles/:roleName')
+  async deleteServerRole(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Param('roleName') roleName: string,
+  ) {
+    return this.chatService.deleteServerRole(Number(serverId), req.user.id, roleName);
   }
 
   // ================================================================
@@ -337,16 +436,23 @@ export class ChatController {
     @Param('serverId') serverId: string,
     @Body() body: { name: string; type: 'text' | 'voice'; allowed_roles?: string[] },
   ) {
-    return this.chatService.createChannel(
+    const channel = await this.chatService.createChannel(
       Number(serverId), body.name, body.type ?? 'text', req.user.id, body.allowed_roles,
     );
+    await this.notifyServerMembers(Number(serverId), 'channel-created', channel);
+    return channel;
   }
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Delete('gg/channels/:id')
   async deleteChannel(@Req() req: any, @Param('id') id: string) {
-    await this.chatService.deleteChannel(Number(id), req.user.id);
+    const channelId = Number(id);
+    const { data: ch } = await this.supabase.schema('projectgg').from('gg_channels').select('server_id').eq('id', channelId).single();
+    await this.chatService.deleteChannel(channelId, req.user.id);
+    if (ch?.server_id) {
+      await this.notifyServerMembers(ch.server_id, 'channel-deleted', { channelId, serverId: ch.server_id });
+    }
     return { success: true };
   }
 
@@ -370,6 +476,7 @@ export class ChatController {
     if (!ch) throw new BadRequestException('Channel not found');
     await this.chatService.requirePermission(ch.server_id, req.user.id, 'manage_channels');
     await this.chatService.setChannelRoles(channelId, body.roles);
+    await this.notifyServerMembers(ch.server_id, 'channel-roles-updated', { channelId, serverId: ch.server_id, roles: body.roles });
     return { success: true };
   }
 
@@ -388,7 +495,16 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Post('gg/servers/:serverId/join')
   async joinServer(@Req() req: any, @Param('serverId') serverId: string) {
-    await this.chatService.joinServer(Number(serverId), req.user.id);
+    const numId = Number(serverId);
+    await this.chatService.joinServer(numId, req.user.id);
+    const user = await this.chatService.findUserById(req.user.id);
+    await this.notifyServerMembers(numId, 'member-joined', {
+      serverId: numId,
+      userId: req.user.id,
+      username: user?.username ?? 'Unknown',
+      avatar_url: user?.avatar ?? null,
+      roles: ['member'],
+    });
     return { success: true };
   }
 
@@ -396,7 +512,9 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Post('gg/servers/:serverId/leave')
   async leaveServer(@Req() req: any, @Param('serverId') serverId: string) {
-    await this.chatService.leaveServer(Number(serverId), req.user.id);
+    const numId = Number(serverId);
+    await this.chatService.leaveServer(numId, req.user.id);
+    await this.notifyServerMembers(numId, 'member-left', { serverId: numId, userId: req.user.id });
     return { success: true };
   }
 
@@ -409,9 +527,11 @@ export class ChatController {
     @Param('memberId') memberId: string,
     @Body() body: { roles: string[] },
   ) {
-    await this.chatService.changeMemberRoles(
-      Number(serverId), memberId, body.roles, req.user.id,
-    );
+    const numId = Number(serverId);
+    await this.chatService.changeMemberRoles(numId, memberId, body.roles, req.user.id);
+    await this.notifyServerMembers(numId, 'member-roles-updated', {
+      serverId: numId, userId: memberId, roles: body.roles,
+    });
     return { success: true };
   }
 
@@ -423,9 +543,10 @@ export class ChatController {
     @Param('serverId') serverId: string,
     @Param('memberId') memberId: string,
   ) {
-    await this.chatService.kickMember(
-      Number(serverId), memberId, req.user.id,
-    );
+    const numId = Number(serverId);
+    await this.chatService.kickMember(numId, memberId, req.user.id);
+    await this.notifyServerMembers(numId, 'member-kicked', { serverId: numId, userId: memberId });
+    this.chatGateway.sendToUser(memberId, 'kicked-from-server', { serverId: numId });
     return { success: true };
   }
 
@@ -437,9 +558,10 @@ export class ChatController {
     @Param('serverId') serverId: string,
     @Param('memberId') memberId: string,
   ) {
-    await this.chatService.banMember(
-      Number(serverId), memberId, req.user.id,
-    );
+    const numId = Number(serverId);
+    await this.chatService.banMember(numId, memberId, req.user.id);
+    await this.notifyServerMembers(numId, 'member-banned', { serverId: numId, userId: memberId });
+    this.chatGateway.sendToUser(memberId, 'banned-from-server', { serverId: numId });
     return { success: true };
   }
 
@@ -504,6 +626,14 @@ export class ChatController {
   @Post('gg/invites/:code')
   async joinViaInvite(@Req() req: any, @Param('code') code: string) {
     const serverId = await this.chatService.joinViaInvite(code, req.user.id);
+    const user = await this.chatService.findUserById(req.user.id);
+    await this.notifyServerMembers(serverId, 'member-joined', {
+      serverId,
+      userId: req.user.id,
+      username: user?.username ?? 'Unknown',
+      avatar_url: user?.avatar ?? null,
+      roles: ['member'],
+    });
     return { serverId };
   }
 
@@ -549,6 +679,20 @@ export class ChatController {
   async searchUsers(@Req() req: any, @Query('q') q: string) {
     if (!q || q.length < 1) return [];
     return this.chatService.searchUsers(q, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/users/blocked')
+  async getBlockedUsers(@Req() req: any) {
+    return this.chatService.getBlockedUsers(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/users/:userId')
+  async getUserById(@Param('userId') userId: string) {
+    return this.chatService.getUserPublicById(userId);
   }
 
   // ================================================================
@@ -622,6 +766,11 @@ export class ChatController {
       );
       this.chatGateway.sendToUser(targetUser.id, 'notification', {});
     }
+    this.chatGateway.sendToUser(req.user.id, 'friend-request-sent', {
+      id: result.id,
+      friendId: result.friend_id,
+      username: body.username.trim(),
+    });
     return result;
   }
 
@@ -650,6 +799,9 @@ export class ChatController {
       );
       this.chatGateway.sendToUser(reqData.user_id, 'notification', {});
     }
+    this.chatGateway.sendToUser(req.user.id, 'friend-accepted', {
+      friendId: reqData?.friend_id ?? '',
+    });
 
     return { success: true };
   }
@@ -658,7 +810,13 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Delete('gg/friends/:id')
   async removeFriend(@Req() req: any, @Param('id') id: string) {
+    const { data: friendship } = await this.supabase
+      .schema('projectgg').from('friends').select('user_id, friend_id').eq('id', Number(id)).single();
     await this.chatService.removeFriend(req.user.id, Number(id));
+    if (friendship) {
+      const otherId = friendship.user_id === req.user.id ? friendship.friend_id : friendship.user_id;
+      this.chatGateway.sendToUser(otherId, 'friend-removed', { friendId: req.user.id });
+    }
     return { success: true };
   }
 
@@ -666,7 +824,12 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Post('gg/friends/reject/:id')
   async rejectFriendRequest(@Req() req: any, @Param('id') id: string) {
+    const { data: friendship } = await this.supabase
+      .schema('projectgg').from('friends').select('user_id').eq('id', Number(id)).single();
     await this.chatService.rejectFriendRequest(req.user.id, Number(id));
+    if (friendship?.user_id) {
+      this.chatGateway.sendToUser(friendship.user_id, 'friend-request-rejected', { requestId: Number(id) });
+    }
     return { success: true };
   }
 
@@ -674,7 +837,12 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Post('gg/friends/cancel/:id')
   async cancelFriendRequest(@Req() req: any, @Param('id') id: string) {
+    const { data: friendship } = await this.supabase
+      .schema('projectgg').from('friends').select('friend_id').eq('id', Number(id)).single();
     await this.chatService.cancelFriendRequest(req.user.id, Number(id));
+    if (friendship?.friend_id) {
+      this.chatGateway.sendToUser(friendship.friend_id, 'friend-request-cancelled', { requestId: Number(id) });
+    }
     return { success: true };
   }
 
@@ -696,7 +864,14 @@ export class ChatController {
     @Req() req: any,
     @Body() body: { otherUserId: string },
   ) {
-    return this.chatService.createDmConversation(req.user.id, body.otherUserId);
+    const conv = await this.chatService.createDmConversation(req.user.id, body.otherUserId);
+    if (conv && (conv as any).id) {
+      this.chatGateway.sendToUser(body.otherUserId, 'dm-conversation-created', {
+        conversationId: (conv as any).id,
+        otherUserId: req.user.id,
+      });
+    }
+    return conv;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -734,6 +909,20 @@ export class ChatController {
       this.chatGateway.sendToUser(m.user_id, 'dm-message', msg);
     }
 
+    const allMembers = await this.supabase
+      .schema('projectgg')
+      .from('dm_conversation_members')
+      .select('user_id')
+      .eq('conversation_id', body.conversation_id);
+
+    for (const m of allMembers?.data ?? []) {
+      this.chatGateway.sendToUser(m.user_id, 'dm-conversation-updated', {
+        conversationId: body.conversation_id,
+        lastMessage: msg.content,
+        lastMessageAt: msg.created_at,
+      });
+    }
+
     return msg;
   }
 
@@ -763,13 +952,6 @@ export class ChatController {
   async unblockUser(@Req() req: any, @Param('userId') userId: string) {
     await this.chatService.unblockUser(req.user.id, userId);
     return { success: true };
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @Get('gg/users/blocked')
-  async getBlockedUsers(@Req() req: any) {
-    return this.chatService.getBlockedUsers(req.user.id);
   }
 
   // ================================================================
@@ -804,6 +986,14 @@ export class ChatController {
   @Delete('gg/notifications')
   async clearAllNotifications(@Req() req: any) {
     await this.chatService.clearAllNotifications(req.user.id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/notifications/:id')
+  async deleteNotification(@Req() req: any, @Param('id') id: string) {
+    await this.chatService.deleteNotification(req.user.id, Number(id));
     return { success: true };
   }
 }

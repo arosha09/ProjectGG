@@ -62,6 +62,7 @@
       (onInputDeviceChange)="selectInputDevice($event)"
       (onOutputDeviceChange)="selectOutputDevice($event)"
       (openChannelSettings)="openChannelSettings($event)"
+      (voiceContextMenuRequest)="openVoiceContextMenu($event.event, $event.vm)"
     ></app-channel-list>
 
     <!-- MAIN PANEL -->
@@ -92,10 +93,10 @@
             <button class="gg-dm-header-btn" (click)="showUserProfile(selectedDm)" title="View Profile">
               <mat-icon svgIcon="person"></mat-icon>
             </button>
-            <button class="gg-dm-header-btn gg-dm-trade-btn" (click)="openInlineTrading(selectedDm.otherUserId, selectedDm.otherUsername)" title="Trade">
+            <button class="gg-dm-header-btn gg-dm-trade-btn" (click)="openInlineTrading(selectedDm.otherUserId, selectedDm.otherUsername, selectedDm.otherAvatar)" title="Trade">
               <mat-icon svgIcon="swap_horiz"></mat-icon>
             </button>
-            <button class="gg-dm-header-btn gg-dm-gift-btn" (click)="openInlineGift(selectedDm.otherUserId, selectedDm.otherUsername)" title="Send Gift">
+            <button class="gg-dm-header-btn gg-dm-gift-btn" (click)="openInlineGift(selectedDm.otherUserId, selectedDm.otherUsername, selectedDm.otherAvatar)" title="Send Gift">
               <mat-icon svgIcon="card_giftcard"></mat-icon>
             </button>
             <div class="gg-dm-more-wrap">
@@ -189,7 +190,7 @@
             @if (pendingAttachmentUrl) {
               <span class="gg-attachment-badge" (click)="removeAttachment()">
                 <mat-icon svgIcon="attachment"></mat-icon> 1 file
-                <mat-icon class="gg-attachment-remove">close</mat-icon>
+                <mat-icon class="gg-attachment-remove" svgIcon="close"></mat-icon>
               </span>
             }
           </div>
@@ -223,7 +224,7 @@
       <!-- SERVER TEXT CHANNEL -->
       @if (viewMode === 'server' && selectedChannel && selectedChannel.type === 'text') {
         <div class="gg-channel-header">
-          <mat-icon class="gg-ch-icon">tag</mat-icon>
+          <mat-icon class="gg-ch-icon" svgIcon="tag"></mat-icon>
           <h2>{{ selectedChannel.name }}</h2>
         </div>
 
@@ -376,7 +377,7 @@
         <div class="gg-voice-panel">
           @if (micPermissionError) {
             <div class="gg-voice-mic-error">
-              <mat-icon class="gg-voice-mic-error-icon">mic_off</mat-icon>
+              <mat-icon class="gg-voice-mic-error-icon" svgIcon="mic_off"></mat-icon>
               <h3 class="gg-voice-mic-error-title">Microphone Access Required</h3>
               <p class="gg-voice-mic-error-msg">{{ micPermissionError }}</p>
               <div class="gg-voice-mic-error-actions">
@@ -389,7 +390,7 @@
           } @else if (voiceConnecting) {
             <div class="gg-voice-connecting-screen">
               <div class="gg-voice-connecting-ring"></div>
-              <mat-icon class="gg-voice-connecting-icon">headset</mat-icon>
+              <mat-icon class="gg-voice-connecting-icon" svgIcon="headset"></mat-icon>
               <span class="gg-voice-connecting-text">Connecting to {{ selectedChannel.name }}...</span>
             </div>
           } @else if (!voiceConnected) {
@@ -407,12 +408,13 @@
           } @else {
             <div class="gg-voice-active">
               @if (voiceMembers.length > 0) {
-                <!-- BIG avatars with display name under, centered -->
                 <div class="gg-voice-avatars-row">
                   @for (vm of voiceMembers; track vm.userId) {
                     <div class="gg-voice-avatar-card"
                          [class.self]="vm.userId === currentUser?.id"
-                         [class.speaking]="voiceMemberSpeaking(vm.userId)">
+                         [class.speaking]="voiceMemberSpeaking(vm.userId)"
+                         [class.nudged]="isNudged(vm.userId)"
+                         (contextmenu)="openVoiceContextMenu($event, vm)">
                       <div class="gg-voice-avatar-ring" [class.speaking]="voiceMemberSpeaking(vm.userId)">
                         <div class="gg-voice-avatar">
                           @if (voiceMemberAvatar(vm.userId)) {
@@ -425,7 +427,7 @@
                           <div class="gg-voice-avatar-status-icon"
                                [class.muted]="voiceMemberMuted(vm.userId) && !voiceMemberDeafened(vm.userId)"
                                [class.deafened]="voiceMemberDeafened(vm.userId)">
-                            <mat-icon>{{ voiceMemberDeafened(vm.userId) ? 'headset_off' : 'mic_off' }}</mat-icon>
+                            <mat-icon [svgIcon]="voiceMemberDeafened(vm.userId) ? 'headset_off' : 'mic_off'"></mat-icon>
                           </div>
                         }
                       </div>
@@ -437,7 +439,7 @@
                 </div>
 
                 <!-- Talking-while-muted warning banner -->
-                @if ((voiceMuted || voiceDeafened) && localMicActive) {
+                @if ((voiceMuted || voiceDeafened) && showMutedWarning) {
                   <div class="gg-voice-muted-warning" [class.deafened]="voiceDeafened">
                     <mat-icon svgIcon="warning"></mat-icon>
                     <span>
@@ -452,6 +454,24 @@
               } @else {
                 <div class="gg-voice-empty">No one is here yet</div>
               }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- SERVER LOADING SKELETON -->
+      @if (viewMode === 'server' && selectedServer && !selectedChannel && channelLoading) {
+        <div class="gg-channel-header">
+          <div class="gg-skeleton-text gg-skeleton-text-md"></div>
+        </div>
+        <div class="gg-messages">
+          @for (_ of [1,2,3,4,5]; track _) {
+            <div class="gg-msg-skeleton">
+              <div class="gg-msg-skeleton-avatar"></div>
+              <div class="gg-msg-skeleton-body">
+                <div class="gg-msg-skeleton-head"></div>
+                <div class="gg-msg-skeleton-line" [class.w80]="_ % 2 === 0" [class.w60]="_ % 2 !== 0"></div>
+              </div>
             </div>
           }
         </div>
@@ -477,7 +497,7 @@
                     <span class="gg-cs-option-title">Create Server</span>
                     <span class="gg-cs-option-sub">New server, fresh start</span>
                   </div>
-                  <mat-icon class="gg-cs-option-arrow">chevron_right</mat-icon>
+                  <mat-icon class="gg-cs-option-arrow" svgIcon="chevron_right"></mat-icon>
                 </button>
 
                 <button class="gg-cs-option" (click)="openJoinServer()">
@@ -488,7 +508,7 @@
                     <span class="gg-cs-option-title">Join Server</span>
                     <span class="gg-cs-option-sub">Enter an invite code</span>
                   </div>
-                  <mat-icon class="gg-cs-option-arrow">chevron_right</mat-icon>
+                  <mat-icon class="gg-cs-option-arrow" svgIcon="chevron_right"></mat-icon>
                 </button>
               </div>
             }
@@ -507,7 +527,7 @@
                     @if (newServerAvatarPreview) {
                       <img loading="lazy" decoding="async" [src]="newServerAvatarPreview" alt="" class="gg-cs-avatar-img" />
                     } @else {
-                      <mat-icon class="gg-cs-avatar-icon">add_photo_alternate</mat-icon>
+                      <mat-icon class="gg-cs-avatar-icon" svgIcon="add_photo_alternate"></mat-icon>
                     }
                   </div>
                   <input #csAvatarInput type="file" accept="image/*" (change)="onServerAvatarSelected($event)" hidden />
@@ -570,13 +590,65 @@
         </div>
       }
 
+      <!-- CREATE CHANNEL VIEW -->
+      @if (viewMode === 'create-channel') {
+        <div class="gg-cs-panel">
+          <div class="gg-cs-step">
+            <div class="gg-cs-head">
+              <button class="gg-dm-header-btn" (click)="viewMode = 'server'" title="Back">
+                <mat-icon svgIcon="arrow_back"></mat-icon>
+              </button>
+              <h2>CREATE CHANNEL</h2>
+            </div>
+            <div class="gg-cs-body">
+              <p class="gg-cs-desc">Add a new channel to {{ selectedServer?.name }}</p>
+
+              <div class="gg-cs-field">
+                <label class="gg-cs-label">CHANNEL NAME</label>
+                <input
+                  class="gg-modal-input"
+                  [(ngModel)]="newChannelName"
+                  placeholder="new-channel"
+                  (keyup.enter)="createChannel()"
+                  autofocus
+                />
+              </div>
+
+              <div class="gg-modal-type-row" style="width:100%;">
+                <label class="gg-type-option" [class.active]="newChannelType === 'text'">
+                  <input type="radio" name="chType" value="text" [(ngModel)]="newChannelType" />
+                  <mat-icon svgIcon="tag"></mat-icon> Text
+                </label>
+                <label class="gg-type-option" [class.active]="newChannelType === 'voice'">
+                  <input type="radio" name="chType" value="voice" [(ngModel)]="newChannelType" />
+                  <mat-icon svgIcon="volume_up"></mat-icon> Voice
+                </label>
+              </div>
+
+              <div class="gg-modal-type-row" style="width:100%;">
+                <label class="gg-type-option" [class.active]="newChannelPrivate">
+                  <input type="checkbox" [(ngModel)]="newChannelPrivate" />
+                  <mat-icon svgIcon="lock"></mat-icon> Private
+                </label>
+              </div>
+
+              <div class="gg-cs-actions">
+                <button class="gg-btn gg-btn-primary gg-cs-create-btn" (click)="createChannel()" [disabled]="!newChannelName.trim()">
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- PROFILE VIEW -->
       @if (viewMode === 'profile' && profileUser) {
         <div class="gg-profile-panel">
           <div class="gg-profile-head">
             <div class="gg-profile-avatar">
               <div class="gg-avatar-sk gg-avatar-sk-lg"></div>
-              <img loading="lazy" decoding="async" [src]="resolveAvatar(profileUser, 'avatar', 'avatar_url', 'otherAvatar')" alt="" class="gg-profile-avatar-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <img loading="lazy" decoding="async" [src]="resolveAvatar(profileUser, 'avatar', 'avatar_url', 'otherAvatar')" alt="" class="gg-profile-avatar-img" [class.gg-avatar-img-hidden]="!avatarImgLoaded" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="avatarImgLoaded = true; $event.target.previousElementSibling?.classList?.add('sk-hidden')" />
               <span class="gg-user-status-dot"
                 [class.online]="profileStatus() === 'online'"
                 [class.away]="profileStatus() === 'away'"
@@ -598,13 +670,31 @@
                 <span class="gg-profile-label">Rank</span>
                 <div class="gg-profile-rank-display">
                   @if (profileUser.rank.rank_image_url) {
-                    <img loading="lazy" decoding="async" [src]="profileUser.rank.rank_image_url" [alt]="profileUser.rank.rank_name" class="gg-profile-rank-img" />
+                    <div class="gg-profile-rank-img-wrap">
+                      <img loading="lazy" decoding="async" [src]="profileUser.rank.rank_image_url" [alt]="profileUser.rank.rank_name" class="gg-profile-rank-img" [class.gg-rank-img-hidden]="!rankImgLoaded" (load)="rankImgLoaded = true" />
+                      @if (!rankImgLoaded) {
+                        <div class="gg-profile-rank-img gg-rank-skeleton gg-rank-img-overlay"></div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="gg-profile-rank-img gg-rank-skeleton"></div>
                   }
                   <div class="gg-profile-rank-info">
                     <span class="gg-profile-rank-name">{{ profileUser.rank.rank_name }}</span>
                     @if (profileUser.rank.xp_to_next !== undefined) {
                       <span class="gg-profile-rank-progress">{{ profileUser.rank.total_xp | number }} XP / {{ profileUser.rank.xp_to_next | number }}</span>
                     }
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div class="gg-profile-section">
+                <span class="gg-profile-label">Rank</span>
+                <div class="gg-profile-rank-display">
+                  <div class="gg-profile-rank-img gg-rank-skeleton"></div>
+                  <div class="gg-profile-rank-info">
+                    <span class="gg-rank-text-skeleton"></span>
+                    <span class="gg-rank-text-skeleton gg-rank-text-skeleton-sm"></span>
                   </div>
                 </div>
               </div>
@@ -662,19 +752,28 @@
               } @else if (profileFavorites.length > 0) {
                 <div class="gg-profile-fav-grid">
                   @for (card of profileFavorites; track card.game_code) {
-                    <div class="gg-profile-fav-card" [style.border-color]="tierColor(card.card_tier)">
-                      <div class="gg-profile-fav-card-media">
-                        <div class="gg-profile-fav-sk"></div>
-                        <img loading="lazy" decoding="async" [src]="card.cover_url || 'assets/avatars/unknown.png'"
-                          [alt]="card.game_name"
-                          (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')"
-                          (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')"
-                        />
-                        <span class="gg-profile-fav-tier" [style.background]="tierColor(card.card_tier) + '22'" [style.color]="tierColor(card.card_tier)">
+                    <div class="gg-owned-card" [ngClass]="'tier-' + card.card_tier">
+                      <div class="gg-owned-media">
+                        <div class="gg-tier-badge" [ngClass]="'tier-' + card.card_tier">
                           {{ card.card_tier }}
-                        </span>
+                        </div>
+                        @if (card.cover_url) {
+                          <img loading="lazy" decoding="async" class="gg-cover-image"
+                            [src]="card.cover_url"
+                            [alt]="card.game_name"
+                            (error)="onAvatarError($event)"
+                          />
+                        }
+                        <div class="gg-cover-overlay"></div>
+                        <div class="gg-owned-content">
+                          <div class="gg-game-top">
+                            <h3>{{ card.game_name }}</h3>
+                            @if (card.rating) {
+                              <span class="gg-rating-badge">{{ card.rating }}</span>
+                            }
+                          </div>
+                        </div>
                       </div>
-                      <div class="gg-profile-fav-title">{{ card.game_name }}</div>
                     </div>
                   }
                 </div>
@@ -696,105 +795,94 @@
         <app-gg-card-trading-view
           [currentUserId]="currentUser?.id"
           [friends]="friends"
+          [filterUserId]="tradeFilterUserId"
+          [focusTradeId]="focusTradeId"
           (accepted)="onTradeAccepted($event)"
           (rejected)="onTradeRejected($event)"
           (cancelled)="onTradeCancelled($event)"
         ></app-gg-card-trading-view>
       } @else if (viewMode === 'trading-inline') {
-        <div class="gg-inline-trade-layout">
-          <div class="gg-inline-trade-main">
-            <div class="gg-inline-trade-head">
-              <button class="gg-inline-back" (click)="closeInlineTrade()">
-                <mat-icon svgIcon="arrow_back"></mat-icon> Back to Chat
-              </button>
-              <span class="gg-inline-trade-title">Trade with {{ tradeFilterUsername }}</span>
-            </div>
-            <app-gg-card-trading-view
-              [currentUserId]="currentUser?.id"
-              [friends]="friends"
-              [filterUserId]="tradeFilterUserId"
-              (accepted)="onTradeAccepted($event)"
-              (rejected)="onTradeRejected($event)"
-              (cancelled)="onTradeCancelled($event)"
-            ></app-gg-card-trading-view>
+        <div class="gg-inline-trade-main gg-inline-trade-main-full">
+          <div class="gg-inline-trade-head">
+            <button class="gg-inline-back" (click)="closeInlineTrade()">
+              <mat-icon svgIcon="arrow_back"></mat-icon> Back to Chat
+            </button>
+            <span class="gg-inline-trade-title">Trade with {{ tradeFilterUsername }}</span>
           </div>
-          <div class="gg-inline-trade-side">
-            <div class="gg-inline-side-head">
-              <img loading="lazy" decoding="async" [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
-              <span>{{ selectedDm?.otherUsername }}</span>
-            </div>
-            <div class="gg-inline-side-messages">
-              @for (msg of dmMessages; track msg.id) {
-                <div class="gg-inline-side-msg">
-                  <span class="gg-inline-side-msg-user">{{ msg.username }}</span>
-                  <span class="gg-inline-side-msg-text">{{ msg.content }}</span>
-                </div>
-              }
-            </div>
-            <div class="gg-inline-side-input">
-              <input type="text" [(ngModel)]="newMessage" (keydown.enter)="sendDm()" placeholder="Message..." />
-              <button (click)="sendDm()"><mat-icon svgIcon="send"></mat-icon></button>
-            </div>
-          </div>
+          <app-gg-card-trading-view
+            [currentUserId]="currentUser?.id"
+            [friends]="friends"
+            [filterUserId]="tradeFilterUserId"
+            [lockedUserId]="tradeFilterUserId"
+            [lockedUsername]="tradeFilterUsername"
+            [lockedAvatar]="tradeFilterAvatar"
+            [startOnProposeTab]="true"
+            [hideHeader]="true"
+            (accepted)="onTradeAccepted($event)"
+            (rejected)="onTradeRejected($event)"
+            (cancelled)="onTradeCancelled($event)"
+          ></app-gg-card-trading-view>
         </div>
       } @else if (viewMode === 'gift-inline') {
-        <div class="gg-inline-trade-layout">
-          <div class="gg-inline-trade-main">
-            <div class="gg-inline-trade-head">
-              <button class="gg-inline-back" (click)="closeInlineTrade()">
-                <mat-icon svgIcon="arrow_back"></mat-icon> Back to Chat
-              </button>
-              <span class="gg-inline-trade-title">Gift to {{ tradeFilterUsername }}</span>
-            </div>
-            <app-gg-card-trading-view
-              [currentUserId]="currentUser?.id"
-              [friends]="friends"
-              [filterUserId]="tradeFilterUserId"
-              [startOnGiftTab]="true"
-              (accepted)="onTradeAccepted($event)"
-              (rejected)="onTradeRejected($event)"
-              (cancelled)="onTradeCancelled($event)"
-            ></app-gg-card-trading-view>
+        <div class="gg-inline-trade-main gg-inline-trade-main-full">
+          <div class="gg-inline-trade-head">
+            <button class="gg-inline-back" (click)="closeInlineTrade()">
+              <mat-icon svgIcon="arrow_back"></mat-icon> Back to Chat
+            </button>
+            <span class="gg-inline-trade-title">Gift to {{ tradeFilterUsername }}</span>
           </div>
-          <div class="gg-inline-trade-side">
-            <div class="gg-inline-side-head">
-              <img loading="lazy" decoding="async" [src]="resolveAvatar(selectedDm, 'otherAvatar')" alt="" class="gg-inline-side-avatar" (error)="onAvatarError($event)" />
-              <span>{{ selectedDm?.otherUsername }}</span>
-            </div>
-            <div class="gg-inline-side-messages">
-              @for (msg of dmMessages; track msg.id) {
-                <div class="gg-inline-side-msg">
-                  <span class="gg-inline-side-msg-user">{{ msg.username }}</span>
-                  <span class="gg-inline-side-msg-text">{{ msg.content }}</span>
+          <app-gg-card-trading-view
+            [currentUserId]="currentUser?.id"
+            [friends]="friends"
+            [filterUserId]="tradeFilterUserId"
+            [lockedUserId]="tradeFilterUserId"
+            [lockedUsername]="tradeFilterUsername"
+            [lockedAvatar]="tradeFilterAvatar"
+            [startOnGiftTab]="true"
+            [hideHeader]="true"
+            (accepted)="onTradeAccepted($event)"
+            (rejected)="onTradeRejected($event)"
+            (cancelled)="onTradeCancelled($event)"
+          ></app-gg-card-trading-view>
+        </div>
+      } @else if (viewMode === 'dm' && !selectedDm) {
+        @if (dmLoading) {
+          <div class="gg-dm-empty-state">
+            <div class="gg-skeleton-title"></div>
+            <div class="gg-skeleton-subtitle"></div>
+            <div class="gg-dm-tiles">
+              @for (_ of [1,2,3,4,5,6]; track _) {
+                <div class="gg-dm-tile gg-dm-tile-skeleton">
+                  <div class="gg-skeleton-avatar-sm"></div>
+                  <div class="gg-dm-tile-info">
+                    <div class="gg-skeleton-text"></div>
+                    <div class="gg-skeleton-text gg-skeleton-text-sm"></div>
+                  </div>
                 </div>
               }
             </div>
-            <div class="gg-inline-side-input">
-              <input type="text" [(ngModel)]="newMessage" (keydown.enter)="sendDm()" placeholder="Message..." />
-              <button (click)="sendDm()"><mat-icon svgIcon="send"></mat-icon></button>
+          </div>
+        } @else {
+          <div class="gg-dm-empty-state">
+            <mat-icon class="gg-dm-icon-large" svgIcon="chat"></mat-icon>
+            <h2 class="gg-dm-title">DIRECT MESSAGES</h2>
+            <p>Pick a recent conversation or start a new one.</p>
+            <div class="gg-dm-controls">
+              <button class="gg-btn gg-btn-primary" (click)="openFriendsView()">OPEN FRIENDS</button>
+            </div>
+            <div class="gg-dm-tiles">
+              @for (conv of dmConversations; track conv.id) {
+                <div class="gg-dm-tile" (click)="selectDm(conv)">
+                  <img loading="lazy" decoding="async" [src]="resolveAvatar(conv, 'otherAvatar')" alt="" class="gg-dm-tile-img" (error)="onAvatarError($event)" />
+                  <div class="gg-dm-tile-info">
+                    <span class="gg-dm-tile-name">{{ conv.otherUsername }}</span>
+                    <span class="gg-dm-tile-status">{{ dmStatus(conv.otherUserId) }}</span>
+                  </div>
+                </div>
+              }
             </div>
           </div>
-        </div>
-      } @else if (viewMode === 'dm' && !selectedDm) {
-        <div class="gg-dm-empty-state">
-          <mat-icon class="gg-dm-icon-large">chat</mat-icon>
-          <h2 class="gg-dm-title">DIRECT MESSAGES</h2>
-          <p>Pick a recent conversation or start a new one.</p>
-          <div class="gg-dm-controls">
-            <button class="gg-btn gg-btn-primary" (click)="openFriendsView()">OPEN FRIENDS</button>
-          </div>
-          <div class="gg-dm-tiles">
-            @for (conv of dmConversations; track conv.id) {
-              <div class="gg-dm-tile" (click)="selectDm(conv)">
-                <img loading="lazy" decoding="async" [src]="resolveAvatar(conv, 'otherAvatar')" alt="" class="gg-dm-tile-img" (error)="onAvatarError($event)" />
-                <div class="gg-dm-tile-info">
-                  <span class="gg-dm-tile-name">{{ conv.otherUsername }}</span>
-                  <span class="gg-dm-tile-status">{{ dmStatus(conv.otherUserId) }}</span>
-                </div>
-              </div>
-            }
-          </div>
-        </div>
+        }
       }
     </main>
 
@@ -814,41 +902,21 @@
         (changeRole)="changeRole($event.member, $event.role)"
         (confirmKick)="confirmKick($event)"
         (confirmBan)="confirmBan($event)"
+        (memberContextMenu)="onMemberContextMenu($event)"
       ></app-member-list>
     }
   </div>
 
-  <!-- CREATE CHANNEL MODAL -->
-  @if (showCreateChannel) {
-    <div class="gg-overlay" (click)="showCreateChannel = false">
-      <div class="gg-modal" (click)="$event.stopPropagation()">
-        <h2 class="gg-modal-title">Create Channel</h2>
-        <input
-          class="gg-modal-input"
-          [(ngModel)]="newChannelName"
-          placeholder="Channel name"
-          (keyup.enter)="createChannel()"
-          autofocus
-        />
-        <div class="gg-modal-type-row">
-          <label class="gg-type-option" [class.active]="newChannelType === 'text'">
-            <input type="radio" name="chType" value="text" [(ngModel)]="newChannelType" />
-            <mat-icon svgIcon="tag"></mat-icon> Text
-          </label>
-          <label class="gg-type-option" [class.active]="newChannelType === 'voice'">
-            <input type="radio" name="chType" value="voice" [(ngModel)]="newChannelType" />
-            <mat-icon svgIcon="volume_up"></mat-icon> Voice
-          </label>
-        </div>
-        <div class="gg-modal-type-row">
-          <label class="gg-type-option" [class.active]="newChannelPrivate">
-            <input type="checkbox" [(ngModel)]="newChannelPrivate" />
-            <mat-icon svgIcon="lock"></mat-icon> Private
-          </label>
-        </div>
-        <div class="gg-modal-actions">
-          <button class="gg-btn gg-btn-cancel" (click)="showCreateChannel = false">Cancel</button>
-          <button class="gg-btn gg-btn-primary" (click)="createChannel()" [disabled]="!newChannelName.trim()">Create</button>
+  <!-- VOICE RECONNECT CONFIRM -->
+  @if (showVoiceReconnectConfirm) {
+    <div class="gg-overlay">
+      <div class="voice-reconnect-modal" (click)="$event.stopPropagation()">
+        <div class="vr-modal-top-line"></div>
+        <h2 class="vr-modal-title">Reconnect to Voice?</h2>
+        <p class="vr-modal-desc">You were disconnected from voice. Rejoin?</p>
+        <div class="vr-modal-actions">
+          <button class="vr-btn vr-btn-leave" (click)="cancelVoiceReconnect()">Leave</button>
+          <button class="vr-btn vr-btn-rejoin" (click)="confirmVoiceReconnect()">Rejoin</button>
         </div>
       </div>
     </div>
@@ -934,6 +1002,32 @@
         </button>
         <button class="cyber-ctx-item cyber-ctx-danger" (click)="deleteMessage(contextMenu.msg); closeContextMenu()">
           <mat-icon svgIcon="delete"></mat-icon> Delete
+        </button>
+      }
+    </div>
+  }
+
+  @if (voiceContextMenu) {
+    <div class="cyber-context-menu" [style.left]="voiceContextMenu.x + 'px'" [style.top]="voiceContextMenu.y + 'px'">
+      @if (voiceContextMenu.vm.userId !== currentUser?.id) {
+        <button class="cyber-ctx-item cyber-ctx-nudge" (click)="onVoiceContextNudge(voiceContextMenu.vm); closeVoiceContextMenu()">
+          <mat-icon svgIcon="notifications_active"></mat-icon> Nudge
+        </button>
+        <div class="cyber-ctx-divider"></div>
+      }
+      @if (voiceContextMenu.vm.userId === currentUser?.id) {
+        <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
+          <mat-icon svgIcon="mic_off"></mat-icon> {{ voiceMuted ? 'Unmute' : 'Mute' }}
+        </button>
+        <button class="cyber-ctx-item" (click)="onVoiceContextDeafen(voiceContextMenu.vm); closeVoiceContextMenu()">
+          <mat-icon svgIcon="headset_off"></mat-icon> {{ voiceDeafened ? 'Undeafen' : 'Deafen' }}
+        </button>
+      } @else {
+        <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
+          <mat-icon svgIcon="mic_off"></mat-icon> Mute
+        </button>
+        <button class="cyber-ctx-item" (click)="onVoiceContextDeafen(voiceContextMenu.vm); closeVoiceContextMenu()">
+          <mat-icon svgIcon="headset_off"></mat-icon> Deafen
         </button>
       }
     </div>

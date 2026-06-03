@@ -18,25 +18,32 @@ import { GgServer } from '../../../services/chat.service';
           (click)="goToDms.emit()"
           title="Direct Messages"
         >
-          <mat-icon class="gg-dm-svg">chat</mat-icon>
+          <mat-icon class="gg-dm-svg" svgIcon="chat"></mat-icon>
         </div>
 
-        <div class="gg-server-divider"></div>
+        @if (servers.length > 0) {
+          <div class="gg-server-divider"></div>
 
-        <!-- Render actual servers -->
-        <ng-container *ngFor="let s of servers">
-          <div
-            class="gg-server-icon"
-            [class.active]="selectedServer?.id === s.id"
-            (click)="selectServer.emit(s)"
-            [title]="s.name"
-          >
-            <img loading="lazy" decoding="async" *ngIf="serverAvatar && serverAvatar(s)" [src]="serverAvatar(s)" alt="{{ s.name }}" class="gg-server-img" (error)="$event.target.style.display='none'" />
-            <span *ngIf="!(serverAvatar && serverAvatar(s))" class="gg-server-initial">{{ serverInitial ? serverInitial(s) : (s.name ? s.name[0] : '?') }}</span>
-          </div>
-        </ng-container>
+          @for (s of servers; track s.id) {
+            <div
+              class="gg-server-icon"
+              [class.active]="selectedServer?.id === s.id"
+              (click)="selectServer.emit(s)"
+              [title]="s.name"
+            >
+              @if (serverAvatar && serverAvatar(s); as avatarUrl) {
+                @if (!loadedIds.has(s.id)) {
+                  <div class="gg-server-sk"></div>
+                }
+                <img loading="lazy" decoding="async" [src]="avatarUrl" alt="{{ s.name }}" class="gg-server-img" [class.gg-server-img-hidden]="!loadedIds.has(s.id)" (load)="onAvatarLoad(s.id)" />
+              } @else {
+                <span class="gg-server-initial">{{ serverInitial ? serverInitial(s) : (s.name ? s.name[0] : '?') }}</span>
+              }
+            </div>
+          }
 
-        <div class="gg-server-divider"></div>
+          <div class="gg-server-divider"></div>
+        }
 
         <div class="gg-server-icon gg-server-add" (click)="openCreateServer.emit()" title="Create or Join Server">
           <span class="gg-server-initial gg-add-plus">+</span>
@@ -49,7 +56,6 @@ import { GgServer } from '../../../services/chat.service';
 export class ServerListComponent {
   @Input() viewMode: string = 'friends';
   @Input() set servers(value: GgServer[]) {
-    console.log('ServerListComponent: servers input updated', value);
     this._servers = value;
   }
   get servers(): GgServer[] { return this._servers; }
@@ -59,7 +65,13 @@ export class ServerListComponent {
   @Input() selectedServer: GgServer | null = null;
   @Input() serverAvatar?: (server: GgServer) => string | null;
   @Input() serverInitial?: (server: GgServer) => string | null;
-  
+
+  loadedIds = new Set<number>();
+
+  onAvatarLoad(id: number): void {
+    this.loadedIds = new Set([...this.loadedIds, id]);
+  }
+
   @Output() goToDms = new EventEmitter<void>();
   @Output() selectServer = new EventEmitter<GgServer>();
   @Output() openCreateServer = new EventEmitter<void>();

@@ -36,6 +36,7 @@ export class TasksService {
       start_at: payload.start_at ?? now,
       end_at: payload.end_at ?? null,
       active: payload.active ?? true,
+      is_daily: payload.is_daily ?? false,
       created_by: createdBy,
       created_at: now,
       updated_at: now,
@@ -80,6 +81,7 @@ export class TasksService {
     const now = new Date();
     
     return tasks.filter((task: any) => {
+      if (task.is_daily) return true;
       if (task.task_kind === 'duration') {
         const start = task.start_at ? new Date(task.start_at) : null;
         const end = task.end_at ? new Date(task.end_at) : null;
@@ -230,11 +232,26 @@ export class TasksService {
 
     const existing = await this.repo.getUserTask(userId, taskId);
     const maxClaims = task.max_claims;
-    if (existing?.claimed && (!maxClaims || maxClaims <= 1)) {
-      throw new ForbiddenException('Task already claimed');
-    }
-    if (existing?.claimed && maxClaims && (existing.claims_count ?? 0) >= maxClaims) {
-      throw new ForbiddenException('Maximum claims reached');
+
+    if (existing?.claimed) {
+      if (task.is_daily) {
+        const claimedDate = new Date(existing.claimed_at).toDateString();
+        const today = new Date().toDateString();
+        if (claimedDate === today) {
+          if (!maxClaims || (existing.claims_count ?? 0) >= maxClaims) {
+            throw new ForbiddenException('Maximum claims reached');
+          }
+          // Allow additional claims within today for repeatable daily tasks
+        }
+        // Claimed on a previous day → allow re-claiming (daily reset)
+      } else {
+        if (!maxClaims || maxClaims <= 1) {
+          throw new ForbiddenException('Task already claimed');
+        }
+        if (maxClaims && (existing.claims_count ?? 0) >= maxClaims) {
+          throw new ForbiddenException('Maximum claims reached');
+        }
+      }
     }
 
     await this.repo.getOrCreateUserTask(taskId, userId);
@@ -268,18 +285,20 @@ export class TasksService {
         ? `You earned ${totalXp} XP from completing "${task?.title}"`
         : `You completed the task "${task?.title}"`;
 
-      try {
-        await this.chatGateway.createNotification(userId, 'task_completed', 'Task Completed!', notifBody, { taskId, xpAwarded: totalXp });
-      } catch {}
+      if (task.task_kind !== 'test') {
+        try {
+          await this.chatGateway.createNotification(userId, 'task_completed', 'Task Completed!', notifBody, { taskId, xpAwarded: totalXp });
+        } catch {}
 
-      // Per-user task-completed (replaces the global broadcast — the
-      // toast/banner is personal, no need to spam every socket).
-      this.chatGateway.emitTaskCompleted(userId, {
-        userId,
-        taskId,
-        taskTitle: task?.title,
-        xpAwarded: totalXp,
-      });
+        // Per-user task-completed (replaces the global broadcast — the
+        // toast/banner is personal, no need to spam every socket).
+        this.chatGateway.emitTaskCompleted(userId, {
+          userId,
+          taskId,
+          taskTitle: task?.title,
+          xpAwarded: totalXp,
+        });
+      }
 
       // Tell the UI to drop the task from the available list and bump
       // anything that depends on it (e.g., an achievement task with

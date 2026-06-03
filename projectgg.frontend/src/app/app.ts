@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, ViewChild, ViewContainerRef, ComponentRef, effect, Injector } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, filter } from 'rxjs';
 import { AuthService } from './services/auth.service';
 import { HeaderNavComponent } from './components/header-nav/header-nav.component';
 import { AdminNavComponent } from './components/admin-nav/admin-nav.component';
@@ -15,6 +15,7 @@ import { StatusNotificationService } from './services/notification.service';
 import { UserStatusService } from './services/user-status.service';
 import { TaskTrackerService } from './services/task-tracker.service';
 import { RealtimeService } from './services/realtime.service';
+import { SoundService } from './services/sound.service';
 
 @Component({
   selector: 'app-root',
@@ -28,6 +29,7 @@ export class App implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly apiUrl = environment.apiUrl;
   private statusMessageRef: ComponentRef<StatusMessageComponent> | null = null;
+  private lastHoverTarget: HTMLElement | null = null;
 
   @ViewChild('statusHost', { read: ViewContainerRef, static: true })
   private readonly statusHost!: ViewContainerRef;
@@ -50,6 +52,7 @@ export class App implements OnInit, OnDestroy {
     private readonly taskTracker: TaskTrackerService,
     private readonly realtime: RealtimeService,
     public readonly statusNotification: StatusNotificationService,
+    private readonly sound: SoundService,
   ) {}
 
   get currentStatus(): string {
@@ -59,6 +62,7 @@ export class App implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.profileDropdownOpen = false;
     this.cursor.init();
+    this.sound.init();
     this.userStatus.initialize();
     this.taskTracker.initialize();
     effect(() => {
@@ -98,6 +102,18 @@ export class App implements OnInit, OnDestroy {
     this.realtime.notifications.pipe(takeUntil(this.destroy$)).subscribe((n) => {
       this.statusNotification.show(n.body || n.title, n.type as any);
     });
+
+    // Force-close profile dropdown on every navigation
+    this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd),
+      takeUntil(this.destroy$),
+    ).subscribe(() => {
+      if (this.profileDropdownOpen) {
+        this.profileDropdownOpen = false;
+        this.cdr.markForCheck();
+      }
+    });
+
     this.applySavedStatus();
     this.loadConnections();
   }
@@ -125,6 +141,16 @@ export class App implements OnInit, OnDestroy {
     this.router.navigate(['/home']);
   }
 
+  onTradeOpened(payload: { tradeId: number; otherUserId: string; otherUsername: string; otherAvatar: string | null }): void {
+    // Store a global focus request the gg-chat page can read on init
+    try {
+      sessionStorage.setItem('gg_trade_focus', JSON.stringify(payload));
+    } catch { /* non-critical */ }
+    if (!this.router.url.startsWith('/gg-chat')) {
+      this.router.navigate(['/gg-chat']);
+    }
+  }
+
   @HostListener('document:keydown.escape')
   handleEscape(): void {
     if (this.profileDropdownOpen) {
@@ -145,6 +171,20 @@ export class App implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     }
+
+    const target = event.target as HTMLElement;
+    if (target.closest('.cyber-btn')) {
+      this.sound.play('cursor_click');
+    }
+  }
+
+  @HostListener('document:mouseover', ['$event'])
+  onDocumentMouseOver(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('.cyber-btn') && target !== this.lastHoverTarget) {
+      this.lastHoverTarget = target;
+      this.sound.play('cursor_hover');
+    }
   }
 
   onContextMenu(e: MouseEvent): void {
@@ -155,9 +195,9 @@ export class App implements OnInit, OnDestroy {
 
   getDefaultAvatar(gender?: string): string {
     const g = gender?.toLowerCase();
-    if (g === 'male') return 'assets/avatars/male.png';
-    if (g === 'female') return 'assets/avatars/female.png';
-    return 'assets/avatars/unknown.png';
+    if (g === 'male') return '/assets/avatars/male.png';
+    if (g === 'female') return '/assets/avatars/female.png';
+    return '/assets/avatars/unknown.png';
   }
 
   private loadConnections(): void {

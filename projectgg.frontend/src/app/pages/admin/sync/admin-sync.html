@@ -99,7 +99,7 @@
                   <div class="ms-file-wrap">
                     <input type="file" #fileInput (change)="onSeriesFileChange(s, $event)" accept="image/*" hidden />
                     <button mat-button type="button" class="ms-choose-btn" (click)="fileInput.click()">
-                      <mat-icon class="ms-attach">attach_file</mat-icon>
+                      <mat-icon class="ms-attach" svgIcon="attach_file"></mat-icon>
                       <span class="ms-choose-label">Choose file</span>
                     </button>
                     <span class="ms-filename">{{ getFileName(s) }}</span>
@@ -199,13 +199,16 @@
                             [class.sq-locked]="game.locked_columns?.includes(col)"
                             [title]="(game.locked_columns?.includes(col) ? 'Unlock' : 'Lock') + ' ' + col"
                             (click)="toggleColumnLock(game, col)">
-                        <mat-icon>{{ game.locked_columns?.includes(col) ? 'lock' : 'lock_open' }}</mat-icon>
+                        <mat-icon [svgIcon]="game.locked_columns?.includes(col) ? 'lock' : 'lock_open'"></mat-icon>
                       </span>
                     }
                   </div>
-                  @if (results.find(r => r.code === game.code); as result) {
+                  <button class="sq-pick-btn" [disabled]="syncing" (click)="searchAndPick(game)" title="Search and pick the correct game">
+                    <mat-icon svgIcon="find_replace"></mat-icon> PICK
+                  </button>
+          @if (results.find(r => r.code === game.code); as result) {
                     <span class="sq-status" [class.sq-ok]="result.success" [class.sq-err]="!result.success" (click)="toggleDetail(game.code)">
-                      <mat-icon>{{ result.success ? 'check' : 'close' }}</mat-icon>
+                      <mat-icon [svgIcon]="result.success ? 'check' : 'close'"></mat-icon>
                     </span>
                   } @else if (syncing && current === game.code) {
                     <span class="sq-status sq-loading"><mat-icon svgIcon="sync"></mat-icon></span>
@@ -214,6 +217,9 @@
                 @if (showDetail.has(game.code)) {
                   @if (results.find(r => r.code === game.code); as result) {
                     <div class="sq-result-detail" [class.sq-rd-err]="!result.success">
+                      @if (result.search_name && result.search_name !== game.name) {
+                        <div class="sq-rd-search">Searched: {{ result.search_name }}</div>
+                      }
                       @if (result.success) {
                         <div class="sq-rd-source-row">
                           <span class="sq-rd-source" [class]="'source-' + result.source">{{ result.source?.toUpperCase() || 'SYNCED' }}</span>
@@ -258,6 +264,57 @@
           @if (failCount > 0) {
             <span class="ss-fail"><mat-icon svgIcon="close"></mat-icon> {{ failCount }} failed</span>
           }
+          <button class="sync-btn sync-btn-tertiary ss-clear" (click)="clearResults()">
+            <mat-icon svgIcon="delete_sweep"></mat-icon> CLEAR
+          </button>
+        </div>
+      }
+
+      @if (showCandidates) {
+        <div class="candidate-overlay">
+          <div class="candidate-panel">
+            <div class="candidate-header">
+              <h3>PICK THE CORRECT GAME for "{{ pickingName }}"</h3>
+              <button class="sync-btn sync-btn-tertiary" (click)="cancelPick()">
+                <mat-icon svgIcon="close"></mat-icon> CANCEL
+              </button>
+            </div>
+            <div class="candidate-list">
+              @for (c of candidates; track c.id ?? c.name) {
+                <div class="candidate-card" (click)="pickCandidate(c)">
+                  <div class="candidate-cover">
+                    @if (c.cover_url) {
+                      <img [src]="c.cover_url" [alt]="c.name" />
+                    } @else {
+                      <div class="candidate-no-cover"><mat-icon svgIcon="image"></mat-icon></div>
+                    }
+                  </div>
+                  <div class="candidate-info">
+                    <div class="candidate-name">{{ c.name }}</div>
+                    @if (c.release_year) {
+                      <div class="candidate-year">{{ c.release_year }}</div>
+                    }
+                    @if (c.genres?.length) {
+                      <div class="candidate-genres">{{ c.genres.join(', ') }}</div>
+                    }
+                    @if (c.rating) {
+                      <div class="candidate-rating">Rating: {{ c.rating }}</div>
+                    }
+                    @if (c.sources?.length) {
+                      <div class="candidate-sources">
+                        @for (s of c.sources; track s) {
+                          <span class="candidate-src-badge" [class]="'src-' + s">{{ s }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+              @if (candidates.length === 0) {
+                <div class="candidate-empty">No candidates found.</div>
+              }
+            </div>
+          </div>
         </div>
       }
     }

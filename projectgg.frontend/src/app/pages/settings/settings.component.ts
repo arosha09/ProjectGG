@@ -1,5 +1,5 @@
 ﻿import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, ChangeDetectorRef, ChangeDetectionStrategy, HostListener } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, ElementRef, ViewChild, Renderer2 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -12,8 +12,10 @@ import { UsersService } from '../../services/users.service';
 import { GamesService } from '../../services/games.service';
 import { ThemeService } from '../../services/theme.service';
 import { CursorService, CursorSet, CursorType } from '../../services/cursor.service';
+import { SoundService, SoundEvent } from '../../services/sound.service';
 import { DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
 import { CyberDropdownComponent } from '../../components/cyber-dropdown/cyber-dropdown.component';
+import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
 import { StatusMessageComponent } from '../../components/status-message/status-message.component';
 import { UserStatusService, UserStatus } from '../../services/user-status.service';
 import { environment } from '../../../environments/environment';
@@ -40,13 +42,14 @@ interface PlatformConn {
     MatCardModule,
     MatFormFieldModule,
     CyberDropdownComponent,
+    CyberConfirmComponent,
     StatusMessageComponent,
   ],
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.scss'],
 })
-export class SettingsComponent implements OnInit {
-  activeSection: 'profile' | 'password' | 'connections' | 'appearance' = 'profile';
+export class SettingsComponent implements OnInit, AfterViewInit, OnDestroy {
+  activeSection: 'profile' | 'password' | 'appearance' | 'notifications' | 'connections' = 'profile';
   currentUser: any = null;
   currentTheme: 'green' | 'red' | 'yellow' | 'blue' | 'custom' = 'green';
   customColor = '#00f0ff';
@@ -55,6 +58,7 @@ export class SettingsComponent implements OnInit {
   themeDropdownOpen = false;
   statusDropdownOpen = false;
   profileDropdownOpen = false;
+  confirmData: { message: string; action: () => void; confirmLabel: string; cancelLabel: string; showCancel: boolean } | null = null;
 
   // Appearance settings
   availableThemes = [
@@ -67,8 +71,19 @@ export class SettingsComponent implements OnInit {
 
   // Cursor settings
   previewCursorSetId = 'cyber';
-  previewCursorType: CursorType = 'default';
+  private _previewCursorType: CursorType = 'default';
+  @ViewChild('cursorPreviewBox') cursorPreviewBox!: ElementRef<HTMLElement>;
   cursorSetDropdownOpen = false;
+
+  get previewCursorType(): CursorType {
+    return this._previewCursorType;
+  }
+
+  set previewCursorType(type: CursorType) {
+    this._previewCursorType = type;
+    this.applyPreviewCursor();
+  }
+  soundDropdownOpen = false;
 
   get cursorSets(): CursorSet[] {
     return this.cursor.cursorSets;
@@ -174,9 +189,11 @@ export class SettingsComponent implements OnInit {
     private readonly cdr: ChangeDetectorRef,
     private readonly http: HttpClient,
     private readonly games: GamesService,
+    private readonly renderer: Renderer2,
     private readonly cursor: CursorService,
     private readonly themeService: ThemeService,
     private readonly userStatus: UserStatusService,
+    private readonly sound: SoundService,
   ) {}
 
   ngOnInit(): void {
@@ -190,6 +207,7 @@ export class SettingsComponent implements OnInit {
     this.currentStatus = this.userStatus.currentStatus;
     this.populateForm();
     this.refreshProfile();
+    this.sound.init();
 
     this.userStatus.currentStatus$.subscribe((status) => {
       this.currentStatus = status;
@@ -244,6 +262,19 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  ngAfterViewInit(): void {
+    setTimeout(() => this.applyPreviewCursor());
+  }
+
+  ngOnDestroy(): void {}
+
+  private applyPreviewCursor(): void {
+    if (!this.cursorPreviewBox) return;
+    const el = this.cursorPreviewBox.nativeElement;
+    const cursorValue = this.previewCursorSet.cursors[this._previewCursorType];
+    el.style.setProperty('cursor', cursorValue, 'important');
+  }
+
   private refreshProfile(): void {
     this.http.get<any>(`${this.apiUrl}/users/profile`).subscribe({
       next: (profile) => {
@@ -270,10 +301,10 @@ export class SettingsComponent implements OnInit {
     if (this.currentUser?.avatar) return this.currentUser.avatar;
     const gender = this.currentUser?.gender?.toLowerCase();
     if (gender == null) return null;
-    if (gender === 'prefer not to say') return 'assets/avatars/unknown.png';
-    if (gender === 'male') return 'assets/avatars/male.png';
-    if (gender === 'female') return 'assets/avatars/female.png';
-    return 'assets/avatars/unknown.png';
+    if (gender === 'prefer not to say') return '/assets/avatars/unknown.png';
+    if (gender === 'male') return '/assets/avatars/male.png';
+    if (gender === 'female') return '/assets/avatars/female.png';
+    return '/assets/avatars/unknown.png';
   }
 
   get emailVerified(): boolean {
@@ -519,16 +550,16 @@ export class SettingsComponent implements OnInit {
   }
 
   unlinkPlatform(platform: string): void {
-    if (!confirm(`Unlink your ${this.getPlatformName(platform)} account?`)) return;
-    this.linking = true;
-    this.http.delete(`${this.apiUrl}/platform/unlink/${platform}`).subscribe({
-      next: () => {
-        this.linking = false;
-        this.loadConnections();
-        this.importResult = `${this.getPlatformName(platform)} unlinked`;
-        this.importError = false;
-        this.cdr.markForCheck();
-      },
+    this.showCyberConfirm(`Unlink your ${this.getPlatformName(platform)} account?`, () => {
+      this.linking = true;
+      this.http.delete(`${this.apiUrl}/platform/unlink/${platform}`).subscribe({
+        next: () => {
+          this.linking = false;
+          this.loadConnections();
+          this.importResult = `${this.getPlatformName(platform)} unlinked`;
+          this.importError = false;
+          this.cdr.markForCheck();
+        },
       error: (err) => {
         this.linking = false;
         this.importResult = err.error?.message || 'Failed to unlink';
@@ -536,6 +567,7 @@ export class SettingsComponent implements OnInit {
         this.cdr.markForCheck();
       },
     });
+    }, 'Unlink', 'Cancel');
   }
 
   getPlatformName(id: string): string {
@@ -601,6 +633,9 @@ export class SettingsComponent implements OnInit {
   setStatus(status: UserStatus): void {
     this.currentStatus = status;
     this.statusDropdownOpen = false;
+    if (status === 'dnd') {
+      this.sound.applyDndMode();
+    }
     this.userStatus.setStatus(status);
   }
 
@@ -629,11 +664,13 @@ export class SettingsComponent implements OnInit {
     const statusEl = document.querySelector('app-status-selector');
     const navEl = document.querySelector('app-header-nav');
     const cursorWrapper = document.querySelector('.cursor-selector-wrapper');
+    const soundWrapper = document.querySelector('.sound-selector-wrapper');
 
     if (themeEl && !themeEl.contains(target)) this.themeDropdownOpen = false;
     if (statusEl && !statusEl.contains(target)) this.statusDropdownOpen = false;
     if (navEl && !navEl.contains(target)) this.profileDropdownOpen = false;
     if (cursorWrapper && !cursorWrapper.contains(target)) this.cursorSetDropdownOpen = false;
+    if (soundWrapper && !soundWrapper.contains(target)) this.soundDropdownOpen = false;
   }
 
   logout(): void {
@@ -647,7 +684,7 @@ export class SettingsComponent implements OnInit {
   }
 
   // Section navigation
-  setActiveSection(section: 'profile' | 'password' | 'connections' | 'appearance'): void {
+  setActiveSection(section: 'profile' | 'password' | 'appearance' | 'notifications' | 'connections'): void {
     this.activeSection = section;
     if (section === 'connections') {
       this.loadConnections();
@@ -697,6 +734,7 @@ export class SettingsComponent implements OnInit {
   selectCursorSet(cursorSetId: string): void {
     this.previewCursorSetId = cursorSetId;
     this.cursorSetDropdownOpen = false;
+    setTimeout(() => this.applyPreviewCursor());
   }
 
   confirmCursorSet(): void {
@@ -704,6 +742,104 @@ export class SettingsComponent implements OnInit {
     this.appearanceMessage = 'Cursor set applied successfully';
     this.appearanceMessageType = 'success';
     setTimeout(() => (this.appearanceMessage = ''), 3000);
+  }
+
+  get currentSoundSetLabel(): string {
+    return this.sound.currentSet.label;
+  }
+
+  get soundSetItems(): DropdownItem[] {
+    return this.sound.soundSets.map((p) => ({
+      label: p.label,
+      action: () => this.selectSet(p.id),
+    }));
+  }
+
+  get soundSilentMode(): boolean {
+    return this.sound.isSilentMode;
+  }
+
+  get soundVolume(): number {
+    return this.sound.currentVolume;
+  }
+
+  get soundAllowIncomingNudges(): boolean {
+    return this.sound.isAllowIncomingNudges;
+  }
+
+  selectSet(id: string): void {
+    this.sound.selectSet(id);
+    this.soundDropdownOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onSoundVolumeChange(value: string): void {
+    this.sound.setVolume(parseFloat(value));
+    this.cdr.markForCheck();
+  }
+
+  toggleSilentMode(): void {
+    this.sound.toggleSilentMode();
+    this.cdr.markForCheck();
+  }
+
+  toggleSoundEvent(event: SoundEvent): void {
+    this.sound.toggleEvent(event);
+    this.cdr.markForCheck();
+  }
+
+  isSoundEventEnabled(event: SoundEvent): boolean {
+    return !this.sound.isEventEnabled(event) ? false : true;
+  }
+
+  isMuteGroupEnabled(): boolean {
+    return this.isSoundEventEnabled('voice_mute');
+  }
+
+  toggleMuteGroup(): void {
+    this.toggleSoundEvent('voice_mute');
+    if (this.isSoundEventEnabled('voice_mute')) {
+      if (!this.isSoundEventEnabled('voice_unmute')) this.toggleSoundEvent('voice_unmute');
+    } else {
+      if (this.isSoundEventEnabled('voice_unmute')) this.toggleSoundEvent('voice_unmute');
+    }
+  }
+
+  isDeafenGroupEnabled(): boolean {
+    return this.isSoundEventEnabled('voice_deafen');
+  }
+
+  toggleDeafenGroup(): void {
+    this.toggleSoundEvent('voice_deafen');
+    if (this.isSoundEventEnabled('voice_deafen')) {
+      if (!this.isSoundEventEnabled('voice_undeafen')) this.toggleSoundEvent('voice_undeafen');
+    } else {
+      if (this.isSoundEventEnabled('voice_undeafen')) this.toggleSoundEvent('voice_undeafen');
+    }
+  }
+
+  previewSound(event: SoundEvent): void {
+    this.sound.preview(event);
+  }
+
+  toggleSoundAllowIncomingNudges(): void {
+    this.sound.setAllowIncomingNudges(!this.soundAllowIncomingNudges);
+    this.cdr.markForCheck();
+  }
+
+  showCyberConfirm(message: string, action: () => void, confirmLabel = 'Confirm', cancelLabel = 'Cancel'): void {
+    this.confirmData = { message, action, confirmLabel, cancelLabel, showCancel: true };
+  }
+
+  executeConfirm(): void {
+    if (this.confirmData?.action) {
+      this.confirmData.action();
+    }
+    this.confirmData = null;
+  }
+
+  dismissConfirm(): void {
+    this.confirmData = null;
   }
 }
 

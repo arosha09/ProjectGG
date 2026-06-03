@@ -117,9 +117,55 @@ export class GamesSyncController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post(':code')
-  async syncGame(@Param('code') code: string, @Query('name') name?: string): Promise<SyncResultDto> {
+  async syncGame(
+    @Param('code') code: string,
+    @Query('name') name?: string,
+    @Query('search_only') searchOnly?: string,
+  ): Promise<SyncResultDto | SyncSearchResultDto[]> {
     const gameName = name || code;
+    if (searchOnly === 'true') {
+      return this.syncService.searchExternal(gameName, true);
+    }
     return this.syncService.syncGame(code, gameName);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('import-to-game/:code')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        cover_url: { type: 'string' },
+        genres: { type: 'array', items: { type: 'string' } },
+        external_id: { type: 'string' },
+        source: { type: 'string' },
+        rating: { type: 'number' },
+        release_year: { type: 'number' },
+        desc: { type: 'string' },
+        platforms: { type: 'array', items: { type: 'string' } },
+        sources: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['name'],
+    },
+  })
+  async importToGame(
+    @Param('code') code: string,
+    @Body() body: {
+      name: string;
+      cover_url?: string;
+      genres?: string[];
+      external_id?: string;
+      source?: string;
+      rating?: number | null;
+      release_year?: number | null;
+      desc?: string;
+      platforms?: string[];
+      sources?: string[];
+    },
+  ): Promise<SyncResultDto> {
+    return this.syncService.importToGame(code, body);
   }
 
   @UseGuards(JwtAuthGuard)
