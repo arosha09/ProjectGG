@@ -58,16 +58,6 @@ export class VoiceController {
     };
   }
 
-  @Get('debug-env')
-  debugEnv() {
-    return {
-      allKeys: Object.keys(process.env),
-      lkKey: process.env.LK_API_KEY ? 'SET (len=' + process.env.LK_API_KEY.length + ')' : 'MISSING',
-      lkSecret: process.env.LK_API_SECRET ? 'SET (len=' + process.env.LK_API_SECRET.length + ')' : 'MISSING',
-      lkUrl: process.env.LK_WS_URL || 'MISSING',
-    };
-  }
-
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('state')
