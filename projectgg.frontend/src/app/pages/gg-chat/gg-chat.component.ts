@@ -1325,7 +1325,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       };
 
-      await this.voiceService.joinChannel('', String(channel.id));
+      const guildId = String((channel as any).server_id ?? this.selectedServer?.id ?? '');
+      await this.voiceService.joinChannel(guildId, String(channel.id));
       this.voiceConnected = true;
       this.voiceChannelId = String(channel.id);
       this.voiceGuildId = String((channel as any).server_id ?? '');

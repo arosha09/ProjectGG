@@ -6,10 +6,6 @@ import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { VoiceGateway } from './voice.gateway';
 import { AccessToken } from 'livekit-server-sdk';
 
-const LK_API_KEY = process.env.LK_API_KEY || '';
-const LK_API_SECRET = process.env.LK_API_SECRET || '';
-const LK_WS_URL = process.env.LK_WS_URL || '';
-
 @ApiTags('Voice')
 @Controller('voice')
 export class VoiceController {
@@ -23,7 +19,13 @@ export class VoiceController {
     @Query('channelId') channelId: string,
     @Query('guildId') guildId: string,
   ): Promise<{ token: string; wsUrl: string }> {
-    if (!LK_API_KEY || !LK_API_SECRET || !LK_WS_URL) {
+    const lkKey = process.env.LK_API_KEY;
+    const lkSecret = process.env.LK_API_SECRET;
+    const lkUrl = process.env.LK_WS_URL;
+
+    console.log('[LiveKit] Key present:', !!lkKey, 'Secret present:', !!lkSecret, 'Url present:', !!lkUrl);
+
+    if (!lkKey || !lkSecret || !lkUrl) {
       throw new BadRequestException('LiveKit is not configured on this server');
     }
     if (!channelId || !guildId) {
@@ -33,7 +35,7 @@ export class VoiceController {
     const userId = req.user.id;
     const roomName = `gg-${guildId}-${channelId}`;
 
-    const token = new AccessToken(LK_API_KEY, LK_API_SECRET, {
+    const token = new AccessToken(lkKey, lkSecret, {
       identity: userId,
       ttl: '4h',
     });
@@ -48,7 +50,7 @@ export class VoiceController {
 
     return {
       token: await token.toJwt(),
-      wsUrl: LK_WS_URL,
+      wsUrl: lkUrl,
     };
   }
 
