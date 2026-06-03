@@ -5,11 +5,15 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { VoiceGateway } from './voice.gateway';
 import { AccessToken } from 'livekit-server-sdk';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Voice')
 @Controller('voice')
 export class VoiceController {
-  constructor(private readonly voiceGateway: VoiceGateway) {}
+  constructor(
+    private readonly voiceGateway: VoiceGateway,
+    private readonly config: ConfigService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -19,11 +23,11 @@ export class VoiceController {
     @Query('channelId') channelId: string,
     @Query('guildId') guildId: string,
   ): Promise<{ token: string; wsUrl: string }> {
-    const lkKey = process.env.LK_API_KEY;
-    const lkSecret = process.env.LK_API_SECRET;
-    const lkUrl = process.env.LK_WS_URL;
+    const lkKey = this.config.get<string>('LK_API_KEY');
+    const lkSecret = this.config.get<string>('LK_API_SECRET');
+    const lkUrl = this.config.get<string>('LK_WS_URL');
 
-    console.log('[LiveKit] Key present:', !!lkKey, 'Secret present:', !!lkSecret, 'Url present:', !!lkUrl);
+    console.log('[LiveKit] ConfigService Key present:', !!lkKey, '| process.env Key present:', !!process.env.LK_API_KEY);
 
     if (!lkKey || !lkSecret || !lkUrl) {
       throw new BadRequestException('LiveKit is not configured on this server');
