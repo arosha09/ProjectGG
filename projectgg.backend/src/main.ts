@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@n
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
+import * as http from 'http';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
@@ -94,7 +95,22 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
   if (process.env.SENTRY_DSN) Sentry.captureMessage('Backend started', 'info');
+
+  // Self-ping to keep Render free tier alive (every 12 min)
+  if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+    const url = process.env.RENDER_EXTERNAL_URL;
+    const ping = () => {
+      http.get(url, (res) => {
+        Logger.log(`Self-ping → ${res.statusCode}`, 'KeepAlive');
+      }).on('error', (err) => {
+        Logger.warn(`Self-ping failed: ${err.message}`, 'KeepAlive');
+      });
+    };
+    setInterval(ping, 12 * 60 * 1000);
+    Logger.log(`KeepAlive active — pinging ${url} every 12 min`, 'KeepAlive');
+  }
 }
 bootstrap();
