@@ -140,6 +140,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   private mutedWarningTimer: any = null;
   voiceConnecting = false;
   voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
+  allVoiceChannels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[] = [];
   speakingUsers = new Set<string>();
   localMicActive = false;
   micPermissionError: string | null = null;
@@ -1915,6 +1916,22 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
     this.socket.on('friend-request-sent', () => {
       this.loadFriends();
+    });
+
+    this.socket.on('all-voice-state', (data: { channels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[] }) => {
+      this.allVoiceChannels = data.channels;
+      if (this.voiceConnected && this.voiceChannelId) {
+        const myChannel = data.channels.find(c => c.channelId === this.voiceChannelId);
+        if (myChannel) {
+          this.voiceMembers = myChannel.users.map(u => ({ userId: u.userId, muted: u.muted, deafened: u.deafened }));
+          const speaking = new Set<string>();
+          for (const u of myChannel.users) {
+            if (u.speaking) speaking.add(u.userId);
+          }
+          this.speakingUsers = speaking;
+        }
+      }
+      this.cdr.markForCheck();
     });
 
     this.socket.on('dm-conversation-created', () => {

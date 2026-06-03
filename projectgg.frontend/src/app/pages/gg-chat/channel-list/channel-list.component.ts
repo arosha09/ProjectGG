@@ -451,6 +451,7 @@ export class ChannelListComponent {
   @Input() voiceDeafened = false;
   @Input() voiceChannelId: string | null = null;
   @Input() voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
+  @Input() allVoiceChannels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[] = [];
   @Input() members: GgServerMember[] = [];
   @Input() showDevicePicker = false;
   @Input() audioInputDevices: MediaDeviceInfo[] = [];
@@ -538,6 +539,10 @@ export class ChannelListComponent {
   voiceChannelUsers(channelId: string): { userId: string; muted: boolean; deafened: boolean }[] {
     if (this.voiceChannelId === channelId && this.voiceConnected) {
       return this.voiceMembers;
+    }
+    const remote = this.allVoiceChannels.find(c => c.channelId === channelId);
+    if (remote) {
+      return remote.users.map(u => ({ userId: u.userId, muted: u.muted, deafened: u.deafened }));
     }
     return [];
   }
