@@ -37,6 +37,7 @@
     "discord.js": "^14.26.4",
     "helmet": "^8.1.0",
     "libsodium-wrappers": "^0.8.4",
+    "livekit-server-sdk": "^2.15.4",
     "nodemailer": "^8.0.8",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
