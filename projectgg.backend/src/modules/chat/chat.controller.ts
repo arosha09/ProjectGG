@@ -117,8 +117,10 @@ export class ChatController {
 
   // DISCORD CHAT — MESSAGES (synced with Discord guild)
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Get('chat/history')
-  async getHistory(@Query('channel') channel?: string, @Query('limit') limit?: string) {
+  async getHistory(@Req() req: any, @Query('channel') channel?: string, @Query('limit') limit?: string) {
     // Backfill Discord history into DB if needed (idempotent — skips if already populated)
     if (channel) {
       await this.discordBot.backfillChannel(channel).catch(() => {});
@@ -126,6 +128,7 @@ export class ChatController {
     return this.chatService.getHistory(
       channel || undefined,
       limit ? Math.min(Number(limit), 100) : 50,
+      req.user.id,
     );
   }
 
@@ -196,6 +199,28 @@ export class ChatController {
     }
 
     return { url: signedData.signedUrl };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('chat/messages/:id')
+  async editMessage(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { content: string },
+  ) {
+    return this.chatService.editMessage(Number(id), req.user.id, body.content);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('chat/messages/:id')
+  async deleteMessage(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    await this.chatService.deleteMessage(Number(id), req.user.id);
+    return { ok: true };
   }
 
   private readonly fallbackGifs = [
@@ -415,6 +440,18 @@ export class ChatController {
     @Param('roleName') roleName: string,
   ) {
     return this.chatService.deleteServerRole(Number(serverId), req.user.id, roleName);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/servers/:serverId/roles/:roleName')
+  async updateServerRole(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Param('roleName') roleName: string,
+    @Body() body: { name?: string; color?: string; permissions?: string[] },
+  ) {
+    return this.chatService.updateServerRole(Number(serverId), req.user.id, roleName, body);
   }
 
   // ================================================================

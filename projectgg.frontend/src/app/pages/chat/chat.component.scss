@@ -520,6 +520,8 @@
   line-height: 1.5;
   word-break: break-word;
   letter-spacing: 0.3px;
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 
 .msg-system {

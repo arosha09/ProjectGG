@@ -520,6 +520,16 @@ html[data-theme='blue'] {
   -webkit-user-select: none;
 }
 
+input, textarea, select, [contenteditable] {
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
+code, pre, .code, .gg-invite-input, .gg-invite-meta strong {
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
 .app-root-shell {
   display: flex;
   flex-direction: column;

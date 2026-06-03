@@ -1,9 +1,9 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://projectgg-api.onrender.com/api',
+  apiUrl: 'https://projectgg-api-ch95.onrender.com/api',
   frontendUrl: 'https://projectgg-frontend.vercel.app',
   supabase: {
-    url: 'https://qpdpzookcfrylxnrqkwo.supabase.co',
+    url: 'https://lgesluubuaikmaigwwxq.supabase.co',
     bucketName: 'game_image',
   },
 };

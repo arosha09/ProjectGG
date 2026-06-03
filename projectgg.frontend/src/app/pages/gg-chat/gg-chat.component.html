@@ -67,6 +67,15 @@
 
     <!-- MAIN PANEL -->
     <main class="gg-main">
+      <!-- MUTED/DEAFENED CYBER ALERT (non-voice views) -->
+      @if (mutedFeedbackAlert) {
+        <div class="gg-muted-feedback-alert">
+          <mat-icon svgIcon="warning"></mat-icon>
+          <span>{{ mutedFeedbackAlert }}</span>
+          <button class="gg-muted-feedback-x" (click)="dismissMutedFeedback()">&times;</button>
+        </div>
+      }
+
       <!-- DM CHAT -->
       @if (viewMode === 'dm' && selectedDm) {
         <div class="gg-channel-header gg-dm-header">
@@ -378,7 +387,7 @@
           @if (micPermissionError) {
             <div class="gg-voice-mic-error">
               <mat-icon class="gg-voice-mic-error-icon" svgIcon="mic_off"></mat-icon>
-              <h3 class="gg-voice-mic-error-title">Microphone Access Required</h3>
+              <h3 class="gg-voice-mic-error-title">{{ micDeviceDisconnected ? 'Audio Device Disconnected' : 'Microphone Access Required' }}</h3>
               <p class="gg-voice-mic-error-msg">{{ micPermissionError }}</p>
               <div class="gg-voice-mic-error-actions">
                 <button class="gg-voice-mic-retry" (click)="selectChannel(selectedChannel)">
@@ -989,6 +998,9 @@
 
   @if (contextMenu) {
     <div class="cyber-context-menu" [style.left]="contextMenu.x + 'px'" [style.top]="contextMenu.y + 'px'">
+      <button class="cyber-ctx-item" (click)="copyMessageText(contextMenu.msg); closeContextMenu()">
+        <mat-icon svgIcon="content_copy"></mat-icon> Copy Text
+      </button>
       <button class="cyber-ctx-item" (click)="startReply(contextMenu.msg); closeContextMenu()">
         <mat-icon svgIcon="reply"></mat-icon> Reply
       </button>

@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Body, Req, UseGuards, BadRequestException,
+  Controller, Post, Get, Body, Req, UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
@@ -9,6 +9,13 @@ import { VoiceGateway } from './voice.gateway';
 @Controller('voice')
 export class VoiceController {
   constructor(private readonly voiceGateway: VoiceGateway) {}
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('state')
+  getVoiceState(): { channelId: string; guildId: string; userId: string; muted: boolean; deafened: boolean }[] {
+    return this.voiceGateway.getVoiceState();
+  }
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')

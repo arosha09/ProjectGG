@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ChatService, GgServer, GgServerMember, GgChannel } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
 import { UsersService } from '../../services/users.service';
+import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
 
 const ALL_PERMISSIONS = [
   { id: 'manage_server', label: 'Manage Server', desc: 'Rename server, change settings' },
@@ -20,7 +21,7 @@ const ALL_PERMISSIONS = [
   selector: 'app-server-settings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule, CyberConfirmComponent],
   templateUrl: './server-settings.component.html',
   styleUrls: ['./server-settings.component.scss'],
 })
@@ -230,11 +231,18 @@ export class ServerSettingsComponent implements OnInit {
 
   saveEditRole(): void {
     if (!this.editRoleName.trim() || !this.editingRole) return;
-    // For now just update locally (backend role update can be added later)
-    this.editingRole.name = this.editRoleName.trim();
-    this.editingRole.color = this.editRoleColor;
-    this.editingRole.permissions = [...this.editRolePermissions];
-    this.editingRole = null;
+    const oldName = this.editingRole.name;
+    this.chatService.updateServerRole(this.serverId, oldName, {
+      name: this.editRoleName.trim(),
+      color: this.editRoleColor,
+      permissions: [...this.editRolePermissions],
+    }).subscribe({
+      next: (updated) => {
+        this.roles = this.roles.map(r => r.name === oldName ? { ...r, ...updated, permissions: this.editRolePermissions } : r);
+        this.editingRole = null;
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   cancelEditRole(): void {
@@ -308,6 +316,45 @@ export class ServerSettingsComponent implements OnInit {
   getRoleColor(roleName: string): string {
     const role = this.roles.find((r: any) => r.name === roleName);
     return role?.color || 'var(--color-primary)';
+  }
+
+  // ===== DANGER ZONE =====
+
+  confirmData: { message: string; action: () => void; confirmLabel: string; cancelLabel: string; showCancel: boolean } | null = null;
+
+  showCyberConfirm(message: string, action: () => void, confirmLabel = 'Confirm', cancelLabel = 'Cancel'): void {
+    this.confirmData = { message, action, confirmLabel, cancelLabel, showCancel: true };
+    this.cdr.markForCheck();
+  }
+
+  executeConfirm(): void {
+    if (this.confirmData?.action) {
+      this.confirmData.action();
+    }
+    this.confirmData = null;
+  }
+
+  dismissConfirm(): void {
+    this.confirmData = null;
+  }
+
+  confirmDeleteServer(): void {
+    if (!this.server) return;
+    this.showCyberConfirm(
+      `Delete "${this.server.name}" and all its channels? This cannot be undone.`,
+      () => this.deleteServer(),
+      'Delete Server',
+      'Cancel'
+    );
+  }
+
+  deleteServer(): void {
+    if (!this.server) return;
+    this.chatService.deleteServer(this.serverId).subscribe({
+      next: () => {
+        this.router.navigate(['/gg-chat']);
+      },
+    });
   }
 
   goBack(): void {

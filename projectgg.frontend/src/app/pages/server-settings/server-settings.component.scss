@@ -895,3 +895,50 @@
   .ss-nav-item { padding: 8px 12px; font-size: 12px; white-space: nowrap; }
   .ss-content { padding: 16px; }
 }
+
+// ── DANGER ZONE ──
+.ss-danger-zone {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid rgba(255, 23, 68, 0.3);
+}
+
+.ss-danger-title {
+  color: var(--neon-red) !important;
+  text-shadow: 0 0 10px rgba(255, 23, 68, 0.3) !important;
+}
+
+.ss-danger-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255, 23, 68, 0.25);
+  border-radius: 4px;
+  background: rgba(255, 23, 68, 0.04);
+
+  .ss-btn-danger {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+}
+
+.ss-danger-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ss-danger-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--neon-red);
+}
+
+.ss-danger-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 400px;
+}

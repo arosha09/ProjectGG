@@ -118,6 +118,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.gifSearchQuery = value;
   }
 
+  isInVoiceView(): boolean {
+    return this.viewMode === 'server' && this.selectedChannel?.type === 'voice' && this.voiceConnected;
+  }
+
   // Members
   members: GgServerMember[] = [];
   membersLoading = false;
@@ -129,12 +133,16 @@ export class GgChatComponent implements OnInit, OnDestroy {
   voiceMuted = false;
   voiceDeafened = false;
   showMutedWarning = false;
+  mutedFeedbackAlert: string | null = null;
+  private mutedFeedbackTimer: any = null;
+  private mutedFeedbackSuppressedUntil = 0;
   private mutedWarningTimer: any = null;
   voiceConnecting = false;
   voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
   speakingUsers = new Set<string>();
   localMicActive = false;
   micPermissionError: string | null = null;
+  micDeviceDisconnected = false;
   showVoiceReconnectConfirm = false;
   pendingVoiceChannel: GgChannel | null = null;
   // Audio device selection
@@ -232,9 +240,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     private readonly userStatus: UserStatusService,
     private readonly usersService: UsersService,
     private readonly xpService: XpService,
-    private readonly nudgeService: VoiceNudgeService,
-    private readonly soundService: SoundService,
-  ) {}
+  private readonly nudgeService: VoiceNudgeService,
+  private readonly soundService: SoundService,
+) {}
 
   ngOnInit(): void {
     this.currentUser = this.auth.getCurrentUser();
@@ -511,7 +519,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.creatingServer = true;
     this.chatService.createServer(name).subscribe({
       next: (server) => {
-        this.servers = [...this.servers, server];
+        if (!this.servers.find(s => s.id === server.id)) {
+          this.servers = [...this.servers, server];
+        }
         this.creatingServer = false;
         this.viewMode = 'server';
         this.cdr.markForCheck();
@@ -704,7 +714,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.sending = true;
     this.chatService.sendGgMessage(content, String(this.selectedChannel.id), this.pendingAttachmentUrl ?? undefined, this.replyToMessage?.id).subscribe({
       next: (msg) => {
-        this.messages = [...this.messages, msg];
+        if (!this.messages.some(m => m.id === msg.id)) {
+          this.messages = [...this.messages, msg];
+        }
         this.newMessage = '';
         this.pendingAttachmentUrl = null;
         this.replyToMessage = null;
@@ -1239,8 +1251,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
             clearTimeout(this.mutedWarningTimer);
             this.mutedWarningTimer = null;
           }
-          this.showMutedWarning = true;
-        } else {
+        this.showMutedWarning = true;
+        this.triggerMutedFeedback();
+      } else {
           if (this.mutedWarningTimer) {
             clearTimeout(this.mutedWarningTimer);
           }
@@ -1288,6 +1301,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
         }
       };
       this.voiceService.onMicPermissionError = (err) => {
+        this.stopDeviceMonitoring();
         this.micPermissionError = err;
         this.voiceConnected = false;
         this.voiceChannelId = null;
@@ -1295,10 +1309,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.voiceDeafened = false;
         this.voiceMembers = [];
         this.localMicActive = false;
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onVoiceNudge = (fromUserId, fromUsername) => {
-        this.nudgeService.handleIncomingNudge(fromUserId, fromUsername);
         this.cdr.markForCheck();
       };
       this.voiceService.onDisconnected = () => {
@@ -1318,7 +1328,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.voiceGuildId = String((channel as any).server_id ?? '');
       this.voiceMuted = false;
       this.voiceDeafened = false;
-      this.enumerateAudioDevices();
+      this.startDeviceMonitoring();
     } catch (e) {
       console.error('Voice join failed:', e);
     }
@@ -1331,13 +1341,51 @@ export class GgChatComponent implements OnInit, OnDestroy {
       const devices = await navigator.mediaDevices.enumerateDevices();
       this.audioInputDevices = devices.filter(d => d.kind === 'audioinput');
       this.audioOutputDevices = devices.filter(d => d.kind === 'audiooutput');
+      this.checkInputDeviceAvailable();
       this.cdr.markForCheck();
     } catch (e) {
       console.error('Failed to enumerate devices:', e);
     }
   }
 
+  private deviceChangeHandler: (() => void) | null = null;
+
+  private startDeviceMonitoring(): void {
+    this.stopDeviceMonitoring();
+    this.deviceChangeHandler = () => this.enumerateAudioDevices();
+    navigator.mediaDevices.addEventListener('devicechange', this.deviceChangeHandler);
+    this.enumerateAudioDevices();
+  }
+
+  private stopDeviceMonitoring(): void {
+    if (this.deviceChangeHandler) {
+      navigator.mediaDevices.removeEventListener('devicechange', this.deviceChangeHandler);
+      this.deviceChangeHandler = null;
+    }
+  }
+
+  private checkInputDeviceAvailable(): void {
+    if (!this.voiceConnected) return;
+    if (this.audioInputDevices.length === 0) {
+      this.micDeviceDisconnected = true;
+      this.micPermissionError = 'No microphone detected. Please connect an audio input device.';
+      this.voiceService.onMicPermissionError?.(this.micPermissionError);
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.selectedInputId && this.selectedInputId !== 'default') {
+      const stillAvailable = this.audioInputDevices.some(d => d.deviceId === this.selectedInputId);
+      if (!stillAvailable) {
+        this.micDeviceDisconnected = true;
+        this.micPermissionError = 'Your microphone has been disconnected. Please reconnect it or select a different device.';
+        this.voiceService.onMicPermissionError?.(this.micPermissionError);
+        this.cdr.markForCheck();
+      }
+    }
+  }
+
   leaveVoice(): void {
+    this.stopDeviceMonitoring();
     this.voiceService.onDisconnected = null;
     this.voiceService.leaveChannel();
     this.voiceConnected = false;
@@ -1348,12 +1396,14 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceMembers = [];
     this.localMicActive = false;
     this.showMutedWarning = false;
+    this.clearMutedFeedback();
     localStorage.removeItem('pendingVoiceReconnect');
     if (this.mutedWarningTimer) {
       clearTimeout(this.mutedWarningTimer);
       this.mutedWarningTimer = null;
     }
     this.micPermissionError = null;
+    this.micDeviceDisconnected = false;
     this.voiceService.onMemberJoined = null;
     this.voiceService.onMemberLeft = null;
     this.voiceService.onUserSpeaking = null;
@@ -1364,7 +1414,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceService.onUserUndeafened = null;
     this.voiceService.onLocalSpeaking = null;
     this.voiceService.onMicPermissionError = null;
-    this.voiceService.onVoiceNudge = null;
     this.voiceService.onDisconnected = null;
     this.showVoiceReconnectConfirm = false;
     this.pendingVoiceChannel = null;
@@ -1396,6 +1445,36 @@ export class GgChatComponent implements OnInit, OnDestroy {
     }, 2500);
   }
 
+  private triggerMutedFeedback(): void {
+    if (Date.now() < this.mutedFeedbackSuppressedUntil) return;
+    if (!this.voiceMuted && !this.voiceDeafened) return;
+    if (this.isInVoiceView()) return;
+    if (this.mutedFeedbackAlert) return;
+    const msg = this.voiceDeafened
+      ? "YOU'RE DEAFENED — OTHERS CAN'T HEAR YOU"
+      : "YOU'RE MUTED — OTHERS CAN'T HEAR YOU";
+    this.mutedFeedbackAlert = msg;
+    this.cdr.markForCheck();
+  }
+
+  dismissMutedFeedback(): void {
+    if (this.mutedFeedbackTimer) clearTimeout(this.mutedFeedbackTimer);
+    this.mutedFeedbackAlert = null;
+    this.mutedFeedbackSuppressedUntil = Date.now() + 10 * 60 * 1000;
+    this.mutedFeedbackTimer = setTimeout(() => {
+      this.mutedFeedbackSuppressedUntil = 0;
+      this.triggerMutedFeedback();
+    }, 10 * 60 * 1000);
+    this.cdr.markForCheck();
+  }
+
+  private clearMutedFeedback(): void {
+    if (this.mutedFeedbackTimer) clearTimeout(this.mutedFeedbackTimer);
+    this.mutedFeedbackAlert = null;
+    this.mutedFeedbackSuppressedUntil = 0;
+    this.cdr.markForCheck();
+  }
+
   private syncLocalVoiceMemberState(muted: boolean, deafened: boolean): void {
     const currentUserId = this.auth.getCurrentUser()?.id;
     if (!currentUserId) return;
@@ -1415,6 +1494,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.voiceDeafened = false;
       }
       this.syncLocalVoiceMemberState(false, this.voiceDeafened);
+      this.clearMutedFeedback();
     } else {
       // Turning ON mute (just mute, don't change deafen state)
       this.voiceService.mute();
@@ -1432,6 +1512,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.voiceDeafened = false;
       this.voiceMuted = false;
       this.syncLocalVoiceMemberState(false, false);
+      this.clearMutedFeedback();
     } else {
       // Turning ON deafen: also mute
       this.voiceService.deafen();
@@ -1450,6 +1531,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   dismissMicError(): void {
     this.micPermissionError = null;
+    this.micDeviceDisconnected = false;
+    if (this.voiceConnected) this.leaveVoice();
     this.cdr.markForCheck();
   }
 
@@ -1511,7 +1594,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.sending = true;
     this.chatService.sendDmMessage(content, this.selectedDm.id, this.pendingAttachmentUrl ?? undefined).subscribe({
       next: (msg) => {
-        this.dmMessages = [...this.dmMessages, msg];
+        if (!this.dmMessages.some(m => m.id === msg.id)) {
+          this.dmMessages = [...this.dmMessages, msg];
+        }
         this.newMessage = '';
         this.pendingAttachmentUrl = null;
         this.sending = false;
@@ -1605,6 +1690,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
   private connectSocket(): void {
     this.socket = this.chatService.connect();
 
+    this.socket.on('voice-nudge', (data: { fromUserId: string; fromUsername: string }) => {
+      this.nudgeService.handleIncomingNudge(data.fromUserId, data.fromUsername);
+    });
+
     this.socket.on('user-status', (payload: any) => {
       const userId = String(payload?.userId ?? payload?.user_id ?? '');
       const isSelf = userId && this.currentUser?.id && String(userId) === String(this.currentUser.id);
@@ -1631,7 +1720,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
     this.socket.on('message', (msg: ChatMessage) => {
       if (this.viewMode === 'server' && this.selectedChannel && msg.channel_id === String(this.selectedChannel.id)) {
-        this.messages = [...this.messages, msg];
+        if (!this.messages.some(m => m.id === msg.id)) {
+          this.messages = [...this.messages, msg];
+        }
         this.cdr.markForCheck();
         this.scrollToBottom(true);
       }
@@ -1640,7 +1731,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.socket.on('dm-message', (msg: ChatMessage) => {
       const convId = msg.channel_id?.startsWith('dm_') ? Number(msg.channel_id.replace('dm_', '')) : null;
       if (this.viewMode === 'dm' && this.selectedDm && convId === this.selectedDm.id) {
-        this.dmMessages = [...this.dmMessages, msg];
+        if (!this.dmMessages.some(m => m.id === msg.id)) {
+          this.dmMessages = [...this.dmMessages, msg];
+        }
         this.cdr.markForCheck();
         this.scrollToBottom(true);
       }
@@ -1888,6 +1981,13 @@ export class GgChatComponent implements OnInit, OnDestroy {
       }
     }
 
+    if (this.voiceContextMenu) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.cyber-context-menu')) {
+        this.closeVoiceContextMenu();
+      }
+    }
+
     if (this.emojiPickerMsg) {
       const target = event.target as HTMLElement;
       if (!target.closest('.emoji-picker-popup') && !target.closest('.emoji-picker-popup-backdrop')) {
@@ -1902,6 +2002,21 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     }
+
+    if (this.showDevicePicker) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.gg-voice-device-picker') && !target.closest('.gg-voice-control-btn')) {
+        this.showDevicePicker = false;
+        this.cdr.markForCheck();
+      }
+    }
+
+    if (this.micPermissionError) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.gg-voice-mic-error')) {
+        this.dismissMicError();
+      }
+    }
   }
 
   @HostListener('document:keydown.escape')
@@ -1909,8 +2024,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
     if (this.showGifPicker) { this.showGifPicker = false; this.cdr.markForCheck(); }
     if (this.confirmData) { this.cancelConfirm(); this.cdr.markForCheck(); }
     if (this.contextMenu) { this.closeContextMenu(); this.cdr.markForCheck(); }
+    if (this.voiceContextMenu) { this.closeVoiceContextMenu(); this.cdr.markForCheck(); }
     if (this.emojiPickerMsg) { this.closeEmojiPicker(); this.cdr.markForCheck(); }
     if (this.serverDropdownOpen) { this.closeServerDropdown(); this.cdr.markForCheck(); }
+    // ... rest of the existing escape handlers ...
     if (this.showServerSettings) { this.showServerSettings = false; this.cdr.markForCheck(); }
     if (this.showCreateServer) { this.showCreateServer = false; this.cdr.markForCheck(); }
     if (this.showCreateChannel) { this.showCreateChannel = false; this.cdr.markForCheck(); }
@@ -1919,13 +2036,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
     if (this.showInviteLinks) { this.closeInviteLinks(); this.cdr.markForCheck(); }
     if (this.showJoinServer) { this.showJoinServer = false; this.cdr.markForCheck(); }
     if (this.showDevicePicker) { this.showDevicePicker = false; this.cdr.markForCheck(); }
-    if (this.micPermissionError) { this.micPermissionError = null; this.cdr.markForCheck(); }
+    if (this.micPermissionError) { this.dismissMicError(); }
+    if (this.mutedFeedbackAlert) { this.dismissMutedFeedback(); }
   }
 
   @HostListener('window:blur')
   handleWindowBlur(): void {
     if (this.contextMenu) {
       this.closeContextMenu();
+      this.cdr.markForCheck();
+    }
+    if (this.voiceContextMenu) {
+      this.closeVoiceContextMenu();
       this.cdr.markForCheck();
     }
     if (this.emojiPickerMsg) {
@@ -2157,6 +2279,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   closeContextMenu(): void {
     this.contextMenu = null;
+  }
+
+  copyMessageText(msg: ChatMessage): void {
+    navigator.clipboard.writeText(msg.content).catch(() => {});
   }
 
   openVoiceContextMenu(event: MouseEvent, vm: any): void {

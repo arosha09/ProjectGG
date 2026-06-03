@@ -275,6 +275,10 @@ export class ChatService {
     return this.http.delete(`${this.apiUrl}/gg/servers/${serverId}/roles/${roleName}`);
   }
 
+  updateServerRole(serverId: number, roleName: string, data: { name?: string; color?: string; permissions?: string[] }): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/gg/servers/${serverId}/roles/${roleName}`, data);
+  }
+
   emitStatus(status: string): void {
     if (this.socket) {
       this.socket.emit('status-change', { status });

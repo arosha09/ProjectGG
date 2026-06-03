@@ -11,12 +11,19 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { VoiceService } from './voice.service';
 import { UsersRepository } from 'src/repositories/users.repository';
+import { ChatGateway } from '../chat/chat.gateway';
 
 interface VoiceClient {
   socketId: string;
   userId: string;
   guildId: string;
   channelId: string;
+}
+
+interface UserVoiceState {
+  muted: boolean;
+  deafened: boolean;
+  speaking: boolean;
 }
 
 @WebSocketGateway({
@@ -28,13 +35,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server!: Server;
 
   private readonly logger = new Logger(VoiceGateway.name);
-  private clients = new Map<string, VoiceClient>(); // socketId -> client info
-  private channelMembers = new Map<string, Set<string>>(); // channelId -> Set<socketId>
-  private nudgeRateLimit = new Map<string, number[]>(); // userId -> timestamps
+  private clients = new Map<string, VoiceClient>();
+  private channelMembers = new Map<string, Set<string>>();
+  private userState = new Map<string, UserVoiceState>(); // userId -> state
+  private nudgeRateLimit = new Map<string, number[]>();
 
   constructor(
     private readonly voiceService: VoiceService,
     private readonly usersRepository: UsersRepository,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   handleConnection(client: Socket): void {
@@ -49,8 +58,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Voice client disconnected: ${client.id}`);
   }
 
+  private broadcastVoiceState(): void {
+    const channelMap = new Map<string, any[]>();
+    for (const [socketId, info] of this.clients.entries()) {
+      if (!channelMap.has(info.channelId)) channelMap.set(info.channelId, []);
+      const state = this.userState.get(info.userId) ?? { muted: false, deafened: false, speaking: false };
+      channelMap.get(info.channelId)!.push({ userId: info.userId, ...state });
+    }
+    const channels = Array.from(channelMap.entries()).map(([channelId, users]) => ({ channelId, users }));
+    this.chatGateway.server.emit('all-voice-state', { channels });
+  }
+
   private removeClient(socketId: string, info: VoiceClient): void {
     this.clients.delete(socketId);
+    this.userState.delete(info.userId);
     const members = this.channelMembers.get(info.channelId);
     if (members) {
       members.delete(socketId);
@@ -61,6 +82,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.server.to(info.channelId).emit('member-left', { userId: info.userId });
       }
     }
+    this.broadcastVoiceState();
   }
 
   @SubscribeMessage('join-channel')
@@ -74,6 +96,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     await this.voiceService.joinChannel(guildId, channelId);
     this.clients.set(client.id, { socketId: client.id, userId, guildId, channelId });
+    this.userState.set(userId, { muted: false, deafened: false, speaking: false });
     client.join(channelId);
     if (!this.channelMembers.has(channelId)) this.channelMembers.set(channelId, new Set());
     this.channelMembers.get(channelId)!.add(client.id);
@@ -82,11 +105,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .map(sid => this.clients.get(sid))
       .filter((c): c is VoiceClient => c !== undefined && c.socketId !== client.id);
     if (existingMembers.length > 0) {
-      client.emit('existing-members', { members: existingMembers.map(m => ({ userId: m.userId })) });
+      client.emit('existing-members', {
+        members: existingMembers.map(m => {
+          const state = this.userState.get(m.userId) ?? { muted: false, deafened: false, speaking: false };
+          return { userId: m.userId, muted: state.muted, deafened: state.deafened };
+        }),
+      });
     }
 
-    client.to(channelId).emit('member-joined', { userId });
+    client.to(channelId).emit('member-joined', { userId, muted: false, deafened: false });
     this.logger.log(`User ${userId} joined voice channel ${channelId}`);
+    this.broadcastVoiceState();
   }
 
   @SubscribeMessage('leave-channel')
@@ -95,15 +124,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!info) return;
     this.removeClient(client.id, info);
     client.leave(info.channelId);
+    this.broadcastVoiceState();
   }
 
   @SubscribeMessage('audio-frame')
   async handleAudioFrame(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { guildId: string; audio: Buffer },
+    @MessageBody() data: { guildId: string; channelId: string; audio: Buffer },
   ): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state?.muted || state?.deafened) return; // don't relay audio from muted/deafened users
     await this.voiceService.playAudio(data.guildId, Buffer.from(data.audio));
     client.to(info.channelId).emit('audio-frame', {
       userId: info.userId,
@@ -115,14 +147,60 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleMute(@ConnectedSocket() client: Socket): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) state.muted = true;
     client.to(info.channelId).emit('user-muted', { userId: info.userId });
+    this.broadcastVoiceState();
   }
 
   @SubscribeMessage('unmute')
   async handleUnmute(@ConnectedSocket() client: Socket): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) state.muted = false;
     client.to(info.channelId).emit('user-unmuted', { userId: info.userId });
+    this.broadcastVoiceState();
+  }
+
+  @SubscribeMessage('deafen')
+  async handleDeafen(@ConnectedSocket() client: Socket): Promise<void> {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) { state.deafened = true; state.muted = true; }
+    client.to(info.channelId).emit('user-deafened', { userId: info.userId });
+    this.broadcastVoiceState();
+  }
+
+  @SubscribeMessage('undeafen')
+  async handleUndeafen(@ConnectedSocket() client: Socket): Promise<void> {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) { state.deafened = false; state.muted = false; }
+    client.to(info.channelId).emit('user-undeafened', { userId: info.userId });
+    this.broadcastVoiceState();
+  }
+
+  @SubscribeMessage('speaking')
+  async handleSpeaking(@ConnectedSocket() client: Socket): Promise<void> {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) state.speaking = true;
+    client.to(info.channelId).emit('user-speaking', { userId: info.userId });
+    this.broadcastVoiceState();
+  }
+
+  @SubscribeMessage('stopped-speaking')
+  async handleStoppedSpeaking(@ConnectedSocket() client: Socket): Promise<void> {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) state.speaking = false;
+    client.to(info.channelId).emit('user-stopped-speaking', { userId: info.userId });
+    this.broadcastVoiceState();
   }
 
   emitToUser(userId: string, event: string, data: any): void {
@@ -159,11 +237,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const sender = await this.usersRepository.findById({ userId: senderId });
     const senderUsername = sender?.username ?? senderId;
 
-    this.emitToUser(recipientId, 'voice-nudge', {
+    this.chatGateway.sendToUser(recipientId, 'voice-nudge', {
       fromUserId: senderId,
       fromUsername: senderUsername,
     });
 
     return { success: true };
+  }
+
+  getVoiceState(): { channelId: string; guildId: string; userId: string; muted: boolean; deafened: boolean }[] {
+    return Array.from(this.clients.values()).map(c => {
+      const state = this.userState.get(c.userId) ?? { muted: false, deafened: false, speaking: false };
+      return { channelId: c.channelId, guildId: c.guildId, userId: c.userId, muted: state.muted, deafened: state.deafened };
+    });
   }
 }

@@ -11,8 +11,10 @@ export class VoiceService implements OnDestroy {
   private audioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
   private gainNode: GainNode | null = null;
+  private outputGainNode: GainNode | null = null;
   private destination: MediaStreamAudioDestinationNode | null = null;
   private analyser: AnalyserNode | null = null;
+  private audioRecorder: MediaRecorder | null = null;
   private speakCheckInterval: ReturnType<typeof setInterval> | null = null;
   private isConnected = false;
   private currentChannel: { guildId: string; channelId: string } | null = null;
@@ -119,8 +121,12 @@ export class VoiceService implements OnDestroy {
     // Audio graph:
     //   source → gain → destination  (gain controls mute, sent to other users)
     //   source → analyser           (analyser ALWAYS sees raw audio for talk-detection)
+    //   remote audio → outputGain → audioContext.destination (outputGain controls deafen)
     this.gainNode = this.audioContext.createGain();
     this.gainNode.gain.value = 1;
+
+    this.outputGainNode = this.audioContext.createGain();
+    this.outputGainNode.gain.value = 1;
 
     this.destination = this.audioContext.createMediaStreamDestination();
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
@@ -131,6 +137,21 @@ export class VoiceService implements OnDestroy {
     this.analyser.fftSize = 256;
     this.analyser.smoothingTimeConstant = 0.5;
     source.connect(this.analyser);
+
+    // MediaRecorder sends mic audio to other users
+    this.audioRecorder = new MediaRecorder(this.mediaStream, { mimeType: 'audio/webm' });
+    this.audioRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0 && this.socket && this.isConnected && !this._deafened) {
+        e.data.arrayBuffer().then((buffer) => {
+          this.socket!.emit('audio-frame', {
+            guildId: this.currentChannel?.guildId,
+            channelId: this.currentChannel?.channelId,
+            audio: buffer,
+          });
+        });
+      }
+    };
+    this.audioRecorder.start(100); // send every 100ms
 
     this.startSpeakingDetection();
   }
@@ -220,11 +241,12 @@ export class VoiceService implements OnDestroy {
   }
 
   private playAudioFrame(audioData: ArrayBuffer): void {
-    if (!this.audioContext) return;
+    if (!this.audioContext || !this.outputGainNode) return;
     this.audioContext.decodeAudioData(audioData, (buffer) => {
       const source = this.audioContext!.createBufferSource();
       source.buffer = buffer;
-      source.connect(this.audioContext!.destination);
+      source.connect(this.outputGainNode!);
+      this.outputGainNode!.connect(this.audioContext!.destination);
       source.start();
     });
   }
@@ -280,6 +302,9 @@ export class VoiceService implements OnDestroy {
   deafen(): void {
     this._deafened = true;
     this.mute();
+    if (this.outputGainNode) {
+      this.outputGainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
+    }
     this.socket?.emit('deafen');
     this.sound.play('voice_deafen');
   }
@@ -287,6 +312,9 @@ export class VoiceService implements OnDestroy {
   undeafen(): void {
     this._deafened = false;
     this.unmute();
+    if (this.outputGainNode) {
+      this.outputGainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
+    }
     this.socket?.emit('undeafen');
     this.sound.play('voice_undeafen');
   }

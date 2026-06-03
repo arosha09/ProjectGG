@@ -128,6 +128,22 @@
               </div>
             </div>
           </section>
+
+          @if (isOwner) {
+            <section class="ss-section ss-danger-zone">
+              <h2 class="ss-section-title ss-danger-title">Danger Zone</h2>
+              <div class="ss-danger-card">
+                <div class="ss-danger-info">
+                  <span class="ss-danger-label">Delete this server</span>
+                  <span class="ss-danger-desc">Once you delete a server, there is no going back. All channels, messages, and data will be permanently removed.</span>
+                </div>
+                <button class="ss-btn ss-btn-danger" (click)="confirmDeleteServer()">
+                  <mat-icon svgIcon="delete"></mat-icon>
+                  Delete Server
+                </button>
+              </div>
+            </section>
+          }
         }
 
         <!-- ROLES -->
@@ -286,5 +302,16 @@
       }
     </main>
   </div>
+
+  @if (confirmData) {
+    <app-cyber-confirm
+      [message]="confirmData.message"
+      [confirmLabel]="confirmData.confirmLabel"
+      [cancelLabel]="confirmData.cancelLabel"
+      [showCancel]="confirmData.showCancel"
+      (confirm)="executeConfirm()"
+      (cancel)="dismissConfirm()"
+    ></app-cyber-confirm>
+  }
 </div>
 
