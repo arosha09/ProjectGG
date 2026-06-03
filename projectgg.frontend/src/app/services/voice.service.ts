@@ -13,12 +13,14 @@ export class VoiceService implements OnDestroy {
   private gainNode: GainNode | null = null;
   private outputGainNode: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
-  private audioRecorder: MediaRecorder | null = null;
+  private scriptProcessor: ScriptProcessorNode | null = null;
   private speakCheckInterval: ReturnType<typeof setInterval> | null = null;
   private isConnected = false;
   private currentChannel: { guildId: string; channelId: string } | null = null;
   private _deafened = false;
   private _intentionalLeave = false;
+
+  private readonly PCM_SAMPLE_RATE = 16000;
 
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
   onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
@@ -120,7 +122,7 @@ export class VoiceService implements OnDestroy {
     }
 
     this.mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
+      audio: { echoCancellation: true, noiseSuppression: true, sampleRate: this.PCM_SAMPLE_RATE },
     });
 
     this.gainNode = this.audioContext.createGain();
@@ -139,28 +141,62 @@ export class VoiceService implements OnDestroy {
     this.analyser.smoothingTimeConstant = 0.5;
     source.connect(this.analyser);
 
-    this.audioRecorder = new MediaRecorder(this.mediaStream, { mimeType: 'audio/webm' });
-    this.audioRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0 && this.socket && this.isConnected && !this._deafened) {
-        e.data.arrayBuffer().then((buffer) => {
-          if (this.socket && this.isConnected) {
-            const bytes = new Uint8Array(buffer);
-            let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            this.socket.emit('audio-frame', {
-              guildId: this.currentChannel?.guildId,
-              channelId: this.currentChannel?.channelId,
-              audio: btoa(binary),
-            });
-          }
-        });
-      }
-    };
-    this.audioRecorder.start(100);
-
+    this.setupPCMCapture(source);
     this.startSpeakingDetection();
+  }
+
+  private setupPCMCapture(source: MediaStreamAudioSourceNode): void {
+    const bufferSize = 4096;
+    this.scriptProcessor = this.audioContext!.createScriptProcessor(bufferSize, 1, 1);
+
+    this.scriptProcessor.onaudioprocess = (event) => {
+      if (!this.socket || !this.isConnected || this._deafened) return;
+
+      const inputBuffer = event.inputBuffer.getChannelData(0);
+      const inputSampleRate = this.audioContext!.sampleRate;
+
+      const downsampled = this.downsampleBuffer(inputBuffer, inputSampleRate, this.PCM_SAMPLE_RATE);
+      const int16 = this.floatTo16BitPCM(downsampled);
+
+      const bytes = new Uint8Array(int16.buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+
+      this.socket.emit('audio-frame', {
+        guildId: this.currentChannel?.guildId,
+        channelId: this.currentChannel?.channelId,
+        audio: btoa(binary),
+      });
+    };
+
+    source.connect(this.scriptProcessor);
+    this.scriptProcessor.connect(this.audioContext!.destination);
+  }
+
+  private downsampleBuffer(buffer: Float32Array, inputSampleRate: number, outputSampleRate: number): Float32Array {
+    if (inputSampleRate === outputSampleRate) return buffer;
+    const ratio = inputSampleRate / outputSampleRate;
+    const newLength = Math.round(buffer.length / ratio);
+    const result = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+      const index = i * ratio;
+      const low = Math.floor(index);
+      const high = Math.min(low + 1, buffer.length - 1);
+      const frac = index - low;
+      result[i] = buffer[low] * (1 - frac) + buffer[high] * frac;
+    }
+    return result;
+  }
+
+  private floatTo16BitPCM(float32Array: Float32Array): Int16Array {
+    const int16Array = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return int16Array;
   }
 
   private startSpeakingDetection(): void {
@@ -251,34 +287,41 @@ export class VoiceService implements OnDestroy {
     if (!this.audioContext || !this.outputGainNode) return;
     if (!rawAudio) return;
 
-    let arrayBuf: ArrayBuffer;
+    try {
+      let int16Data: Int16Array;
 
-    if (typeof rawAudio === 'string') {
-      const binary = atob(rawAudio);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      arrayBuf = bytes.buffer;
-    } else if (rawAudio instanceof ArrayBuffer) {
-      arrayBuf = rawAudio;
-    } else if (rawAudio instanceof Blob) {
-      rawAudio.arrayBuffer().then(buf => this.playAudioFrame(buf));
-      return;
-    } else if (rawAudio?.type === 'Buffer' && Array.isArray(rawAudio?.data)) {
-      arrayBuf = new Uint8Array(rawAudio.data).buffer;
-    } else {
-      return;
-    }
+      if (typeof rawAudio === 'string') {
+        const binary = atob(rawAudio);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        int16Data = new Int16Array(bytes.buffer);
+      } else if (rawAudio instanceof ArrayBuffer) {
+        int16Data = new Int16Array(rawAudio);
+      } else if (rawAudio instanceof Uint8Array || rawAudio instanceof Uint8ClampedArray) {
+        int16Data = new Int16Array(rawAudio.buffer);
+      } else if (rawAudio?.type === 'Buffer' && Array.isArray(rawAudio?.data)) {
+        int16Data = new Int16Array(new Uint8Array(rawAudio.data).buffer);
+      } else {
+        return;
+      }
 
-    if (arrayBuf.byteLength === 0) return;
+      if (int16Data.length === 0) return;
 
-    const ctx = this.audioContext;
-    const gain = this.outputGainNode;
-    ctx.decodeAudioData(arrayBuf).then((buffer) => {
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(gain);
+      const float32Data = new Float32Array(int16Data.length);
+      for (let i = 0; i < int16Data.length; i++) {
+        float32Data[i] = int16Data[i] / (int16Data[i] < 0 ? 0x8000 : 0x7FFF);
+      }
+
+      const audioBuffer = this.audioContext.createBuffer(1, float32Data.length, this.PCM_SAMPLE_RATE);
+      audioBuffer.getChannelData(0).set(float32Data);
+
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.outputGainNode);
       source.start();
-    }).catch(() => {});
+    } catch (e) {
+      console.warn('[Voice] playAudioFrame error:', e);
+    }
   }
 
   async leaveChannel(): Promise<void> {
@@ -290,10 +333,10 @@ export class VoiceService implements OnDestroy {
       this.analyser.disconnect();
       this.analyser = null;
     }
-    if (this.audioRecorder && this.audioRecorder.state !== 'inactive') {
-      this.audioRecorder.stop();
+    if (this.scriptProcessor) {
+      this.scriptProcessor.disconnect();
+      this.scriptProcessor = null;
     }
-    this.audioRecorder = null;
 
     this.isConnected = false;
 
