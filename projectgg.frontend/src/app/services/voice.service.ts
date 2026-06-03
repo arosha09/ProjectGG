@@ -144,10 +144,15 @@ export class VoiceService implements OnDestroy {
       if (e.data.size > 0 && this.socket && this.isConnected && !this._deafened) {
         e.data.arrayBuffer().then((buffer) => {
           if (this.socket && this.isConnected) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
             this.socket.emit('audio-frame', {
               guildId: this.currentChannel?.guildId,
               channelId: this.currentChannel?.channelId,
-              audio: buffer,
+              audio: btoa(binary),
             });
           }
         });
@@ -243,36 +248,29 @@ export class VoiceService implements OnDestroy {
   }
 
   private playAudioFrame(rawAudio: any): void {
-    if (!this.audioContext || !this.outputGainNode) {
-      console.warn('[Voice] playAudioFrame: audioContext or outputGainNode is null');
-      return;
-    }
-    if (!rawAudio) {
-      console.warn('[Voice] playAudioFrame: empty audio data');
-      return;
-    }
+    if (!this.audioContext || !this.outputGainNode) return;
+    if (!rawAudio) return;
+
     let arrayBuf: ArrayBuffer;
-    if (rawAudio instanceof ArrayBuffer) {
+
+    if (typeof rawAudio === 'string') {
+      const binary = atob(rawAudio);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      arrayBuf = bytes.buffer;
+    } else if (rawAudio instanceof ArrayBuffer) {
       arrayBuf = rawAudio;
     } else if (rawAudio instanceof Blob) {
       rawAudio.arrayBuffer().then(buf => this.playAudioFrame(buf));
       return;
-    } else if (rawAudio?.data instanceof ArrayBuffer) {
-      arrayBuf = rawAudio.data;
     } else if (rawAudio?.type === 'Buffer' && Array.isArray(rawAudio?.data)) {
       arrayBuf = new Uint8Array(rawAudio.data).buffer;
-    } else if (typeof rawAudio === 'string') {
-      const bin = atob(rawAudio);
-      const arr = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      arrayBuf = arr.buffer;
     } else {
-      arrayBuf = new Uint8Array(rawAudio).buffer;
-    }
-    if (arrayBuf.byteLength === 0) {
-      console.warn('[Voice] playAudioFrame: resolved to empty buffer');
       return;
     }
+
+    if (arrayBuf.byteLength === 0) return;
+
     const ctx = this.audioContext;
     const gain = this.outputGainNode;
     ctx.decodeAudioData(arrayBuf).then((buffer) => {
@@ -280,9 +278,7 @@ export class VoiceService implements OnDestroy {
       source.buffer = buffer;
       source.connect(gain);
       source.start();
-    }).catch((err) => {
-      console.error('[Voice] decodeAudioData failed:', err, 'rawAudio type:', typeof rawAudio, 'constructor:', rawAudio?.constructor?.name, 'byteLength:', arrayBuf?.byteLength);
-    });
+    }).catch(() => {});
   }
 
   async leaveChannel(): Promise<void> {
