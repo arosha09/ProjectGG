@@ -17,7 +17,7 @@ import { CardCollectionModule } from './modules/card-collection/card-collection.
 import { JamModule } from './modules/jam/jam.module';
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', 'src/.env'] }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', 'src/.env'], ignoreEnvFile: process.env.NODE_ENV === 'production' }),
     ThrottlerModule.forRoot([{ name: 'short', ttl: 60_000, limit: 30 }]),
     UsersModule,
     GamesModule,
