@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: projectgg-api
+    env: docker
+    region: singapore
+    dockerfilePath: projectgg.backend/./Dockerfile
+    dockerContext: projectgg.backend/
