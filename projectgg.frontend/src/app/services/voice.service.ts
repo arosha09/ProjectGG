@@ -10,6 +10,8 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
   ],
 };
 
@@ -28,6 +30,7 @@ export class VoiceService implements OnDestroy {
   private _intentionalLeave = false;
 
   private peers = new Map<string, RTCPeerConnection>();
+  private remoteSources = new Map<string, MediaStreamAudioSourceNode>();
 
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
   onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
@@ -122,6 +125,9 @@ export class VoiceService implements OnDestroy {
 
   private async setupAudio(): Promise<void> {
     this.audioContext = new AudioContext();
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
 
     this.mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true },
@@ -136,6 +142,8 @@ export class VoiceService implements OnDestroy {
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
     source.connect(this.gainNode);
 
+    this.outputGainNode.connect(this.audioContext.destination);
+
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 256;
     this.analyser.smoothingTimeConstant = 0.5;
@@ -148,6 +156,7 @@ export class VoiceService implements OnDestroy {
     const existing = this.peers.get(remoteUserId);
     if (existing) {
       existing.close();
+      this.peers.delete(remoteUserId);
     }
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -168,28 +177,38 @@ export class VoiceService implements OnDestroy {
       }
     };
 
+    pc.onicecandidateerror = (event) => {
+      console.warn('[Voice] ICE candidate error for', remoteUserId, event);
+    };
+
     pc.ontrack = (event) => {
       if (event.streams && event.streams[0]) {
-        this.attachRemoteStream(event.streams[0]);
+        this.attachRemoteStream(remoteUserId, event.streams[0]);
       }
     };
 
     pc.onconnectionstatechange = () => {
+      console.log('[Voice] PC state for', remoteUserId, ':', pc.connectionState, pc.iceConnectionState);
       if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
         pc.close();
         this.peers.delete(remoteUserId);
+        this.remoteSources.delete(remoteUserId);
       }
     };
 
     return pc;
   }
 
-  private attachRemoteStream(stream: MediaStream): void {
+  private attachRemoteStream(remoteUserId: string, stream: MediaStream): void {
     if (!this.audioContext || !this.outputGainNode) return;
+    if (stream.getAudioTracks().length === 0) return;
+
+    const existing = this.remoteSources.get(remoteUserId);
+    if (existing) return;
 
     const remoteSource = this.audioContext.createMediaStreamSource(stream);
     remoteSource.connect(this.outputGainNode);
-    this.outputGainNode.connect(this.audioContext.destination);
+    this.remoteSources.set(remoteUserId, remoteSource);
   }
 
   private async createOffer(remoteUserId: string): Promise<void> {
@@ -246,6 +265,11 @@ export class VoiceService implements OnDestroy {
         pc.close();
         this.peers.delete(data.userId);
       }
+      const src = this.remoteSources.get(data.userId);
+      if (src) {
+        src.disconnect();
+        this.remoteSources.delete(data.userId);
+      }
       this.onMemberLeft?.(data.userId, data.channelId);
     });
 
@@ -255,6 +279,7 @@ export class VoiceService implements OnDestroy {
     });
 
     this.socket.on('webrtc-offer', async (data: { fromUserId: string; offer: RTCSessionDescriptionInit }) => {
+      console.log('[Voice] Received offer from', data.fromUserId);
       const pc = this.createPeerConnection(data.fromUserId);
       await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
       const answer = await pc.createAnswer();
@@ -266,6 +291,7 @@ export class VoiceService implements OnDestroy {
     });
 
     this.socket.on('webrtc-answer', async (data: { fromUserId: string; answer: RTCSessionDescriptionInit }) => {
+      console.log('[Voice] Received answer from', data.fromUserId);
       const pc = this.peers.get(data.fromUserId);
       if (pc) {
         await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -275,7 +301,11 @@ export class VoiceService implements OnDestroy {
     this.socket.on('webrtc-ice-candidate', async (data: { fromUserId: string; candidate: RTCIceCandidateInit }) => {
       const pc = this.peers.get(data.fromUserId);
       if (pc) {
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } catch (e) {
+          console.warn('[Voice] Failed to add ICE candidate from', data.fromUserId, e);
+        }
       }
     });
 
@@ -324,8 +354,8 @@ export class VoiceService implements OnDestroy {
 
     this.peers.forEach(pc => pc.close());
     this.peers.clear();
-
-    document.querySelectorAll('audio[data-webrtc]').forEach(el => el.remove());
+    this.remoteSources.forEach(src => src.disconnect());
+    this.remoteSources.clear();
 
     this.isConnected = false;
 
