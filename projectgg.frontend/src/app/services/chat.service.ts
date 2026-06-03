@@ -135,7 +135,7 @@ export class ChatService {
 
   connect(): Socket {
     if (!this.socket) {
-      const wsUrl = environment.apiUrl.replace('http://', 'http://').replace(':3000/api', ':3000');
+      const wsUrl = environment.apiUrl.replace(/\/api\/?$/, '');
       const user = this.auth.getCurrentUser();
       this.socket = io(`${wsUrl}/chat`, {
         transports: ['websocket'],

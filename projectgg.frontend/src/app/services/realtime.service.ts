@@ -36,7 +36,7 @@ export class RealtimeService implements OnDestroy {
     if (!user?.id) return;
     if (this.socket?.connected) return;
 
-    const wsUrl = environment.apiUrl.replace('http://', 'http://').replace(':3000/api', ':3000');
+    const wsUrl = environment.apiUrl.replace(/\/api\/?$/, '');
     this.socket = io(`${wsUrl}/realtime`, {
       transports: ['websocket'],
       query: { userId: user.id },

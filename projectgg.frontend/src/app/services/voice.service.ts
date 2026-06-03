@@ -53,7 +53,7 @@ export class VoiceService implements OnDestroy {
     this._intentionalLeave = false;
     if (this.isConnected) await this.leaveChannel();
 
-    const wsUrl = environment.apiUrl.replace('http://', 'http://').replace(':3000/api', ':3000');
+    const wsUrl = environment.apiUrl.replace(/\/api\/?$/, '');
     this.socket = io(`${wsUrl}/voice`, {
       transports: ['websocket'],
       reconnection: false,
