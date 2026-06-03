@@ -17,7 +17,12 @@ import { CardCollectionModule } from './modules/card-collection/card-collection.
 import { JamModule } from './modules/jam/jam.module';
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', 'src/.env'] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      // 👇 Tells NestJS to prioritize system env variables (Render) over local files
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
+      envFilePath: ['.env', 'src/.env'],
+    }),
     ThrottlerModule.forRoot([{ name: 'short', ttl: 60_000, limit: 30 }]),
     UsersModule,
     GamesModule,
