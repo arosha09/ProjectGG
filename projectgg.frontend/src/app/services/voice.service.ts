@@ -57,10 +57,11 @@ export class VoiceService implements OnDestroy {
 
     const wsUrl = environment.apiUrl.replace(/\/api\/?$/, '');
     this.socket = io(`${wsUrl}/voice`, {
-      transports: ['websocket'],
-      reconnection: false,
-      reconnectionAttempts: 0,
-      reconnectionDelay: 0,
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 10,
     });
 
     return new Promise((resolve, reject) => {

@@ -138,7 +138,7 @@ export class ChatService {
       const wsUrl = environment.apiUrl.replace(/\/api\/?$/, '');
       const user = this.auth.getCurrentUser();
       this.socket = io(`${wsUrl}/chat`, {
-        transports: ['websocket'],
+        transports: ['polling', 'websocket'],
         query: { userId: user?.id ?? '' },
         reconnection: true,
         reconnectionDelay: 1000,
