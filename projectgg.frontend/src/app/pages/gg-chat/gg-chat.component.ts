@@ -1505,6 +1505,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.voiceMuted = true;
       this.syncLocalVoiceMemberState(true, this.voiceDeafened);
       this.showMutedWarningForDuration();
+      this.triggerMutedFeedback();
     }
     this.cdr.markForCheck();
   }
@@ -1524,6 +1525,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.voiceMuted = true;
       this.syncLocalVoiceMemberState(true, true);
       this.showMutedWarningForDuration();
+      this.triggerMutedFeedback();
     }
     this.cdr.markForCheck();
   }
