@@ -79,16 +79,16 @@ export class VoiceService implements OnDestroy {
         try {
           this.setupListeners();
 
+          const micOk = await this.setupAudio().then(() => true).catch(() => false);
+          if (!micOk) {
+            this.onMicPermissionError?.('Microphone access is required for voice chat. Please allow mic permissions and reload.');
+          }
+
           this.socket!.emit('join-channel', {
             guildId,
             channelId,
             userId: this.auth.getCurrentUser()?.id,
           });
-
-          const micOk = await this.setupAudio().then(() => true).catch(() => false);
-          if (!micOk) {
-            this.onMicPermissionError?.('Microphone access is required for voice chat. Please allow mic permissions and reload.');
-          }
 
           this.isConnected = true;
           this.currentChannel = { guildId, channelId };
@@ -186,12 +186,6 @@ export class VoiceService implements OnDestroy {
 
   private attachRemoteStream(stream: MediaStream): void {
     if (!this.audioContext || !this.outputGainNode) return;
-
-    const audioEl = document.createElement('audio');
-    audioEl.srcObject = stream;
-    audioEl.autoplay = true;
-    audioEl.dataset['webrtc'] = 'true';
-    document.body.appendChild(audioEl);
 
     const remoteSource = this.audioContext.createMediaStreamSource(stream);
     remoteSource.connect(this.outputGainNode);
