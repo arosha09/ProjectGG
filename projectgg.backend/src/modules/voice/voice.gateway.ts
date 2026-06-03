@@ -127,52 +127,19 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.broadcastVoiceState();
   }
 
-  @SubscribeMessage('webrtc-offer')
-  async handleOffer(
+  @SubscribeMessage('audio-frame')
+  async handleAudioFrame(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { targetUserId: string; offer: RTCSessionDescriptionInit },
+    @MessageBody() data: { guildId: string; channelId: string; audio: Buffer },
   ): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
-    const target = Array.from(this.clients.values()).find(c => c.userId === data.targetUserId);
-    if (target) {
-      this.server.to(target.socketId).emit('webrtc-offer', {
-        fromUserId: info.userId,
-        offer: data.offer,
-      });
-    }
-  }
-
-  @SubscribeMessage('webrtc-answer')
-  async handleAnswer(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { targetUserId: string; answer: RTCSessionDescriptionInit },
-  ): Promise<void> {
-    const info = this.clients.get(client.id);
-    if (!info) return;
-    const target = Array.from(this.clients.values()).find(c => c.userId === data.targetUserId);
-    if (target) {
-      this.server.to(target.socketId).emit('webrtc-answer', {
-        fromUserId: info.userId,
-        answer: data.answer,
-      });
-    }
-  }
-
-  @SubscribeMessage('webrtc-ice-candidate')
-  async handleIceCandidate(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { targetUserId: string; candidate: RTCIceCandidateInit },
-  ): Promise<void> {
-    const info = this.clients.get(client.id);
-    if (!info) return;
-    const target = Array.from(this.clients.values()).find(c => c.userId === data.targetUserId);
-    if (target) {
-      this.server.to(target.socketId).emit('webrtc-ice-candidate', {
-        fromUserId: info.userId,
-        candidate: data.candidate,
-      });
-    }
+    const state = this.userState.get(info.userId);
+    if (state?.muted || state?.deafened) return;
+    client.to(info.channelId).emit('audio-frame', {
+      userId: info.userId,
+      audio: data.audio,
+    });
   }
 
   @SubscribeMessage('mute')
