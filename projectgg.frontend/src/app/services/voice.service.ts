@@ -68,6 +68,8 @@ export class VoiceService implements OnDestroy {
 
       this.socket!.on('connect', async () => {
         try {
+          const transport = (this.socket as any)?.io?.engine?.transport?.name ?? 'unknown';
+          console.log('[Voice] Connected via', transport);
           this.setupListeners();
 
           const micOk = await this.setupAudio().then(() => true).catch(() => false);
@@ -203,6 +205,7 @@ export class VoiceService implements OnDestroy {
     });
 
     this.socket.on('audio-frame', (data: { userId: string; audio: ArrayBuffer }) => {
+      console.log('[Voice] Received audio-frame from', data.userId, 'size:', data.audio?.byteLength);
       this.playAudioFrame(data.audio);
       this.onAudioFrame?.(data.userId, data.audio);
     });
@@ -241,12 +244,24 @@ export class VoiceService implements OnDestroy {
   }
 
   private playAudioFrame(audioData: ArrayBuffer): void {
-    if (!this.audioContext || !this.outputGainNode) return;
-    this.audioContext.decodeAudioData(audioData, (buffer) => {
-      const source = this.audioContext!.createBufferSource();
+    if (!this.audioContext || !this.outputGainNode) {
+      console.warn('[Voice] playAudioFrame: audioContext or outputGainNode is null');
+      return;
+    }
+    if (!audioData || audioData.byteLength === 0) {
+      console.warn('[Voice] playAudioFrame: empty audio data');
+      return;
+    }
+    const ctx = this.audioContext;
+    const gain = this.outputGainNode;
+    ctx.decodeAudioData(audioData).then((buffer) => {
+      const source = ctx.createBufferSource();
       source.buffer = buffer;
-      source.connect(this.outputGainNode!);
+      source.connect(gain);
       source.start();
+      console.log('[Voice] Playing audio frame, duration:', buffer.duration.toFixed(2), 's');
+    }).catch((err) => {
+      console.error('[Voice] decodeAudioData failed:', err);
     });
   }
 
