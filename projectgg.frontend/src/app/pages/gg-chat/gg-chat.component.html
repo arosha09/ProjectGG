@@ -69,7 +69,7 @@
     <main class="gg-main">
       <!-- MUTED/DEAFENED CYBER ALERT (non-voice views) -->
       @if (mutedFeedbackAlert) {
-        <div class="gg-muted-feedback-alert">
+        <div class="gg-muted-feedback-alert" [class.deafened]="mutedFeedbackIsDeafened">
           <mat-icon svgIcon="warning"></mat-icon>
           <span>{{ mutedFeedbackAlert }}</span>
           <button class="gg-muted-feedback-x" (click)="dismissMutedFeedback()">&times;</button>

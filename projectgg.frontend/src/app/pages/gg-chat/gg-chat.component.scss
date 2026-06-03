@@ -5647,9 +5647,9 @@
   padding: 14px 22px; border-radius: 10px;
   position: absolute; top: 24px; left: 0; right: 0; margin: 0 auto;
   z-index: 100; width: fit-content;
-  background: rgba(255, 170, 0, 0.15);
-  border: 1.5px solid var(--neon-gold);
-  color: #ffb84d; font-size: 14px; font-weight: 700;
+  background: rgba(255, 51, 102, 0.15);
+  border: 1.5px solid var(--neon-red);
+  color: #ff6b8b; font-size: 14px; font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   animation: gg-warning-pulse 1.2s ease-in-out infinite;
@@ -5658,18 +5658,33 @@
   &::before {
     content: ''; position: absolute; inset: -1px;
     border-radius: 10px; pointer-events: none;
-    background: linear-gradient(135deg, transparent, rgba(255, 170, 0, 0.2), transparent);
+    background: linear-gradient(135deg, transparent, rgba(255, 51, 102, 0.2), transparent);
   }
   mat-icon {
-    font-size: 22px; width: 22px; height: 22px; color: var(--neon-gold);
-    filter: drop-shadow(0 0 6px rgba(255, 170, 0, 0.8));
+    font-size: 22px; width: 22px; height: 22px; color: var(--neon-red);
+    filter: drop-shadow(0 0 6px rgba(255, 51, 102, 0.8));
     flex-shrink: 0;
   }
   .gg-muted-feedback-x {
     margin-left: auto; cursor: pointer;
-    background: none; border: none; color: #ffb84d; font-size: 18px;
+    background: none; border: none; color: #ff6b8b; font-size: 18px;
     padding: 0 4px; opacity: .7; transition: opacity .2s;
     &:hover { opacity: 1; }
+  }
+  &.deafened {
+    background: rgba(255, 170, 0, 0.15);
+    border-color: var(--neon-gold);
+    color: #ffb84d;
+    &::before {
+      background: linear-gradient(135deg, transparent, rgba(255, 170, 0, 0.2), transparent);
+    }
+    mat-icon {
+      color: var(--neon-gold);
+      filter: drop-shadow(0 0 6px rgba(255, 170, 0, 0.8));
+    }
+    .gg-muted-feedback-x {
+      color: #ffb84d;
+    }
   }
 }
 

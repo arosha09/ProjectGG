@@ -134,6 +134,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   voiceDeafened = false;
   showMutedWarning = false;
   mutedFeedbackAlert: string | null = null;
+  mutedFeedbackIsDeafened = false;
   private mutedFeedbackTimer: any = null;
   private mutedFeedbackSuppressedUntil = 0;
   private mutedWarningTimer: any = null;
@@ -1251,14 +1252,15 @@ export class GgChatComponent implements OnInit, OnDestroy {
             clearTimeout(this.mutedWarningTimer);
             this.mutedWarningTimer = null;
           }
-        this.showMutedWarning = true;
-        this.triggerMutedFeedback();
-      } else {
+          this.showMutedWarning = true;
+          this.triggerMutedFeedback();
+        } else {
           if (this.mutedWarningTimer) {
             clearTimeout(this.mutedWarningTimer);
           }
           this.mutedWarningTimer = setTimeout(() => {
             this.showMutedWarning = false;
+            this.mutedFeedbackAlert = null;
             this.cdr.markForCheck();
           }, 2500);
         }
@@ -1449,7 +1451,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
     if (Date.now() < this.mutedFeedbackSuppressedUntil) return;
     if (!this.voiceMuted && !this.voiceDeafened) return;
     if (this.isInVoiceView()) return;
-    if (this.mutedFeedbackAlert) return;
+    this.mutedFeedbackIsDeafened = this.voiceDeafened;
     const msg = this.voiceDeafened
       ? "YOU'RE DEAFENED — OTHERS CAN'T HEAR YOU"
       : "YOU'RE MUTED — OTHERS CAN'T HEAR YOU";
@@ -1471,6 +1473,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   private clearMutedFeedback(): void {
     if (this.mutedFeedbackTimer) clearTimeout(this.mutedFeedbackTimer);
     this.mutedFeedbackAlert = null;
+    this.mutedFeedbackIsDeafened = false;
     this.mutedFeedbackSuppressedUntil = 0;
     this.cdr.markForCheck();
   }
