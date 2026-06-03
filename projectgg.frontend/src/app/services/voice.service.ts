@@ -310,25 +310,25 @@ export class VoiceService implements OnDestroy {
         bytes = new Uint8Array(bytes.buffer, 0, bytes.length - 1);
       }
 
-      const wavBlob = this.createWavBlob(bytes);
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume();
+      }
+
+      const wavBuffer = this.createWavBuffer(bytes);
       const ctx = this.audioContext;
       const gain = this.outputGainNode;
-      const reader = new FileReader();
-      reader.onload = () => {
-        ctx.decodeAudioData(reader.result as ArrayBuffer).then((buffer) => {
-          const src = ctx.createBufferSource();
-          src.buffer = buffer;
-          src.connect(gain);
-          src.start();
-        }).catch((e) => console.warn('[Voice] decodeAudioData error:', e));
-      };
-      reader.readAsArrayBuffer(wavBlob);
+      ctx.decodeAudioData(wavBuffer).then((buffer) => {
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(gain);
+        src.start();
+      }).catch((e) => console.warn('[Voice] decodeAudioData error:', e));
     } catch (e) {
       console.warn('[Voice] playAudioFrame error:', e);
     }
   }
 
-  private createWavBlob(pcmInt16: Uint8Array): Blob {
+  private createWavBuffer(pcmInt16: Uint8Array): ArrayBuffer {
     const numChannels = 1;
     const bitsPerSample = 16;
     const byteRate = this.PCM_SAMPLE_RATE * numChannels * bitsPerSample / 8;
@@ -357,7 +357,7 @@ export class VoiceService implements OnDestroy {
 
     new Uint8Array(buffer, 44).set(pcmInt16);
 
-    return new Blob([buffer], { type: 'audio/wav' });
+    return buffer;
   }
 
   async leaveChannel(): Promise<void> {
