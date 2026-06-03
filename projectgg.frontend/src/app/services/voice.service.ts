@@ -172,7 +172,6 @@ export class VoiceService implements OnDestroy {
     };
 
     source.connect(this.scriptProcessor);
-    this.scriptProcessor.connect(this.audioContext!.destination);
   }
 
   private downsampleBuffer(buffer: Float32Array, inputSampleRate: number, outputSampleRate: number): Float32Array {
@@ -288,24 +287,30 @@ export class VoiceService implements OnDestroy {
     if (!rawAudio) return;
 
     try {
-      let int16Data: Int16Array;
+      let bytes: Uint8Array;
 
       if (typeof rawAudio === 'string') {
-        const binary = atob(rawAudio);
-        const bytes = new Uint8Array(binary.length);
+        const binary = atob(rawAudio.trim());
+        bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        int16Data = new Int16Array(bytes.buffer);
       } else if (rawAudio instanceof ArrayBuffer) {
-        int16Data = new Int16Array(rawAudio);
-      } else if (rawAudio instanceof Uint8Array || rawAudio instanceof Uint8ClampedArray) {
-        int16Data = new Int16Array(rawAudio.buffer);
+        bytes = new Uint8Array(rawAudio);
+      } else if (rawAudio instanceof Uint8Array) {
+        bytes = rawAudio;
+      } else if (rawAudio instanceof Uint8ClampedArray) {
+        bytes = new Uint8Array(rawAudio);
       } else if (rawAudio?.type === 'Buffer' && Array.isArray(rawAudio?.data)) {
-        int16Data = new Int16Array(new Uint8Array(rawAudio.data).buffer);
+        bytes = new Uint8Array(rawAudio.data);
       } else {
         return;
       }
 
-      if (int16Data.length === 0) return;
+      if (bytes.length < 2) return;
+      if (bytes.length % 2 !== 0) {
+        bytes = new Uint8Array(bytes.buffer, 0, bytes.length - 1);
+      }
+
+      const int16Data = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
 
       const float32Data = new Float32Array(int16Data.length);
       for (let i = 0; i < int16Data.length; i++) {
