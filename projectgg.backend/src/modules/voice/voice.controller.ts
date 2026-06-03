@@ -58,6 +58,20 @@ export class VoiceController {
     };
   }
 
+  @Get('debug-env')
+  debugEnv() {
+    return {
+      nodeEnv: process.env.NODE_ENV,
+      hasLK_KEY: !!process.env.LK_API_KEY,
+      hasLK_SECRET: !!process.env.LK_API_SECRET,
+      hasLK_URL: !!process.env.LK_WS_URL,
+      lkKeyLen: (process.env.LK_API_KEY || '').length,
+      lkSecretLen: (process.env.LK_API_SECRET || '').length,
+      lkUrlValue: process.env.LK_WS_URL || 'MISSING',
+      allEnvKeys: Object.keys(process.env).filter(k => k.startsWith('LK_') || k.startsWith('SUPABASE') || k.startsWith('JWT')),
+    };
+  }
+
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('state')
