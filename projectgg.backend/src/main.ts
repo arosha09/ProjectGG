@@ -41,7 +41,7 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create(AppModule);
 
-  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 
   const httpAdapter = app.getHttpAdapter?.();
   const underlying = httpAdapter?.getInstance?.() as any;
