@@ -1261,7 +1261,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
           }
           this.mutedWarningTimer = setTimeout(() => {
             this.showMutedWarning = false;
-            this.mutedFeedbackAlert = null;
             this.cdr.markForCheck();
           }, 2500);
         }

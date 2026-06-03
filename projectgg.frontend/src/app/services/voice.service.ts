@@ -15,6 +15,8 @@ export class VoiceService implements OnDestroy {
   private _deafened = false;
   private audioContext: AudioContext | null = null;
   private outputGainNode: GainNode | null = null;
+  private compressorNode: DynamicsCompressorNode | null = null;
+  private highpassNode: BiquadFilterNode | null = null;
 
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
   onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
@@ -135,8 +137,24 @@ export class VoiceService implements OnDestroy {
     if (this.audioContext.state === 'suspended') {
       await this.audioContext.resume();
     }
+
+    this.compressorNode = this.audioContext.createDynamicsCompressor();
+    this.compressorNode.threshold.setValueAtTime(-24, this.audioContext.currentTime);
+    this.compressorNode.knee.setValueAtTime(10, this.audioContext.currentTime);
+    this.compressorNode.ratio.setValueAtTime(6, this.audioContext.currentTime);
+    this.compressorNode.attack.setValueAtTime(0.003, this.audioContext.currentTime);
+    this.compressorNode.release.setValueAtTime(0.15, this.audioContext.currentTime);
+
+    this.highpassNode = this.audioContext.createBiquadFilter();
+    this.highpassNode.type = 'highpass';
+    this.highpassNode.frequency.setValueAtTime(80, this.audioContext.currentTime);
+    this.highpassNode.Q.setValueAtTime(0.7, this.audioContext.currentTime);
+
     this.outputGainNode = this.audioContext.createGain();
     this.outputGainNode.gain.value = 1;
+
+    this.highpassNode.connect(this.compressorNode);
+    this.compressorNode.connect(this.outputGainNode);
     this.outputGainNode.connect(this.audioContext.destination);
   }
 
@@ -158,6 +176,10 @@ export class VoiceService implements OnDestroy {
           const el = track.attach();
           el.style.display = 'none';
           document.body.appendChild(el);
+          if (this.audioContext && this.highpassNode) {
+            const source = this.audioContext.createMediaElementSource(el);
+            source.connect(this.highpassNode);
+          }
         }
       })
       .on(RoomEvent.TrackUnsubscribed, (track: Track) => {
@@ -254,6 +276,14 @@ export class VoiceService implements OnDestroy {
     if (this.outputGainNode) {
       this.outputGainNode.disconnect();
       this.outputGainNode = null;
+    }
+    if (this.compressorNode) {
+      this.compressorNode.disconnect();
+      this.compressorNode = null;
+    }
+    if (this.highpassNode) {
+      this.highpassNode.disconnect();
+      this.highpassNode = null;
     }
     if (this.audioContext) {
       this.audioContext.close().catch(() => {});
