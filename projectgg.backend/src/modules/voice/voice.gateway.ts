@@ -127,20 +127,52 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.broadcastVoiceState();
   }
 
-  @SubscribeMessage('audio-frame')
-  async handleAudioFrame(
+  @SubscribeMessage('webrtc-offer')
+  async handleOffer(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { guildId: string; channelId: string; audio: Buffer },
+    @MessageBody() data: { targetUserId: string; offer: RTCSessionDescriptionInit },
   ): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
-    const state = this.userState.get(info.userId);
-    if (state?.muted || state?.deafened) return; // don't relay audio from muted/deafened users
-    await this.voiceService.playAudio(data.guildId, Buffer.from(data.audio));
-    client.to(info.channelId).emit('audio-frame', {
-      userId: info.userId,
-      audio: data.audio,
-    });
+    const target = Array.from(this.clients.values()).find(c => c.userId === data.targetUserId);
+    if (target) {
+      this.server.to(target.socketId).emit('webrtc-offer', {
+        fromUserId: info.userId,
+        offer: data.offer,
+      });
+    }
+  }
+
+  @SubscribeMessage('webrtc-answer')
+  async handleAnswer(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { targetUserId: string; answer: RTCSessionDescriptionInit },
+  ): Promise<void> {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const target = Array.from(this.clients.values()).find(c => c.userId === data.targetUserId);
+    if (target) {
+      this.server.to(target.socketId).emit('webrtc-answer', {
+        fromUserId: info.userId,
+        answer: data.answer,
+      });
+    }
+  }
+
+  @SubscribeMessage('webrtc-ice-candidate')
+  async handleIceCandidate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { targetUserId: string; candidate: RTCIceCandidateInit },
+  ): Promise<void> {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const target = Array.from(this.clients.values()).find(c => c.userId === data.targetUserId);
+    if (target) {
+      this.server.to(target.socketId).emit('webrtc-ice-candidate', {
+        fromUserId: info.userId,
+        candidate: data.candidate,
+      });
+    }
   }
 
   @SubscribeMessage('mute')

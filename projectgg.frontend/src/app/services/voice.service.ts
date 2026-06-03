@@ -5,6 +5,14 @@ import { AuthService } from './auth.service';
 import { StatusNotificationService } from './notification.service';
 import { SoundService } from './sound.service';
 
+const ICE_SERVERS: RTCConfiguration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+  ],
+};
+
 @Injectable({ providedIn: 'root' })
 export class VoiceService implements OnDestroy {
   private socket: Socket | null = null;
@@ -12,14 +20,14 @@ export class VoiceService implements OnDestroy {
   private mediaStream: MediaStream | null = null;
   private gainNode: GainNode | null = null;
   private outputGainNode: GainNode | null = null;
-  private destination: MediaStreamAudioDestinationNode | null = null;
   private analyser: AnalyserNode | null = null;
-  private audioRecorder: MediaRecorder | null = null;
   private speakCheckInterval: ReturnType<typeof setInterval> | null = null;
   private isConnected = false;
   private currentChannel: { guildId: string; channelId: string } | null = null;
   private _deafened = false;
   private _intentionalLeave = false;
+
+  private peers = new Map<string, RTCPeerConnection>();
 
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
   onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
@@ -119,42 +127,85 @@ export class VoiceService implements OnDestroy {
       audio: { echoCancellation: true, noiseSuppression: true },
     });
 
-    // Audio graph:
-    //   source → gain → destination  (gain controls mute, sent to other users)
-    //   source → analyser           (analyser ALWAYS sees raw audio for talk-detection)
-    //   remote audio → outputGain → audioContext.destination (outputGain controls deafen)
     this.gainNode = this.audioContext.createGain();
     this.gainNode.gain.value = 1;
 
     this.outputGainNode = this.audioContext.createGain();
     this.outputGainNode.gain.value = 1;
 
-    this.destination = this.audioContext.createMediaStreamDestination();
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
     source.connect(this.gainNode);
-    this.gainNode.connect(this.destination);
 
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 256;
     this.analyser.smoothingTimeConstant = 0.5;
     source.connect(this.analyser);
 
-    // MediaRecorder sends mic audio to other users
-    this.audioRecorder = new MediaRecorder(this.mediaStream, { mimeType: 'audio/webm' });
-    this.audioRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0 && this.socket && this.isConnected && !this._deafened) {
-        e.data.arrayBuffer().then((buffer) => {
-          this.socket!.emit('audio-frame', {
-            guildId: this.currentChannel?.guildId,
-            channelId: this.currentChannel?.channelId,
-            audio: buffer,
-          });
+    this.startSpeakingDetection();
+  }
+
+  private createPeerConnection(remoteUserId: string): RTCPeerConnection {
+    const existing = this.peers.get(remoteUserId);
+    if (existing) {
+      existing.close();
+    }
+
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    this.peers.set(remoteUserId, pc);
+
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => {
+        pc.addTrack(track, this.mediaStream!);
+      });
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && this.socket) {
+        this.socket.emit('webrtc-ice-candidate', {
+          targetUserId: remoteUserId,
+          candidate: event.candidate.toJSON(),
         });
       }
     };
-    this.audioRecorder.start(100); // send every 100ms
 
-    this.startSpeakingDetection();
+    pc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        this.attachRemoteStream(event.streams[0]);
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        pc.close();
+        this.peers.delete(remoteUserId);
+      }
+    };
+
+    return pc;
+  }
+
+  private attachRemoteStream(stream: MediaStream): void {
+    if (!this.audioContext || !this.outputGainNode) return;
+
+    const audioEl = document.createElement('audio');
+    audioEl.srcObject = stream;
+    audioEl.autoplay = true;
+    audioEl.dataset['webrtc'] = 'true';
+    document.body.appendChild(audioEl);
+
+    const remoteSource = this.audioContext.createMediaStreamSource(stream);
+    remoteSource.connect(this.outputGainNode);
+    this.outputGainNode.connect(this.audioContext.destination);
+  }
+
+  private async createOffer(remoteUserId: string): Promise<void> {
+    const pc = this.createPeerConnection(remoteUserId);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    this.socket?.emit('webrtc-offer', {
+      targetUserId: remoteUserId,
+      offer: pc.localDescription!.toJSON(),
+    });
   }
 
   private startSpeakingDetection(): void {
@@ -193,19 +244,46 @@ export class VoiceService implements OnDestroy {
 
     this.socket.on('member-joined', (data: { userId: string; channelId: string; muted: boolean; deafened: boolean }) => {
       this.onMemberJoined?.(data.userId, data.channelId, data.muted, data.deafened);
+      this.createOffer(data.userId);
     });
 
     this.socket.on('member-left', (data: { userId: string; channelId: string }) => {
+      const pc = this.peers.get(data.userId);
+      if (pc) {
+        pc.close();
+        this.peers.delete(data.userId);
+      }
       this.onMemberLeft?.(data.userId, data.channelId);
     });
 
     this.socket.on('existing-members', (data: { members: { userId: string; muted: boolean; deafened: boolean }[] }) => {
       this.onExistingMembers?.(data.members);
+      data.members.forEach(m => this.createOffer(m.userId));
     });
 
-    this.socket.on('audio-frame', (data: { userId: string; audio: ArrayBuffer }) => {
-      this.playAudioFrame(data.audio);
-      this.onAudioFrame?.(data.userId, data.audio);
+    this.socket.on('webrtc-offer', async (data: { fromUserId: string; offer: RTCSessionDescriptionInit }) => {
+      const pc = this.createPeerConnection(data.fromUserId);
+      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      this.socket?.emit('webrtc-answer', {
+        targetUserId: data.fromUserId,
+        answer: pc.localDescription!.toJSON(),
+      });
+    });
+
+    this.socket.on('webrtc-answer', async (data: { fromUserId: string; answer: RTCSessionDescriptionInit }) => {
+      const pc = this.peers.get(data.fromUserId);
+      if (pc) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+    });
+
+    this.socket.on('webrtc-ice-candidate', async (data: { fromUserId: string; candidate: RTCIceCandidateInit }) => {
+      const pc = this.peers.get(data.fromUserId);
+      if (pc) {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
     });
 
     this.socket.on('user-muted', (data: { userId: string }) => {
@@ -241,17 +319,6 @@ export class VoiceService implements OnDestroy {
     });
   }
 
-  private playAudioFrame(audioData: ArrayBuffer): void {
-    if (!this.audioContext || !this.outputGainNode) return;
-    this.audioContext.decodeAudioData(audioData, (buffer) => {
-      const source = this.audioContext!.createBufferSource();
-      source.buffer = buffer;
-      source.connect(this.outputGainNode!);
-      this.outputGainNode!.connect(this.audioContext!.destination);
-      source.start();
-    });
-  }
-
   async leaveChannel(): Promise<void> {
     if (this.speakCheckInterval) {
       clearInterval(this.speakCheckInterval);
@@ -261,6 +328,11 @@ export class VoiceService implements OnDestroy {
       this.analyser.disconnect();
       this.analyser = null;
     }
+
+    this.peers.forEach(pc => pc.close());
+    this.peers.clear();
+
+    document.querySelectorAll('audio[data-webrtc]').forEach(el => el.remove());
 
     this.isConnected = false;
 
@@ -285,6 +357,9 @@ export class VoiceService implements OnDestroy {
   }
 
   mute(): void {
+    if (this.mediaStream) {
+      this.mediaStream.getAudioTracks().forEach(t => { t.enabled = false; });
+    }
     if (this.gainNode) {
       this.gainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
     }
@@ -293,6 +368,9 @@ export class VoiceService implements OnDestroy {
   }
 
   unmute(): void {
+    if (this.mediaStream) {
+      this.mediaStream.getAudioTracks().forEach(t => { t.enabled = true; });
+    }
     if (this.gainNode) {
       this.gainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
     }

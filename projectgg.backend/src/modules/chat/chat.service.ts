@@ -104,7 +104,7 @@ export class ChatService {
 
   // ===== MESSAGES =====
 
-  async getHistory(channelId?: string, limit = 50): Promise<ChatMessage[]> {
+  async getHistory(channelId?: string, limit = 50, userId?: string): Promise<ChatMessage[]> {
     let query = this.db().from('chat_messages').select('*');
     if (channelId) query = query.eq('channel_id', channelId);
     const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
@@ -1145,5 +1145,80 @@ export class ChatService {
         .delete()
         .eq('id', conversationId);
     }
+  }
+
+  // ================================================================
+  // MESSAGE EDIT / DELETE
+  // ================================================================
+
+  async editMessage(messageId: number, userId: string, content: string): Promise<any> {
+    const { data: msg } = await this.db()
+      .from('chat_messages')
+      .select('*')
+      .eq('id', messageId)
+      .single();
+    if (!msg) throw new BadRequestException('Message not found');
+    if (msg.user_id !== userId) throw new BadRequestException('You can only edit your own messages');
+
+    const trimmed = content.trim();
+    if (!trimmed) throw new BadRequestException('Message cannot be empty');
+    if (trimmed.length > 500) throw new BadRequestException('Message too long (max 500)');
+
+    const { data: updated, error } = await this.db()
+      .from('chat_messages')
+      .update({ content: trimmed, edited: true })
+      .eq('id', messageId)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
+  }
+
+  async deleteMessage(messageId: number, userId: string): Promise<void> {
+    const { data: msg } = await this.db()
+      .from('chat_messages')
+      .select('*')
+      .eq('id', messageId)
+      .single();
+    if (!msg) throw new BadRequestException('Message not found');
+
+    const { error } = await this.db()
+      .from('chat_messages')
+      .delete()
+      .eq('id', messageId);
+    if (error) throw error;
+  }
+
+  // ================================================================
+  // ROLE EDIT
+  // ================================================================
+
+  async updateServerRole(
+    serverId: number, userId: string, roleName: string, data: { name?: string; color?: string; permissions?: string[] },
+  ): Promise<any> {
+    const { data: server } = await this.db()
+      .from('gg_servers')
+      .select('owner_id, roles')
+      .eq('id', serverId)
+      .single();
+    if (!server) throw new BadRequestException('Server not found');
+    if (server.owner_id !== userId) throw new BadRequestException('Only the owner can edit roles');
+
+    const roles = (server.roles ?? []) as any[];
+    const idx = roles.findIndex((r: any) => r.name === roleName);
+    if (idx === -1) throw new BadRequestException('Role not found');
+
+    if (data.name !== undefined) roles[idx].name = data.name;
+    if (data.color !== undefined) roles[idx].color = data.color;
+    if (data.permissions !== undefined) roles[idx].permissions = data.permissions;
+
+    const { data: updated, error } = await this.db()
+      .from('gg_servers')
+      .update({ roles })
+      .eq('id', serverId)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated;
   }
 }
