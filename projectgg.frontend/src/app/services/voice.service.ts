@@ -244,7 +244,6 @@ export class VoiceService implements OnDestroy {
 
     this.socket.on('member-joined', (data: { userId: string; channelId: string; muted: boolean; deafened: boolean }) => {
       this.onMemberJoined?.(data.userId, data.channelId, data.muted, data.deafened);
-      this.createOffer(data.userId);
     });
 
     this.socket.on('member-left', (data: { userId: string; channelId: string }) => {
