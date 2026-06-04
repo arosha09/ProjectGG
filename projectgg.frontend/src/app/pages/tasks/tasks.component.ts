@@ -11,6 +11,7 @@ import { AuthService } from '../../services/auth.service';
 import { TasksService, Task, CollectionStats } from '../../services/tasks.service';
 import { TaskTrackerService, TaskUpdateEvent, TaskCompletedEvent } from '../../services/task-tracker.service';
 import { ThemeOption } from '../../components/theme-selector/theme-selector.component';
+import { ThemeService } from '../../services/theme.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { UserStatusService, UserStatus } from '../../services/user-status.service';
@@ -76,6 +77,7 @@ export class TasksComponent implements OnInit, OnDestroy {
     private readonly http: HttpClient,
     private readonly userStatus: UserStatusService,
     private readonly taskTracker: TaskTrackerService,
+    private readonly themeService: ThemeService,
   ) {}
 
   ngOnInit(): void {
@@ -451,20 +453,12 @@ export class TasksComponent implements OnInit, OnDestroy {
   setTheme(theme: ThemeOption): void {
     this.currentTheme = theme;
     this.themeDropdownOpen = false;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('projectgg:theme', theme);
-    localStorage.setItem('projectgg_theme', theme);
+    this.themeService.setTheme(theme);
   }
 
   private applySavedTheme(): void {
-    try {
-      const saved = localStorage.getItem('projectgg:theme') as ThemeOption | null;
-      if (saved === 'red' || saved === 'yellow' || saved === 'blue' || saved === 'green') {
-        this.setTheme(saved);
-      } else {
-        this.setTheme('green');
-      }
-    } catch { this.setTheme('green'); }
+    const saved = this.themeService.currentTheme();
+    this.currentTheme = saved;
   }
 
   toggleThemeDropdown(): void {

@@ -225,16 +225,8 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   private applySavedTheme(): void {
-    try {
-      const saved = localStorage.getItem('projectgg:theme') as any;
-      if (saved === 'red' || saved === 'yellow' || saved === 'blue' || saved === 'green') {
-        this.setTheme(saved);
-      } else {
-        this.setTheme(this.currentTheme);
-      }
-    } catch (e) {
-      // ignore
-    }
+    const saved = this.themeService.currentTheme();
+    this.currentTheme = saved === 'custom' ? 'green' : saved;
   }
 
   toggleThemeDropdown(): void {
