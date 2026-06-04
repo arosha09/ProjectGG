@@ -19,6 +19,7 @@ import { Subscription } from 'rxjs';
 })
 export class ApexChatComponent implements OnInit, OnDestroy {
   @HostBinding('class.expanded') get isExpanded(): boolean { return this.isPanelOpen; }
+  @HostBinding('class.loaded') isLoaded = false;
   isPanelOpen = false;
   isRecording = false;
   isListening = false;
@@ -44,6 +45,11 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.isSupported = this.apexService.isSpeechRecognitionSupported();
     this.apexService.loadVoices();
+
+    setTimeout(() => {
+      this.isLoaded = true;
+      this.cdr.markForCheck();
+    }, 1000);
 
     this.stateSub = this.apexService.state$.subscribe(state => {
       this.isRecording = state.isRecording;
