@@ -68,7 +68,7 @@ interface GiftTrade {
             <div class="gift-card">
               <div class="gift-card-header">
                 <div class="gift-user">
-                  <img loading="lazy" decoding="async" [src]="gift.proposer_avatar || '/assets/avatars/unknown.png'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
+                  <img loading="lazy" decoding="async" [src]="gift.proposer_avatar || '/assets/avatars/unknown.webp'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
                   <div>
                     <div class="gift-user-name">{{ gift.proposer_id === currentUserId ? 'You' : gift.proposer_name }}</div>
                     <div class="gift-user-label">Gifter</div>
@@ -78,7 +78,7 @@ interface GiftTrade {
                   <mat-icon svgIcon="card_giftcard"></mat-icon>
                 </div>
                 <div class="gift-user">
-                  <img loading="lazy" decoding="async" [src]="gift.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
+                  <img loading="lazy" decoding="async" [src]="gift.receiver_avatar || '/assets/avatars/unknown.webp'" alt="" class="gift-avatar" (error)="$event.target.style.display='none'" />
                   <div>
                     <div class="gift-user-name">{{ gift.receiver_id === currentUserId ? 'You' : gift.receiver_name }}</div>
                     <div class="gift-user-label">Receiver</div>

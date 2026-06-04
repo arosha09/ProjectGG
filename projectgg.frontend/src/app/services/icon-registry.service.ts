@@ -53,7 +53,7 @@ export class IconRegistryService extends MatIconRegistry {
     'login', 'logout',
     'mail', 'menu', 'memory', 'mic', 'mic_off', 'mood', 'more_horiz',
     'more_vert', 'movie_filter', 'music_note',
-    'notifications', 'notifications_off', 'open_in_new', 'outbox',
+    'notifications', 'notifications_active', 'notifications_off', 'open_in_new', 'outbox',
     'palette', 'pause', 'people', 'person', 'person_add', 'person_remove',
     'phone_off', 'photo_camera', 'play_arrow', 'play_circle',
     'playlist_add', 'queue_music',

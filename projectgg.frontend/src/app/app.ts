@@ -113,12 +113,12 @@ export class App implements OnInit, OnDestroy {
       if (this.profileDropdownOpen) {
         this.profileDropdownOpen = false;
       }
-      this.showApexPanel = !this.router.url.startsWith('/admin');
+      this.showApexPanel = this.shouldShowApexPanel(this.router.url);
       this.cdr.markForCheck();
     });
 
     // Initialize on first load
-    this.showApexPanel = !this.router.url.startsWith('/admin');
+    this.showApexPanel = this.shouldShowApexPanel(this.router.url);
 
     this.applySavedStatus();
     this.loadConnections();
@@ -201,9 +201,21 @@ export class App implements OnInit, OnDestroy {
 
   getDefaultAvatar(gender?: string): string {
     const g = gender?.toLowerCase();
-    if (g === 'male') return '/assets/avatars/male.png';
-    if (g === 'female') return '/assets/avatars/female.png';
-    return '/assets/avatars/unknown.png';
+    if (g === 'male') return '/assets/avatars/male.webp';
+    if (g === 'female') return '/assets/avatars/female.webp';
+    return '/assets/avatars/unknown.webp';
+  }
+
+  private shouldShowApexPanel(url: string): boolean {
+    if (url === '/' || url === '/home' || url.startsWith('/login') ||
+        url.startsWith('/register') || url.startsWith('/admin') ||
+        url.startsWith('/auth/') || url.startsWith('/verify-email')) {
+      return false;
+    }
+    if (url.startsWith('/login') && document.querySelector('.modal-overlay')) {
+      return false;
+    }
+    return true;
   }
 
   private loadConnections(): void {

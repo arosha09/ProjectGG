@@ -1,4 +1,4 @@
-import { PreloadAllModules, provideRouter, withPreloading } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -11,7 +11,7 @@ import { IconRegistryService } from './services/icon-registry.service';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes, withPreloading(PreloadAllModules)),
+    provideRouter(routes),
     provideAnimationsAsync('noop'),
     provideHttpClient(withInterceptorsFromDi()),
     {

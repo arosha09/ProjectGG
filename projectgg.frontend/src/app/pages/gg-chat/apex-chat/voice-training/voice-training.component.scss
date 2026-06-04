@@ -1,0 +1,305 @@
+.vt-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(6px);
+}
+
+.vt-panel {
+  width: 420px;
+  max-width: 90vw;
+  background: rgba(10, 10, 15, 0.97);
+  border: 1.5px solid rgba(255, 170, 0, 0.3);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 50px rgba(255, 170, 0, 0.12);
+  animation: vt-slide-in 0.3s ease;
+}
+
+@keyframes vt-slide-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.vt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 170, 0, 0.2);
+  background: rgba(255, 170, 0, 0.05);
+}
+
+.vt-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--neon-gold, #ffaa00);
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.vt-body {
+  padding: 24px 20px;
+}
+
+.vt-progress {
+  margin-bottom: 24px;
+}
+
+.vt-step-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  margin-bottom: 8px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vt-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.vt-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-gold, #ffaa00), #ff8800);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+}
+
+.vt-phrase-card {
+  background: rgba(255, 170, 0, 0.04);
+  border: 1px solid rgba(255, 170, 0, 0.12);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.vt-phrase {
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1.6;
+  font-style: italic;
+  margin: 0;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.vt-record-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.vt-mic-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 170, 0, 0.4);
+  background: rgba(255, 170, 0, 0.08);
+  color: var(--neon-gold, #ffaa00);
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 170, 0, 0.18);
+    border-color: var(--neon-gold, #ffaa00);
+    box-shadow: 0 0 24px rgba(255, 170, 0, 0.3);
+  }
+
+  &.recording {
+    background: rgba(255, 68, 68, 0.2);
+    border-color: #ff4444;
+    color: #ff4444;
+    animation: vt-recording-pulse 1.2s ease-in-out infinite;
+
+    .vt-mic-ring {
+      position: absolute;
+      inset: -8px;
+      border: 2px solid rgba(255, 68, 68, 0.5);
+      border-radius: 50%;
+      animation: vt-ring-expand 1.2s ease-out infinite;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.vt-mic-label {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.vt-preview-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.vt-audio-player {
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  filter: invert(1) hue-rotate(180deg) brightness(1.2);
+
+  &::-webkit-media-controls-panel {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.vt-preview-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.vt-status {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+
+  &.error {
+    color: #ff6666;
+    background: rgba(255, 68, 68, 0.08);
+    border-color: rgba(255, 68, 68, 0.15);
+  }
+}
+
+.vt-complete {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.vt-complete-icon {
+  margin-bottom: 16px;
+
+  mat-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: #44cc44;
+    filter: drop-shadow(0 0 12px rgba(68, 204, 68, 0.4));
+  }
+}
+
+.vt-complete h3 {
+  color: #ffffff;
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.vt-complete p {
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 24px;
+  font-size: 13px;
+}
+
+.vt-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.vt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.vt-btn-secondary {
+  background: rgba(255, 170, 0, 0.1);
+  border-color: rgba(255, 170, 0, 0.25);
+  color: var(--neon-gold, #ffaa00);
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.2);
+    box-shadow: 0 0 16px rgba(255, 170, 0, 0.2);
+  }
+}
+
+.vt-btn-danger {
+  background: rgba(255, 68, 68, 0.08);
+  border-color: rgba(255, 68, 68, 0.2);
+  color: #ff6666;
+
+  &:hover {
+    background: rgba(255, 68, 68, 0.18);
+    box-shadow: 0 0 16px rgba(255, 68, 68, 0.2);
+  }
+}
+
+.vt-btn-accept {
+  background: linear-gradient(135deg, rgba(68, 204, 68, 0.15), rgba(68, 204, 68, 0.08));
+  border-color: rgba(68, 204, 68, 0.3);
+  color: #44cc44;
+  flex: 1;
+
+  &:hover {
+    background: linear-gradient(135deg, rgba(68, 204, 68, 0.25), rgba(68, 204, 68, 0.12));
+    box-shadow: 0 0 20px rgba(68, 204, 68, 0.25);
+  }
+}
+
+@keyframes vt-recording-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 24px rgba(255, 68, 68, 0.6); }
+}
+
+@keyframes vt-ring-expand {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, ElementRef, NO_ERRORS_SCHEMA } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, ElementRef, NO_ERRORS_SCHEMA, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -257,6 +257,17 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.userStatus.currentStatus$.subscribe((status: UserStatus) => {
       this.currentStatus = status;
       this.cdr.markForCheck();
+    });
+
+    // Sync theme color to voice channel when it changes
+    effect(() => {
+      const _theme = this.theme.currentTheme();
+      const _custom = this.theme.customColor();
+      // Read both signals so this re-runs when either changes
+      if (this.voiceService.connected) {
+        const color = this.getUserThemeColor(this.currentUser?.id ?? '');
+        this.voiceService.updateThemeColor(color);
+      }
     });
     // Check if a header-nav trade notification requested a focus
     try {
@@ -1313,15 +1324,13 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.localMicActive = speaking;
       const currentUserId = this.auth.getCurrentUser()?.id;
       if (currentUserId) {
+        const next = new Set(this.speakingUsers);
         if (speaking) {
-          if (!this.speakingUsers.has(currentUserId)) {
-            this.speakingUsers = new Set([...this.speakingUsers, currentUserId]);
-          }
+          next.add(currentUserId);
         } else {
-          if (this.speakingUsers.has(currentUserId)) {
-            this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== currentUserId));
-          }
+          next.delete(currentUserId);
         }
+        this.speakingUsers = next;
       }
       if (speaking) {
         if (this.mutedWarningTimer) {
@@ -1336,10 +1345,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
         }
         this.mutedWarningTimer = setTimeout(() => {
           this.showMutedWarning = false;
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         }, 2500);
       }
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
     };
     this.voiceService.onUserMuted = (userId) => {
       this.voiceMembers = this.voiceMembers.map(m =>
@@ -2368,6 +2377,25 @@ export class GgChatComponent implements OnInit, OnDestroy {
     return this.nudgeService.isRecentlyNudged(userId);
   }
 
+  getUserVolume(userId: string): number {
+    return this.voiceService.getUserVolume(userId);
+  }
+
+  getUserThemeColor(userId: string): string {
+    return this.voiceService.getUserThemeColor(userId);
+  }
+
+  onUserVolumeChange(userId: string, event: Event): void {
+    const val = parseFloat((event.target as HTMLInputElement).value);
+    this.voiceService.setUserVolume(userId, val);
+    this.cdr.markForCheck();
+  }
+
+  resetUserVolume(userId: string): void {
+    this.voiceService.resetUserVolume(userId);
+    this.cdr.markForCheck();
+  }
+
   openEmojiPickerFromCtx(event: MouseEvent, msg: ChatMessage): void {
     event.stopPropagation();
     this.emojiPickerMsg = msg;
@@ -2398,9 +2426,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   defaultAvatar(): string {
     const g = this.currentUser?.gender?.toLowerCase();
-    if (g === 'male') return '/assets/avatars/male.png';
-    if (g === 'female') return '/assets/avatars/female.png';
-    return '/assets/avatars/unknown.png';
+    if (g === 'male') return '/assets/avatars/male.webp';
+    if (g === 'female') return '/assets/avatars/female.webp';
+    return '/assets/avatars/unknown.webp';
   }
 
   onAvatarError(event: Event): void {
@@ -2414,8 +2442,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
       if (user[key]) return user[key];
     }
     const gender = user.gender?.toLowerCase();
-    if (gender === 'male') return '/assets/avatars/male.png';
-    if (gender === 'female') return '/assets/avatars/female.png';
+    if (gender === 'male') return '/assets/avatars/male.webp';
+    if (gender === 'female') return '/assets/avatars/female.webp';
     return this.defaultAvatar();
   }
 

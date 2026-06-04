@@ -256,13 +256,14 @@
                 [class.msg-discord]="msg.source === 'discord'"
                 [class.msg-web]="msg.source === 'web'"
                 [class.msg-voice]="msg.channel_type === 'voice'"
+                [class.msg-bot]="msg.username === 'A.P.E.X.'"
                 (contextmenu)="openContextMenu($event, msg)"
               >
                 @if (msg.username !== 'System') {
                   <div class="msg-avatar-col">
                     <div class="msg-avatar-wrapper">
                       <div class="gg-avatar-sk"></div>
-                      <img loading="lazy" decoding="async" class="msg-avatar" [src]="avatarForUsername(msg.username)" alt="" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+                      <img loading="lazy" decoding="async" class="msg-avatar" [src]="avatarForUsername(msg.username) || msg.avatar_url || (msg.username === 'A.P.E.X.' ? 'assets/ai/avatars/apex-avatar.webp' : '')" alt="" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
                     </div>
                   </div>
                 }
@@ -421,6 +422,7 @@
                 <div class="gg-voice-avatars-row">
                   @for (vm of voiceMembers; track vm.userId) {
                     <div class="gg-voice-avatar-card"
+                         [style.--user-accent]="getUserThemeColor(vm.userId)"
                          [class.self]="vm.userId === currentUser?.id"
                          [class.speaking]="voiceMemberSpeaking(vm.userId)"
                          [class.nudged]="isNudged(vm.userId)"
@@ -1042,6 +1044,29 @@
         <button class="cyber-ctx-item" (click)="onVoiceContextDeafen(voiceContextMenu.vm); closeVoiceContextMenu()">
           <mat-icon svgIcon="headset_off"></mat-icon> Deafen
         </button>
+        <div class="cyber-ctx-divider"></div>
+        <div class="cyber-ctx-volume">
+          <div class="cyber-ctx-volume-header">
+            <mat-icon svgIcon="volume_up"></mat-icon>
+            <span>Volume</span>
+            <span class="cyber-ctx-volume-val">{{ getUserVolume(voiceContextMenu.vm.userId) * 100 | number:'1.0-0' }}%</span>
+          </div>
+          <input
+            type="range"
+            class="cyber-ctx-volume-slider"
+            min="0"
+            max="2"
+            step="0.05"
+            [value]="getUserVolume(voiceContextMenu.vm.userId)"
+            (input)="onUserVolumeChange(voiceContextMenu.vm.userId, $event)"
+            (click)="$event.stopPropagation()"
+          />
+          @if (getUserVolume(voiceContextMenu.vm.userId) !== 1) {
+            <button class="cyber-ctx-volume-reset" (click)="resetUserVolume(voiceContextMenu.vm.userId); $event.stopPropagation()">
+              Reset
+            </button>
+          }
+        </div>
       }
     </div>
   }
@@ -1059,5 +1084,6 @@
       <app-cyber-emoji-picker (emojiSelect)="onEmojiPickerSelect($event)"></app-cyber-emoji-picker>
     </div>
   }
-</section>
+
+  </section>
 

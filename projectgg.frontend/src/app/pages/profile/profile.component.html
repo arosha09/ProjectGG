@@ -277,7 +277,7 @@
           @for (card of favoriteGames; track card.game_code) {
             <div class="showcase-item" [style.border-color]="tierColor(card.card_tier)">
               <div class="showcase-item-sk"></div>
-              <img loading="lazy" decoding="async" [src]="card.cover_url || '/assets/avatars/unknown.png'" alt="" class="showcase-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+              <img loading="lazy" decoding="async" [src]="card.cover_url || '/assets/avatars/unknown.webp'" alt="" class="showcase-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
               <div class="showcase-bar" [style.background]="tierColor(card.card_tier)"></div>
             </div>
           }

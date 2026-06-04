@@ -7,6 +7,7 @@ import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from 
 import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyber-select/cyber-select.component';
 import { CyberDropdownComponent, DropdownItem } from '../../../components/cyber-dropdown/cyber-dropdown.component';
 import { VoiceNudgeService } from '../../../services/voice-nudge.service';
+import { VoiceService } from '../../../services/voice.service';
 
 @Component({
   selector: 'app-channel-list',
@@ -294,7 +295,7 @@ import { VoiceNudgeService } from '../../../services/voice-nudge.service';
                 @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
                   <div class="gg-voice-under-users">
                     @for (vu of voiceChannelUsers(chId(ch)); track vu.userId) {
-                      <div class="gg-voice-under-user" [class.speaking]="voiceMemberSpeaking(vu.userId)" [class.nudged]="nudgeService.isRecentlyNudged(vu.userId)" (contextmenu)="voiceContextMenuRequest.emit({ event: $event, vm: vu })">
+                      <div class="gg-voice-under-user" [style.--user-accent]="getUserThemeColor(vu.userId)" [class.speaking]="voiceMemberSpeaking(vu.userId)" [class.nudged]="nudgeService.isRecentlyNudged(vu.userId)" (contextmenu)="voiceContextMenuRequest.emit({ event: $event, vm: vu })">
                         <div class="gg-voice-under-avatar">
                           @if (voiceMemberAvatar(vu.userId)) {
                             <img loading="lazy" decoding="async" [src]="voiceMemberAvatar(vu.userId)!" alt="" />
@@ -484,7 +485,10 @@ export class ChannelListComponent {
   @Output() openChannelSettings = new EventEmitter<GgChannel>();
   @Output() voiceContextMenuRequest = new EventEmitter<{ event: MouseEvent; vm: any }>();
 
-  constructor(public readonly nudgeService: VoiceNudgeService) {}
+  constructor(
+    public readonly nudgeService: VoiceNudgeService,
+    private readonly voiceService: VoiceService,
+  ) {}
 
   readonly statusOptions = [
     { id: 'online', label: 'Online', icon: '●' },
@@ -581,6 +585,10 @@ export class ChannelListComponent {
     return this.speakingUsers.has(userId);
   }
 
+  getUserThemeColor(userId: string): string {
+    return this.voiceService.getUserThemeColor(userId);
+  }
+
   dmStatus(otherUserId: string): string {
     return this.memberStatuses[otherUserId] ?? 'invisible';
   }
@@ -598,9 +606,9 @@ export class ChannelListComponent {
 
   private genderAvatar(gender?: string): string {
     const g = gender?.toLowerCase();
-    if (g === 'male') return '/assets/avatars/male.png';
-    if (g === 'female') return '/assets/avatars/female.png';
-    return '/assets/avatars/unknown.png';
+    if (g === 'male') return '/assets/avatars/male.webp';
+    if (g === 'female') return '/assets/avatars/female.webp';
+    return '/assets/avatars/unknown.webp';
   }
 
   onAvatarError(event: Event): void {

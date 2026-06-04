@@ -73,7 +73,7 @@
           <div class="trade-card">
             <div class="trade-header">
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/avatars/unknown.webp'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.proposer_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.proposer_tier">{{ trade.proposer_tier }}</div>
@@ -83,7 +83,7 @@
                 <mat-icon svgIcon="arrow_forward"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.webp'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">You</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
@@ -143,7 +143,7 @@
                 <mat-icon svgIcon="arrow_forward"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.webp'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.receiver_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
@@ -191,7 +191,7 @@
           <div class="trade-card trade-card-completed" [class]="'status-' + trade.trade_status">
             <div class="trade-header">
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.proposer_avatar || '/assets/avatars/unknown.webp'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.proposer_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.proposer_tier">{{ trade.proposer_tier }}</div>
@@ -201,7 +201,7 @@
                 <mat-icon svgIcon="arrow_forward"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="trade.receiver_avatar || '/assets/avatars/unknown.webp'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ trade.receiver_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + trade.receiver_tier">{{ trade.receiver_tier }}</div>
@@ -262,7 +262,7 @@
           @if (friends.length > 0) {
             @for (friend of friends; track friend.id) {
               <div class="friend-chip" [class.selected]="selectedReceiverId === friend.other_id" (click)="selectReceiverFriend(friend)">
-                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/avatars/unknown.webp'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                 <span>{{ friend.other_username }}</span>
               </div>
             }
@@ -276,7 +276,7 @@
               <div class="user-search-results">
                 @for (user of userSearchResults; track user.id) {
                   <div class="user-search-item" (click)="selectUser(user)">
-                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/avatars/unknown.webp'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                     <span>{{ user.username }}</span>
                   </div>
                 }
@@ -360,7 +360,7 @@
           <div class="trade-card trade-card-gift">
             <div class="trade-header">
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="gift.proposer_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="gift.proposer_avatar || '/assets/avatars/unknown.webp'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ gift.proposer_id === currentUserId ? 'You' : gift.proposer_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + gift.proposer_tier">{{ gift.proposer_tier }}</div>
@@ -370,7 +370,7 @@
                 <mat-icon svgIcon="card_giftcard"></mat-icon>
               </div>
               <div class="trade-user">
-                <img loading="lazy" decoding="async" [src]="gift.receiver_avatar || '/assets/avatars/unknown.png'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="gift.receiver_avatar || '/assets/avatars/unknown.webp'" alt="" class="trade-avatar" (error)="$event.target.style.display='none'" />
                 <div>
                   <div class="trade-user-name">{{ gift.receiver_id === currentUserId ? 'You' : gift.receiver_name }}</div>
                   <div class="trade-user-tier" [class]="'tier-' + gift.receiver_tier">{{ gift.receiver_tier }}</div>
@@ -428,7 +428,7 @@
           @if (friends.length > 0) {
             @for (friend of friends; track friend.id) {
               <div class="friend-chip" [class.selected]="giftReceiverId === friend.other_id" (click)="selectGiftReceiver(friend)">
-                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                <img loading="lazy" decoding="async" [src]="friend.other_avatar || '/assets/avatars/unknown.webp'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                 <span>{{ friend.other_username }}</span>
               </div>
             }
@@ -439,7 +439,7 @@
               <div class="user-search-results">
                 @for (user of userSearchResults; track user.id) {
                   <div class="user-search-item" (click)="selectUserForGift(user)">
-                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/avatars/unknown.png'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
+                    <img loading="lazy" decoding="async" [src]="user.avatar || '/assets/avatars/unknown.webp'" alt="" class="friend-avatar" (error)="$event.target.style.display='none'" />
                     <span>{{ user.username }}</span>
                   </div>
                 }

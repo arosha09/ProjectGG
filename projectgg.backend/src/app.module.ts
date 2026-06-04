@@ -15,6 +15,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { MusicModule } from './modules/music/music.module';
 import { CardCollectionModule } from './modules/card-collection/card-collection.module';
 import { JamModule } from './modules/jam/jam.module';
+import { AiModule } from './modules/ai/ai.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -37,6 +38,7 @@ import { JamModule } from './modules/jam/jam.module';
     MusicModule,
     CardCollectionModule,
     JamModule,
+    AiModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

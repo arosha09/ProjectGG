@@ -16,6 +16,8 @@ import { JamTrack } from './jam.types';
 export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(JamGateway.name);
   private socketToUser = new Map<string, string>();
+  private disconnectTimers = new Map<string, NodeJS.Timeout>();
+  private static readonly DISCONNECT_GRACE_MS = 30_000;
 
   @WebSocketServer()
   server: Server;
@@ -27,6 +29,13 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!userId) {
       client.disconnect();
       return;
+    }
+
+    const existingTimer = this.disconnectTimers.get(userId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.disconnectTimers.delete(userId);
+      this.logger.log(`Jam disconnect cancelled for ${userId} — reconnected in time`);
     }
 
     client.data.userId = userId;
@@ -44,23 +53,33 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.socketToUser.delete(client.id);
     if (!userId) return;
 
-    const result = this.jamService.leave_session(userId);
-    if (!result) return;
+    const session = this.jamService.get_user_session(userId);
+    if (!session) return;
 
-    const session = this.jamService.get_session(result.sessionId);
-    if (session) {
-      this.server.to(`jam:${session.id}`).emit('jam:participant-left', {
-        userId,
-        sessionId: result.sessionId,
-      });
+    const timer = setTimeout(() => {
+      this.disconnectTimers.delete(userId);
+      const result = this.jamService.leave_session(userId);
+      if (!result) return;
 
-      if (result.newHostId) {
-        this.server.to(`jam:${session.id}`).emit('jam:host-changed', {
-          newHostId: result.newHostId,
+      const s = this.jamService.get_session(result.sessionId);
+      if (s) {
+        this.server.to(`jam:${s.id}`).emit('jam:participant-left', {
+          userId,
           sessionId: result.sessionId,
         });
+
+        if (result.newHostId) {
+          this.server.to(`jam:${s.id}`).emit('jam:host-changed', {
+            newHostId: result.newHostId,
+            sessionId: result.sessionId,
+          });
+        }
       }
-    }
+
+      this.logger.log(`Jam user ${userId} removed after grace period`);
+    }, JamGateway.DISCONNECT_GRACE_MS);
+
+    this.disconnectTimers.set(userId, timer);
   }
 
   @SubscribeMessage('jam:sync-request')

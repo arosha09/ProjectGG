@@ -2,45 +2,56 @@
   display: block;
   position: fixed;
   bottom: 80px;
-  right: 0;
+  right: 40px;
   z-index: 1000;
   font-family: 'Inter', system-ui, sans-serif;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.4s ease, right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.loaded {
     opacity: 1;
     pointer-events: auto;
   }
+
+  &.expanded {
+    right: 80px;
+  }
 }
 
 .apex-trigger {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px 6px 6px;
+  padding: 0;
   background: linear-gradient(135deg, rgba(255, 170, 0, 0.25), rgba(255, 170, 0, 0.1));
-  border: 1.5px solid var(--neon-gold, #ffaa00);
-  border-radius: 24px;
+  border: 2px solid var(--neon-gold, #ffaa00);
+  border-radius: 28px;
   cursor: pointer;
-  transition: clip-path 0.35s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.35s ease;
+  transition:
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s ease;
   backdrop-filter: blur(8px);
-  box-shadow: 0 0 20px rgba(255, 170, 0, 0.2);
-  width: 140px;
-  height: 44px;
-  clip-path: circle(22px at 118px 22px);
+  box-shadow: 0 0 20px rgba(255, 170, 0, 0.25);
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  transform-origin: right center;
 
-  &:hover, :host.expanded & {
-    clip-path: inset(0 round 24px);
-    box-shadow: 0 0 30px rgba(255, 170, 0, 0.35);
+  &:hover {
+    box-shadow: 0 0 40px rgba(255, 170, 0, 0.45);
+  }
+
+  :host.expanded & {
+    width: 200px;
+    box-shadow: 0 0 40px rgba(255, 170, 0, 0.45);
   }
 }
 
 .apex-avatar {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--neon-gold, #ffaa00), #ff8800);
   display: flex;
@@ -53,6 +64,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center center;
   }
 }
 
@@ -62,6 +74,18 @@
   font-size: 14px;
   letter-spacing: 2px;
   text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  margin-left: 14px;
+  transform: translateX(8px);
+  transition:
+    opacity 0.2s ease 0.08s,
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.08s;
+}
+
+:host.expanded .apex-label {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .apex-panel {
@@ -76,6 +100,10 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 170, 0, 0.15);
   overflow: hidden;
   animation: apex-slide-in 0.3s ease;
+}
+
+:host.expanded .apex-panel {
+  right: -60px;
 }
 
 @keyframes apex-slide-in {

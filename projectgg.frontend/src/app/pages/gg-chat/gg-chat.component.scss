@@ -3164,9 +3164,8 @@
   position: relative;
   transition: all 0.3s;
   &.speaking .gg-voice-avatar-name {
-    color: var(--accent-color);
-    text-shadow: 0 0 12px
-      rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.6);
+    color: var(--user-accent, var(--accent-color));
+    text-shadow: 0 0 12px var(--user-accent, var(--accent-color));
   }
   &.nudged {
     animation: gg-nudge-flash 0.6s ease-out;
@@ -3219,8 +3218,12 @@
   transition: all 0.3s;
   position: relative;
   &.speaking {
-    background: var(--accent-color);
-    border: 2px solid var(--accent-color);
+    background: var(--user-accent, var(--accent-color));
+    border: 2px solid var(--user-accent, var(--accent-color));
+    box-shadow:
+      0 0 0 2px var(--bg-black),
+      0 0 16px var(--user-accent, var(--accent-color)),
+      0 0 32px var(--user-accent, var(--accent-color));
     animation: gg-speaking-pulse 1.4s ease-in-out infinite;
   }
 }
@@ -3228,16 +3231,10 @@
 @keyframes gg-speaking-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 2px var(--bg-black),
-      0 0 12px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.5),
-      0 0 24px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.2);
+    opacity: 1;
   }
   50% {
-    box-shadow:
-      0 0 0 2px var(--bg-black),
-      0 0 20px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.7),
-      0 0 40px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3);
+    opacity: 0.85;
   }
 }
 
@@ -3261,8 +3258,8 @@
 
 .gg-voice-avatar-ring.speaking .gg-voice-avatar {
   box-shadow:
-    0 0 8px var(--accent-color),
-    0 0 16px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.2);
+    0 0 8px var(--user-accent, var(--accent-color)),
+    0 0 16px var(--user-accent, var(--accent-color));
 }
 
 .gg-voice-avatar-initial {
@@ -3614,20 +3611,19 @@
   &.speaking {
     background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.08);
     .gg-voice-under-avatar {
-      border-color: var(--accent-color);
+      border-color: var(--user-accent, var(--accent-color));
       box-shadow:
-        0 0 16px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.85),
-        inset 0 0 8px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.2);
+        0 0 16px var(--user-accent, var(--accent-color)),
+        inset 0 0 8px var(--user-accent, var(--accent-color));
       background: rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.15);
       animation: gg-speaking-pulse-mini 1.4s ease-in-out infinite;
     }
     .gg-voice-under-name {
-      color: var(--accent-color);
-      text-shadow: 0 0 10px
-        rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.5);
+      color: var(--user-accent, var(--accent-color));
+      text-shadow: 0 0 10px var(--user-accent, var(--accent-color));
     }
     .gg-voice-under-status {
-      color: var(--accent-color) !important;
+      color: var(--user-accent, var(--accent-color)) !important;
     }
   }
   &.nudged {
@@ -3667,16 +3663,10 @@
 @keyframes gg-speaking-pulse-mini {
   0%,
   100% {
-    box-shadow:
-      0 0 0 1px var(--bg-black),
-      0 0 12px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.7),
-      0 0 24px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3);
+    opacity: 1;
   }
   50% {
-    box-shadow:
-      0 0 0 1px var(--bg-black),
-      0 0 18px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.95),
-      0 0 36px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.45);
+    opacity: 0.85;
   }
 }
 
@@ -5195,6 +5185,91 @@
   margin: 4px 8px;
 }
 
+.cyber-ctx-volume {
+  padding: 8px 12px;
+}
+
+.cyber-ctx-volume-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: var(--color-primary);
+  }
+}
+
+.cyber-ctx-volume-val {
+  margin-left: auto;
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 11px;
+  min-width: 36px;
+  text-align: right;
+}
+
+.cyber-ctx-volume-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+
+    &:hover {
+      box-shadow: 0 0 10px var(--color-primary);
+    }
+  }
+
+  &::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+  }
+}
+
+.cyber-ctx-volume-reset {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 0;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.08);
+  }
+}
+
 // ── INLINE MESSAGE EDIT ──
 .msg-edit-row {
   display: flex;
@@ -5704,5 +5779,48 @@
   opacity: 0.6;
   &:hover {
     opacity: 1;
+  }
+}
+
+// Bot message styling for A.P.E.X.
+.chat-msg.msg-bot {
+  background: linear-gradient(135deg, rgba(255, 170, 0, 0.08), rgba(255, 170, 0, 0.02));
+  border-left: 3px solid var(--neon-gold, #ffaa00);
+  margin-left: 8px;
+  padding-left: 12px;
+
+  .msg-username {
+    color: var(--neon-gold, #ffaa00) !important;
+    font-weight: 700;
+    letter-spacing: 1px;
+
+    &::after {
+      content: '🤖';
+      margin-left: 6px;
+      font-size: 10px;
+    }
+  }
+
+  .msg-avatar-wrapper {
+    border: 2px solid var(--neon-gold, #ffaa00);
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.3);
+  }
+
+  .msg-body {
+    .msg-content {
+      color: rgba(255, 255, 255, 0.9);
+      font-style: italic;
+    }
+  }
+
+  &:hover {
+    background: linear-gradient(135deg, rgba(255, 170, 0, 0.12), rgba(255, 170, 0, 0.04));
+  }
+}
+
+// Override for voice channel system messages that use A.P.E.X. username
+.msg-system.apex-system {
+  .msg-content {
+    color: var(--neon-gold, #ffaa00);
   }
 }

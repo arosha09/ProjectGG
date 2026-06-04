@@ -94,7 +94,11 @@
             }
           },
 
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "development",
+
+          "options": {
+            "proxyConfig": "proxy.conf.json"
+          }
         },
 
         "test": {

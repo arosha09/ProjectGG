@@ -1,0 +1,172 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Body,
+  Req,
+  UseGuards,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { AiService } from './ai.service';
+import { VoiceTrainingService } from './voice-training.service';
+import { VoiceFingerprint } from './ai.types';
+import type { Request } from 'express';
+
+@Controller('ai')
+export class AiController {
+  constructor(
+    private readonly aiService: AiService,
+    private readonly voiceTrainingService: VoiceTrainingService,
+  ) {}
+
+  @Get('joke')
+  async getJoke(): Promise<{ joke: string }> {
+    const joke = await this.aiService.getJoke();
+    return { joke };
+  }
+
+  @Get('tip')
+  async getTip(): Promise<{ tip: string }> {
+    const tip = await this.aiService.getTip();
+    return { tip };
+  }
+
+  @Post('voice/upload')
+  @UseGuards(JwtAuthGuard)
+  async uploadVoiceRecording(
+    @Req() req: Request,
+    @Body() body: { audio: string; index: number; fingerprint?: VoiceFingerprint },
+  ) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (body.index < 0 || body.index > 9) {
+      throw new HttpException('Invalid recording index (must be 0-9)', HttpStatus.BAD_REQUEST);
+    }
+
+    const audioBuffer = Buffer.from(body.audio, 'base64');
+
+    if (audioBuffer.length > 5 * 1024 * 1024) {
+      throw new HttpException('Audio file too large (max 5MB)', HttpStatus.BAD_REQUEST);
+    }
+
+    const result = await this.voiceTrainingService.uploadRecording(
+      userId,
+      audioBuffer,
+      body.index,
+      body.fingerprint,
+    );
+
+    if (!result.success) {
+      throw new HttpException(result.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return {
+      success: true,
+      message: result.message,
+      progress: result.progress,
+      trainingComplete: result.progress === 10,
+    };
+  }
+
+  @Post('voice/fingerprint')
+  @UseGuards(JwtAuthGuard)
+  async uploadFingerprint(
+    @Req() req: Request,
+    @Body() body: { fingerprint: VoiceFingerprint },
+  ) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (!body.fingerprint || typeof body.fingerprint !== 'object') {
+      throw new HttpException('Fingerprint data required', HttpStatus.BAD_REQUEST);
+    }
+
+    const result = await this.voiceTrainingService.uploadFingerprint(userId, body.fingerprint);
+
+    if (!result.success) {
+      throw new HttpException(result.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return result;
+  }
+
+  @Get('voice/profile')
+  @UseGuards(JwtAuthGuard)
+  async getVoiceProfile(@Req() req: Request) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const profile = await this.voiceTrainingService.getProfile(userId);
+    const status = await this.voiceTrainingService.getTrainingStatus(userId);
+
+    return {
+      profile: profile ? {
+        trainingCompleted: profile.training_completed,
+        trainingCount: profile.training_count,
+        customWakePhrase: profile.custom_wake_phrase,
+        customVocabulary: profile.custom_vocabulary,
+        trainedAt: profile.trained_at,
+      } : null,
+      status,
+    };
+  }
+
+  @Post('voice/vocabulary')
+  @UseGuards(JwtAuthGuard)
+  async addVocabulary(
+    @Req() req: Request,
+    @Body() body: { words: string[] },
+  ) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (!Array.isArray(body.words) || body.words.length === 0) {
+      throw new HttpException('Words array is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const validWords = body.words
+      .filter(w => typeof w === 'string' && w.length > 0 && w.length < 50)
+      .slice(0, 100);
+
+    if (validWords.length === 0) {
+      throw new HttpException('No valid words provided', HttpStatus.BAD_REQUEST);
+    }
+
+    const success = await this.voiceTrainingService.addCustomVocabulary(userId, validWords);
+
+    if (!success) {
+      throw new HttpException('Failed to save vocabulary', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return { success: true, words: validWords };
+  }
+
+  @Delete('voice/profile')
+  @UseGuards(JwtAuthGuard)
+  async deleteVoiceProfile(@Req() req: Request) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const success = await this.voiceTrainingService.deleteProfile(userId);
+
+    if (!success) {
+      throw new HttpException('Failed to delete profile', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return { success: true };
+  }
+}

@@ -599,7 +599,7 @@ export class CardTradingComponent {
 
   activeTab: TradeTab = 'incoming';
   defaultCover = '';
-  defaultAvatar = '/assets/avatars/unknown.png';
+  defaultAvatar = '/assets/avatars/unknown.webp';
 
   readonly tierColors: Record<string, string> = {
     common: '#8c96a8',

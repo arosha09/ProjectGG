@@ -301,10 +301,10 @@ export class SettingsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.currentUser?.avatar) return this.currentUser.avatar;
     const gender = this.currentUser?.gender?.toLowerCase();
     if (gender == null) return null;
-    if (gender === 'prefer not to say') return '/assets/avatars/unknown.png';
-    if (gender === 'male') return '/assets/avatars/male.png';
-    if (gender === 'female') return '/assets/avatars/female.png';
-    return '/assets/avatars/unknown.png';
+    if (gender === 'prefer not to say') return '/assets/avatars/unknown.webp';
+    if (gender === 'male') return '/assets/avatars/male.webp';
+    if (gender === 'female') return '/assets/avatars/female.webp';
+    return '/assets/avatars/unknown.webp';
   }
 
   get emailVerified(): boolean {
@@ -710,8 +710,13 @@ export class SettingsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   closeCustomColorModal(): void {
     this.customColorModalOpen = false;
-    this.currentTheme = 'green';
-    this.setTheme('green');
+    // Only reset if they haven't confirmed a custom color yet
+    if (this.themeService.currentTheme() !== 'custom') {
+      this.currentTheme = 'green';
+      this.setTheme('green');
+    } else {
+      this.currentTheme = 'custom';
+    }
   }
 
   confirmCustomColor(): void {

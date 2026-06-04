@@ -136,6 +136,7 @@ export class ChatService {
     avatarUrl?: string,
     replyTo?: number,
     attachmentUrl?: string,
+    source: string = 'web',
   ): Promise<ChatMessage> {
     const trimmed = content.trim();
     if (!trimmed) throw new BadRequestException('Message cannot be empty');
@@ -146,7 +147,7 @@ export class ChatService {
         user_id: userId,
         username,
         content: trimmed,
-        source: 'web',
+        source,
         channel_id: channelId ?? null,
         avatar_url: avatarUrl ?? null,
         reply_to: replyTo ?? null,
@@ -704,6 +705,16 @@ export class ChatService {
       .single();
     if (error) return null;
     return { ...data, avatar: this.resolveAvatar(data.avatar, data.gender) };
+  }
+
+  async findBotById(id: string): Promise<{ id: string; username: string } | null> {
+    const { data, error } = await this.db()
+      .from('ai_bots')
+      .select('id, username')
+      .eq('id', id)
+      .single();
+    if (error) return null;
+    return data;
   }
 
   async searchUsers(query: string, excludeUserId: string): Promise<any[]> {

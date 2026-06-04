@@ -186,8 +186,8 @@ export class GgChatFriendsComponent implements OnInit {
 
   onAvatarError(event: Event): void {
     const img = event.target as HTMLImageElement;
-    if (!img.src.includes('unknown.png')) {
-      img.src = '/assets/avatars/unknown.png';
+    if (!img.src.includes('unknown.webp')) {
+      img.src = '/assets/avatars/unknown.webp';
     }
   }
 

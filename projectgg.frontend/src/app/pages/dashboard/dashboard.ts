@@ -689,9 +689,9 @@ export class Dashboard implements OnInit, OnDestroy {
 
   getDefaultAvatar(gender?: string): string {
     const g = gender?.toLowerCase();
-    if (g === 'male') return '/assets/avatars/male.png';
-    if (g === 'female') return '/assets/avatars/female.png';
-    return '/assets/avatars/unknown.png';
+    if (g === 'male') return '/assets/avatars/male.webp';
+    if (g === 'female') return '/assets/avatars/female.webp';
+    return '/assets/avatars/unknown.webp';
   }
 
   logout(): void {

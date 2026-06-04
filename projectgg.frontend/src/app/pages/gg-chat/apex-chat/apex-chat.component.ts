@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, HostBinding } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, HostBinding, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -40,7 +40,26 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   constructor(
     private apexService: ApexService,
     private cdr: ChangeDetectorRef,
+    private elRef: ElementRef,
   ) {}
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.isPanelOpen) {
+      this.isPanelOpen = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.isPanelOpen) return;
+    const target = event.target as HTMLElement;
+    if (!this.elRef.nativeElement.contains(target)) {
+      this.isPanelOpen = false;
+      this.cdr.markForCheck();
+    }
+  }
 
   ngOnInit(): void {
     this.isSupported = this.apexService.isSpeechRecognitionSupported();

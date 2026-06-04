@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, Query, Inject,
+  Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, Query, Inject, forwardRef,
   UseInterceptors, UploadedFile, BadRequestException, HttpException, HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -9,6 +9,7 @@ import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { DiscordBotService } from './discord-bot.service';
+import { AiService } from '../ai/ai.service';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 import { randomBytes } from 'crypto';
 import { extname } from 'path';
@@ -21,6 +22,7 @@ export class ChatController {
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
     private readonly discordBot: DiscordBotService,
+    @Inject(forwardRef(() => AiService)) private readonly aiService: AiService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
     private readonly configService: ConfigService,
   ) {}
@@ -703,6 +705,7 @@ export class ChatController {
     );
 
     this.chatGateway.broadcastMessage(msg);
+    this.aiService.handleMessage(msg);
     return msg;
   }
 

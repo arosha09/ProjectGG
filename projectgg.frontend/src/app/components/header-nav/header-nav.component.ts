@@ -84,7 +84,7 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
     private readonly sound: SoundService,
   ) {
     effect(() => {
-      this.displayAvatar.set(this.avatarUrl() ?? '/assets/avatars/unknown.png');
+      this.displayAvatar.set(this.avatarUrl() ?? '/assets/avatars/unknown.webp');
     });
   }
 
@@ -278,7 +278,7 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   handleAvatarError(): void {
-    this.displayAvatar.set('/assets/avatars/unknown.png');
+    this.displayAvatar.set('/assets/avatars/unknown.webp');
   }
 
   onStatusChange(status: string): void {
