@@ -2,7 +2,7 @@
   display: block;
   position: fixed;
   bottom: 80px;
-  right: 20px;
+  right: 10px;
   z-index: 1000;
   font-family: 'Inter', system-ui, sans-serif;
   opacity: 0;
@@ -34,9 +34,9 @@
   right: 0;
 
   &:hover, :host.expanded & {
-    clip-path: circle(100px at 22px 22px);
+    clip-path: inset(0 round 24px);
     box-shadow: 0 0 30px rgba(255, 170, 0, 0.35);
-    right: 80px;
+    right: 100px;
   }
 }
 
