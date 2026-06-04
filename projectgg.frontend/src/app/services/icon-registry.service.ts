@@ -60,7 +60,7 @@ export class IconRegistryService extends MatIconRegistry {
     'redeem', 'refresh', 'repeat', 'repeat_one', 'reply',
     'save', 'schedule', 'science', 'search', 'send', 'settings',
     'settings_voice', 'share', 'shield', 'shopping_cart', 'shuffle',
-    'skip_next', 'skip_previous', 'sports_esports', 'star', 'star_outline',
+    'skip_next', 'skip_previous', 'sports_esports', 'star', 'star_border', 'star_outline',
     'stop', 'style', 'swap_horiz', 'sync',
     'tag', 'thumb_up', 'timer', 'today',
     'upload', 'verified', 'videogame_asset', 'visibility', 'volume_down',

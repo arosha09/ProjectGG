@@ -101,7 +101,9 @@ export class UserStatusService {
   performFullDisconnect(): void {
     this.markDisconnecting();
     try {
-      this.voiceService.leaveChannel();
+      if (this.voiceService.connected) {
+        this.voiceService.leaveChannel();
+      }
     } catch {}
     try {
       this.chatService.disconnect();
