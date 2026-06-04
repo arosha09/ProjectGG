@@ -28,12 +28,13 @@ import { GgCardTradingViewComponent } from '../../components/gg-card-trading-vie
 import { CyberEmojiPickerComponent } from '../../components/cyber-emoji-picker/cyber-emoji-picker.component';
 import { VoiceNudgeService } from '../../services/voice-nudge.service';
 import { SoundService } from '../../services/sound.service';
+import { ApexChatComponent } from './apex-chat/apex-chat.component';
 
 @Component({
   selector: 'app-gg-chat',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent, ApexChatComponent],
   schemas: [NO_ERRORS_SCHEMA],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
@@ -1304,6 +1305,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       };
       this.voiceService.onMicPermissionError = (err) => {
         this.stopDeviceMonitoring();
+        this.voiceService.leaveChannel();
         this.micPermissionError = err;
         this.voiceConnected = false;
         this.voiceChannelId = null;
@@ -1433,6 +1435,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   cancelVoiceReconnect(): void {
     this.showVoiceReconnectConfirm = false;
     this.pendingVoiceChannel = null;
+    this.voiceService.leaveChannel();
     this.voiceChannelId = null;
     this.voiceGuildId = null;
     localStorage.removeItem('pendingVoiceReconnect');

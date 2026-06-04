@@ -84,6 +84,9 @@ export class VoiceService implements OnDestroy {
           resolve();
         } catch (e) {
           clearTimeout(timeout);
+          this.socket?.emit('leave-channel');
+          this.room?.disconnect().catch(() => {});
+          this.room = null;
           reject(e);
         }
       });
