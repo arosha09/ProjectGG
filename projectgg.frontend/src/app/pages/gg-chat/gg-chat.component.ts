@@ -251,7 +251,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       const _custom = this.theme.customColor();
       // Read both signals so this re-runs when either changes
       if (this.voiceService.connected) {
-        const color = this.getUserThemeColor(this.currentUser?.id ?? '');
+        const color = _theme === 'custom' ? _custom : this.voiceService.getThemeColor(_theme);
         this.voiceService.updateThemeColor(color);
       }
     });

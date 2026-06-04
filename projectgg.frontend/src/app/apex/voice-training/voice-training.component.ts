@@ -21,11 +21,6 @@ export class VoiceTrainingComponent {
     'I love playing card games and trading rare items with friends.',
     'APEX what is the rarest card in the entire collection right now?',
     'Hey APEX tell me a funny gaming joke to brighten my day.',
-    'GG that was an absolutely amazing clutch play right there.',
-    'What games do you recommend for someone who loves strategy?',
-    'Can you help me figure out the best trade for my legendary card?',
-    'What is the current meta in the competitive scene these days?',
-    'APEX you are without a doubt the best gaming assistant ever.',
   ];
 
   currentStep = 0;
@@ -54,7 +49,7 @@ export class VoiceTrainingComponent {
   }
 
   get progressPercent(): number {
-    return (this.progress / 10) * 100;
+    return (this.progress / 5) * 100;
   }
 
   get isPreview(): boolean {
@@ -179,7 +174,7 @@ export class VoiceTrainingComponent {
       this.statusMessage = `Recording ${this.progress}/10 saved.`;
       this.cdr.markForCheck();
 
-      if (this.currentStep < 9) {
+      if (this.currentStep < 4) {
         setTimeout(() => {
           this.currentStep++;
           this.statusMessage = '';

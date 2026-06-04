@@ -16,7 +16,7 @@ import { UserStatusService } from './services/user-status.service';
 import { TaskTrackerService } from './services/task-tracker.service';
 import { RealtimeService } from './services/realtime.service';
 import { SoundService } from './services/sound.service';
-import { ApexChatComponent } from './pages/gg-chat/apex-chat/apex-chat.component';
+import { ApexChatComponent } from './apex/apex.component';
 
 @Component({
   selector: 'app-root',

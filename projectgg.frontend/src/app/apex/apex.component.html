@@ -98,7 +98,7 @@
 
       <div class="setting-group voice-training">
         <label>Voice Training</label>
-        <p class="training-desc">Train A.P.E.X. to better recognize your voice (10 phrases)</p>
+        <p class="training-desc">Train A.P.E.X. to better recognize your voice (5 phrases)</p>
 
         <button
           class="train-btn"
@@ -116,19 +116,29 @@
         class="mic-btn"
         [class.recording]="isRecording"
         [class.listening]="isListening"
-        (mousedown)="startListening()"
-        (mouseup)="stopListening()"
-        (mouseleave)="stopListening()"
+        (mousedown)="onMicPointerDown($event)"
+        (mouseup)="onMicPointerUp($event)"
+        (touchstart)="onMicPointerDown($event)"
+        (touchend)="onMicPointerUp($event)"
         [disabled]="!isSupported">
         <mat-icon>{{ isListening ? 'mic' : 'mic_off' }}</mat-icon>
       </button>
-      <span class="mic-hint">{{ voiceMode === 'push-to-talk' ? 'Hold to speak' : 'Tap to toggle' }}</span>
+      <span class="mic-hint" *ngIf="!isListening">{{ voiceMode === 'push-to-talk' ? 'Hold to speak' : 'Tap to toggle' }}</span>
+      <span class="mic-hint listening" *ngIf="isListening">Listening...</span>
     </div>
   </div>
 </div>
 
-<div class="apex-hint" *ngIf="transcribedText && isPanelOpen">
+<div class="apex-hint" *ngIf="isPanelOpen && transcribedText">
   <span>{{ transcribedText }}</span>
+</div>
+
+<div class="apex-response" *ngIf="isPanelOpen && apexResponse">
+  <mat-icon>smart_toy</mat-icon>
+  <span>{{ apexResponse }}</span>
+</div>
+<div class="apex-response apex-loading" *ngIf="isPanelOpen && pendingAiQuery">
+  <span>Thinking...</span>
 </div>
 
 <app-voice-training *ngIf="showTraining" (close)="closeTraining()"></app-voice-training>

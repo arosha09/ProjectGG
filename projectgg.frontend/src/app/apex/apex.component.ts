@@ -14,8 +14,8 @@ import { Subscription } from 'rxjs';
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatInputModule, VoiceTrainingComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './apex-chat.component.html',
-  styleUrls: ['./apex-chat.component.scss'],
+  templateUrl: './apex.component.html',
+  styleUrls: ['./apex.component.scss'],
 })
 export class ApexChatComponent implements OnInit, OnDestroy {
   @HostBinding('class.expanded') get isExpanded(): boolean { return this.isPanelOpen; }
@@ -33,6 +33,9 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   showTraining = false;
   showSettings = false;
   isSupported = false;
+  micHeld = false;
+  apexResponse = '';
+  pendingAiQuery = false;
 
   private stateSub?: Subscription;
   private wakeWordSub?: Subscription;
@@ -64,6 +67,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.isSupported = this.apexService.isSpeechRecognitionSupported();
     this.apexService.loadVoices();
+    this.apexService.primeMicPermission();
 
     setTimeout(() => {
       this.isLoaded = true;
@@ -71,6 +75,13 @@ export class ApexChatComponent implements OnInit, OnDestroy {
     }, 1000);
 
     this.stateSub = this.apexService.state$.subscribe(state => {
+      console.log('[ApexChat] state$ emitted:', JSON.stringify({
+        isListening: state.isListening,
+        isRecording: state.isRecording,
+        transcribedText: state.transcribedText,
+        voiceMode: state.voiceMode,
+        wakeWordDetected: state.wakeWordDetected,
+      }));
       this.isRecording = state.isRecording;
       this.isListening = state.isListening;
       this.transcribedText = state.transcribedText;
@@ -122,14 +133,67 @@ export class ApexChatComponent implements OnInit, OnDestroy {
     this.showTraining = false;
   }
 
-  async startListening(): Promise<void> {
+  onMicPointerDown(_event: Event): void {
+    console.log('[ApexChat] === pointerDown fired ===', {
+      voiceMode: this.voiceMode,
+      micHeld: this.micHeld,
+      isListening: this.isListening,
+      transcribedText: this.transcribedText,
+    });
+    this.micHeld = true;
     if (this.voiceMode === 'push-to-talk' || this.voiceMode === 'always-listening') {
+      console.log('[ApexChat] calling startListening()');
       this.apexService.startListening();
+    } else {
+      console.log('[ApexChat] skipping startListening — mode is wake-word');
     }
   }
 
-  stopListening(): void {
+  onMicPointerUp(_event: Event): void {
+    console.log('[ApexChat] === pointerUp fired ===', {
+      micHeld: this.micHeld,
+      transcribedText: this.transcribedText,
+      pendingAiQuery: this.pendingAiQuery,
+    });
+    if (!this.micHeld) {
+      console.log('[ApexChat] micHeld was false, skipping');
+      return;
+    }
+    this.micHeld = false;
+
+    console.log('[ApexChat] calling stopListening()');
     this.apexService.stopListening();
+
+    setTimeout(() => {
+      const text = this.transcribedText;
+      const state = this.apexService.getState();
+      console.log('[ApexChat] setTimeout callback — text:', JSON.stringify(text), '| state:', JSON.stringify(state));
+
+      if (!text || this.pendingAiQuery) {
+        console.log('[ApexChat] skipping AI query — text:', !!text, 'pending:', this.pendingAiQuery);
+        return;
+      }
+
+      this.pendingAiQuery = true;
+      this.apexResponse = '';
+      this.cdr.markForCheck();
+
+      this.apexService.askAi(text).subscribe({
+        next: (res) => {
+          console.log('[ApexChat] AI response:', JSON.stringify(res.response));
+          this.apexResponse = res.response;
+          this.pendingAiQuery = false;
+          this.apexService.speak(res.response);
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('[ApexChat] API error:', err);
+          this.apexResponse = 'Failed to get response. Try again.';
+          this.pendingAiQuery = false;
+          this.cdr.markForCheck();
+        },
+      });
+    }, 300);
   }
 
   getTranscribedAndClear(): string {
@@ -143,7 +207,27 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   }
 
   setVoiceMode(mode: 'push-to-talk' | 'always-listening' | 'wake-word'): void {
-    this.apexService.setVoiceMode(mode);
+    if (mode === 'push-to-talk') {
+      this.apexService.setVoiceMode(mode);
+      return;
+    }
+    this.apexService.getVoiceProfile().subscribe({
+      next: (response: any) => {
+        const count = response?.status?.count ?? 0;
+        if (count >= 5) {
+          this.apexService.setVoiceMode(mode);
+        } else {
+          this.showSettings = true;
+          this.openTraining();
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {
+        this.showSettings = true;
+        this.openTraining();
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   setSpeechRate(rate: number): void {

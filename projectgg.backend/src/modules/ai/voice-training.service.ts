@@ -6,7 +6,7 @@ import { VoiceFingerprint } from './ai.types';
 export class VoiceTrainingService {
   private readonly logger = new Logger(VoiceTrainingService.name);
   private readonly bucketName = 'ai-voice-recordings';
-  private readonly maxRecordings = 10;
+  private readonly maxRecordings = 5;
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: any) {}
 
@@ -320,9 +320,16 @@ export class VoiceTrainingService {
   async getTrainingStatus(userId: string): Promise<{ completed: boolean; count: number }> {
     try {
       const profile = await this.getProfile(userId);
+      if (profile?.training_count) {
+        return {
+          completed: profile.training_completed || false,
+          count: profile.training_count,
+        };
+      }
+      const recordings = await this.listRecordings(userId);
       return {
-        completed: profile?.training_completed || false,
-        count: profile?.training_count || 0,
+        completed: recordings.length >= this.maxRecordings,
+        count: recordings.length,
       };
     } catch (error) {
       return { completed: false, count: 0 };

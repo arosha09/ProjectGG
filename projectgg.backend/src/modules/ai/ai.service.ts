@@ -287,6 +287,28 @@ export class AiService implements OnModuleInit {
     }
   }
 
+  async handleVoiceQuery(userId: string, content: string): Promise<AiResponse> {
+    const isVerified = await this.voiceTrainingService.isSpeakerVerified(userId);
+    const customVocabulary = await this.voiceTrainingService.getCustomVocabulary(userId);
+
+    const message: ChatMessage = {
+      id: 0,
+      user_id: userId,
+      username: 'User',
+      content,
+      source: 'voice',
+      channel_id: undefined,
+      created_at: new Date().toISOString(),
+    };
+
+    const triviaAnswer = findTriviaAnswer(content);
+    if (triviaAnswer) {
+      return { success: true, content: triviaAnswer };
+    }
+
+    return this.generateResponse(content, message, isVerified, customVocabulary);
+  }
+
   async getJoke(): Promise<string> {
     return getRandomJoke();
   }

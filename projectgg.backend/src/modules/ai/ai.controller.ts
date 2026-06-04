@@ -22,6 +22,23 @@ export class AiController {
     private readonly voiceTrainingService: VoiceTrainingService,
   ) {}
 
+  @Post('ask')
+  @UseGuards(JwtAuthGuard)
+  async askAi(@Req() req: Request, @Body() body: { message: string }) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+    if (!body.message || typeof body.message !== 'string') {
+      throw new HttpException('Message is required', HttpStatus.BAD_REQUEST);
+    }
+    const result = await this.aiService.handleVoiceQuery(userId, body.message);
+    if (!result.success) {
+      throw new HttpException(result.error || 'Failed to generate response', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    return { response: result.content };
+  }
+
   @Get('joke')
   async getJoke(): Promise<{ joke: string }> {
     const joke = await this.aiService.getJoke();
@@ -45,8 +62,8 @@ export class AiController {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
-    if (body.index < 0 || body.index > 9) {
-      throw new HttpException('Invalid recording index (must be 0-9)', HttpStatus.BAD_REQUEST);
+    if (body.index < 0 || body.index > 4) {
+      throw new HttpException('Invalid recording index (must be 0-4)', HttpStatus.BAD_REQUEST);
     }
 
     const audioBuffer = Buffer.from(body.audio, 'base64');
@@ -70,7 +87,7 @@ export class AiController {
       success: true,
       message: result.message,
       progress: result.progress,
-      trainingComplete: result.progress === 10,
+      trainingComplete: result.progress === 5,
     };
   }
 

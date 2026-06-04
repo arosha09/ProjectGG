@@ -8,6 +8,7 @@ import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 import { StatusNotificationService } from './notification.service';
 import { SoundService } from './sound.service';
+import { ThemeService } from './theme.service';
 
 export interface VoiceQualityStats {
   connectionQuality: 'excellent' | 'good' | 'poor' | 'unknown';
@@ -84,6 +85,7 @@ export class VoiceService implements OnDestroy {
     private readonly auth: AuthService,
     private readonly notification: StatusNotificationService,
     private readonly sound: SoundService,
+    readonly theme: ThemeService,
   ) {
     this.loadUserVolumes();
   }
@@ -614,6 +616,7 @@ export class VoiceService implements OnDestroy {
   //  Leave / Cleanup
   // ════════════════════════════════════════════════════════════════════════
   async leaveChannel(): Promise<void> {
+    const wasConnected = this.isConnected;
     this.isConnected = false;
     this.stopQualityMonitoring();
     this.clearTokenRefresh();
@@ -681,7 +684,9 @@ export class VoiceService implements OnDestroy {
 
     this.currentChannel = null;
     this._deafened = false;
-    this.sound.play('voice_leave');
+    if (wasConnected) {
+      this.sound.play('voice_leave');
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -706,10 +711,10 @@ export class VoiceService implements OnDestroy {
   deafen(): void {
     this._deafened = true;
     if (this.micGainNode) {
-      this.micGainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
+      this.micGainNode.gain.value = 0;
     }
     if (this.outputGainNode) {
-      this.outputGainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
+      this.outputGainNode.gain.value = 0;
     }
     this.socket?.emit('deafen');
     this.sound.play('voice_deafen');
@@ -717,11 +722,8 @@ export class VoiceService implements OnDestroy {
 
   undeafen(): void {
     this._deafened = false;
-    if (this.micGainNode) {
-      this.micGainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
-    }
     if (this.outputGainNode) {
-      this.outputGainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
+      this.outputGainNode.gain.value = 1;
     }
     this.socket?.emit('undeafen');
     this.sound.play('voice_undeafen');
@@ -781,22 +783,25 @@ export class VoiceService implements OnDestroy {
   // ════════════════════════════════════════════════════════════════════════
 
   private getCurrentUserThemeColor(): string {
-    try {
-      const theme = localStorage.getItem('projectgg_theme');
-      if (theme === 'custom') {
-        return localStorage.getItem('projectgg_theme_custom') ?? '#00ff88';
-      }
-      const map: Record<string, string> = {
-        green: '#00ff88', red: '#ff5f6d', yellow: '#ffd24d', blue: '#5fb6ff',
-      };
-      return map[theme ?? 'green'] ?? '#00ff88';
-    } catch {
-      return '#00ff88';
+    const theme = this.theme.currentTheme();
+    if (theme === 'custom') {
+      return this.theme.customColor();
     }
+    const map: Record<string, string> = {
+      green: '#00ff88', red: '#ff5f6d', yellow: '#ffd24d', blue: '#5fb6ff',
+    };
+    return map[theme] ?? '#00ff88';
   }
 
   getUserThemeColor(userId: string): string {
     return this.userThemeColors.get(userId) ?? '#00ff88';
+  }
+
+  getThemeColor(theme: string): string {
+    const map: Record<string, string> = {
+      green: '#00ff88', red: '#ff5f6d', yellow: '#ffd24d', blue: '#5fb6ff',
+    };
+    return map[theme] ?? '#00ff88';
   }
 
   setUserThemeColor(userId: string, color: string): void {

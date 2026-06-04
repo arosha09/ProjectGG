@@ -36,40 +36,33 @@ export class ApexService {
 
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
-  private wakeWordRecognition: any = null;
 
-  constructor(private http: HttpClient, private voiceAnalysis: ApexVoiceService) {
-    this.initSpeechRecognition();
-  }
+  constructor(private http: HttpClient, private voiceAnalysis: ApexVoiceService) {}
 
-  private initSpeechRecognition(): void {
+  private createRecognition(): any {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn('Web Speech API not supported in this browser');
-      return;
-    }
+    if (!SpeechRecognition) return null;
 
-    this.recognition = new SpeechRecognition();
-    this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-    this.recognition.lang = 'en-US';
+    const rec = new SpeechRecognition();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
 
-    this.recognition.onresult = (event: any) => {
-      let interimTranscript = '';
+    rec.onresult = (event: any) => {
+      let full = '';
+      for (let i = 0; i < event.results.length; i++) {
+        full += event.results[i][0].transcript;
+      }
+      console.log('[ApexService] onresult:', JSON.stringify(full));
+      this.updateState({ transcribedText: full });
+
+      // check final for wake word
       let finalTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
+      for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
+          finalTranscript += event.results[i][0].transcript;
         }
       }
-
-      const text = finalTranscript || interimTranscript;
-      this.updateState({ transcribedText: text });
-
       if (finalTranscript && this.state.voiceMode === 'wake-word') {
         if (finalTranscript.toLowerCase().includes('hey apex') && !this.state.wakeWordDetected) {
           this.updateState({ wakeWordDetected: true });
@@ -79,35 +72,126 @@ export class ApexService {
       }
     };
 
-    this.recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      this.updateState({ isListening: false });
+    rec.onerror = (event: any) => {
+      console.error('[ApexService] onerror:', event?.error);
     };
 
-    this.recognition.onend = () => {
+    rec.onstart = () => {
+      console.log('[ApexService] recognition started');
+    };
+
+    rec.onend = () => {
+      console.log('[ApexService] recognition ended');
       if (this.state.voiceMode === 'always-listening' && this.state.isListening) {
-        try {
-          this.recognition.start();
-        } catch (e) {
-          console.error('Failed to restart recognition:', e);
-        }
+        this.startListening();
       }
     };
+
+    return rec;
+  }
+
+  primeMicPermission(): void {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        stream.getTracks().forEach(t => t.stop());
+        console.log('[Apex] Mic permission primed ✅');
+      })
+      .catch(err => {
+        console.warn('[Apex] Mic permission denied:', err);
+      });
   }
 
   startListening(): void {
-    if (!this.recognition) return;
-    try {
-      this.recognition.start();
-      this.updateState({ isListening: true });
-    } catch (e) {
-      console.error('Failed to start recognition:', e);
+    const callStack = new Error().stack;
+    console.log('[Apex] === startListening() called ===');
+    console.log('[Apex] Call stack:', callStack);
+    console.log('[Apex] current state before stopListening:', JSON.stringify(this.state));
+
+    this.stopListening();
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      console.error('[Apex] ❌ SpeechRecognition NOT available');
+      return;
     }
+    console.log('[Apex] ✅ SpeechRecognition available:', SR.name);
+
+    this.updateState({ transcribedText: '' });
+
+    const rec = new SR();
+    rec.lang = 'en-US';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.debug = true;
+
+    rec.onstart = () => {
+      console.log('[Apex] ★★★ onstart FIRED ★★★');
+      this.updateState({ isListening: true });
+    };
+
+    rec.onresult = (event: any) => {
+      let interim = '';
+      let final = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += t;
+        } else {
+          interim += t;
+        }
+      }
+      console.log('[Apex] ★ onresult — interim:', JSON.stringify(interim), '| final:', JSON.stringify(final), '| resLen:', event.results.length);
+      this.updateState({ transcribedText: final || interim });
+
+      if (final && this.state.voiceMode === 'wake-word') {
+        if (final.toLowerCase().includes('hey apex') && !this.state.wakeWordDetected) {
+          console.log('[Apex] wake word detected!');
+          this.updateState({ wakeWordDetected: true });
+          this.wakeWordSubject.next();
+          setTimeout(() => this.updateState({ wakeWordDetected: false }), 5000);
+        }
+      }
+    };
+
+    rec.onerror = (event: any) => {
+      console.error('[Apex] ★★★ onerror FIRED:', event?.error, '| message:', event?.message, '| state:', event?.state);
+    };
+
+    rec.onend = () => {
+      console.log('[Apex] ★★★ onend FIRED ★★★');
+      if (this.state.voiceMode === 'always-listening' && this.state.isListening) {
+        console.log('[Apex] always-listening mode — restarting');
+        this.startListening();
+      }
+    };
+
+    rec.onaudiostart = () => console.log('[Apex] ★ onaudiostart');
+    rec.onaudioend = () => console.log('[Apex] ★ onaudioend');
+    rec.onspeechstart = () => console.log('[Apex] ★ onspeechstart');
+    rec.onspeechend = () => console.log('[Apex] ★ onspeechend');
+    rec.onsoundstart = () => console.log('[Apex] ★ onsoundstart');
+    rec.onsoundend = () => console.log('[Apex] ★ onsoundend');
+
+    this.recognition = rec;
+    console.log('[Apex] recognition instance created, calling start() via setTimeout(0)...');
+
+    setTimeout(() => {
+      console.log('[Apex] setTimeout callback firing, attempting rec.start()');
+      try {
+        rec.start();
+        console.log('[Apex] ✅ rec.start() succeeded — no exception thrown');
+      } catch (e: any) {
+        console.error('[Apex] ❌ rec.start() threw:', e?.message, e?.name);
+      }
+    }, 0);
   }
 
   stopListening(): void {
-    if (!this.recognition) return;
-    this.recognition.stop();
+    if (this.recognition) {
+      this.recognition.onend = null;
+      try { this.recognition.stop(); } catch {}
+      this.recognition = null;
+    }
     this.updateState({ isListening: false });
   }
 
@@ -194,6 +278,10 @@ export class ApexService {
 
   deleteVoiceProfile(): Observable<any> {
     return this.http.delete('/api/ai/voice/profile');
+  }
+
+  askAi(message: string): Observable<{ response: string }> {
+    return this.http.post<{ response: string }>('/api/ai/ask', { message });
   }
 
   speak(text: string): void {

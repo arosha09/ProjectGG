@@ -429,6 +429,16 @@
 .mic-hint {
   color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
+
+  &.listening {
+    color: var(--neon-gold, #ffaa00);
+    animation: pulse-text 1s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .apex-hint {
@@ -443,6 +453,40 @@
   font-size: 13px;
   max-width: 280px;
   animation: fade-in 0.2s ease;
+
+  .apex-listening-dot {
+    color: var(--neon-gold, #ffaa00);
+    margin-right: 6px;
+    animation: pulse-text 1s ease-in-out infinite;
+  }
+}
+
+.apex-response {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-top: 8px;
+  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(255, 170, 0, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  animation: fade-in 0.3s ease;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--neon-gold, #ffaa00);
+    margin-top: 2px;
+  }
+}
+
+.apex-loading {
+  justify-content: center;
+  color: rgba(255, 170, 0, 0.6);
+  animation: pulse-text 1.2s ease-in-out infinite;
 }
 
 @keyframes fade-in {
