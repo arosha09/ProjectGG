@@ -244,7 +244,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
     private readonly xpService: XpService,
   private readonly nudgeService: VoiceNudgeService,
   private readonly soundService: SoundService,
-) {}
+) {
+    // Sync theme color to voice channel when it changes
+    effect(() => {
+      const _theme = this.theme.currentTheme();
+      const _custom = this.theme.customColor();
+      // Read both signals so this re-runs when either changes
+      if (this.voiceService.connected) {
+        const color = this.getUserThemeColor(this.currentUser?.id ?? '');
+        this.voiceService.updateThemeColor(color);
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.currentUser = this.auth.getCurrentUser();
@@ -257,17 +268,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.userStatus.currentStatus$.subscribe((status: UserStatus) => {
       this.currentStatus = status;
       this.cdr.markForCheck();
-    });
-
-    // Sync theme color to voice channel when it changes
-    effect(() => {
-      const _theme = this.theme.currentTheme();
-      const _custom = this.theme.customColor();
-      // Read both signals so this re-runs when either changes
-      if (this.voiceService.connected) {
-        const color = this.getUserThemeColor(this.currentUser?.id ?? '');
-        this.voiceService.updateThemeColor(color);
-      }
     });
     // Check if a header-nav trade notification requested a focus
     try {
