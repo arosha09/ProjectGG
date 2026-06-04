@@ -49,7 +49,7 @@ export class VoiceService implements OnDestroy {
   }
 
   async joinChannel(guildId: string, channelId: string): Promise<void> {
-    if (this.isConnected) await this.leaveChannel();
+    await this.leaveChannel();
 
     const wsUrl = environment.apiUrl.replace(/\/api\/?$/, '');
     this.socket = io(`${wsUrl}/voice`, {
