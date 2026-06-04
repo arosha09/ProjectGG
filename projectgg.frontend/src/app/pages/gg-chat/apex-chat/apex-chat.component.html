@@ -1,0 +1,134 @@
+<div class="apex-trigger" (click)="togglePanel()">
+  <div class="apex-avatar">
+    <img src="assets/ai/avatars/apex-avatar.png" alt="A.P.E.X." onerror="this.style.display='none'" />
+  </div>
+  <span class="apex-label">A.P.E.X.</span>
+</div>
+
+<div class="apex-panel" *ngIf="isPanelOpen">
+  <div class="apex-header">
+    <div class="apex-info">
+      <span class="apex-name">A.P.E.X.</span>
+      <span class="apex-tagline">AI Gaming Assistant</span>
+    </div>
+    <div class="apex-actions">
+      <button mat-icon-button (click)="toggleSettings()" matTooltip="Voice Settings">
+        <mat-icon>settings_voice</mat-icon>
+      </button>
+      <button mat-icon-button (click)="togglePanel()" matTooltip="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <div class="apex-body">
+    <div class="apex-welcome" *ngIf="!showSettings">
+      <div class="apex-logo">🤖</div>
+      <p>Hey! I'm <strong>A.P.E.X.</strong></p>
+      <p class="apex-desc">Your AI gaming assistant. Just mention me in chat!</p>
+      <div class="apex-commands">
+        <div class="command-hint">
+          <code>@A.P.E.X. what cards are rare?</code>
+        </div>
+        <div class="command-hint">
+          <code>Hey APEX, recommend a game</code>
+        </div>
+      </div>
+    </div>
+
+    <div class="apex-settings" *ngIf="showSettings">
+      <h4>Voice Settings</h4>
+
+      <div class="setting-group">
+        <label>Voice Input Mode</label>
+        <div class="voice-modes">
+          <button
+            class="mode-btn"
+            [class.active]="voiceMode === 'push-to-talk'"
+            (click)="setVoiceMode('push-to-talk')">
+            Push to Talk
+          </button>
+          <button
+            class="mode-btn"
+            [class.active]="voiceMode === 'always-listening'"
+            (click)="setVoiceMode('always-listening')">
+            Always Listening
+          </button>
+          <button
+            class="mode-btn"
+            [class.active]="voiceMode === 'wake-word'"
+            (click)="setVoiceMode('wake-word')">
+            Wake Word
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label>Voice Output</label>
+        <button
+          class="toggle-btn"
+          [class.active]="voiceOutputEnabled"
+          (click)="toggleVoiceOutput()">
+          <mat-icon>{{ voiceOutputEnabled ? 'volume_up' : 'volume_off' }}</mat-icon>
+          {{ voiceOutputEnabled ? 'Enabled' : 'Disabled' }}
+        </button>
+      </div>
+
+      <div class="setting-group" *ngIf="voiceOutputEnabled && isSpeechSynthesisSupported()">
+        <label>Speech Rate: {{ speechRate }}x</label>
+        <input
+          type="range"
+          min="0.5"
+          max="2"
+          step="0.1"
+          [value]="speechRate"
+          (input)="setSpeechRate(+$any($event.target).value)"
+          class="rate-slider" />
+
+        <select class="voice-select" (change)="selectVoice($any($event.target).value)">
+          <option value="">Default Voice</option>
+          <option
+            *ngFor="let voice of availableVoices"
+            [value]="voice.name"
+            [selected]="selectedVoice?.name === voice.name">
+            {{ voice.name }} ({{ voice.lang }})
+          </option>
+        </select>
+      </div>
+
+      <div class="setting-group voice-training">
+        <label>Voice Training</label>
+        <p class="training-desc">Train A.P.E.X. to better recognize your voice (10 phrases)</p>
+
+        <button
+          class="train-btn"
+          (click)="openTraining()">
+          <mat-icon>record_voice_over</mat-icon>
+          Open Voice Training
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="apex-footer">
+    <div class="voice-controls" *ngIf="!showSettings">
+      <button
+        class="mic-btn"
+        [class.recording]="isRecording"
+        [class.listening]="isListening"
+        (mousedown)="startListening()"
+        (mouseup)="stopListening()"
+        (mouseleave)="stopListening()"
+        [disabled]="!isSupported">
+        <mat-icon>{{ isListening ? 'mic' : 'mic_off' }}</mat-icon>
+      </button>
+      <span class="mic-hint">{{ voiceMode === 'push-to-talk' ? 'Hold to speak' : 'Tap to toggle' }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="apex-hint" *ngIf="transcribedText && isPanelOpen">
+  <span>{{ transcribedText }}</span>
+</div>
+
+<app-voice-training *ngIf="showTraining" (close)="closeTraining()"></app-voice-training>
