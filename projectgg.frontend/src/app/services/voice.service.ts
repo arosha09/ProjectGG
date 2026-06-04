@@ -13,10 +13,16 @@ export class VoiceService implements OnDestroy {
   private isConnected = false;
   private currentChannel: { guildId: string; channelId: string } | null = null;
   private _deafened = false;
+
   private audioContext: AudioContext | null = null;
+  private micGainNode: GainNode | null = null;
   private outputGainNode: GainNode | null = null;
   private compressorNode: DynamicsCompressorNode | null = null;
   private highpassNode: BiquadFilterNode | null = null;
+  private micStream: MediaStream | null = null;
+  private localAnalyser: AnalyserNode | null = null;
+  private speakingLoopId: number | null = null;
+  private prevSpeaking = false;
 
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
   onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
@@ -126,7 +132,6 @@ export class VoiceService implements OnDestroy {
     this.room = new Room({
       adaptiveStream: true,
       dynacast: true,
-      audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
 
     this.bindRoomEvents();
@@ -134,12 +139,32 @@ export class VoiceService implements OnDestroy {
     await this.room.connect(wsUrl, token);
     console.log('[Voice] LiveKit room connected');
 
-    await this.room.localParticipant.setMicrophoneEnabled(true);
+    this.micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
 
     this.audioContext = new AudioContext();
     if (this.audioContext.state === 'suspended') {
       await this.audioContext.resume();
     }
+
+    const micSource = this.audioContext.createMediaStreamSource(this.micStream);
+
+    this.localAnalyser = this.audioContext.createAnalyser();
+    this.localAnalyser.fftSize = 512;
+    micSource.connect(this.localAnalyser);
+
+    this.micGainNode = this.audioContext.createGain();
+    this.micGainNode.gain.value = 1;
+    micSource.connect(this.micGainNode);
+
+    const micDestination = this.audioContext.createMediaStreamDestination();
+    this.micGainNode.connect(micDestination);
+    const processedTrack = micDestination.stream.getAudioTracks()[0];
+
+    await this.room.localParticipant.publishTrack(processedTrack, {
+      source: Track.Source.Microphone,
+    });
 
     this.compressorNode = this.audioContext.createDynamicsCompressor();
     this.compressorNode.threshold.setValueAtTime(-24, this.audioContext.currentTime);
@@ -159,6 +184,39 @@ export class VoiceService implements OnDestroy {
     this.highpassNode.connect(this.compressorNode);
     this.compressorNode.connect(this.outputGainNode);
     this.outputGainNode.connect(this.audioContext.destination);
+
+    this.startSpeakingDetection();
+  }
+
+  private startSpeakingDetection(): void {
+    const detect = () => {
+      if (!this.localAnalyser || !this.isConnected) return;
+      const data = new Uint8Array(this.localAnalyser.frequencyBinCount);
+      this.localAnalyser.getByteFrequencyData(data);
+
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        sum += data[i] * data[i];
+      }
+      const rms = Math.sqrt(sum / data.length);
+
+      const speaking = this.prevSpeaking ? rms > 10 : rms > 15;
+      if (speaking !== this.prevSpeaking) {
+        this.prevSpeaking = speaking;
+        this.onLocalSpeaking?.(speaking);
+      }
+
+      this.speakingLoopId = requestAnimationFrame(detect);
+    };
+    this.speakingLoopId = requestAnimationFrame(detect);
+  }
+
+  private stopSpeakingDetection(): void {
+    if (this.speakingLoopId !== null) {
+      cancelAnimationFrame(this.speakingLoopId);
+      this.speakingLoopId = null;
+    }
+    this.prevSpeaking = false;
   }
 
   private bindRoomEvents(): void {
@@ -191,12 +249,6 @@ export class VoiceService implements OnDestroy {
       .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         if (!this.room) return;
         const speakerIds = new Set(speakers.map(s => s.identity));
-
-        const localId = this.auth.getCurrentUser()?.id;
-        if (localId) {
-          const isLocalSpeaking = this.room.localParticipant.isSpeaking;
-          this.onLocalSpeaking?.(isLocalSpeaking);
-        }
 
         this.room.remoteParticipants.forEach((p) => {
           if (speakerIds.has(p.identity)) {
@@ -270,12 +322,25 @@ export class VoiceService implements OnDestroy {
 
   async leaveChannel(): Promise<void> {
     this.isConnected = false;
+    this.stopSpeakingDetection();
 
     if (this.room) {
       this.room.disconnect().catch(() => {});
       this.room = null;
     }
 
+    if (this.micStream) {
+      this.micStream.getTracks().forEach(t => t.stop());
+      this.micStream = null;
+    }
+    if (this.localAnalyser) {
+      this.localAnalyser.disconnect();
+      this.localAnalyser = null;
+    }
+    if (this.micGainNode) {
+      this.micGainNode.disconnect();
+      this.micGainNode = null;
+    }
     if (this.outputGainNode) {
       this.outputGainNode.disconnect();
       this.outputGainNode = null;
@@ -305,20 +370,26 @@ export class VoiceService implements OnDestroy {
   }
 
   mute(): void {
-    this.room?.localParticipant?.setMicrophoneEnabled(false).catch(() => {});
+    if (this.micGainNode) {
+      this.micGainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
+    }
     this.socket?.emit('mute');
     if (!this._deafened) this.sound.play('voice_mute');
   }
 
   unmute(): void {
-    this.room?.localParticipant?.setMicrophoneEnabled(true).catch(() => {});
+    if (this.micGainNode) {
+      this.micGainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
+    }
     this.socket?.emit('unmute');
     if (!this._deafened) this.sound.play('voice_unmute');
   }
 
   deafen(): void {
     this._deafened = true;
-    this.room?.localParticipant?.setMicrophoneEnabled(false).catch(() => {});
+    if (this.micGainNode) {
+      this.micGainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
+    }
     if (this.outputGainNode) {
       this.outputGainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
     }
@@ -328,7 +399,9 @@ export class VoiceService implements OnDestroy {
 
   undeafen(): void {
     this._deafened = false;
-    this.room?.localParticipant?.setMicrophoneEnabled(true).catch(() => {});
+    if (this.micGainNode) {
+      this.micGainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
+    }
     if (this.outputGainNode) {
       this.outputGainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
     }
