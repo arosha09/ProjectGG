@@ -16,12 +16,14 @@ import { UserStatusService } from './services/user-status.service';
 import { TaskTrackerService } from './services/task-tracker.service';
 import { RealtimeService } from './services/realtime.service';
 import { SoundService } from './services/sound.service';
+import { VoiceService } from './services/voice.service';
+import { ApexChatComponent } from './pages/gg-chat/apex-chat/apex-chat.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, HeaderNavComponent, AdminNavComponent, MusicPlayerComponent],
+  imports: [CommonModule, RouterOutlet, HeaderNavComponent, AdminNavComponent, MusicPlayerComponent, ApexChatComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -39,6 +41,7 @@ export class App implements OnInit, OnDestroy {
   isAdmin = false;
   discordConnected = false;
   isAuthLoading = true;
+  showApexPanel = false;
 
   constructor(
     private auth: AuthService,
@@ -53,7 +56,12 @@ export class App implements OnInit, OnDestroy {
     private readonly realtime: RealtimeService,
     public readonly statusNotification: StatusNotificationService,
     private readonly sound: SoundService,
+    public readonly voice: VoiceService,
   ) {}
+
+  get voiceConnected(): boolean {
+    return this.voice.connected;
+  }
 
   get currentStatus(): string {
     return this.userStatus.currentStatus;
@@ -110,9 +118,13 @@ export class App implements OnInit, OnDestroy {
     ).subscribe(() => {
       if (this.profileDropdownOpen) {
         this.profileDropdownOpen = false;
-        this.cdr.markForCheck();
       }
+      this.showApexPanel = !this.router.url.startsWith('/admin');
+      this.cdr.markForCheck();
     });
+
+    // Initialize on first load
+    this.showApexPanel = !this.router.url.startsWith('/admin');
 
     this.applySavedStatus();
     this.loadConnections();
