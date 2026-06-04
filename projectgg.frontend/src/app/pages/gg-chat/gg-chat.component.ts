@@ -322,6 +322,15 @@ export class GgChatComponent implements OnInit, OnDestroy {
         }
       }
     } catch {}
+
+    if (this.voiceService.connected) {
+      this.voiceConnected = true;
+      this.voiceChannelId = this.voiceService.currentChannelId;
+      this.voiceMuted = false;
+      this.voiceDeafened = false;
+      this.rebindVoiceCallbacks();
+      this.cdr.markForCheck();
+    }
   }
 
   // ===== DATA LOADING =====
@@ -1215,115 +1224,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
       const currentUserId = this.auth.getCurrentUser()?.id;
       this.voiceMembers = currentUserId ? [{ userId: currentUserId, muted: false, deafened: false }] : [];
 
-      this.voiceService.onMemberJoined = (userId, _channelId, muted, deafened) => {
-        if (!this.voiceMembers.find(m => m.userId === userId)) {
-          this.voiceMembers = [...this.voiceMembers, { userId, muted, deafened }];
-          this.cdr.markForCheck();
-        }
-      };
-      this.voiceService.onMemberLeft = (userId) => {
-        this.voiceMembers = this.voiceMembers.filter(m => m.userId !== userId);
-        this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== userId));
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onExistingMembers = (members) => {
-        for (const member of members) {
-          if (!this.voiceMembers.find(m => m.userId === member.userId)) {
-            this.voiceMembers = [...this.voiceMembers, member];
-          }
-        }
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onLocalSpeaking = (speaking) => {
-        this.localMicActive = speaking;
-        const currentUserId = this.auth.getCurrentUser()?.id;
-        if (currentUserId) {
-          if (speaking) {
-            if (!this.speakingUsers.has(currentUserId)) {
-              this.speakingUsers = new Set([...this.speakingUsers, currentUserId]);
-            }
-          } else {
-            if (this.speakingUsers.has(currentUserId)) {
-              this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== currentUserId));
-            }
-          }
-        }
-        if (speaking) {
-          if (this.mutedWarningTimer) {
-            clearTimeout(this.mutedWarningTimer);
-            this.mutedWarningTimer = null;
-          }
-          this.showMutedWarning = true;
-          this.triggerMutedFeedback();
-        } else {
-          if (this.mutedWarningTimer) {
-            clearTimeout(this.mutedWarningTimer);
-          }
-          this.mutedWarningTimer = setTimeout(() => {
-            this.showMutedWarning = false;
-            this.cdr.markForCheck();
-          }, 2500);
-        }
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onUserMuted = (userId) => {
-        this.voiceMembers = this.voiceMembers.map(m =>
-          m.userId === userId ? { ...m, muted: true } : m
-        );
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onUserUnmuted = (userId) => {
-        this.voiceMembers = this.voiceMembers.map(m =>
-          m.userId === userId ? { ...m, muted: false } : m
-        );
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onUserDeafened = (userId) => {
-        this.voiceMembers = this.voiceMembers.map(m =>
-          m.userId === userId ? { ...m, muted: true, deafened: true } : m
-        );
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onUserUndeafened = (userId) => {
-        this.voiceMembers = this.voiceMembers.map(m =>
-          m.userId === userId ? { ...m, muted: false, deafened: false } : m
-        );
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onUserSpeaking = (userId) => {
-        if (!this.speakingUsers.has(userId)) {
-          this.speakingUsers = new Set([...this.speakingUsers, userId]);
-          this.cdr.markForCheck();
-        }
-      };
-      this.voiceService.onUserStoppedSpeaking = (userId) => {
-        if (this.speakingUsers.has(userId)) {
-          this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== userId));
-          this.cdr.markForCheck();
-        }
-      };
-      this.voiceService.onMicPermissionError = (err) => {
-        this.stopDeviceMonitoring();
-        this.voiceService.leaveChannel();
-        this.micPermissionError = err;
-        this.voiceConnected = false;
-        this.voiceChannelId = null;
-        this.voiceMuted = false;
-        this.voiceDeafened = false;
-        this.voiceMembers = [];
-        this.localMicActive = false;
-        this.cdr.markForCheck();
-      };
-      this.voiceService.onDisconnected = () => {
-        this.voiceConnected = false;
-        this.voiceMembers = [];
-        this.speakingUsers = new Set();
-        this.localMicActive = false;
-        this.pendingVoiceChannel = channel;
-        this.showVoiceReconnectConfirm = true;
-        localStorage.removeItem('pendingVoiceReconnect');
-        this.cdr.markForCheck();
-      };
+      this.rebindVoiceCallbacks();
 
       const guildId = String((channel as any).server_id ?? this.selectedServer?.id ?? '');
       await this.voiceService.joinChannel(guildId, String(channel.id));
@@ -1386,6 +1287,120 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     }
+  }
+
+  private rebindVoiceCallbacks(): void {
+    this.voiceService.onMemberJoined = (userId, _channelId, muted, deafened) => {
+      if (!this.voiceMembers.find(m => m.userId === userId)) {
+        this.voiceMembers = [...this.voiceMembers, { userId, muted, deafened }];
+        this.cdr.markForCheck();
+      }
+    };
+    this.voiceService.onMemberLeft = (userId) => {
+      this.voiceMembers = this.voiceMembers.filter(m => m.userId !== userId);
+      this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== userId));
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onExistingMembers = (members) => {
+      for (const member of members) {
+        if (!this.voiceMembers.find(m => m.userId === member.userId)) {
+          this.voiceMembers = [...this.voiceMembers, member];
+        }
+      }
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onLocalSpeaking = (speaking) => {
+      this.localMicActive = speaking;
+      const currentUserId = this.auth.getCurrentUser()?.id;
+      if (currentUserId) {
+        if (speaking) {
+          if (!this.speakingUsers.has(currentUserId)) {
+            this.speakingUsers = new Set([...this.speakingUsers, currentUserId]);
+          }
+        } else {
+          if (this.speakingUsers.has(currentUserId)) {
+            this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== currentUserId));
+          }
+        }
+      }
+      if (speaking) {
+        if (this.mutedWarningTimer) {
+          clearTimeout(this.mutedWarningTimer);
+          this.mutedWarningTimer = null;
+        }
+        this.showMutedWarning = true;
+        this.triggerMutedFeedback();
+      } else {
+        if (this.mutedWarningTimer) {
+          clearTimeout(this.mutedWarningTimer);
+        }
+        this.mutedWarningTimer = setTimeout(() => {
+          this.showMutedWarning = false;
+          this.cdr.markForCheck();
+        }, 2500);
+      }
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onUserMuted = (userId) => {
+      this.voiceMembers = this.voiceMembers.map(m =>
+        m.userId === userId ? { ...m, muted: true } : m
+      );
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onUserUnmuted = (userId) => {
+      this.voiceMembers = this.voiceMembers.map(m =>
+        m.userId === userId ? { ...m, muted: false } : m
+      );
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onUserDeafened = (userId) => {
+      this.voiceMembers = this.voiceMembers.map(m =>
+        m.userId === userId ? { ...m, muted: true, deafened: true } : m
+      );
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onUserUndeafened = (userId) => {
+      this.voiceMembers = this.voiceMembers.map(m =>
+        m.userId === userId ? { ...m, muted: false, deafened: false } : m
+      );
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onUserSpeaking = (userId) => {
+      if (!this.speakingUsers.has(userId)) {
+        this.speakingUsers = new Set([...this.speakingUsers, userId]);
+        this.cdr.markForCheck();
+      }
+    };
+    this.voiceService.onUserStoppedSpeaking = (userId) => {
+      if (this.speakingUsers.has(userId)) {
+        this.speakingUsers = new Set([...this.speakingUsers].filter(id => id !== userId));
+        this.cdr.markForCheck();
+      }
+    };
+    this.voiceService.onMicPermissionError = (err) => {
+      this.stopDeviceMonitoring();
+      this.voiceService.leaveChannel();
+      this.micPermissionError = err;
+      this.voiceConnected = false;
+      this.voiceChannelId = null;
+      this.voiceMuted = false;
+      this.voiceDeafened = false;
+      this.voiceMembers = [];
+      this.localMicActive = false;
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onDisconnected = () => {
+      this.voiceConnected = false;
+      this.voiceMembers = [];
+      this.speakingUsers = new Set();
+      this.localMicActive = false;
+      this.pendingVoiceChannel = this.voiceChannelId
+        ? { id: this.voiceChannelId, guildId: this.voiceGuildId, server_id: this.voiceGuildId, name: '', type: 'voice' } as any
+        : null;
+      this.showVoiceReconnectConfirm = true;
+      localStorage.removeItem('pendingVoiceReconnect');
+      this.cdr.markForCheck();
+    };
   }
 
   leaveVoice(): void {
@@ -2726,11 +2741,5 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    const wasChannelId = this.voiceChannelId;
-    const wasGuildId = this.voiceGuildId;
-    if (this.voiceConnected) this.leaveVoice();
-    if (wasChannelId && wasGuildId) {
-      localStorage.setItem('pendingVoiceReconnect', JSON.stringify({ guildId: wasGuildId, channelId: wasChannelId }));
-    }
   }
 }
