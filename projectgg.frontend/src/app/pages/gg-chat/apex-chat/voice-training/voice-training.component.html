@@ -1,0 +1,80 @@
+<div class="vt-overlay" (click)="onClose()">
+  <div class="vt-panel" (click)="$event.stopPropagation()">
+    <div class="vt-header">
+      <div class="vt-title">
+        <mat-icon>record_voice_over</mat-icon>
+        <span>Voice Training</span>
+      </div>
+      <button mat-icon-button (click)="onClose()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="vt-body">
+      @if (trainingComplete) {
+        <div class="vt-complete">
+          <div class="vt-complete-icon">
+            <mat-icon>check_circle</mat-icon>
+          </div>
+          <h3>Training Complete!</h3>
+          <p>A.P.E.X. can now better recognize your voice.</p>
+          <div class="vt-actions">
+            <button class="vt-btn vt-btn-secondary" (click)="recalibrate()">
+              <mat-icon>refresh</mat-icon>
+              Re-Calibrate
+            </button>
+            <button class="vt-btn vt-btn-danger" (click)="deleteProfile()">
+              <mat-icon>delete</mat-icon>
+              Delete Profile
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="vt-progress">
+          <span class="vt-step-label">Recording {{ currentStep + 1 }} of 10</span>
+          <div class="vt-progress-bar">
+            <div class="vt-progress-fill" [style.width.%]="progressPercent"></div>
+          </div>
+        </div>
+
+        <div class="vt-phrase-card">
+          <p class="vt-phrase">{{ currentPhrase }}</p>
+        </div>
+
+        <div class="vt-record-area">
+          @if (isPreview) {
+            <div class="vt-preview-area">
+              <audio [src]="previewUrl" controls class="vt-audio-player"></audio>
+              <div class="vt-preview-actions">
+                <button class="vt-btn vt-btn-danger" (click)="discardRecording()">
+                  <mat-icon>refresh</mat-icon>
+                  Re-record
+                </button>
+                <button class="vt-btn vt-btn-accept" (click)="acceptRecording()">
+                  <mat-icon>check</mat-icon>
+                  Accept & Continue
+                </button>
+              </div>
+            </div>
+          } @else {
+            <button
+              class="vt-mic-btn"
+              [class.recording]="isRecording"
+              (click)="isRecording ? stopRecording() : startRecording()"
+              [disabled]="statusMessage.includes('Analyzing') || statusMessage.includes('Uploading') || statusMessage.includes('Review')">
+              <mat-icon>{{ isRecording ? 'stop' : 'mic' }}</mat-icon>
+              <span class="vt-mic-ring" *ngIf="isRecording"></span>
+            </button>
+            <span class="vt-mic-label">{{ isRecording ? 'Tap to stop' : 'Tap to record' }}</span>
+          }
+        </div>
+
+        @if (statusMessage) {
+          <div class="vt-status" [class.error]="statusMessage.includes('Failed') || statusMessage.includes('denied') || statusMessage.includes('Couldn')">
+            {{ statusMessage }}
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
