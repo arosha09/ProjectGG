@@ -28,13 +28,12 @@ import { GgCardTradingViewComponent } from '../../components/gg-card-trading-vie
 import { CyberEmojiPickerComponent } from '../../components/cyber-emoji-picker/cyber-emoji-picker.component';
 import { VoiceNudgeService } from '../../services/voice-nudge.service';
 import { SoundService } from '../../services/sound.service';
-import { ApexChatComponent } from './apex-chat/apex-chat.component';
 
 @Component({
   selector: 'app-gg-chat',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent, ApexChatComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent],
   schemas: [NO_ERRORS_SCHEMA],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
@@ -1460,6 +1459,11 @@ export class GgChatComponent implements OnInit, OnDestroy {
       ? "YOU'RE DEAFENED — OTHERS CAN'T HEAR YOU"
       : "YOU'RE MUTED — OTHERS CAN'T HEAR YOU";
     this.mutedFeedbackAlert = msg;
+    if (this.mutedFeedbackTimer) clearTimeout(this.mutedFeedbackTimer);
+    this.mutedFeedbackTimer = setTimeout(() => {
+      this.mutedFeedbackAlert = null;
+      this.cdr.markForCheck();
+    }, 2500);
     this.cdr.markForCheck();
   }
 
