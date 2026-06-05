@@ -123,11 +123,15 @@ export class VoiceService implements OnDestroy {
           console.log('[Voice] Socket connected via', transport);
           this.setupSocketListeners();
 
+          const themeColor = this.getCurrentUserThemeColor();
+          const currentUserId = this.auth.getCurrentUser()?.id;
+          if (currentUserId) this.userThemeColors.set(currentUserId, themeColor);
+
           this.socket!.emit('join-channel', {
             guildId,
             channelId,
-            userId: this.auth.getCurrentUser()?.id,
-            themeColor: this.getCurrentUserThemeColor(),
+            userId: currentUserId,
+            themeColor,
           });
 
           await this.connectToLiveKit(guildId, channelId);
@@ -809,6 +813,8 @@ export class VoiceService implements OnDestroy {
   }
 
   updateThemeColor(color: string): void {
+    const currentUserId = this.auth.getCurrentUser()?.id;
+    if (currentUserId) this.userThemeColors.set(currentUserId, color);
     this.socket?.emit('update-theme-color', { themeColor: color });
   }
 
