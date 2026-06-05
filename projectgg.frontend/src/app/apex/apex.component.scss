@@ -1,3 +1,4 @@
+// ─── Host ────────────────────────────────────────────────────────────────────
 :host {
   display: block;
   position: fixed;
@@ -7,18 +8,16 @@
   font-family: 'Inter', system-ui, sans-serif;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s ease, right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.4s ease;
+  overflow: visible;
 
   &.loaded {
     opacity: 1;
     pointer-events: auto;
   }
-
-  &.expanded {
-    right: 80px;
-  }
 }
 
+// ─── Trigger pill ─────────────────────────────────────────────────────────────
 .apex-trigger {
   position: relative;
   display: flex;
@@ -28,9 +27,7 @@
   border: 2px solid var(--neon-gold, #ffaa00);
   border-radius: 28px;
   cursor: pointer;
-  transition:
-    width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.3s ease;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
   backdrop-filter: blur(8px);
   box-shadow: 0 0 20px rgba(255, 170, 0, 0.25);
   width: 56px;
@@ -40,11 +37,12 @@
 
   &:hover {
     box-shadow: 0 0 40px rgba(255, 170, 0, 0.45);
-  }
-
-  :host.expanded & {
     width: 200px;
-    box-shadow: 0 0 40px rgba(255, 170, 0, 0.45);
+
+    .apex-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 }
 
@@ -78,52 +76,49 @@
   opacity: 0;
   margin-left: 14px;
   transform: translateX(8px);
-  transition:
-    opacity 0.2s ease 0.08s,
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.08s;
+  transition: opacity 0.2s ease 0.08s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.08s;
 }
 
-:host.expanded .apex-label {
-  opacity: 1;
-  transform: translateX(0);
-}
-
+// ─── Panel ────────────────────────────────────────────────────────────────────
 .apex-panel {
   position: absolute;
-  bottom: 60px;
+  bottom: 64px;
   right: 0;
   width: 320px;
-  background: rgba(10, 10, 15, 0.95);
+  height: 560px;
+  background: rgba(10, 10, 15, 0.97);
   border: 1.5px solid rgba(255, 170, 0, 0.3);
   border-radius: 16px;
   backdrop-filter: blur(16px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 170, 0, 0.15);
   overflow: hidden;
-  animation: apex-slide-in 0.3s ease;
-}
+  overflow-x: hidden;
+  animation: apex-slide-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
 
-:host.expanded .apex-panel {
-  right: -60px;
+  &.expanded-mode {
+    width: 600px;
+    height: min(80vh, 720px);
+  }
 }
 
 @keyframes apex-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
 }
 
+// ─── Header ───────────────────────────────────────────────────────────────────
 .apex-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 170, 0, 0.2);
   background: rgba(255, 170, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .apex-info {
@@ -142,6 +137,10 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .apex-actions {
@@ -158,18 +157,32 @@
   }
 }
 
+// ─── Body ─────────────────────────────────────────────────────────────────────
 .apex-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
-  min-height: 200px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
 }
 
+// ─── Welcome screen ───────────────────────────────────────────────────────────
 .apex-welcome {
   text-align: center;
+  padding-top: 8px;
 
   .apex-logo {
     font-size: 48px;
     margin-bottom: 12px;
-    animation: pulse 2s ease-in-out infinite;
+    display: block;
+    animation: pulse-scale 2s ease-in-out infinite;
   }
 
   p {
@@ -184,52 +197,230 @@
   }
 }
 
-@keyframes pulse {
+@keyframes pulse-scale {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  50% { transform: scale(1.08); }
 }
 
-.apex-commands {
+// ─── Chat history ─────────────────────────────────────────────────────────────
+.apex-chat-history {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
 }
 
-.command-hint {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 8px 12px;
+.apex-msg-wrapper {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
 
-  code {
-    color: var(--neon-gold, #ffaa00);
-    font-size: 12px;
-    font-family: 'Fira Code', monospace;
+  &.apex-msg-user {
+    align-self: flex-end;
+    align-items: flex-end;
+
+    .apex-msg-bubble {
+      background: var(--neon-gold, #ffaa00);
+      color: #000;
+      border-radius: 12px 12px 0 12px;
+    }
+  }
+
+  &.apex-msg-ai {
+    align-self: flex-start;
+    align-items: flex-start;
+
+    .apex-msg-bubble {
+      background: rgba(255, 255, 255, 0.07);
+      color: #fff;
+      border-radius: 12px 12px 12px 0;
+    }
   }
 }
 
+.apex-msg-bubble {
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.apex-msg-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  object-fit: cover;
+}
+
+// ─── Response / loading (inline, inside .apex-body) ───────────────────────────
+.apex-response {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(255, 170, 0, 0.2);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  line-height: 1.5;
+  animation: fade-in 0.25s ease;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--neon-gold, #ffaa00);
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+}
+
+.apex-loading {
+  justify-content: center;
+  color: rgba(255, 170, 0, 0.7);
+  animation: pulse-text 1.2s ease-in-out infinite;
+}
+
+// ─── Suggestions ──────────────────────────────────────────────────────────────
+.apex-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.suggestion-btn {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 170, 0, 0.2);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.1);
+    border-color: var(--neon-gold, #ffaa00);
+    color: var(--neon-gold, #ffaa00);
+  }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
 .apex-settings {
   h4 {
     color: #fff;
     margin: 0 0 16px;
     font-size: 14px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    font-weight: 700;
   }
 }
 
-.setting-group {
+.settings-section {
   margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 170, 0, 0.1);
 
-  label {
-    display: block;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 12px;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  &:last-child {
+    border-bottom: none;
   }
 }
 
+.section-title {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.section-desc {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+}
+
+.setting-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--neon-gold, #ffaa00);
+    flex-shrink: 0;
+  }
+}
+
+.setting-title {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.setting-sub {
+  display: block;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+  margin-top: 1px;
+}
+
+// ─── Toggle pill ──────────────────────────────────────────────────────────────
+.toggle-pill {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.25s;
+  padding: 0;
+  flex-shrink: 0;
+
+  .toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transition: all 0.25s;
+  }
+
+  &.active {
+    background: var(--neon-gold, #ffaa00);
+    border-color: var(--neon-gold, #ffaa00);
+
+    .toggle-knob {
+      left: 20px;
+      background: #000;
+    }
+  }
+}
+
+// ─── Voice modes (new) ────────────────────────────────────────────────────────
 .voice-modes {
   display: flex;
   flex-wrap: wrap;
@@ -237,42 +428,27 @@
 }
 
 .mode-btn {
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  color: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.2s;
 
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
   &:hover {
     background: rgba(255, 170, 0, 0.1);
     border-color: rgba(255, 170, 0, 0.3);
-  }
-
-  &.active {
-    background: rgba(255, 170, 0, 0.2);
-    border-color: var(--neon-gold, #ffaa00);
-    color: var(--neon-gold, #ffaa00);
-  }
-}
-
-.toggle-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background: rgba(255, 170, 0, 0.1);
   }
 
   &.active {
@@ -282,112 +458,202 @@
   }
 }
 
-.rate-slider {
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.1);
-  appearance: none;
-  margin-bottom: 12px;
-
-  &::-webkit-slider-thumb {
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--neon-gold, #ffaa00);
-    cursor: pointer;
+// ─── Sessions view ────────────────────────────────────────────────────────────
+.apex-sessions {
+  h4 {
+    color: #fff;
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
   }
 }
 
-.voice-select {
-  width: 100%;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 12px;
-  cursor: pointer;
-
-  option {
-    background: #1a1a2e;
-  }
+.sessions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
-.training-desc {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
-  margin-bottom: 12px;
-}
-
-.training-progress {
-  margin-bottom: 12px;
-}
-
-.progress-bar {
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--neon-gold, #ffaa00), #ff8800);
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  color: rgba(255, 255, 255, 0.6);
+.session-count {
+  color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
 }
 
-.train-btn {
+.new-chat-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: 100%;
   padding: 10px;
-  background: linear-gradient(135deg, rgba(255, 170, 0, 0.2), rgba(255, 170, 0, 0.1));
-  border: 1px solid var(--neon-gold, #ffaa00);
-  border-radius: 8px;
+  margin-bottom: 14px;
+  background: rgba(255, 170, 0, 0.12);
+  border: 1px dashed rgba(255, 170, 0, 0.35);
+  border-radius: 10px;
   color: var(--neon-gold, #ffaa00);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
   &:hover:not(:disabled) {
-    background: linear-gradient(135deg, rgba(255, 170, 0, 0.3), rgba(255, 170, 0, 0.15));
-    box-shadow: 0 0 20px rgba(255, 170, 0, 0.3);
+    background: rgba(255, 170, 0, 0.2);
+    border-color: var(--neon-gold, #ffaa00);
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.35;
     cursor: not-allowed;
   }
 }
 
-.apex-footer {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255, 170, 0, 0.2);
-  background: rgba(255, 170, 0, 0.03);
+.session-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.voice-controls {
+.session-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.06);
+  }
+
+  &.active {
+    background: rgba(255, 170, 0, 0.12);
+    border-left: 3px solid var(--neon-gold, #ffaa00);
+  }
 }
 
+.session-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-title {
+  display: block;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-meta {
+  display: block;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.session-actions {
+  display: flex;
+  gap: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+
+  .session-item:hover & {
+    opacity: 1;
+  }
+}
+
+.session-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  &:hover mat-icon {
+    color: var(--neon-gold, #ffaa00);
+  }
+
+  &.pinned mat-icon {
+    color: var(--neon-gold, #ffaa00);
+  }
+
+  &.delete:hover mat-icon {
+    color: #ff4444;
+  }
+}
+
+.session-empty {
+  text-align: center;
+  padding: 32px 14px;
+
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    color: rgba(255, 255, 255, 0.15);
+    margin-bottom: 8px;
+  }
+
+  p {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    margin: 0 0 4px;
+  }
+
+  span {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 11px;
+  }
+}
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+.apex-footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 170, 0, 0.15);
+  background: rgba(255, 170, 0, 0.02);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.apex-chat-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+// ─── Mic button ───────────────────────────────────────────────────────────────
 .mic-btn {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 170, 0, 0.3);
+  border: 2px solid rgba(255, 170, 0, 0.35);
   background: rgba(255, 170, 0, 0.1);
   color: var(--neon-gold, #ffaa00);
   cursor: pointer;
@@ -395,11 +661,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 
   &:hover:not(:disabled) {
     background: rgba(255, 170, 0, 0.2);
     border-color: var(--neon-gold, #ffaa00);
-    box-shadow: 0 0 20px rgba(255, 170, 0, 0.3);
+    box-shadow: 0 0 16px rgba(255, 170, 0, 0.3);
   }
 
   &.listening {
@@ -415,81 +682,256 @@
     color: #fff;
   }
 
-  &:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+}
+
+// ─── Input field ──────────────────────────────────────────────────────────────
+.apex-chat-input {
+  flex: 1;
+  width: 100%;
+  font-size: 13px;
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+  }
+
+  ::ng-deep .mat-mdc-form-field-infix {
+    padding-top: 8px;
+    padding-bottom: 4px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  ::ng-deep .mat-mdc-text-field-container {
+    &.mat-focused .mat-mdc-form-field-outline-thick {
+      color: var(--neon-gold, #ffaa00) !important;
+    }
+    &.mat-focused .mat-mdc-form-field-outline {
+      color: var(--neon-gold, #ffaa00) !important;
+    }
+  }
+
+  ::ng-deep .mat-mdc-form-field-outline {
+    color: rgba(255, 170, 0, 0.4) !important;
+  }
+
+  ::ng-deep .mat-mdc-form-field-outline-thick {
+    color: rgba(255, 170, 0, 0.4) !important;
+  }
+
+  ::ng-deep input.mat-mdc-input-element {
+    color: #fff;
+    font-size: 13px;
+    caret-color: var(--neon-gold, #ffaa00);
+    padding: 8px 0 !important;
+  }
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+
+  ::ng-deep .mdc-notched-outline__leading,
+  ::ng-deep .mdc-notched-outline__notch,
+  ::ng-deep .mdc-notched-outline__trailing {
+    border-color: rgba(255, 170, 0, 0.4) !important;
+  }
+
+  ::ng-deep .mat-mdc-text-field-container.mat-focused {
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__notch,
+    .mdc-notched-outline__trailing {
+      border-color: var(--neon-gold, #ffaa00) !important;
+    }
   }
 }
 
+// ─── Listening indicator ──────────────────────────────────────────────────────
+.apex-listening-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--neon-gold, #ffaa00);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 12px;
+  height: 44px;
+  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  border-radius: 8px;
+}
+
+.listening-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--neon-gold, #ffaa00);
+  animation: pulse-dot 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+// ─── Shared animations ────────────────────────────────────────────────────────
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 5px var(--neon-gold, #ffaa00); }
-  50% { box-shadow: 0 0 25px var(--neon-gold, #ffaa00); }
-}
-
-.mic-hint {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 11px;
-
-  &.listening {
-    color: var(--neon-gold, #ffaa00);
-    animation: pulse-text 1s ease-in-out infinite;
-  }
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 170, 0, 0.6); }
+  50%       { box-shadow: 0 0 24px rgba(255, 170, 0, 0.9); }
 }
 
 @keyframes pulse-text {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.apex-hint {
-  position: absolute;
-  bottom: 60px;
-  right: 0;
-  padding: 10px 16px;
-  background: rgba(10, 10, 15, 0.95);
-  border: 1px solid rgba(255, 170, 0, 0.3);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 13px;
-  max-width: 280px;
-  animation: fade-in 0.2s ease;
-
-  .apex-listening-dot {
-    color: var(--neon-gold, #ffaa00);
-    margin-right: 6px;
-    animation: pulse-text 1s ease-in-out infinite;
-  }
-}
-
-.apex-response {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 16px;
-  margin-top: 8px;
-  background: rgba(255, 170, 0, 0.08);
-  border: 1px solid rgba(255, 170, 0, 0.2);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 13px;
-  animation: fade-in 0.3s ease;
-
-  mat-icon {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-    color: var(--neon-gold, #ffaa00);
-    margin-top: 2px;
-  }
-}
-
-.apex-loading {
-  justify-content: center;
-  color: rgba(255, 170, 0, 0.6);
-  animation: pulse-text 1.2s ease-in-out infinite;
+  50%       { opacity: 0.4; }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ─── Rate slider & voice select ───────────────────────────────────────────────
+.rate-slider {
+  width: 90px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  appearance: none;
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--neon-gold, #ffaa00);
+    cursor: pointer;
+  }
+}
+
+.voice-select {
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  max-width: 120px;
+
+  option { background: #1a1a2e; }
+}
+
+.train-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, rgba(255, 170, 0, 0.15), rgba(255, 170, 0, 0.08));
+  border: 1px solid rgba(255, 170, 0, 0.3);
+  border-radius: 8px;
+  color: var(--neon-gold, #ffaa00);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    background: linear-gradient(135deg, rgba(255, 170, 0, 0.25), rgba(255, 170, 0, 0.12));
+    box-shadow: 0 0 16px rgba(255, 170, 0, 0.2);
+  }
+}
+
+// ─── Image preview & attach ───────────────────────────────────────────────────
+.apex-image-preview {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 8px;
+
+  img {
+    max-width: 120px;
+    max-height: 80px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 170, 0, 0.3);
+    object-fit: cover;
+  }
+
+  .remove-image-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 50%;
+    background: #ff4444;
+    border: none;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+.image-attach-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  background: rgba(255, 170, 0, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.15);
+    color: var(--neon-gold, #ffaa00);
+    border-color: var(--neon-gold, #ffaa00);
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+// ─── Shared animations ────────────────────────────────────────────────────────
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 170, 0, 0.6); }
+  50%       { box-shadow: 0 0 24px rgba(255, 170, 0, 0.9); }
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

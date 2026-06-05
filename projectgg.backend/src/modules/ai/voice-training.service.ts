@@ -37,8 +37,14 @@ export class VoiceTrainingService {
 
       if (progress > this.maxRecordings) {
         const sorted = recordings.sort((a, b) => {
-          const numA = parseInt(a.match(/recording-(\d+)\.webm/)?.[1] || '0', 10);
-          const numB = parseInt(b.match(/recording-(\d+)\.webm/)?.[1] || '0', 10);
+          const numA = parseInt(
+            a.match(/recording-(\d+)\.webm/)?.[1] || '0',
+            10,
+          );
+          const numB = parseInt(
+            b.match(/recording-(\d+)\.webm/)?.[1] || '0',
+            10,
+          );
           return numA - numB;
         });
 
@@ -60,9 +66,10 @@ export class VoiceTrainingService {
 
       return {
         success: true,
-        message: progress >= this.maxRecordings
-          ? 'Voice training complete! Profile saved.'
-          : `Recording ${progress}/${this.maxRecordings} saved`,
+        message:
+          progress >= this.maxRecordings
+            ? 'Voice training complete! Profile saved.'
+            : `Recording ${progress}/${this.maxRecordings} saved`,
         progress,
       };
     } catch (error) {
@@ -87,9 +94,10 @@ export class VoiceTrainingService {
 
       return {
         success: true,
-        message: count >= this.maxRecordings
-          ? 'Voice profile saved successfully.'
-          : `Fingerprint saved. Complete ${this.maxRecordings} recordings to finalize.`,
+        message:
+          count >= this.maxRecordings
+            ? 'Voice profile saved successfully.'
+            : `Fingerprint saved. Complete ${this.maxRecordings} recordings to finalize.`,
       };
     } catch (error) {
       this.logger.error(`Upload fingerprint error: ${error.message}`);
@@ -97,48 +105,65 @@ export class VoiceTrainingService {
     }
   }
 
-  async verifySpeaker(userId: string, audioFingerprint: VoiceFingerprint): Promise<boolean> {
+  async verifySpeaker(
+    userId: string,
+    audioFingerprint: VoiceFingerprint,
+  ): Promise<boolean> {
     try {
       const profile = await this.getProfile(userId);
       if (!profile?.voice_fingerprint || !profile.training_completed) {
         return false;
       }
 
-      return this.compareFingerprints(profile.voice_fingerprint, audioFingerprint);
+      return this.compareFingerprints(
+        profile.voice_fingerprint,
+        audioFingerprint,
+      );
     } catch (error) {
       this.logger.error(`Speaker verification error: ${error.message}`);
       return false;
     }
   }
 
-  private compareFingerprints(stored: VoiceFingerprint, sample: VoiceFingerprint): boolean {
+  private compareFingerprints(
+    stored: VoiceFingerprint,
+    sample: VoiceFingerprint,
+  ): boolean {
     const tolerance = 0.25;
     let totalDistance = 0;
     let dimensions = 0;
 
-    const pitchMinDist = Math.abs(stored.pitch.min - sample.pitch.min) /
+    const pitchMinDist =
+      Math.abs(stored.pitch.min - sample.pitch.min) /
       Math.max(stored.pitch.min, sample.pitch.min, 1);
     totalDistance += pitchMinDist;
     dimensions++;
 
-    const pitchMaxDist = Math.abs(stored.pitch.max - sample.pitch.max) /
+    const pitchMaxDist =
+      Math.abs(stored.pitch.max - sample.pitch.max) /
       Math.max(stored.pitch.max, sample.pitch.max, 1);
     totalDistance += pitchMaxDist;
     dimensions++;
 
-    const pitchAvgDist = Math.abs(stored.pitch.avg - sample.pitch.avg) /
+    const pitchAvgDist =
+      Math.abs(stored.pitch.avg - sample.pitch.avg) /
       Math.max(stored.pitch.avg, sample.pitch.avg, 1);
     totalDistance += pitchAvgDist;
     dimensions++;
 
-    const rateDist = Math.abs(stored.speakingRate - sample.speakingRate) /
+    const rateDist =
+      Math.abs(stored.speakingRate - sample.speakingRate) /
       Math.max(stored.speakingRate, sample.speakingRate, 1);
     totalDistance += rateDist;
     dimensions++;
 
-    const formantCount = Math.min(stored.formants.length, sample.formants.length);
+    const formantCount = Math.min(
+      stored.formants.length,
+      sample.formants.length,
+    );
     for (let i = 0; i < formantCount; i++) {
-      const fDist = Math.abs(stored.formants[i] - sample.formants[i]) /
+      const fDist =
+        Math.abs(stored.formants[i] - sample.formants[i]) /
         Math.max(stored.formants[i], sample.formants[i], 1);
       totalDistance += fDist;
       dimensions++;
@@ -147,7 +172,9 @@ export class VoiceTrainingService {
     if (dimensions === 0) return false;
 
     const similarity = totalDistance / dimensions;
-    this.logger.debug(`Speaker similarity: ${(1 - similarity).toFixed(3)} (threshold: ${tolerance})`);
+    this.logger.debug(
+      `Speaker similarity: ${(1 - similarity).toFixed(3)} (threshold: ${tolerance})`,
+    );
     return similarity < tolerance;
   }
 
@@ -163,8 +190,10 @@ export class VoiceTrainingService {
       }
 
       return (data || [])
-        .filter(f => f.name.startsWith('recording-') && f.name.endsWith('.webm'))
-        .map(f => `${userId}/${f.name}`);
+        .filter(
+          (f) => f.name.startsWith('recording-') && f.name.endsWith('.webm'),
+        )
+        .map((f) => `${userId}/${f.name}`);
     } catch (error) {
       this.logger.warn(`List recordings error: ${error.message}`);
       return [];
@@ -234,16 +263,14 @@ export class VoiceTrainingService {
           return false;
         }
       } else {
-        const { error } = await this.supabase
-          .from('ai_voice_profiles')
-          .insert({
-            user_id: userId,
-            voice_fingerprint: profileData.voiceFingerprint || {},
-            custom_vocabulary: profileData.customVocabulary || [],
-            training_completed: profileData.trainingCompleted || false,
-            training_count: profileData.trainingCount || 0,
-            custom_wake_phrase: profileData.customWakePhrase || 'Hey APEX',
-          });
+        const { error } = await this.supabase.from('ai_voice_profiles').insert({
+          user_id: userId,
+          voice_fingerprint: profileData.voiceFingerprint || {},
+          custom_vocabulary: profileData.customVocabulary || [],
+          training_completed: profileData.trainingCompleted || false,
+          training_count: profileData.trainingCount || 0,
+          custom_wake_phrase: profileData.customWakePhrase || 'Hey APEX',
+        });
 
         if (error) {
           this.logger.error(`Failed to create profile: ${error.message}`);
@@ -286,7 +313,9 @@ export class VoiceTrainingService {
       const currentVocabulary = profile?.custom_vocabulary || [];
       const newVocabulary = [...new Set([...currentVocabulary, ...words])];
 
-      return await this.saveProfile(userId, { customVocabulary: newVocabulary });
+      return await this.saveProfile(userId, {
+        customVocabulary: newVocabulary,
+      });
     } catch (error) {
       this.logger.error(`Add vocabulary error: ${error.message}`);
       return false;
@@ -317,7 +346,9 @@ export class VoiceTrainingService {
     }
   }
 
-  async getTrainingStatus(userId: string): Promise<{ completed: boolean; count: number }> {
+  async getTrainingStatus(
+    userId: string,
+  ): Promise<{ completed: boolean; count: number }> {
     try {
       const profile = await this.getProfile(userId);
       if (profile?.training_count) {

@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { ApexVoiceService, VoiceFingerprint } from './apex-voice.service';
+import html2canvas from 'html2canvas';
 
 export interface ApexVoiceState {
   isRecording: boolean;
@@ -16,18 +17,20 @@ export interface ApexVoiceState {
 
 @Injectable({ providedIn: 'root' })
 export class ApexService {
-  private recognition: any = null;
   private synthesis = window.speechSynthesis;
 
   private stateSubject = new Subject<ApexVoiceState>();
   public state$ = this.stateSubject.asObservable();
   private wakeWordSubject = new Subject<void>();
   public wakeWordDetected$ = this.wakeWordSubject.asObservable();
+  private liveTranscriptSubject = new BehaviorSubject<string>('');
+  public liveTranscript$ = this.liveTranscriptSubject.asObservable();
+
   private state: ApexVoiceState = {
     isRecording: false,
     isListening: false,
     transcribedText: '',
-    voiceOutputEnabled: false,
+    voiceOutputEnabled: true,
     selectedVoice: null,
     speechRate: 1.0,
     voiceMode: 'push-to-talk',
@@ -36,163 +39,75 @@ export class ApexService {
 
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
+  private micStream: MediaStream | null = null;
 
   constructor(private http: HttpClient, private voiceAnalysis: ApexVoiceService) {}
 
-  private createRecognition(): any {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return null;
+  startListening(): void {
+    this.updateState({ transcribedText: '', isListening: false });
+    this.liveTranscriptSubject.next('');
 
-    const rec = new SpeechRecognition();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = 'en-US';
-
-    rec.onresult = (event: any) => {
-      let full = '';
-      for (let i = 0; i < event.results.length; i++) {
-        full += event.results[i][0].transcript;
-      }
-      console.log('[ApexService] onresult:', JSON.stringify(full));
-      this.updateState({ transcribedText: full });
-
-      // check final for wake word
-      let finalTranscript = '';
-      for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        }
-      }
-      if (finalTranscript && this.state.voiceMode === 'wake-word') {
-        if (finalTranscript.toLowerCase().includes('hey apex') && !this.state.wakeWordDetected) {
-          this.updateState({ wakeWordDetected: true });
-          this.wakeWordSubject.next();
-          setTimeout(() => this.updateState({ wakeWordDetected: false }), 5000);
-        }
-      }
-    };
-
-    rec.onerror = (event: any) => {
-      console.error('[ApexService] onerror:', event?.error);
-    };
-
-    rec.onstart = () => {
-      console.log('[ApexService] recognition started');
-    };
-
-    rec.onend = () => {
-      console.log('[ApexService] recognition ended');
-      if (this.state.voiceMode === 'always-listening' && this.state.isListening) {
-        this.startListening();
-      }
-    };
-
-    return rec;
-  }
-
-  primeMicPermission(): void {
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
-        stream.getTracks().forEach(t => t.stop());
-        console.log('[Apex] Mic permission primed ✅');
+        this.micStream = stream;
+        this.audioChunks = [];
+
+        this.mediaRecorder = new MediaRecorder(stream, {
+          mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm',
+        });
+
+        this.mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) this.audioChunks.push(e.data);
+        };
+
+        this.mediaRecorder.start();
+        this.updateState({ isListening: true });
+        console.log('[Apex] ✅ MediaRecorder started');
       })
       .catch(err => {
-        console.warn('[Apex] Mic permission denied:', err);
+        console.error('[Apex] getUserMedia failed:', err);
+        this.updateState({ transcribedText: 'Mic access denied' });
       });
   }
 
-  startListening(): void {
-    const callStack = new Error().stack;
-    console.log('[Apex] === startListening() called ===');
-    console.log('[Apex] Call stack:', callStack);
-    console.log('[Apex] current state before stopListening:', JSON.stringify(this.state));
-
-    this.stopListening();
-
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      console.error('[Apex] ❌ SpeechRecognition NOT available');
-      return;
-    }
-    console.log('[Apex] ✅ SpeechRecognition available:', SR.name);
-
-    this.updateState({ transcribedText: '' });
-
-    const rec = new SR();
-    rec.lang = 'en-US';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.debug = true;
-
-    rec.onstart = () => {
-      console.log('[Apex] ★★★ onstart FIRED ★★★');
-      this.updateState({ isListening: true });
-    };
-
-    rec.onresult = (event: any) => {
-      let interim = '';
-      let final = '';
-      for (let i = 0; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          final += t;
-        } else {
-          interim += t;
-        }
-      }
-      console.log('[Apex] ★ onresult — interim:', JSON.stringify(interim), '| final:', JSON.stringify(final), '| resLen:', event.results.length);
-      this.updateState({ transcribedText: final || interim });
-
-      if (final && this.state.voiceMode === 'wake-word') {
-        if (final.toLowerCase().includes('hey apex') && !this.state.wakeWordDetected) {
-          console.log('[Apex] wake word detected!');
-          this.updateState({ wakeWordDetected: true });
-          this.wakeWordSubject.next();
-          setTimeout(() => this.updateState({ wakeWordDetected: false }), 5000);
-        }
-      }
-    };
-
-    rec.onerror = (event: any) => {
-      console.error('[Apex] ★★★ onerror FIRED:', event?.error, '| message:', event?.message, '| state:', event?.state);
-    };
-
-    rec.onend = () => {
-      console.log('[Apex] ★★★ onend FIRED ★★★');
-      if (this.state.voiceMode === 'always-listening' && this.state.isListening) {
-        console.log('[Apex] always-listening mode — restarting');
-        this.startListening();
-      }
-    };
-
-    rec.onaudiostart = () => console.log('[Apex] ★ onaudiostart');
-    rec.onaudioend = () => console.log('[Apex] ★ onaudioend');
-    rec.onspeechstart = () => console.log('[Apex] ★ onspeechstart');
-    rec.onspeechend = () => console.log('[Apex] ★ onspeechend');
-    rec.onsoundstart = () => console.log('[Apex] ★ onsoundstart');
-    rec.onsoundend = () => console.log('[Apex] ★ onsoundend');
-
-    this.recognition = rec;
-    console.log('[Apex] recognition instance created, calling start() via setTimeout(0)...');
-
-    setTimeout(() => {
-      console.log('[Apex] setTimeout callback firing, attempting rec.start()');
-      try {
-        rec.start();
-        console.log('[Apex] ✅ rec.start() succeeded — no exception thrown');
-      } catch (e: any) {
-        console.error('[Apex] ❌ rec.start() threw:', e?.message, e?.name);
-      }
-    }, 0);
-  }
-
   stopListening(): void {
-    if (this.recognition) {
-      this.recognition.onend = null;
-      try { this.recognition.stop(); } catch {}
-      this.recognition = null;
+    if (this.mediaRecorder?.state === 'recording') {
+      this.mediaRecorder.onstop = async () => {
+        const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        this.micStream?.getTracks().forEach(t => t.stop());
+        this.micStream = null;
+        this.updateState({ isListening: false });
+
+        if (blob.size < 1000) {
+          console.warn('[Apex] Recording too short, skipping');
+          this.updateState({ transcribedText: '' });
+          this.liveTranscriptSubject.next('');
+          return;
+        }
+
+        try {
+          const base64 = await this.blobToBase64(blob);
+          const res: any = await this.http
+            .post('/api/ai/transcribe', { audio: base64 })
+            .toPromise();
+          const transcript = res?.transcript || '';
+          console.log('[Apex] Whisper transcript:', transcript);
+          this.updateState({ transcribedText: transcript });
+          this.liveTranscriptSubject.next(transcript);
+        } catch (err) {
+          console.error('[Apex] Transcription failed:', err);
+          this.updateState({ transcribedText: '' });
+          this.liveTranscriptSubject.next('');
+        }
+      };
+
+      this.mediaRecorder.stop();
+    } else {
+      this.micStream?.getTracks().forEach(t => t.stop());
+      this.micStream = null;
+      this.updateState({ isListening: false });
     }
-    this.updateState({ isListening: false });
   }
 
   getTranscribedText(): string {
@@ -201,6 +116,7 @@ export class ApexService {
 
   clearTranscribedText(): void {
     this.updateState({ transcribedText: '' });
+    this.liveTranscriptSubject.next('');
   }
 
   startRecording(): Promise<Blob> {
@@ -263,6 +179,49 @@ export class ApexService {
     });
   }
 
+  // ─── Page Context ──────────────────────────────────────────────────────────
+
+  getPageContext(): { url: string; title: string; description: string } {
+    const meta = document.querySelector('meta[name="description"]');
+    return {
+      url: window.location.href,
+      title: document.title,
+      description: meta?.getAttribute('content') || '',
+    };
+  }
+
+  async captureScreenshot(): Promise<string | null> {
+    try {
+      const apexPanel = document.querySelector('.apex-panel') as HTMLElement;
+      const trigger = document.querySelector('.apex-trigger') as HTMLElement;
+
+      if (apexPanel) apexPanel.style.display = 'none';
+      if (trigger) trigger.style.display = 'none';
+
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        scale: 0.5,
+        logging: false,
+      });
+
+      if (apexPanel) apexPanel.style.display = '';
+      if (trigger) trigger.style.display = '';
+
+      return canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    } catch (err) {
+      console.warn('[Apex] Screenshot capture failed:', err);
+      return null;
+    }
+  }
+
+  async capturePageContext(): Promise<{ pageContext: any; screenshot?: string }> {
+    const pageContext = this.getPageContext();
+    const screenshot = await this.captureScreenshot();
+    return { pageContext, screenshot: screenshot || undefined };
+  }
+
   async uploadVoiceRecording(audio: Blob, index: number, fingerprint?: VoiceFingerprint): Promise<any> {
     const base64 = await this.blobToBase64(audio);
     return this.http.post('/api/ai/voice/upload', { audio: base64, index, fingerprint }).toPromise();
@@ -280,8 +239,34 @@ export class ApexService {
     return this.http.delete('/api/ai/voice/profile');
   }
 
-  askAi(message: string): Observable<{ response: string }> {
-    return this.http.post<{ response: string }>('/api/ai/ask', { message });
+  askAi(message: string, conversationHistory?: { role: 'user' | 'assistant'; content: string }[], includePageContext?: boolean): Observable<{ response: string }> {
+    if (includePageContext) {
+      return new Observable(subscriber => {
+        this.capturePageContext().then(ctx => {
+          this.http.post<{ response: string }>('/api/ai/ask', {
+            message,
+            conversationHistory,
+            pageContext: ctx.pageContext,
+            screenshot: ctx.screenshot,
+          }).subscribe({
+            next: res => subscriber.next(res),
+            error: err => subscriber.error(err),
+          });
+        });
+      });
+    }
+    return this.http.post<{ response: string }>('/api/ai/ask', {
+      message,
+      conversationHistory,
+    });
+  }
+
+  getUserConversations(limit: number = 20, offset: number = 0): Observable<any[]> {
+    return this.http.get<any[]>(`/api/apex/conversations?limit=${limit}&offset=${offset}`);
+  }
+
+  getConversationMessages(conversationId: string): Observable<any[]> {
+    return this.http.get<any[]>(`/api/apex/conversations/${conversationId}/messages`);
   }
 
   speak(text: string): void {
@@ -338,10 +323,6 @@ export class ApexService {
 
   setSelectedVoice(voice: SpeechSynthesisVoice): void {
     this.updateState({ selectedVoice: voice });
-  }
-
-  isSpeechRecognitionSupported(): boolean {
-    return !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
   }
 
   isSpeechSynthesisSupported(): boolean {

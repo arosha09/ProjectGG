@@ -1,7 +1,11 @@
-export function getSystemPrompt(isVerified: boolean, customVocabulary: string[] = []): string {
-  const vocabularySection = customVocabulary.length > 0
-    ? `\nCUSTOM VOCABULARY (user-specific terms to recognize):\n${customVocabulary.join(', ')}`
-    : '';
+export function getSystemPrompt(
+  isVerified: boolean,
+  customVocabulary: string[] = [],
+): string {
+  const vocabularySection =
+    customVocabulary.length > 0
+      ? `\nCUSTOM VOCABULARY (user-specific terms to recognize):\n${customVocabulary.join(', ')}`
+      : '';
 
   const verifiedSection = isVerified
     ? '\nSPEAKER VERIFIED: This user has completed voice training. You can be more casual and personalized in your responses. Use their name if you know it.'

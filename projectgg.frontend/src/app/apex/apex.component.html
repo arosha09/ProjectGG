@@ -5,15 +5,21 @@
   <span class="apex-label">A.P.E.X.</span>
 </div>
 
-<div class="apex-panel" *ngIf="isPanelOpen">
+<div class="apex-panel" *ngIf="isPanelOpen" [class.expanded-mode]="isExpandedManually">
   <div class="apex-header">
     <div class="apex-info">
       <span class="apex-name">A.P.E.X.</span>
       <span class="apex-tagline">AI Gaming Assistant</span>
     </div>
     <div class="apex-actions">
-      <button mat-icon-button (click)="toggleSettings()" matTooltip="Voice Settings">
-        <mat-icon>settings_voice</mat-icon>
+      <button mat-icon-button (click)="toggleSessionList()" matTooltip="Chats">
+        <mat-icon>forum</mat-icon>
+      </button>
+      <button mat-icon-button (click)="toggleExpand()" matTooltip="Expand">
+        <mat-icon>{{ isExpandedManually ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+      </button>
+      <button mat-icon-button (click)="toggleSettings()" matTooltip="Settings">
+        <mat-icon>settings</mat-icon>
       </button>
       <button mat-icon-button (click)="togglePanel()" matTooltip="Close">
         <mat-icon>close</mat-icon>
@@ -22,123 +28,206 @@
   </div>
 
   <div class="apex-body">
-    <div class="apex-welcome" *ngIf="!showSettings">
-      <div class="apex-logo">🤖</div>
-      <p>Hey! I'm <strong>A.P.E.X.</strong></p>
-      <p class="apex-desc">Your AI gaming assistant. Just mention me in chat!</p>
-      <div class="apex-commands">
-        <div class="command-hint">
-          <code>@A.P.E.X. what cards are rare?</code>
+
+    <!-- ─── Sessions view ──────────────────────────────────────────────────── -->
+    <div class="apex-sessions" *ngIf="showSessionList && !showSettings">
+      <div class="sessions-header">
+        <h4>Your Chats</h4>
+        <span class="session-count">{{ getTodaySessions().length }}/{{ maxSessionsPerDay }} today</span>
+      </div>
+
+      <button class="new-chat-btn" (click)="createNewSession()" [disabled]="!canCreateSession()">
+        <mat-icon>add</mat-icon>
+        New Chat
+      </button>
+
+      <div class="session-items">
+        <div *ngFor="let session of sessions"
+             class="session-item"
+             [class.active]="session.id === activeSessionId"
+             (click)="selectSession(session.id)">
+          <mat-icon class="session-icon">{{ session.isPinned ? 'push_pin' : 'chat_bubble_outline' }}</mat-icon>
+          <div class="session-info">
+            <span class="session-title">{{ session.title }}</span>
+            <span class="session-meta">{{ session.messages.length }} messages</span>
+          </div>
+          <div class="session-actions">
+            <button class="session-action-btn" (click)="togglePinSession(session.id, $event)"
+                    [class.pinned]="session.isPinned"
+                    [matTooltip]="session.isPinned ? 'Unpin' : 'Pin (max ' + maxPinnedPerUser + ')'"
+                    [disabled]="!session.isPinned && getPinnedCount() >= maxPinnedPerUser">
+              <mat-icon>push_pin</mat-icon>
+            </button>
+            <button class="session-action-btn delete" (click)="deleteSession(session.id, $event)"
+                    matTooltip="Delete">
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </div>
         </div>
-        <div class="command-hint">
-          <code>Hey APEX, recommend a game</code>
+        <div *ngIf="sessions.length === 0" class="session-empty">
+          <mat-icon>chat_bubble_outline</mat-icon>
+          <p>No chats yet</p>
+          <span>Start a new conversation!</span>
         </div>
       </div>
     </div>
 
-    <div class="apex-settings" *ngIf="showSettings">
-      <h4>Voice Settings</h4>
+    <!-- ─── Settings view ──────────────────────────────────────────────────── -->
+    <div class="apex-settings" *ngIf="showSettings && !showSessionList">
+      <h4>Settings</h4>
 
-      <div class="setting-group">
-        <label>Voice Input Mode</label>
-        <div class="voice-modes">
-          <button
-            class="mode-btn"
-            [class.active]="voiceMode === 'push-to-talk'"
-            (click)="setVoiceMode('push-to-talk')">
-            Push to Talk
+      <!-- APEX Speak -->
+      <div class="settings-section">
+        <div class="setting-row">
+          <div class="setting-label">
+            <mat-icon>volume_up</mat-icon>
+            <div>
+              <span class="setting-title">A.P.E.X. Speak</span>
+              <span class="setting-sub">Read responses aloud</span>
+            </div>
+          </div>
+          <button class="toggle-pill" [class.active]="voiceOutputEnabled" (click)="toggleVoiceOutput()">
+            <span class="toggle-knob"></span>
           </button>
-          <button
-            class="mode-btn"
-            [class.active]="voiceMode === 'always-listening'"
-            (click)="setVoiceMode('always-listening')">
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <mat-icon>visibility</mat-icon>
+            <div>
+              <span class="setting-title">Page Context</span>
+              <span class="setting-sub">Let A.P.E.X. see your screen</span>
+            </div>
+          </div>
+          <button class="toggle-pill" [class.active]="pageContextEnabled" (click)="pageContextEnabled = !pageContextEnabled">
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
+
+        <div class="setting-row" *ngIf="voiceOutputEnabled && isSpeechSynthesisSupported()">
+          <div class="setting-label">
+            <mat-icon>speed</mat-icon>
+            <div>
+              <span class="setting-title">Speed: {{ speechRate }}x</span>
+            </div>
+          </div>
+          <input type="range" min="0.5" max="2" step="0.1" [value]="speechRate"
+                 (input)="setSpeechRate(+$any($event.target).value)" class="rate-slider" />
+        </div>
+
+        <div class="setting-row" *ngIf="voiceOutputEnabled && isSpeechSynthesisSupported()">
+          <div class="setting-label">
+            <mat-icon>person</mat-icon>
+            <div>
+              <span class="setting-title">Voice</span>
+            </div>
+          </div>
+          <select class="voice-select" (change)="selectVoice($any($event.target).value)">
+            <option value="">Default</option>
+            <option *ngFor="let voice of availableVoices" [value]="voice.name" [selected]="selectedVoice?.name === voice.name">
+              {{ voice.name }} ({{ voice.lang }})
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Voice Input -->
+      <div class="settings-section">
+        <h5 class="section-title">Voice Input</h5>
+        <div class="voice-modes">
+          <button class="mode-btn" [class.active]="voiceMode === 'push-to-talk'" (click)="setVoiceMode('push-to-talk')">
+            <mat-icon>mic</mat-icon>
+            Tap to Talk
+          </button>
+          <button class="mode-btn" [class.active]="voiceMode === 'always-listening'" (click)="setVoiceMode('always-listening')">
+            <mat-icon>hearing</mat-icon>
             Always Listening
           </button>
-          <button
-            class="mode-btn"
-            [class.active]="voiceMode === 'wake-word'"
-            (click)="setVoiceMode('wake-word')">
-            Wake Word
+          <button class="mode-btn" [class.active]="voiceMode === 'wake-word'" (click)="setVoiceMode('wake-word')">
+            <mat-icon>waves</mat-icon>
+            Hey, A.P.E.X.
           </button>
         </div>
       </div>
 
-      <div class="setting-group">
-        <label>Voice Output</label>
-        <button
-          class="toggle-btn"
-          [class.active]="voiceOutputEnabled"
-          (click)="toggleVoiceOutput()">
-          <mat-icon>{{ voiceOutputEnabled ? 'volume_up' : 'volume_off' }}</mat-icon>
-          {{ voiceOutputEnabled ? 'Enabled' : 'Disabled' }}
-        </button>
-      </div>
-
-      <div class="setting-group" *ngIf="voiceOutputEnabled && isSpeechSynthesisSupported()">
-        <label>Speech Rate: {{ speechRate }}x</label>
-        <input
-          type="range"
-          min="0.5"
-          max="2"
-          step="0.1"
-          [value]="speechRate"
-          (input)="setSpeechRate(+$any($event.target).value)"
-          class="rate-slider" />
-
-        <select class="voice-select" (change)="selectVoice($any($event.target).value)">
-          <option value="">Default Voice</option>
-          <option
-            *ngFor="let voice of availableVoices"
-            [value]="voice.name"
-            [selected]="selectedVoice?.name === voice.name">
-            {{ voice.name }} ({{ voice.lang }})
-          </option>
-        </select>
-      </div>
-
-      <div class="setting-group voice-training">
-        <label>Voice Training</label>
-        <p class="training-desc">Train A.P.E.X. to better recognize your voice (5 phrases)</p>
-
-        <button
-          class="train-btn"
-          (click)="openTraining()">
+      <!-- Voice Training -->
+      <div class="settings-section">
+        <h5 class="section-title">Voice Training</h5>
+        <p class="section-desc">Train A.P.E.X. to recognize your voice (5 phrases)</p>
+        <button class="train-btn" (click)="openTraining()">
           <mat-icon>record_voice_over</mat-icon>
           Open Voice Training
         </button>
       </div>
     </div>
-  </div>
 
-  <div class="apex-footer">
-    <div class="voice-controls" *ngIf="!showSettings">
-      <button
-        class="mic-btn"
-        [class.recording]="isRecording"
-        [class.listening]="isListening"
-        (mousedown)="onMicPointerDown($event)"
-        (mouseup)="onMicPointerUp($event)"
-        (touchstart)="onMicPointerDown($event)"
-        (touchend)="onMicPointerUp($event)"
-        [disabled]="!isSupported">
+    <!-- ─── Chat view ──────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="!showSettings && !showSessionList">
+      <div class="apex-chat-history" *ngIf="messages.length > 0">
+        <div *ngFor="let msg of messages" class="apex-msg-wrapper"
+             [class.apex-msg-user]="msg.user_id === currentUserId"
+             [class.apex-msg-ai]="msg.user_id !== currentUserId">
+          <img *ngIf="msg.imageUrl" [src]="msg.imageUrl" class="apex-msg-image" />
+          <div class="apex-msg-bubble">{{ msg.content }}</div>
+        </div>
+      </div>
+
+      <div class="apex-welcome" *ngIf="messages.length === 0 && !pendingAiQuery && !conversationStarted">
+        <div class="apex-logo">🤖</div>
+        <p>Hey! I'm <strong>A.P.E.X.</strong></p>
+        <p class="apex-desc">Your AI gaming assistant. Ask me anything!</p>
+
+        <div class="apex-suggestions" *ngIf="suggestions.length > 0">
+          <button class="suggestion-btn" *ngFor="let s of suggestions" (click)="useSuggestion(s)">
+            {{ s }}
+          </button>
+        </div>
+      </div>
+
+      <div class="apex-response apex-loading" *ngIf="pendingAiQuery">
+        <span>Thinking...</span>
+      </div>
+    </ng-container>
+
+  </div><!-- /.apex-body -->
+
+  <div class="apex-footer" *ngIf="!showSettings && !showSessionList">
+    <div class="apex-image-preview" *ngIf="imagePreview">
+      <img [src]="imagePreview" />
+      <button class="remove-image-btn" (click)="removeImage()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="apex-chat-controls">
+      <button class="mic-btn"
+              [class.recording]="isRecording"
+              [class.listening]="isListening"
+              (click)="toggleMic()"
+              [disabled]="!isSupported">
         <mat-icon>{{ isListening ? 'mic' : 'mic_off' }}</mat-icon>
       </button>
-      <span class="mic-hint" *ngIf="!isListening">{{ voiceMode === 'push-to-talk' ? 'Hold to speak' : 'Tap to toggle' }}</span>
-      <span class="mic-hint listening" *ngIf="isListening">Listening...</span>
+
+      <mat-form-field appearance="outline" class="apex-chat-input">
+        <input #chatInput
+               matInput
+               [(ngModel)]="chatMessage"
+               (keyup.enter)="sendMessage()"
+               [placeholder]="isListening ? 'Listening...' : 'Type a message...'"
+               [disabled]="isListening && !liveTranscript" />
+        <button mat-icon-button matSuffix (click)="sendMessage()"
+                [disabled]="(!chatMessage.trim() && !selectedImage) || pendingAiQuery">
+          <mat-icon>send</mat-icon>
+        </button>
+      </mat-form-field>
+
+      <label class="image-attach-btn" matTooltip="Attach image">
+        <input type="file" accept="image/*" (change)="onImageSelect($event)" hidden />
+        <mat-icon>image</mat-icon>
+      </label>
     </div>
-  </div>
-</div>
+  </div><!-- /.apex-footer -->
 
-<div class="apex-hint" *ngIf="isPanelOpen && transcribedText">
-  <span>{{ transcribedText }}</span>
-</div>
-
-<div class="apex-response" *ngIf="isPanelOpen && apexResponse">
-  <mat-icon>smart_toy</mat-icon>
-  <span>{{ apexResponse }}</span>
-</div>
-<div class="apex-response apex-loading" *ngIf="isPanelOpen && pendingAiQuery">
-  <span>Thinking...</span>
-</div>
+</div><!-- /.apex-panel -->
 
 <app-voice-training *ngIf="showTraining" (close)="closeTraining()"></app-voice-training>

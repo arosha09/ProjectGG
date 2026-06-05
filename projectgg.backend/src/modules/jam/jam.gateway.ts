@@ -16,8 +16,6 @@ import { JamTrack } from './jam.types';
 export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(JamGateway.name);
   private socketToUser = new Map<string, string>();
-  private disconnectTimers = new Map<string, NodeJS.Timeout>();
-  private static readonly DISCONNECT_GRACE_MS = 30_000;
 
   @WebSocketServer()
   server: Server;
@@ -29,13 +27,6 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!userId) {
       client.disconnect();
       return;
-    }
-
-    const existingTimer = this.disconnectTimers.get(userId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-      this.disconnectTimers.delete(userId);
-      this.logger.log(`Jam disconnect cancelled for ${userId} — reconnected in time`);
     }
 
     client.data.userId = userId;
@@ -52,34 +43,7 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = this.socketToUser.get(client.id);
     this.socketToUser.delete(client.id);
     if (!userId) return;
-
-    const session = this.jamService.get_user_session(userId);
-    if (!session) return;
-
-    const timer = setTimeout(() => {
-      this.disconnectTimers.delete(userId);
-      const result = this.jamService.leave_session(userId);
-      if (!result) return;
-
-      const s = this.jamService.get_session(result.sessionId);
-      if (s) {
-        this.server.to(`jam:${s.id}`).emit('jam:participant-left', {
-          userId,
-          sessionId: result.sessionId,
-        });
-
-        if (result.newHostId) {
-          this.server.to(`jam:${s.id}`).emit('jam:host-changed', {
-            newHostId: result.newHostId,
-            sessionId: result.sessionId,
-          });
-        }
-      }
-
-      this.logger.log(`Jam user ${userId} removed after grace period`);
-    }, JamGateway.DISCONNECT_GRACE_MS);
-
-    this.disconnectTimers.set(userId, timer);
+    this.logger.log(`Jam socket disconnected for ${userId} (kept in session until explicit leave)`);
   }
 
   @SubscribeMessage('jam:sync-request')

@@ -469,29 +469,93 @@
   background: rgba(255, 255, 255, 0.03);
   border-radius: 10px;
   border: 1px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.12);
+}
 
-  ::ng-deep {
-    .mat-mdc-slide-toggle {
-      --mdc-switch-selected-track-color: var(--accent-color);
-      --mdc-switch-selected-handle-color: #000;
-      --mdc-switch-selected-focus-track-color: var(--accent-color);
-      --mdc-switch-selected-hover-track-color: var(--accent-color);
-      --mdc-switch-selected-pressed-track-color: var(--accent-color);
-      --mdc-switch-selected-focus-handle-color: #000;
-      --mdc-switch-selected-hover-handle-color: #000;
-      --mdc-switch-selected-pressed-handle-color: #000;
-      --mdc-switch-track-color: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.25);
-      --mdc-switch-handle-color: var(--text-muted);
-      --mdc-switch-disabled-track-color: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.1);
-      --mdc-switch-disabled-handle-color: var(--text-muted);
-      --mdc-switch-disabled-selected-track-color: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.25);
-      --mdc-switch-disabled-selected-handle-color: var(--text-muted);
-      font-size: 12px;
-    }
+/* ─── Custom Toggle (theme-aware) ─── */
 
-    .mdc-switch__labels {
-      color: var(--text-muted);
+.jam-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 500;
+
+  input[type='checkbox'] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+  }
+
+  .jam-toggle-switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 36px;
+    height: 18px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid
+      rgba(
+        var(--color-primary-r),
+        var(--color-primary-g),
+        var(--color-primary-b),
+        0.25
+      );
+    border-radius: 10px;
+    transition: all 0.25s ease;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      background: rgba(
+        var(--color-primary-r),
+        var(--color-primary-g),
+        var(--color-primary-b),
+        0.45
+      );
+      border-radius: 50%;
+      transition: all 0.25s ease;
     }
+  }
+
+  input[type='checkbox']:checked + .jam-toggle-switch {
+    background: rgba(
+      var(--color-primary-r),
+      var(--color-primary-g),
+      var(--color-primary-b),
+      0.18
+    );
+    border-color: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-glow);
+
+    &::after {
+      left: 20px;
+      background: var(--accent-color);
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+  }
+
+  .jam-toggle-text {
+    color: var(--text-primary);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 0.3px;
+  }
+
+  &:hover .jam-toggle-switch {
+    border-color: rgba(
+      var(--color-primary-r),
+      var(--color-primary-g),
+      var(--color-primary-b),
+      0.5
+    );
   }
 }
 

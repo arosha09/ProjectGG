@@ -24,7 +24,12 @@ export class AiController {
 
   @Post('ask')
   @UseGuards(JwtAuthGuard)
-  async askAi(@Req() req: Request, @Body() body: { message: string }) {
+  async askAi(@Req() req: Request, @Body() body: {
+    message: string;
+    conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+    pageContext?: { url: string; title: string; description: string };
+    screenshot?: string;
+  }) {
     const userId = (req.user as any)?.id;
     if (!userId) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
@@ -32,9 +37,18 @@ export class AiController {
     if (!body.message || typeof body.message !== 'string') {
       throw new HttpException('Message is required', HttpStatus.BAD_REQUEST);
     }
-    const result = await this.aiService.handleVoiceQuery(userId, body.message);
+    const result = await this.aiService.handleVoiceQuery(
+      userId,
+      body.message,
+      body.conversationHistory,
+      body.pageContext,
+      body.screenshot,
+    );
     if (!result.success) {
-      throw new HttpException(result.error || 'Failed to generate response', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        result.error || 'Failed to generate response',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
     return { response: result.content };
   }
@@ -55,7 +69,8 @@ export class AiController {
   @UseGuards(JwtAuthGuard)
   async uploadVoiceRecording(
     @Req() req: Request,
-    @Body() body: { audio: string; index: number; fingerprint?: VoiceFingerprint },
+    @Body()
+    body: { audio: string; index: number; fingerprint?: VoiceFingerprint },
   ) {
     const userId = (req.user as any)?.id;
     if (!userId) {
@@ -63,13 +78,19 @@ export class AiController {
     }
 
     if (body.index < 0 || body.index > 4) {
-      throw new HttpException('Invalid recording index (must be 0-4)', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Invalid recording index (must be 0-4)',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const audioBuffer = Buffer.from(body.audio, 'base64');
 
     if (audioBuffer.length > 5 * 1024 * 1024) {
-      throw new HttpException('Audio file too large (max 5MB)', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Audio file too large (max 5MB)',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const result = await this.voiceTrainingService.uploadRecording(
@@ -103,10 +124,16 @@ export class AiController {
     }
 
     if (!body.fingerprint || typeof body.fingerprint !== 'object') {
-      throw new HttpException('Fingerprint data required', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Fingerprint data required',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    const result = await this.voiceTrainingService.uploadFingerprint(userId, body.fingerprint);
+    const result = await this.voiceTrainingService.uploadFingerprint(
+      userId,
+      body.fingerprint,
+    );
 
     if (!result.success) {
       throw new HttpException(result.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -127,47 +154,79 @@ export class AiController {
     const status = await this.voiceTrainingService.getTrainingStatus(userId);
 
     return {
-      profile: profile ? {
-        trainingCompleted: profile.training_completed,
-        trainingCount: profile.training_count,
-        customWakePhrase: profile.custom_wake_phrase,
-        customVocabulary: profile.custom_vocabulary,
-        trainedAt: profile.trained_at,
-      } : null,
+      profile: profile
+        ? {
+            trainingCompleted: profile.training_completed,
+            trainingCount: profile.training_count,
+            customWakePhrase: profile.custom_wake_phrase,
+            customVocabulary: profile.custom_vocabulary,
+            trainedAt: profile.trained_at,
+          }
+        : null,
       status,
     };
   }
 
   @Post('voice/vocabulary')
   @UseGuards(JwtAuthGuard)
-  async addVocabulary(
-    @Req() req: Request,
-    @Body() body: { words: string[] },
-  ) {
+  async addVocabulary(@Req() req: Request, @Body() body: { words: string[] }) {
     const userId = (req.user as any)?.id;
     if (!userId) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
     if (!Array.isArray(body.words) || body.words.length === 0) {
-      throw new HttpException('Words array is required', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Words array is required',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const validWords = body.words
-      .filter(w => typeof w === 'string' && w.length > 0 && w.length < 50)
+      .filter((w) => typeof w === 'string' && w.length > 0 && w.length < 50)
       .slice(0, 100);
 
     if (validWords.length === 0) {
-      throw new HttpException('No valid words provided', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'No valid words provided',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    const success = await this.voiceTrainingService.addCustomVocabulary(userId, validWords);
+    const success = await this.voiceTrainingService.addCustomVocabulary(
+      userId,
+      validWords,
+    );
 
     if (!success) {
-      throw new HttpException('Failed to save vocabulary', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to save vocabulary',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
 
     return { success: true, words: validWords };
+  }
+
+  @Post('transcribe')
+  @UseGuards(JwtAuthGuard)
+  async transcribe(@Req() req: Request, @Body() body: { audio: string }) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+    if (!body.audio) {
+      throw new HttpException('Audio required', HttpStatus.BAD_REQUEST);
+    }
+
+    const result = await this.aiService.transcribeAudio(body.audio);
+    if (!result.success) {
+      throw new HttpException(
+        result.error || 'Transcription failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return { transcript: result.content };
   }
 
   @Delete('voice/profile')
@@ -181,7 +240,10 @@ export class AiController {
     const success = await this.voiceTrainingService.deleteProfile(userId);
 
     if (!success) {
-      throw new HttpException('Failed to delete profile', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to delete profile',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
 
     return { success: true };

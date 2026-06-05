@@ -1,18 +1,30 @@
-import { Injectable, OnModuleInit, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  Logger,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { SUPABASE_CLIENT } from '../../config/supabase.provider';
 import { ChatService } from '../chat/chat.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { ChatMessage, AiResponse } from './ai.types';
 import { getSystemPrompt } from './ai-prompts';
-import { findTriviaAnswer, getRandomJoke, getRandomTip } from './game-knowledge';
+import {
+  findTriviaAnswer,
+  getRandomJoke,
+  getRandomTip,
+} from './game-knowledge';
 import { VoiceTrainingService } from './voice-training.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AiService implements OnModuleInit {
   private readonly logger = new Logger(AiService.name);
-  private readonly groqApiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  private readonly geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  private readonly groqApiUrl =
+    'https://api.groq.com/openai/v1/chat/completions';
+  private readonly geminiApiUrl =
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
   private readonly botUserId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
   private readonly groqModel = 'llama-3.3-70b-versatile';
@@ -26,8 +38,10 @@ export class AiService implements OnModuleInit {
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
-    @Inject(forwardRef(() => ChatService)) private readonly chatService: ChatService,
-    @Inject(forwardRef(() => ChatGateway)) private readonly chatGateway: ChatGateway,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway: ChatGateway,
     private readonly voiceTrainingService: VoiceTrainingService,
     private readonly configService: ConfigService,
   ) {}
@@ -44,13 +58,20 @@ export class AiService implements OnModuleInit {
       return;
     }
 
-    if (await this.isRateLimited(message.user_id?.toString(), message.channel_id)) {
+    if (
+      await this.isRateLimited(message.user_id?.toString(), message.channel_id)
+    ) {
       this.logger.debug(`Message from user ${message.user_id} rate limited`);
       return;
     }
 
-    const isVerified = await this.voiceTrainingService.isSpeakerVerified(message.user_id?.toString());
-    const customVocabulary = await this.voiceTrainingService.getCustomVocabulary(message.user_id?.toString());
+    const isVerified = await this.voiceTrainingService.isSpeakerVerified(
+      message.user_id?.toString(),
+    );
+    const customVocabulary =
+      await this.voiceTrainingService.getCustomVocabulary(
+        message.user_id?.toString(),
+      );
 
     const triviaAnswer = findTriviaAnswer(content);
     if (triviaAnswer) {
@@ -58,7 +79,12 @@ export class AiService implements OnModuleInit {
       return;
     }
 
-    const response = await this.generateResponse(content, message, isVerified, customVocabulary);
+    const response = await this.generateResponse(
+      content,
+      message,
+      isVerified,
+      customVocabulary,
+    );
 
     if (response.success && response.content) {
       await this.sendApexMessage(response.content, message.channel_id, true);
@@ -76,7 +102,7 @@ export class AiService implements OnModuleInit {
       /\bAPEX\s+help/i,
       /\bAPEX\?/i,
     ];
-    return patterns.some(p => p.test(content));
+    return patterns.some((p) => p.test(content));
   }
 
   private async generateResponse(
@@ -84,16 +110,35 @@ export class AiService implements OnModuleInit {
     message: ChatMessage,
     isVerified: boolean,
     customVocabulary: string[],
+    conversationHistory?: { role: 'user' | 'assistant'; content: string }[],
+    pageContext?: { url: string; title: string; description: string },
+    screenshot?: string,
   ): Promise<AiResponse> {
     try {
       const context = await this.buildContext(message.channel_id);
 
       try {
-        return await this.callGroq(prompt, context, isVerified, customVocabulary);
+        return await this.callGroq(
+          prompt,
+          context,
+          isVerified,
+          customVocabulary,
+          conversationHistory,
+          pageContext,
+          screenshot,
+        );
       } catch (error) {
         if (error.status === 429 || error.message?.includes('rate limit')) {
           this.logger.warn('Groq rate limited, falling back to Gemini');
-          return await this.callGemini(prompt, context, isVerified, customVocabulary);
+          return await this.callGemini(
+            prompt,
+            context,
+            isVerified,
+            customVocabulary,
+            conversationHistory,
+            pageContext,
+            screenshot,
+          );
         }
         throw error;
       }
@@ -108,33 +153,52 @@ export class AiService implements OnModuleInit {
     context: ChatMessage[],
     isVerified: boolean,
     customVocabulary: string[],
+    conversationHistory?: { role: 'user' | 'assistant'; content: string }[],
+    pageContext?: { url: string; title: string; description: string },
+    screenshot?: string,
   ): Promise<AiResponse> {
     const apiKey = this.configService.get('AI_GROQ_API_KEY');
     if (!apiKey) {
       throw new Error('AI_GROQ_API_KEY not configured');
     }
 
-    const systemPrompt = getSystemPrompt(isVerified, customVocabulary);
+    let systemPrompt = getSystemPrompt(isVerified, customVocabulary);
 
-    const conversationHistory = context.map(m => ({
-      role: m.username === 'A.P.E.X.' ? 'assistant' : 'user',
-      name: m.username,
-      content: `${m.username}: ${m.content}`,
-    }));
+    if (pageContext) {
+      systemPrompt += `\n\nUSER'S CURRENT PAGE:
+URL: ${pageContext.url}
+Page Title: ${pageContext.title}
+${pageContext.description ? `Description: ${pageContext.description}` : ''}
+Use this context to provide more relevant responses about what the user is currently viewing.`;
+    }
+
+    let messages: any[] = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    if (conversationHistory && conversationHistory.length > 0) {
+      const trimmed = conversationHistory.slice(-20);
+      messages.push(...trimmed.map(m => ({ role: m.role, content: m.content })));
+    } else if (context.length > 0) {
+      const conversationMsgs = context.map((m) => ({
+        role: m.username === 'A.P.E.X.' ? 'assistant' : 'user',
+        name: m.username,
+        content: `${m.username}: ${m.content}`,
+      }));
+      messages.push(...conversationMsgs);
+    }
+
+    messages.push({ role: 'user', content: prompt });
 
     const response = await fetch(this.groqApiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: this.groqModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...conversationHistory,
-          { role: 'user', content: prompt },
-        ],
+        messages,
         max_tokens: 400,
         temperature: 0.8,
         top_p: 0.9,
@@ -161,22 +225,57 @@ export class AiService implements OnModuleInit {
     context: ChatMessage[],
     isVerified: boolean,
     customVocabulary: string[],
+    conversationHistory?: { role: 'user' | 'assistant'; content: string }[],
+    pageContext?: { url: string; title: string; description: string },
+    screenshot?: string,
   ): Promise<AiResponse> {
     const apiKey = this.configService.get('AI_GOOGLE_API_KEY');
     if (!apiKey) {
       throw new Error('AI_GOOGLE_API_KEY not configured');
     }
 
-    const systemPrompt = getSystemPrompt(isVerified, customVocabulary);
+    let systemPrompt = getSystemPrompt(isVerified, customVocabulary);
 
-    const contents = [
+    if (pageContext) {
+      systemPrompt += `\n\nUSER'S CURRENT PAGE:
+URL: ${pageContext.url}
+Page Title: ${pageContext.title}
+${pageContext.description ? `Description: ${pageContext.description}` : ''}
+Use this context to provide more relevant responses about what the user is currently viewing.`;
+    }
+
+    const contents: any[] = [
       { role: 'user', parts: [{ text: systemPrompt }] },
-      ...context.map(m => ({
-        role: m.username === 'A.P.E.X.' ? 'model' : 'user',
-        parts: [{ text: `${m.username}: ${m.content}` }],
-      })),
-      { role: 'user', parts: [{ text: prompt }] },
     ];
+
+    if (conversationHistory && conversationHistory.length > 0) {
+      const trimmed = conversationHistory.slice(-20);
+      for (const m of trimmed) {
+        contents.push({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }],
+        });
+      }
+    } else if (context.length > 0) {
+      for (const m of context) {
+        contents.push({
+          role: m.username === 'A.P.E.X.' ? 'model' : 'user',
+          parts: [{ text: `${m.username}: ${m.content}` }],
+        });
+      }
+    }
+
+    if (screenshot) {
+      contents.push({
+        role: 'user',
+        parts: [
+          { text: 'Here is a screenshot of what I am currently viewing on my screen:' },
+          { inlineData: { mimeType: 'image/jpeg', data: screenshot } },
+        ],
+      });
+    }
+
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
 
     const response = await fetch(`${this.geminiApiUrl}?key=${apiKey}`, {
       method: 'POST',
@@ -199,14 +298,18 @@ export class AiService implements OnModuleInit {
     return { success: true, content };
   }
 
-  private async buildContext(channelId: string | undefined, limit = 15): Promise<ChatMessage[]> {
+  private async buildContext(
+    channelId: string | undefined,
+    limit = 15,
+  ): Promise<ChatMessage[]> {
     if (!channelId) return [];
     try {
       const history = await this.chatService.getHistory(channelId, limit);
-      return history.filter(m =>
-        !m.content.startsWith('@A.P.E.X.') &&
-        !m.content.startsWith('@APEX') &&
-        !m.attachment_url
+      return history.filter(
+        (m) =>
+          !m.content.startsWith('@A.P.E.X.') &&
+          !m.content.startsWith('@APEX') &&
+          !m.attachment_url,
       );
     } catch (error) {
       this.logger.error(`Failed to build context: ${error.message}`);
@@ -214,7 +317,11 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  private async sendApexMessage(content: string, channelId: string | undefined, useAi: boolean): Promise<void> {
+  private async sendApexMessage(
+    content: string,
+    channelId: string | undefined,
+    useAi: boolean,
+  ): Promise<void> {
     if (!channelId) return;
 
     try {
@@ -243,13 +350,18 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  private async isRateLimited(userId: string | undefined, channelId: string | undefined): Promise<boolean> {
+  private async isRateLimited(
+    userId: string | undefined,
+    channelId: string | undefined,
+  ): Promise<boolean> {
     if (!userId || !channelId) return false;
 
     const now = Date.now();
 
     const userTimes = this.userRequests.get(userId) || [];
-    const recentUserTimes = userTimes.filter(t => now - t < this.userWindowMs);
+    const recentUserTimes = userTimes.filter(
+      (t) => now - t < this.userWindowMs,
+    );
     if (recentUserTimes.length >= this.userRateLimit) {
       return true;
     }
@@ -257,7 +369,9 @@ export class AiService implements OnModuleInit {
     this.userRequests.set(userId, recentUserTimes);
 
     const channelTimes = this.channelRequests.get(channelId) || [];
-    const recentChannelTimes = channelTimes.filter(t => now - t < this.channelWindowMs);
+    const recentChannelTimes = channelTimes.filter(
+      (t) => now - t < this.channelWindowMs,
+    );
     if (recentChannelTimes.length >= this.channelRateLimit) {
       return true;
     }
@@ -270,7 +384,7 @@ export class AiService implements OnModuleInit {
   private cleanupRateLimitMaps(): void {
     const now = Date.now();
     for (const [userId, times] of this.userRequests.entries()) {
-      const filtered = times.filter(t => now - t < this.userWindowMs);
+      const filtered = times.filter((t) => now - t < this.userWindowMs);
       if (filtered.length === 0) {
         this.userRequests.delete(userId);
       } else {
@@ -278,7 +392,7 @@ export class AiService implements OnModuleInit {
       }
     }
     for (const [channelId, times] of this.channelRequests.entries()) {
-      const filtered = times.filter(t => now - t < this.channelWindowMs);
+      const filtered = times.filter((t) => now - t < this.channelWindowMs);
       if (filtered.length === 0) {
         this.channelRequests.delete(channelId);
       } else {
@@ -287,9 +401,17 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  async handleVoiceQuery(userId: string, content: string): Promise<AiResponse> {
-    const isVerified = await this.voiceTrainingService.isSpeakerVerified(userId);
-    const customVocabulary = await this.voiceTrainingService.getCustomVocabulary(userId);
+  async handleVoiceQuery(
+    userId: string,
+    content: string,
+    conversationHistory?: { role: 'user' | 'assistant'; content: string }[],
+    pageContext?: { url: string; title: string; description: string },
+    screenshot?: string,
+  ): Promise<AiResponse> {
+    const isVerified =
+      await this.voiceTrainingService.isSpeakerVerified(userId);
+    const customVocabulary =
+      await this.voiceTrainingService.getCustomVocabulary(userId);
 
     const message: ChatMessage = {
       id: 0,
@@ -306,7 +428,15 @@ export class AiService implements OnModuleInit {
       return { success: true, content: triviaAnswer };
     }
 
-    return this.generateResponse(content, message, isVerified, customVocabulary);
+    return this.generateResponse(
+      content,
+      message,
+      isVerified,
+      customVocabulary,
+      conversationHistory,
+      pageContext,
+      screenshot,
+    );
   }
 
   async getJoke(): Promise<string> {
@@ -315,5 +445,41 @@ export class AiService implements OnModuleInit {
 
   async getTip(): Promise<string> {
     return getRandomTip();
+  }
+
+  async transcribeAudio(base64Audio: string): Promise<AiResponse> {
+    try {
+      const apiKey = this.configService.get('AI_GROQ_API_KEY');
+      if (!apiKey) throw new Error('AI_GROQ_API_KEY not configured');
+
+      const audioBuffer = Buffer.from(base64Audio, 'base64');
+      const formData = new FormData();
+
+      const blob = new Blob([audioBuffer], { type: 'audio/webm' });
+      formData.append('file', blob, 'recording.webm');
+      formData.append('model', 'whisper-large-v3-turbo');
+      formData.append('language', 'en');
+      formData.append('response_format', 'json');
+
+      const response = await fetch(
+        'https://api.groq.com/openai/v1/audio/transcriptions',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Whisper error: ${response.status} - ${err}`);
+      }
+
+      const data: any = await response.json();
+      return { success: true, content: data.text?.trim() };
+    } catch (error) {
+      this.logger.error(`Transcription failed: ${error.message}`);
+      return { success: false, error: error.message };
+    }
   }
 }

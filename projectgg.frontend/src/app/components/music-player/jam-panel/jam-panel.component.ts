@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Subject, takeUntil } from 'rxjs';
 import { JamService } from '../../../services/jam.service';
 import { MusicPlayerService } from '../../../services/music-player.service';
@@ -13,7 +12,7 @@ import { Track } from '../../../services/music-player.service';
 @Component({
   selector: 'app-jam-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatSlideToggleModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!session) {
@@ -50,15 +49,21 @@ import { Track } from '../../../services/music-player.service';
               <mat-icon svgIcon="settings"></mat-icon>
               Jam Settings
             </div>
-            <mat-slide-toggle [(ngModel)]="newSettings.anyoneCanAddSongs" color="accent">
-              Anyone can add songs
-            </mat-slide-toggle>
-            <mat-slide-toggle [(ngModel)]="newSettings.anyoneCanSkip" color="accent">
-              Anyone can skip
-            </mat-slide-toggle>
-            <mat-slide-toggle [(ngModel)]="newSettings.anyoneCanPlayPause" color="accent">
-              Anyone can play/pause
-            </mat-slide-toggle>
+            <label class="jam-toggle">
+              <input type="checkbox" [(ngModel)]="newSettings.anyoneCanAddSongs" />
+              <span class="jam-toggle-switch"></span>
+              <span class="jam-toggle-text">Anyone can add songs</span>
+            </label>
+            <label class="jam-toggle">
+              <input type="checkbox" [(ngModel)]="newSettings.anyoneCanSkip" />
+              <span class="jam-toggle-switch"></span>
+              <span class="jam-toggle-text">Anyone can skip</span>
+            </label>
+            <label class="jam-toggle">
+              <input type="checkbox" [(ngModel)]="newSettings.anyoneCanPlayPause" />
+              <span class="jam-toggle-switch"></span>
+              <span class="jam-toggle-text">Anyone can play/pause</span>
+            </label>
             <div class="jam-settings-actions">
               <button class="jam-btn jam-btn-secondary" (click)="configuring = false" type="button">
                 <mat-icon svgIcon="close"></mat-icon>
@@ -157,15 +162,18 @@ import { Track } from '../../../services/music-player.service';
               <div class="jam-settings-panel">
                 <label class="jam-toggle">
                   <input type="checkbox" [ngModel]="session.settings.anyoneCanAddSongs" (ngModelChange)="updateSetting('anyoneCanAddSongs', $event)" />
-                  <span>Anyone can add songs</span>
+                  <span class="jam-toggle-switch"></span>
+                  <span class="jam-toggle-text">Anyone can add songs</span>
                 </label>
                 <label class="jam-toggle">
                   <input type="checkbox" [ngModel]="session.settings.anyoneCanSkip" (ngModelChange)="updateSetting('anyoneCanSkip', $event)" />
-                  <span>Anyone can skip</span>
+                  <span class="jam-toggle-switch"></span>
+                  <span class="jam-toggle-text">Anyone can skip</span>
                 </label>
                 <label class="jam-toggle">
                   <input type="checkbox" [ngModel]="session.settings.anyoneCanPlayPause" (ngModelChange)="updateSetting('anyoneCanPlayPause', $event)" />
-                  <span>Anyone can play/pause</span>
+                  <span class="jam-toggle-switch"></span>
+                  <span class="jam-toggle-text">Anyone can play/pause</span>
                 </label>
               </div>
             }
@@ -214,6 +222,11 @@ export class JamPanelComponent implements OnInit, OnDestroy {
     });
 
     this.jamService.connect_socket();
+    this.jamService.request_sync();
+
+    this.jamService.get_current().pipe(takeUntil(this.destroy$)).subscribe({
+      error: () => {},
+    });
   }
 
   ngOnDestroy(): void {

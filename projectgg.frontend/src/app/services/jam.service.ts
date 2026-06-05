@@ -1,6 +1,6 @@
 import { Injectable, NgZone, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
@@ -13,7 +13,7 @@ export class JamService {
   private zone = inject(NgZone);
 
   private apiUrl = environment.apiUrl;
-  private wsUrl = this.apiUrl.replace(/:\d+\/api/, '').replace('/api', '');
+  private wsUrl = this.apiUrl.replace(/\/api\/?$/, '');
 
   private socket: Socket | null = null;
 
@@ -167,7 +167,11 @@ export class JamService {
   }
 
   get_current(): Observable<{ session: JamState | null }> {
-    return this.http.get<{ session: JamState | null }>(`${this.apiUrl}/jam/current`);
+    return this.http.get<{ session: JamState | null }>(`${this.apiUrl}/jam/current`).pipe(
+      tap((res) => {
+        this.zone.run(() => this.sessionSubject.next(res.session));
+      }),
+    );
   }
 
   update_settings(settings: Partial<JamSettings>): Observable<{ settings: JamSettings }> {

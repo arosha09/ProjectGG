@@ -12,11 +12,15 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { JamService } from './jam.service';
+import { JamGateway } from './jam.gateway';
 import { JamSettings } from './jam.types';
 
 @Controller('jam')
 export class JamController {
-  constructor(private readonly jamService: JamService) {}
+  constructor(
+    private readonly jamService: JamService,
+    private readonly jamGateway: JamGateway,
+  ) {}
 
   @Post('create')
   @UseGuards(JwtAuthGuard)
@@ -38,19 +42,39 @@ export class JamController {
   @UseGuards(JwtAuthGuard)
   join(@Req() req: any, @Param('code') code: string) {
     const userId = req.user.id;
-    const session = this.jamService.join_session(code.toUpperCase(), userId, req.user.email ?? userId);
+    const displayName = req.user.email ?? userId;
+    const session = this.jamService.join_session(code.toUpperCase(), userId, displayName);
     if (!session) {
       throw new HttpException('Session not found or full', HttpStatus.NOT_FOUND);
     }
+    const participant = session.participants.get(userId);
+    this.jamGateway.broadcast_to_jam(session.id, 'jam:participant-joined', {
+      participant,
+      sessionId: session.id,
+    });
     return { session: this.jamService.to_state(session) };
   }
 
   @Post('leave')
   @UseGuards(JwtAuthGuard)
   leave(@Req() req: any) {
-    const result = this.jamService.leave_session(req.user.id);
+    const userId = req.user.id;
+    const prior = this.jamService.get_user_session(userId);
+    const result = this.jamService.leave_session(userId);
     if (!result) {
       throw new HttpException('Not in a jam session', HttpStatus.NOT_FOUND);
+    }
+    if (prior) {
+      this.jamGateway.broadcast_to_jam(result.sessionId, 'jam:participant-left', {
+        userId,
+        sessionId: result.sessionId,
+      });
+      if (result.newHostId) {
+        this.jamGateway.broadcast_to_jam(result.sessionId, 'jam:host-changed', {
+          newHostId: result.newHostId,
+          sessionId: result.sessionId,
+        });
+      }
     }
     return { left: true, wasHost: result.wasHost, newHostId: result.newHostId };
   }
