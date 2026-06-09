@@ -271,23 +271,25 @@ export class TtsService implements OnModuleInit {
       if (rate) args.push('--rate', rate);
       if (pitch) args.push('--pitch', pitch);
 
-      this.logger.log(`edge-tts args: ${args.join(' ')}`);
-
       await execFileAsync('edge-tts', args, { timeout: 30_000 });
 
       const audio = await fs.promises.readFile(tmpFile);
       return { audio, contentType: 'audio/mpeg' };
     } catch (err: any) {
       this.logger.error('edge-tts failed', err.message);
-
-      if (err.code === 'ENOENT') {
-        this.logger.error('edge-tts not found. Install with: pip install edge-tts');
-      }
-
       throw new Error('edge-tts synthesis failed: ' + (err.message || 'unknown error'));
     } finally {
       try { await fs.promises.unlink(tmpFile); } catch {}
     }
+  }
+
+  private escapeXml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
   }
 
   private async synthesizeGoogle(text: string, voice: string, apiKey: string): Promise<{ audio: Buffer; contentType: string }> {
