@@ -98,7 +98,7 @@
 
 					<mat-card class="owned-card series-card" *ngIf="!isSeriesExpanded(item.series.name)" (click)="toggleSeries(item.series.name)">
 						<div class="card-media owned-media" [class.has-image]="!!item.series.games[0]?.series_image_url">
-							<img loading="lazy" decoding="async" *ngIf="item.series.games[0]?.series_image_url" class="cover-image" [src]="item.series.games[0]?.series_image_url" [alt]="item.series.name" (error)="hideBrokenCover($event)" />
+							<img loading="lazy" decoding="async" *ngIf="item.series.games[0]?.series_image_url" class="cover-image" [appWebpSrc]="item.series.games[0]?.series_image_url || ''" [alt]="item.series.name" (error)="hideBrokenCover($event)" />
 							<div class="cover-overlay"></div>
 							<div class="game-content owned-content">
 								<div class="game-top">

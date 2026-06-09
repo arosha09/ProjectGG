@@ -24,14 +24,21 @@ export class JamController {
 
   @Post('create')
   @UseGuards(JwtAuthGuard)
-  create(@Req() req: any, @Body() body: { persistent?: boolean; settings?: Partial<JamSettings> }) {
+  create(
+    @Req() req: any,
+    @Body() body: { persistent?: boolean; settings?: Partial<JamSettings> },
+  ) {
     const userId = req.user.id;
     const existing = this.jamService.get_user_session(userId);
     if (existing) {
       this.jamService.leave_session(userId);
     }
 
-    const session = this.jamService.create_session(userId, req.user.email ?? userId, body.persistent);
+    const session = this.jamService.create_session(
+      userId,
+      req.user.email ?? userId,
+      body.persistent,
+    );
     if (body.settings) {
       this.jamService.update_settings(userId, body.settings);
     }
@@ -43,9 +50,16 @@ export class JamController {
   join(@Req() req: any, @Param('code') code: string) {
     const userId = req.user.id;
     const displayName = req.user.email ?? userId;
-    const session = this.jamService.join_session(code.toUpperCase(), userId, displayName);
+    const session = this.jamService.join_session(
+      code.toUpperCase(),
+      userId,
+      displayName,
+    );
     if (!session) {
-      throw new HttpException('Session not found or full', HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        'Session not found or full',
+        HttpStatus.NOT_FOUND,
+      );
     }
     const participant = session.participants.get(userId);
     this.jamGateway.broadcast_to_jam(session.id, 'jam:participant-joined', {
@@ -65,10 +79,14 @@ export class JamController {
       throw new HttpException('Not in a jam session', HttpStatus.NOT_FOUND);
     }
     if (prior) {
-      this.jamGateway.broadcast_to_jam(result.sessionId, 'jam:participant-left', {
-        userId,
-        sessionId: result.sessionId,
-      });
+      this.jamGateway.broadcast_to_jam(
+        result.sessionId,
+        'jam:participant-left',
+        {
+          userId,
+          sessionId: result.sessionId,
+        },
+      );
       if (result.newHostId) {
         this.jamGateway.broadcast_to_jam(result.sessionId, 'jam:host-changed', {
           newHostId: result.newHostId,
@@ -94,7 +112,10 @@ export class JamController {
   updateSettings(@Req() req: any, @Body() body: Partial<JamSettings>) {
     const settings = this.jamService.update_settings(req.user.id, body);
     if (!settings) {
-      throw new HttpException('Not host or not in session', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'Not host or not in session',
+        HttpStatus.FORBIDDEN,
+      );
     }
     return { settings };
   }

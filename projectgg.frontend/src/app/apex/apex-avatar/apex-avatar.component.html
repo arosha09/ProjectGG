@@ -1,0 +1,25 @@
+<div class="apex-avatar-wrapper"
+     [style.left.px]="posX"
+     [style.top.px]="posY"
+     [class.crt-off]="crtPhase === 'off'"
+     [class.booting]="bootPhase === 'booting'"
+     [class.happy]="bootPhase === 'happy'"
+     [class.booted-on]="bootPhase === 'on' && shutdownPhase === 'none'"
+     [class.sad]="shutdownPhase === 'sad'"
+     [class.dead]="shutdownPhase === 'dead'"
+     [class.shutting]="shutdownPhase === 'shutting'"
+     [class.dragging]="isDragging"
+     [class.petted]="faceState === 'petted'"
+     [class.sleeping]="faceState === 'sleeping'"
+     (mousedown)="onDragStart($event)"
+     (touchstart)="onDragStart($event)">
+  <canvas #avatarCanvas
+          width="288" height="224"
+          class="avatar-canvas">
+  </canvas>
+  <div class="zzz-group" *ngIf="faceState === 'sleeping'">
+    <span class="zzz zzz-1">Z</span>
+    <span class="zzz zzz-2">Z</span>
+    <span class="zzz zzz-3">Z</span>
+  </div>
+</div>

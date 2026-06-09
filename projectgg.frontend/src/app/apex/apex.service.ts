@@ -26,6 +26,18 @@ export class ApexService {
   private liveTranscriptSubject = new BehaviorSubject<string>('');
   public liveTranscript$ = this.liveTranscriptSubject.asObservable();
 
+  private speakingSubject = new BehaviorSubject<boolean>(false);
+  public speaking$ = this.speakingSubject.asObservable();
+
+  private listeningSubject = new BehaviorSubject<boolean>(false);
+  public listening$ = this.listeningSubject.asObservable();
+
+  private thinkingSubject = new BehaviorSubject<boolean>(false);
+  public thinking$ = this.thinkingSubject.asObservable();
+
+  private transcriptionCompleteSubject = new Subject<string>();
+  public transcriptionComplete$ = this.transcriptionCompleteSubject.asObservable();
+
   private state: ApexVoiceState = {
     isRecording: false,
     isListening: false,
@@ -42,6 +54,21 @@ export class ApexService {
   private micStream: MediaStream | null = null;
 
   constructor(private http: HttpClient, private voiceAnalysis: ApexVoiceService) {}
+
+setKokoroVoice(voice: string): void {
+    try {
+      localStorage.setItem('apex_kokoro_voice', voice);
+    } catch {}
+    this.state.selectedVoice = voice as any;
+  }
+
+  getKokoroVoice(): string | null {
+    try {
+      return localStorage.getItem('apex_kokoro_voice');
+    } catch {
+      return null;
+    }
+  }
 
   startListening(): void {
     this.updateState({ transcribedText: '', isListening: false });
@@ -63,7 +90,7 @@ export class ApexService {
 
         this.mediaRecorder.start();
         this.updateState({ isListening: true });
-        console.log('[Apex] ✅ MediaRecorder started');
+        this.setListening(true);
       })
       .catch(err => {
         console.error('[Apex] getUserMedia failed:', err);
@@ -78,6 +105,7 @@ export class ApexService {
         this.micStream?.getTracks().forEach(t => t.stop());
         this.micStream = null;
         this.updateState({ isListening: false });
+        this.setListening(false);
 
         if (blob.size < 1000) {
           console.warn('[Apex] Recording too short, skipping');
@@ -95,6 +123,9 @@ export class ApexService {
           console.log('[Apex] Whisper transcript:', transcript);
           this.updateState({ transcribedText: transcript });
           this.liveTranscriptSubject.next(transcript);
+          if (transcript.trim()) {
+            this.transcriptionCompleteSubject.next(transcript);
+          }
         } catch (err) {
           console.error('[Apex] Transcription failed:', err);
           this.updateState({ transcribedText: '' });
@@ -107,6 +138,7 @@ export class ApexService {
       this.micStream?.getTracks().forEach(t => t.stop());
       this.micStream = null;
       this.updateState({ isListening: false });
+      this.setListening(false);
     }
   }
 
@@ -269,19 +301,24 @@ export class ApexService {
     return this.http.get<any[]>(`/api/apex/conversations/${conversationId}/messages`);
   }
 
-  speak(text: string): void {
-    if (!this.state.voiceOutputEnabled) return;
+  speak(text: string): Promise<void> {
+    if (!this.state.voiceOutputEnabled) return Promise.resolve();
 
     this.synthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = this.state.speechRate;
+    return new Promise((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.state.speechRate;
 
-    if (this.state.selectedVoice) {
-      utterance.voice = this.state.selectedVoice;
-    }
+      if (this.state.selectedVoice && typeof this.state.selectedVoice !== 'string') {
+        utterance.voice = this.state.selectedVoice;
+      }
 
-    this.synthesis.speak(utterance);
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+
+      this.synthesis.speak(utterance);
+    });
   }
 
   stopSpeaking(): void {
@@ -303,6 +340,18 @@ export class ApexService {
       };
     }
     this.getAvailableVoices();
+  }
+
+  setSpeaking(val: boolean): void {
+    this.speakingSubject.next(val);
+  }
+
+  setListening(val: boolean): void {
+    this.listeningSubject.next(val);
+  }
+
+  setThinking(val: boolean): void {
+    this.thinkingSubject.next(val);
   }
 
   setVoiceOutputEnabled(enabled: boolean): void {

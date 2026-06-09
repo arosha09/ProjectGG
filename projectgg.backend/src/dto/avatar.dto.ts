@@ -1,112 +1,114 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SystemAvatarItemDto {
-    @ApiProperty({ example: 'avatar_01.png' })
-    filename: string;
+  @ApiProperty({ example: 'avatar_01.png' })
+  filename: string;
 
-    @ApiProperty({ example: 'https://.../system_files/avatars/anime/avatar_01.png' })
-    url: string;
+  @ApiProperty({
+    example: 'https://.../system_files/avatars/anime/avatar_01.png',
+  })
+  url: string;
 
-    @ApiProperty({ example: 'avatars/avatar_01.png' })
-    path: string;
+  @ApiProperty({ example: 'avatars/avatar_01.png' })
+  path: string;
 }
 
 export class SystemAvatarCategoryDto {
-    @ApiProperty({ example: 'anime' })
-    category: string;
+  @ApiProperty({ example: 'anime' })
+  category: string;
 
-    @ApiProperty({ type: [SystemAvatarItemDto] })
-    avatars: SystemAvatarItemDto[];
+  @ApiProperty({ type: [SystemAvatarItemDto] })
+  avatars: SystemAvatarItemDto[];
 }
 
 export class SystemAvatarDto {
-    @ApiProperty({ example: 'avatar_01.png' })
-    filename: string;
+  @ApiProperty({ example: 'avatar_01.png' })
+  filename: string;
 
-    @ApiProperty({ example: 'https://.../system_files/avatars/avatar_01.png' })
-    url: string;
+  @ApiProperty({ example: 'https://.../system_files/avatars/avatar_01.png' })
+  url: string;
 }
 
 export class UserAvatarDto {
-    @ApiProperty()
-    url: string;
+  @ApiProperty()
+  url: string;
 
-    @ApiPropertyOptional()
-    is_system_avatar?: boolean;
+  @ApiPropertyOptional()
+  is_system_avatar?: boolean;
 }
 
 export class ProfileDto {
-    @ApiProperty()
-    id: number;
+  @ApiProperty()
+  id: number;
 
-    @ApiProperty()
-    email: string;
+  @ApiProperty()
+  email: string;
 
-    @ApiProperty()
-    name: string;
+  @ApiProperty()
+  name: string;
 
-    @ApiProperty()
-    username: string;
+  @ApiProperty()
+  username: string;
 
-    @ApiPropertyOptional()
-    avatar?: string;
+  @ApiPropertyOptional()
+  avatar?: string;
 
-    @ApiProperty()
-    created_at: string;
+  @ApiProperty()
+  created_at: string;
 
-    @ApiPropertyOptional()
-    total_xp?: number;
+  @ApiPropertyOptional()
+  total_xp?: number;
 
-    @ApiPropertyOptional()
-    rank_name?: string;
+  @ApiPropertyOptional()
+  rank_name?: string;
 
-    @ApiPropertyOptional()
-    rank_code?: string;
+  @ApiPropertyOptional()
+  rank_code?: string;
 
-    @ApiProperty({ example: false })
-    email_verified?: boolean;
+  @ApiProperty({ example: false })
+  email_verified?: boolean;
 
-    @ApiPropertyOptional({ example: 'cyber' })
-    cursor_preference?: string;
+  @ApiPropertyOptional({ example: 'cyber' })
+  cursor_preference?: string;
 }
 
 export class UpdateProfileDto {
-    @ApiPropertyOptional()
-    name?: string;
+  @ApiPropertyOptional()
+  name?: string;
 
-    @ApiPropertyOptional()
-    username?: string;
+  @ApiPropertyOptional()
+  username?: string;
 
-    @ApiPropertyOptional()
-    email?: string;
+  @ApiPropertyOptional()
+  email?: string;
 
-    @ApiPropertyOptional()
-    current_password?: string;
+  @ApiPropertyOptional()
+  current_password?: string;
 
-    @ApiPropertyOptional()
-    new_password?: string;
+  @ApiPropertyOptional()
+  new_password?: string;
 
-    @ApiPropertyOptional()
-    avatar?: string;
+  @ApiPropertyOptional()
+  avatar?: string;
 
-    @ApiPropertyOptional()
-    cursor_preference?: string;
+  @ApiPropertyOptional()
+  cursor_preference?: string;
 }
 
 export class VerifyEmailDto {
-    @ApiProperty()
-    code: string;
+  @ApiProperty()
+  code: string;
 }
 
 export class SendVerificationDto {
-    @ApiProperty({ example: 'Verification email sent' })
-    message: string;
+  @ApiProperty({ example: 'Verification email sent' })
+  message: string;
 }
 
 export class ChangePasswordDto {
-    @ApiProperty()
-    current_password: string;
+  @ApiProperty()
+  current_password: string;
 
-    @ApiProperty()
-    new_password: string;
+  @ApiProperty()
+  new_password: string;
 }

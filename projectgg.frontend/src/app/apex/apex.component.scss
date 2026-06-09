@@ -5,7 +5,7 @@
   bottom: 80px;
   right: 40px;
   z-index: 1000;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Share Tech Mono', monospace;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s ease;
@@ -67,6 +67,7 @@
 }
 
 .apex-label {
+  font-family: 'Orbitron', sans-serif;
   color: var(--neon-gold, #ffaa00);
   font-weight: 700;
   font-size: 14px;
@@ -84,13 +85,18 @@
   position: absolute;
   bottom: 64px;
   right: 0;
-  width: 320px;
-  height: 560px;
-  background: rgba(10, 10, 15, 0.97);
-  border: 1.5px solid rgba(255, 170, 0, 0.3);
+  width: 430px;
+  height: min(560px, calc(100vh - 160px));
+  max-height: calc(100vh - 160px);
+  background: rgba(8, 8, 12, 0.98);
+  border: 1.5px solid rgba(180, 80, 220, 0.3);
   border-radius: 16px;
   backdrop-filter: blur(16px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 170, 0, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(180, 80, 220, 0.10),
+    0 0 60px rgba(255, 170, 0, 0.06),
+    inset 0 0 80px rgba(180, 80, 220, 0.03);
   overflow: hidden;
   overflow-x: hidden;
   animation: apex-slide-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -100,8 +106,10 @@
   flex-direction: column;
 
   &.expanded-mode {
-    width: 600px;
-    height: min(80vh, 720px);
+    width: 1050px;
+    height: min(85vh, 780px);
+    max-height: calc(100vh - 120px);
+    flex-direction: row;
   }
 }
 
@@ -110,63 +118,400 @@
   to   { opacity: 1; transform: translateY(0)   scale(1);    }
 }
 
-// ─── Header ───────────────────────────────────────────────────────────────────
-.apex-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 170, 0, 0.2);
-  background: rgba(255, 170, 0, 0.05);
-  flex-shrink: 0;
+@keyframes header-grid-drift {
+  0%   { background-position: 0 0, 0 0; }
+  100% { background-position: 20px 20px, -20px 20px; }
 }
 
-.apex-info {
+// ─── Sidebar (expanded mode) ──────────────────────────────────────────────────
+.apex-sidebar {
+  width: 60px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  border-right: 1px solid rgba(180, 80, 220, 0.2);
+  background: rgba(180, 80, 220, 0.04);
+  flex-shrink: 0;
+  z-index: 1;
+
+  .apex-tabs {
+    flex-direction: column;
+    gap: 4px;
+
+    button {
+      color: rgba(255, 255, 255, 0.5);
+      transition: all 0.2s;
+
+      &:hover {
+        color: var(--neon-gold, #ffaa00);
+        background: rgba(255, 170, 0, 0.1);
+      }
+
+      &.active {
+        color: #fff;
+        background: rgba(255, 170, 0, 0.15);
+      }
+    }
+  }
 }
 
-.apex-name {
-  color: var(--neon-gold, #ffaa00);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 1px;
-}
-
-.apex-tagline {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 11px;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-}
-
-.apex-actions {
+// ─── Header tabs (right side of header) ───────────────────────────────────────
+.apex-tabs-header {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 2px;
 
   button {
     color: rgba(255, 255, 255, 0.6);
     transition: color 0.2s;
+    flex-shrink: 0;
 
     &:hover {
+      color: var(--neon-gold, #ffaa00);
+    }
+
+    &.active {
       color: var(--neon-gold, #ffaa00);
     }
   }
 }
 
+// ─── Main area ────────────────────────────────────────────────────────────────
+.apex-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+.apex-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 10px 12px;
+  border-bottom: 1px solid rgba(180, 80, 220, 0.2);
+  background: rgba(180, 80, 220, 0.04);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  gap: 8px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(255, 170, 0, 0.08) 0px,
+        rgba(255, 170, 0, 0.08) 1px,
+        transparent 1px,
+        transparent 20px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(180, 80, 220, 0.06) 0px,
+        rgba(180, 80, 220, 0.06) 1px,
+        transparent 1px,
+        transparent 20px
+      );
+    animation: header-grid-drift 6s linear infinite;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.apex-info {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.apex-name {
+  background: linear-gradient(90deg, #ffaa00, #c878ff, #ffaa00, #c878ff);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+  animation: apex-gradient-flow 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 170, 0, 0.4)) drop-shadow(0 0 8px rgba(200, 120, 255, 0.3));
+}
+
+@keyframes apex-gradient-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.apex-tagline {
+  font-family: 'Share Tech Mono', monospace;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.apex-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  button {
+    color: rgba(255, 255, 255, 0.5);
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--neon-gold, #ffaa00);
+      background: rgba(255, 170, 0, 0.1);
+    }
+
+    &.active {
+      color: #fff;
+      background: rgba(255, 170, 0, 0.15);
+    }
+  }
+}
+
+.apex-close-btn {
+  color: rgba(255, 255, 255, 0.5);
+  border-left: 1px solid rgba(180, 80, 220, 0.25);
+  border-radius: 0;
+  padding-left: 12px;
+  margin-left: 4px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--neon-gold, #ffaa00);
+    background: transparent;
+  }
+}
+
+// ─── Search bar ───────────────────────────────────────────────────────────────
+.apex-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(180, 80, 220, 0.2);
+  background: rgba(180, 80, 220, 0.04);
+  flex-shrink: 0;
+  animation: fade-in 0.2s ease;
+  position: relative;
+  z-index: 1;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 170, 0, 0.4), rgba(180, 80, 220, 0.4), transparent);
+  }
+}
+
+.search-field {
+  flex: 1;
+  font-size: 13px;
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    background: rgba(20, 20, 28, 0.95);
+    border-radius: 8px;
+  }
+
+  ::ng-deep .mat-mdc-form-field-infix {
+    padding-top: 6px;
+    padding-bottom: 4px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+  }
+
+  ::ng-deep .mat-mdc-text-field-container {
+    .mat-mdc-form-field-outline-thick,
+    .mat-mdc-form-field-outline {
+      color: rgba(180, 80, 220, 0.25) !important;
+    }
+  }
+
+  ::ng-deep .mdc-notched-outline__leading,
+  ::ng-deep .mdc-notched-outline__notch,
+  ::ng-deep .mdc-notched-outline__trailing {
+    border-color: rgba(180, 80, 220, 0.25) !important;
+  }
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+}
+
+.search-icon-prefix {
+  color: rgba(255, 170, 0, 0.5) !important;
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  margin-right: 4px;
+}
+
+.search-input {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px !important;
+  letter-spacing: 0.5px;
+  color: #fff !important;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.3) !important;
+    letter-spacing: 0.5px;
+    font-size: 12px !important;
+  }
+}
+
+.search-count {
+  font-family: 'Share Tech Mono', monospace;
+  color: rgba(255, 170, 0, 0.7);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  background: rgba(180, 80, 220, 0.12);
+  border: 1px solid rgba(180, 80, 220, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.search-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.search-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 170, 0, 0.2);
+  background: rgba(255, 170, 0, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 170, 0, 0.2);
+    border-color: var(--neon-gold, #ffaa00);
+    color: var(--neon-gold, #ffaa00);
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.25);
+  }
+
+  &:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+  }
+}
+
+.search-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 170, 0, 0.2);
+  background: rgba(255, 170, 0, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.15);
+    border-color: rgba(255, 170, 0, 0.5);
+    color: var(--neon-gold, #ffaa00);
+  }
+}
+
+.scroll-to-bottom {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--neon-gold, #ffaa00);
+  background: #0a0a0f;
+  color: var(--neon-gold, #ffaa00);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 170, 0, 0.2);
+  transition: all 0.2s;
+  flex-shrink: 0;
+  animation: fade-in 0.15s ease;
+
+  mat-icon {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+  }
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), 0 0 28px rgba(255, 170, 0, 0.35);
+    transform: translateX(-50%) translateY(-2px);
+  }
+}
+
 // ─── Body ─────────────────────────────────────────────────────────────────────
 .apex-body {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px;
-  min-height: 0;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  z-index: 1;
+  background: rgba(8, 8, 12, 0.98);
 
   scrollbar-width: none;
 
@@ -185,12 +530,21 @@
     animation: pulse-scale 2s ease-in-out infinite;
   }
 
+  .apex-logo-nobg {
+    height: 160px;
+    width: 160px;
+    margin-top: 5px;
+    margin-bottom: -35px;;
+  }
+
   p {
+    font-family: 'Share Tech Mono', monospace;
     color: #fff;
     margin: 0 0 8px;
   }
 
   .apex-desc {
+    font-family: 'Share Tech Mono', monospace;
     color: rgba(255, 255, 255, 0.6);
     font-size: 13px;
     margin-bottom: 16px;
@@ -207,7 +561,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
 }
 
 .apex-msg-wrapper {
@@ -239,6 +600,7 @@
 }
 
 .apex-msg-bubble {
+  font-family: 'Share Tech Mono', monospace;
   padding: 8px 12px;
   font-size: 13px;
   line-height: 1.4;
@@ -251,6 +613,72 @@
   border-radius: 8px;
   margin-bottom: 4px;
   object-fit: cover;
+}
+
+// ─── Live draft (editable message while voice transcribing) ──────────────────
+.apex-msg-live {
+  animation: fade-in 0.2s ease;
+}
+
+.apex-msg-recording {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 80px;
+}
+
+.apex-recording-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+
+  span {
+    width: 3px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--neon-gold, #ffaa00);
+    animation: wave-bar 1.2s ease-in-out infinite;
+
+    @for $i from 1 through 5 {
+      &:nth-child(#{$i}) {
+        animation-delay: #{$i * 0.1}s;
+      }
+    }
+  }
+}
+
+@keyframes wave-bar {
+  0%, 100% { height: 4px; opacity: 0.4; }
+  50% { height: 18px; opacity: 1; }
+}
+
+.apex-msg-transcribing {
+  font-family: 'Share Tech Mono', monospace;
+  color: var(--neon-gold, #ffaa00);
+  opacity: 0.7;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.apex-live-indicator {
+  font-family: 'Share Tech Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--neon-gold, #ffaa00);
+  opacity: 0.7;
+}
+
+.apex-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--neon-gold, #ffaa00);
+  animation: pulse-dot 1s ease-in-out infinite;
 }
 
 // ─── Response / loading (inline, inside .apex-body) ───────────────────────────
@@ -292,6 +720,7 @@
 }
 
 .suggestion-btn {
+  font-family: 'Share Tech Mono', monospace;
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 170, 0, 0.2);
@@ -309,9 +738,55 @@
   }
 }
 
+// ─── Help view ────────────────────────────────────────────────────────────────
+.apex-help {
+  h4 {
+    font-family: 'Orbitron', sans-serif;
+    color: #fff;
+    margin: 0 0 16px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+  }
+}
+
+.help-section {
+  margin-bottom: 18px;
+}
+
+.help-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  align-items: baseline;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+}
+
+.help-cmd {
+  font-family: 'Orbitron', sans-serif;
+  color: var(--neon-gold, #ffaa00);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.help-desc {
+  font-family: 'Share Tech Mono', monospace;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 .apex-settings {
   h4 {
+    font-family: 'Orbitron', sans-serif;
     color: #fff;
     margin: 0 0 16px;
     font-size: 14px;
@@ -332,6 +807,7 @@
 }
 
 .section-title {
+  font-family: 'Orbitron', sans-serif;
   color: rgba(255, 255, 255, 0.5);
   font-size: 10px;
   text-transform: uppercase;
@@ -341,6 +817,7 @@
 }
 
 .section-desc {
+  font-family: 'Share Tech Mono', monospace;
   color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
   margin: 0 0 10px;
@@ -352,10 +829,31 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  border-radius: 8px;
+  margin: 0 -8px;
+  padding: 8px;
 
   &:not(:last-child) {
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   }
+
+  app-cyber-select {
+    max-width: 180px;
+    flex-shrink: 0;
+  }
+
+  &.setting-highlight {
+    background: rgba(255, 170, 0, 0.12);
+    border: 1px solid rgba(255, 170, 0, 0.4);
+    box-shadow: 0 0 20px rgba(255, 170, 0, 0.25), inset 0 0 12px rgba(255, 170, 0, 0.05);
+    animation: setting-pulse 1.5s ease-in-out 3;
+  }
+}
+
+@keyframes setting-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 170, 0, 0.25), inset 0 0 12px rgba(255, 170, 0, 0.05); }
+  50%      { box-shadow: 0 0 36px rgba(255, 170, 0, 0.5), inset 0 0 20px rgba(255, 170, 0, 0.1); }
 }
 
 .setting-label {
@@ -373,12 +871,14 @@
 }
 
 .setting-title {
+  font-family: 'Share Tech Mono', monospace;
   color: #fff;
   font-size: 12px;
   font-weight: 500;
 }
 
 .setting-sub {
+  font-family: 'Share Tech Mono', monospace;
   display: block;
   color: rgba(255, 255, 255, 0.4);
   font-size: 10px;
@@ -418,6 +918,11 @@
       background: #000;
     }
   }
+
+  &.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
 }
 
 // ─── Voice modes (new) ────────────────────────────────────────────────────────
@@ -428,6 +933,7 @@
 }
 
 .mode-btn {
+  font-family: 'Share Tech Mono', monospace;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -461,6 +967,7 @@
 // ─── Sessions view ────────────────────────────────────────────────────────────
 .apex-sessions {
   h4 {
+    font-family: 'Orbitron', sans-serif;
     color: #fff;
     margin: 0;
     font-size: 14px;
@@ -478,11 +985,13 @@
 }
 
 .session-count {
+  font-family: 'Share Tech Mono', monospace;
   color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
 }
 
 .new-chat-btn {
+  font-family: 'Share Tech Mono', monospace;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -555,6 +1064,7 @@
 }
 
 .session-title {
+  font-family: 'Share Tech Mono', monospace;
   display: block;
   color: rgba(255, 255, 255, 0.85);
   font-size: 12px;
@@ -565,6 +1075,7 @@
 }
 
 .session-meta {
+  font-family: 'Share Tech Mono', monospace;
   display: block;
   color: rgba(255, 255, 255, 0.3);
   font-size: 10px;
@@ -620,12 +1131,14 @@
   }
 
   p {
+    font-family: 'Share Tech Mono', monospace;
     color: rgba(255, 255, 255, 0.5);
     font-size: 13px;
     margin: 0 0 4px;
   }
 
   span {
+    font-family: 'Share Tech Mono', monospace;
     color: rgba(255, 255, 255, 0.3);
     font-size: 11px;
   }
@@ -633,11 +1146,42 @@
 
 // ─── Footer ───────────────────────────────────────────────────────────────────
 .apex-footer {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255, 170, 0, 0.15);
-  background: rgba(255, 170, 0, 0.02);
-  flex-shrink: 0;
-  overflow: hidden;
+  padding: 12px 20px;
+  border-top: 1px solid rgba(180, 80, 220, 0.2);
+  background: rgba(180, 80, 220, 0.03);
+  flex: 0 0 auto;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(180, 80, 220, 0.06) 0px,
+        rgba(180, 80, 220, 0.06) 1px,
+        transparent 1px,
+        transparent 20px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255, 170, 0, 0.08) 0px,
+        rgba(255, 170, 0, 0.08) 1px,
+        transparent 1px,
+        transparent 20px
+      );
+    animation: header-grid-drift 6s linear infinite reverse;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 .apex-chat-controls {
@@ -647,14 +1191,66 @@
   width: 100%;
 }
 
+.apex-input-wrapper {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.at-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(12, 12, 18, 0.98);
+  border: 1px solid rgba(255, 170, 0, 0.35);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  z-index: 30;
+  animation: fade-in 0.12s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 170, 0, 0.1);
+}
+
+.at-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.1);
+  }
+}
+
+.at-cmd {
+  font-family: 'Orbitron', sans-serif;
+  color: var(--neon-gold, #ffaa00);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.at-desc {
+  font-family: 'Share Tech Mono', monospace;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+}
+
 // ─── Mic button ───────────────────────────────────────────────────────────────
 .mic-btn {
   width: 44px;
   height: 44px;
   min-width: 44px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 170, 0, 0.35);
-  background: rgba(255, 170, 0, 0.1);
+  border: 2px solid rgba(180, 80, 220, 0.35);
+  background: rgba(180, 80, 220, 0.1);
   color: var(--neon-gold, #ffaa00);
   cursor: pointer;
   transition: all 0.2s;
@@ -664,9 +1260,17 @@
   flex-shrink: 0;
 
   &:hover:not(:disabled) {
-    background: rgba(255, 170, 0, 0.2);
+    background: rgba(255, 170, 0, 0.15);
     border-color: var(--neon-gold, #ffaa00);
+    color: #fff;
     box-shadow: 0 0 16px rgba(255, 170, 0, 0.3);
+  }
+
+  &.listening {
+    background: var(--neon-gold, #ffaa00);
+    color: #000;
+    border-color: var(--neon-gold, #ffaa00);
+    animation: pulse-glow 1.5s ease-in-out infinite;
   }
 
   &.listening {
@@ -685,6 +1289,35 @@
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
+.cancel-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 68, 68, 0.5);
+  background: rgba(255, 68, 68, 0.15);
+  color: #ff4444;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: cancel-pulse 1.5s ease-in-out infinite;
+
+  &:hover {
+    background: rgba(255, 68, 68, 0.3);
+    border-color: #ff4444;
+    color: #fff;
+    box-shadow: 0 0 16px rgba(255, 68, 68, 0.4);
+  }
+}
+
+@keyframes cancel-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 18px rgba(255, 68, 68, 0.5); }
+}
+
 // ─── Input field ──────────────────────────────────────────────────────────────
 .apex-chat-input {
   flex: 1;
@@ -692,7 +1325,7 @@
   font-size: 13px;
 
   ::ng-deep .mat-mdc-text-field-wrapper {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(20, 20, 28, 0.95);
     border-radius: 8px;
   }
 
@@ -721,11 +1354,22 @@
     color: rgba(255, 170, 0, 0.4) !important;
   }
 
-  ::ng-deep input.mat-mdc-input-element {
+  ::ng-deep input.mat-mdc-input-element,
+  ::ng-deep textarea.mat-mdc-input-element {
     color: #fff;
     font-size: 13px;
-    caret-color: var(--neon-gold, #ffaa00);
+    caret-color: rgba(180, 80, 220, 0.9);
     padding: 8px 0 !important;
+    resize: none;
+  }
+
+  ::ng-deep textarea.mat-mdc-input-element {
+    max-height: 120px;
+    overflow-y: auto;
+    line-height: 1.4;
+
+    &::-webkit-scrollbar { width: 4px; }
+    &::-webkit-scrollbar-thumb { background: rgba(180, 80, 220, 0.35); border-radius: 2px; }
   }
 
   ::ng-deep .mat-mdc-form-field-subscript-wrapper {
@@ -735,7 +1379,7 @@
   ::ng-deep .mdc-notched-outline__leading,
   ::ng-deep .mdc-notched-outline__notch,
   ::ng-deep .mdc-notched-outline__trailing {
-    border-color: rgba(255, 170, 0, 0.4) !important;
+    border-color: rgba(180, 80, 220, 0.4) !important;
   }
 
   ::ng-deep .mat-mdc-text-field-container.mat-focused {
@@ -745,10 +1389,19 @@
       border-color: var(--neon-gold, #ffaa00) !important;
     }
   }
+
+  ::ng-deep .mat-mdc-icon-button.mat-mdc-button.mat-accent {
+    color: var(--neon-gold, #ffaa00);
+
+    &:hover {
+      color: #fff;
+    }
+  }
 }
 
 // ─── Listening indicator ──────────────────────────────────────────────────────
 .apex-listening-text {
+  font-family: 'Share Tech Mono', monospace;
   flex: 1;
   display: flex;
   align-items: center;
@@ -758,8 +1411,8 @@
   font-weight: 500;
   padding: 0 12px;
   height: 44px;
-  background: rgba(255, 170, 0, 0.08);
-  border: 1px solid rgba(255, 170, 0, 0.25);
+  background: rgba(180, 80, 220, 0.08);
+  border: 1px solid rgba(180, 80, 220, 0.3);
   border-radius: 8px;
 }
 
@@ -767,7 +1420,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--neon-gold, #ffaa00);
+  background: rgba(180, 80, 220, 0.9);
   animation: pulse-dot 1s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -777,21 +1430,7 @@
   50%       { opacity: 0.4; transform: scale(0.7); }
 }
 
-// ─── Shared animations ────────────────────────────────────────────────────────
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 6px rgba(255, 170, 0, 0.6); }
-  50%       { box-shadow: 0 0 24px rgba(255, 170, 0, 0.9); }
-}
 
-@keyframes pulse-text {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
 // ─── Rate slider & voice select ───────────────────────────────────────────────
 .rate-slider {
@@ -812,20 +1451,8 @@
   }
 }
 
-.voice-select {
-  padding: 5px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: #fff;
-  font-size: 11px;
-  cursor: pointer;
-  max-width: 120px;
-
-  option { background: #1a1a2e; }
-}
-
 .train-btn {
+  font-family: 'Share Tech Mono', monospace;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -897,8 +1524,8 @@
   height: 40px;
   min-width: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 170, 0, 0.25);
-  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(180, 80, 220, 0.3);
+  background: rgba(180, 80, 220, 0.08);
   color: rgba(255, 255, 255, 0.5);
   display: flex;
   align-items: center;
@@ -922,8 +1549,8 @@
 
 // ─── Shared animations ────────────────────────────────────────────────────────
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 6px rgba(255, 170, 0, 0.6); }
-  50%       { box-shadow: 0 0 24px rgba(255, 170, 0, 0.9); }
+  0%, 100% { box-shadow: 0 0 6px rgba(180, 80, 220, 0.5), 0 0 6px rgba(255, 170, 0, 0.3); }
+  50%       { box-shadow: 0 0 24px rgba(180, 80, 220, 0.8), 0 0 12px rgba(255, 170, 0, 0.5); }
 }
 
 @keyframes pulse-text {

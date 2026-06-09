@@ -41,7 +41,9 @@ export class SyncResultDto {
   @ApiPropertyOptional({ example: ['Action', 'Adventure'] })
   genres?: string[];
 
-  @ApiPropertyOptional({ example: 'https://cdn.akamai.steamstatic.com/steam/apps/289470/header.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://cdn.akamai.steamstatic.com/steam/apps/289470/header.jpg',
+  })
   cover_url?: string;
 
   @ApiPropertyOptional({ example: 'steam' })
@@ -53,7 +55,10 @@ export class SyncResultDto {
   @ApiPropertyOptional({ example: 2014 })
   release_year?: number | null;
 
-  @ApiPropertyOptional({ example: "An open-world action-adventure game set in Paris during the French Revolution." })
+  @ApiPropertyOptional({
+    example:
+      'An open-world action-adventure game set in Paris during the French Revolution.',
+  })
   desc?: string;
 
   @ApiPropertyOptional({ example: '289470' })
@@ -91,7 +96,7 @@ export class SyncSearchResultDto {
   @ApiPropertyOptional({ example: 85 })
   rating?: number | null;
 
-  @ApiPropertyOptional({ example: "An open-world action-adventure game..." })
+  @ApiPropertyOptional({ example: 'An open-world action-adventure game...' })
   desc?: string;
 
   @ApiProperty({ example: ['pc', 'ps5'] })

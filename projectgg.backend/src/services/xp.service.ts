@@ -16,7 +16,10 @@ export class XpService {
   async awardDailyLogin(userId: string) {
     const result = await this.xpRepository.awardDailyLogin(userId);
     if (result?.xp_awarded) {
-      this.realtime.emitToUser(userId, 'xp:changed', { amount: result.xp_awarded, source: 'daily_login' });
+      this.realtime.emitToUser(userId, 'xp:changed', {
+        amount: result.xp_awarded,
+        source: 'daily_login',
+      });
     }
     return result;
   }
@@ -25,10 +28,24 @@ export class XpService {
     return this.xpRepository.canClaimDaily(userId);
   }
 
-  async awardCustomXp(userId: string, xp: number, source: string, sourceId?: string) {
-    const result = await this.xpRepository.awardCustomXp(userId, xp, source, sourceId);
+  async awardCustomXp(
+    userId: string,
+    xp: number,
+    source: string,
+    sourceId?: string,
+  ) {
+    const result = await this.xpRepository.awardCustomXp(
+      userId,
+      xp,
+      source,
+      sourceId,
+    );
     if (result) {
-      this.realtime.emitToUser(userId, 'xp:changed', { amount: xp, source, sourceId });
+      this.realtime.emitToUser(userId, 'xp:changed', {
+        amount: xp,
+        source,
+        sourceId,
+      });
     }
     return result;
   }

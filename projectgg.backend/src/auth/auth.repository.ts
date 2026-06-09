@@ -52,7 +52,14 @@ export class AuthRepository {
     return data;
   }
 
-  async createUser(payload: RegisterDto & { password_hash: string; email_verified?: boolean; verification_token?: string; verification_token_expires?: string }) {
+  async createUser(
+    payload: RegisterDto & {
+      password_hash: string;
+      email_verified?: boolean;
+      verification_token?: string;
+      verification_token_expires?: string;
+    },
+  ) {
     const { data, error } = await this.supabase
       .schema('projectgg')
       .from('users')
@@ -90,7 +97,11 @@ export class AuthRepository {
     return data;
   }
 
-  async setVerificationToken(userId: string, token: string, expiresAt: string): Promise<void> {
+  async setVerificationToken(
+    userId: string,
+    token: string,
+    expiresAt: string,
+  ): Promise<void> {
     const { error } = await this.supabase
       .schema('projectgg')
       .from('users')
@@ -103,7 +114,9 @@ export class AuthRepository {
     if (error) throw new InternalServerErrorException(error.message);
   }
 
-  async recordFailedLogin(userId: string): Promise<{ attempts: number; lockedUntil: string | null }> {
+  async recordFailedLogin(
+    userId: string,
+  ): Promise<{ attempts: number; lockedUntil: string | null }> {
     const { data: current, error: fetchErr } = await this.supabase
       .schema('projectgg')
       .from('users')
@@ -115,7 +128,9 @@ export class AuthRepository {
 
     const attempts = (current?.failed_login_attempts ?? 0) + 1;
     const shouldLock = attempts >= 5;
-    const lockedUntil = shouldLock ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+    const lockedUntil = shouldLock
+      ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      : null;
 
     const { error } = await this.supabase
       .schema('projectgg')

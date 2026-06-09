@@ -18,13 +18,28 @@ import { UsersModule } from 'src/modules/users.module';
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
         secret: cfg.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: parseInt(cfg.get('JWT_EXPIRES_IN') || '3600', 10) },
+        signOptions: {
+          expiresIn: parseInt(cfg.get('JWT_EXPIRES_IN') || '3600', 10),
+        },
       }),
     }),
     forwardRef(() => UsersModule),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthRepository, JwtStrategy, JwtAuthGuard, supabaseProvider],
-  exports: [AuthService, AuthRepository, JwtStrategy, JwtAuthGuard, PassportModule, JwtModule],
+  providers: [
+    AuthService,
+    AuthRepository,
+    JwtStrategy,
+    JwtAuthGuard,
+    supabaseProvider,
+  ],
+  exports: [
+    AuthService,
+    AuthRepository,
+    JwtStrategy,
+    JwtAuthGuard,
+    PassportModule,
+    JwtModule,
+  ],
 })
 export class AuthModule {}

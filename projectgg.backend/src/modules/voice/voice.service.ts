@@ -35,10 +35,7 @@ export class VoiceService {
   private async initClient(token: string): Promise<void> {
     const { Client, GatewayIntentBits } = await import('discord.js');
     this.client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-      ],
+      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
     });
     this.client.on('clientReady', () => {
       this.logger.log(`Voice bot logged in as ${this.client.user?.tag}`);
@@ -52,7 +49,9 @@ export class VoiceService {
 
   async joinChannel(guildId: string, channelId: string): Promise<void> {
     if (!guildId) {
-      this.logger.log(`Joined voice channel ${channelId} (GG Chat — no Discord guild)`);
+      this.logger.log(
+        `Joined voice channel ${channelId} (GG Chat — no Discord guild)`,
+      );
       return;
     }
 
@@ -67,7 +66,8 @@ export class VoiceService {
     }
 
     try {
-      const { joinVoiceChannel, createAudioPlayer, NoSubscriberBehavior } = await import('@discordjs/voice');
+      const { joinVoiceChannel, createAudioPlayer, NoSubscriberBehavior } =
+        await import('@discordjs/voice');
       const guild = this.client.guilds.cache.get(guildId);
       if (!guild) throw new Error(`Guild ${guildId} not found`);
 
@@ -115,7 +115,8 @@ export class VoiceService {
     if (!player) return;
 
     try {
-      const { createAudioResource, StreamType } = await import('@discordjs/voice');
+      const { createAudioResource, StreamType } =
+        await import('@discordjs/voice');
       const { Readable } = await import('stream');
 
       const stream = new Readable({

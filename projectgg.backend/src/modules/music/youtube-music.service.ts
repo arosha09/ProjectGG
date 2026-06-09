@@ -160,7 +160,10 @@ export class YouTubeMusicService {
     }
   }
 
-  async getPlaylist(playlistId: string, limit = 50): Promise<YTMusicPlaylistTrack[]> {
+  async getPlaylist(
+    playlistId: string,
+    limit = 50,
+  ): Promise<YTMusicPlaylistTrack[]> {
     const yt = await this.ensureInitialized();
     try {
       const playlist = await yt.music.getPlaylist(playlistId);
@@ -174,7 +177,8 @@ export class YouTubeMusicService {
         tracks.push({
           id: (track as any).id ?? '',
           title,
-          artists: (track as any).artists?.map((a: any) => a.name).join(', ') ?? '',
+          artists:
+            (track as any).artists?.map((a: any) => a.name).join(', ') ?? '',
           album: (track as any).album?.name ?? undefined,
           duration: (track as any).duration?.text ?? undefined,
           thumbnail: (track as any).thumbnails?.[0]?.url ?? undefined,
@@ -219,7 +223,10 @@ export class YouTubeMusicService {
     }
   }
 
-  async getArtistTracks(artistName: string, limit = 10): Promise<YTMusicSearchResult[]> {
+  async getArtistTracks(
+    artistName: string,
+    limit = 10,
+  ): Promise<YTMusicSearchResult[]> {
     const yt = await this.ensureInitialized();
     try {
       const results = await yt.music.search(artistName, { type: 'artist' });
@@ -240,12 +247,18 @@ export class YouTubeMusicService {
         type: 'song' as const,
       }));
     } catch (err) {
-      this.logger.error(`Failed to fetch artist tracks for "${artistName}"`, err);
+      this.logger.error(
+        `Failed to fetch artist tracks for "${artistName}"`,
+        err,
+      );
       return [];
     }
   }
 
-  async getRelatedTracks(videoId: string, limit = 10): Promise<YTMusicSearchResult[]> {
+  async getRelatedTracks(
+    videoId: string,
+    limit = 10,
+  ): Promise<YTMusicSearchResult[]> {
     const yt = await this.ensureInitialized();
     try {
       const related = await yt.music.getRelated(videoId);
@@ -279,6 +292,8 @@ export class YouTubeMusicService {
   }
 
   private isNonMusicPlaylist(title: string): boolean {
-    return YouTubeMusicService.NON_MUSIC_PLAYLIST_PATTERNS.some((p) => p.test(title));
+    return YouTubeMusicService.NON_MUSIC_PLAYLIST_PATTERNS.some((p) =>
+      p.test(title),
+    );
   }
 }

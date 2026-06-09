@@ -87,6 +87,16 @@ import { VoiceService } from '../../../services/voice.service';
                 placeholder="Default Speaker"
                 (valueChange)="onOutputDeviceChange.emit($event)"
               ></app-cyber-select>
+              <button
+                type="button"
+                class="gg-voice-control-btn gg-voice-ns-toggle"
+                [class.active]="noiseSuppressionEnabled"
+                (click)="onNoiseSuppressionChange.emit(!noiseSuppressionEnabled)"
+                [title]="noiseSuppressionEnabled ? 'Noise Suppression: ON' : 'Noise Suppression: OFF'"
+              >
+                <mat-icon [svgIcon]="noiseSuppressionEnabled ? 'auto_fix_high' : 'auto_fix_off'"></mat-icon>
+                <span class="gg-voice-ns-label">Noise Suppression</span>
+              </button>
             </div>
           }
 
@@ -227,6 +237,16 @@ import { VoiceService } from '../../../services/voice.service';
                 placeholder="Default Speaker"
                 (valueChange)="onOutputDeviceChange.emit($event)"
               ></app-cyber-select>
+              <button
+                type="button"
+                class="gg-voice-control-btn gg-voice-ns-toggle"
+                [class.active]="noiseSuppressionEnabled"
+                (click)="onNoiseSuppressionChange.emit(!noiseSuppressionEnabled)"
+                [title]="noiseSuppressionEnabled ? 'Noise Suppression: ON' : 'Noise Suppression: OFF'"
+              >
+                <mat-icon [svgIcon]="noiseSuppressionEnabled ? 'auto_fix_high' : 'auto_fix_off'"></mat-icon>
+                <span class="gg-voice-ns-label">Noise Suppression</span>
+              </button>
             </div>
           }
 
@@ -389,6 +409,16 @@ import { VoiceService } from '../../../services/voice.service';
                 placeholder="Default Speaker"
                 (valueChange)="onOutputDeviceChange.emit($event)"
               ></app-cyber-select>
+              <button
+                type="button"
+                class="gg-voice-control-btn gg-voice-ns-toggle"
+                [class.active]="noiseSuppressionEnabled"
+                (click)="onNoiseSuppressionChange.emit(!noiseSuppressionEnabled)"
+                [title]="noiseSuppressionEnabled ? 'Noise Suppression: ON' : 'Noise Suppression: OFF'"
+              >
+                <mat-icon [svgIcon]="noiseSuppressionEnabled ? 'auto_fix_high' : 'auto_fix_off'"></mat-icon>
+                <span class="gg-voice-ns-label">Noise Suppression</span>
+              </button>
             </div>
           }
 
@@ -459,6 +489,7 @@ export class ChannelListComponent {
   @Input() audioOutputDevices: MediaDeviceInfo[] = [];
   @Input() selectedInputId = 'default';
   @Input() selectedOutputId = 'default';
+  @Input() noiseSuppressionEnabled = true;
   @Input() speakingUsers: Set<string> = new Set<string>();
   @Input() serverDropdownOpen = false;
 
@@ -480,6 +511,7 @@ export class ChannelListComponent {
   @Output() toggleDevicePicker = new EventEmitter<void>();
   @Output() onInputDeviceChange = new EventEmitter<string>();
   @Output() onOutputDeviceChange = new EventEmitter<string>();
+  @Output() onNoiseSuppressionChange = new EventEmitter<boolean>();
   @Output() profileMenuOpenChange = new EventEmitter<boolean>();
   @Output() serverDropdownOpenChange = new EventEmitter<boolean>();
   @Output() openChannelSettings = new EventEmitter<GgChannel>();

@@ -49,7 +49,12 @@ export interface GgServerMember {
   status?: string;
 }
 
-export type Permission = 'manage_server' | 'manage_channels' | 'manage_messages' | 'manage_members' | 'kick_members';
+export type Permission =
+  | 'manage_server'
+  | 'manage_channels'
+  | 'manage_messages'
+  | 'manage_members'
+  | 'kick_members';
 
 const ROLE_HIERARCHY: Record<string, number> = {
   owner: 100,
@@ -59,22 +64,31 @@ const ROLE_HIERARCHY: Record<string, number> = {
 };
 
 const ROLE_PERMISSIONS: Record<string, Permission[]> = {
-  owner: ['manage_server', 'manage_channels', 'manage_messages', 'manage_members', 'kick_members'],
-  admin: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members'],
+  owner: [
+    'manage_server',
+    'manage_channels',
+    'manage_messages',
+    'manage_members',
+    'kick_members',
+  ],
+  admin: [
+    'manage_channels',
+    'manage_messages',
+    'manage_members',
+    'kick_members',
+  ],
   moderator: ['manage_messages', 'kick_members'],
   member: [],
 };
 
 function getHighestRoleLevel(roles: string[] | null): number {
   if (!roles || roles.length === 0) return 0;
-  return Math.max(...roles.map(r => ROLE_HIERARCHY[r] ?? 0));
+  return Math.max(...roles.map((r) => ROLE_HIERARCHY[r] ?? 0));
 }
 
 @Injectable()
 export class ChatService {
-  constructor(
-    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
-  ) {}
+  constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: any) {}
 
   private db() {
     return this.supabase.schema('projectgg');
@@ -90,34 +104,50 @@ export class ChatService {
       if (parts[0] === 'sign') {
         const bucket = parts[1];
         const path = parts.slice(2).join('/');
-        const { data } = await this.supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
+        const { data } = await this.supabase.storage
+          .from(bucket)
+          .createSignedUrl(path, 60 * 60 * 24 * 7);
         return data?.signedUrl ?? url;
       }
       const bucket = parts[1];
       const path = parts.slice(2).join('/');
-      const { data } = await this.supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
+      const { data } = await this.supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 60 * 60 * 24 * 7);
       return data?.signedUrl ?? url;
     }
-    const { data } = await this.supabase.storage.from('chat_uploads').createSignedUrl(url, 60 * 60 * 24 * 7);
+    const { data } = await this.supabase.storage
+      .from('chat_uploads')
+      .createSignedUrl(url, 60 * 60 * 24 * 7);
     return data?.signedUrl ?? url;
   }
 
   // ===== MESSAGES =====
 
-  async getHistory(channelId?: string, limit = 50, userId?: string): Promise<ChatMessage[]> {
+  async getHistory(
+    channelId?: string,
+    limit = 50,
+    userId?: string,
+  ): Promise<ChatMessage[]> {
     let query = this.db().from('chat_messages').select('*');
     if (channelId) query = query.eq('channel_id', channelId);
-    const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(limit);
     if (error) throw error;
     const messages = (data ?? []).reverse() as ChatMessage[];
 
-    const replyToIds = messages.map(m => m.reply_to).filter((id): id is number => id != null);
+    const replyToIds = messages
+      .map((m) => m.reply_to)
+      .filter((id): id is number => id != null);
     if (replyToIds.length > 0) {
       const { data: parentMessages } = await this.db()
         .from('chat_messages')
         .select('*')
         .in('id', replyToIds);
-      const parentMap = new Map<number, ChatMessage>((parentMessages ?? []).map(m => [m.id, m as ChatMessage]));
+      const parentMap = new Map<number, ChatMessage>(
+        (parentMessages ?? []).map((m) => [m.id, m as ChatMessage]),
+      );
       for (const msg of messages) {
         if (msg.reply_to != null) {
           msg.replyToMessage = parentMap.get(msg.reply_to) ?? null;
@@ -140,7 +170,8 @@ export class ChatService {
   ): Promise<ChatMessage> {
     const trimmed = content.trim();
     if (!trimmed) throw new BadRequestException('Message cannot be empty');
-    if (trimmed.length > 500) throw new BadRequestException('Message too long (max 500)');
+    if (trimmed.length > 500)
+      throw new BadRequestException('Message too long (max 500)');
     const { data, error } = await this.db()
       .from('chat_messages')
       .insert({
@@ -205,10 +236,13 @@ export class ChatService {
         joined_at: new Date().toISOString(),
         roles: ['owner'],
       };
-      let { error: me } = await this.db().from('gg_server_members').insert(memberPayload);
+      let { error: me } = await this.db()
+        .from('gg_server_members')
+        .insert(memberPayload);
       if (me?.code === 'PGRST204') {
         // PostgREST schema cache stale after column migration — retry once
-        me = (await this.db().from('gg_server_members').insert(memberPayload)).error;
+        me = (await this.db().from('gg_server_members').insert(memberPayload))
+          .error;
       }
       if (me) {
         await this.db().from('gg_servers').delete().eq('id', server.id);
@@ -217,14 +251,19 @@ export class ChatService {
     }
 
     // Create default channels
-    const { error: ce } = await this.db().from('gg_channels').insert([
-      { server_id: server.id, name: 'general', type: 'text', position: 0 },
-      { server_id: server.id, name: 'off-topic', type: 'text', position: 1 },
-      { server_id: server.id, name: 'voice', type: 'voice', position: 2 },
-    ]);
+    const { error: ce } = await this.db()
+      .from('gg_channels')
+      .insert([
+        { server_id: server.id, name: 'general', type: 'text', position: 0 },
+        { server_id: server.id, name: 'off-topic', type: 'text', position: 1 },
+        { server_id: server.id, name: 'voice', type: 'voice', position: 2 },
+      ]);
     if (ce) {
       // Cleanup server on channel creation failure
-      await this.db().from('gg_server_members').delete().eq('server_id', server.id);
+      await this.db()
+        .from('gg_server_members')
+        .delete()
+        .eq('server_id', server.id);
       await this.db().from('gg_servers').delete().eq('id', server.id);
       throw ce;
     }
@@ -241,12 +280,17 @@ export class ChatService {
     if (!server || server.owner_id !== userId) {
       throw new BadRequestException('Only the owner can delete this server');
     }
-    const { error } = await this.db().from('gg_servers').delete().eq('id', serverId);
+    const { error } = await this.db()
+      .from('gg_servers')
+      .delete()
+      .eq('id', serverId);
     if (error) throw error;
   }
 
   async updateServer(
-    serverId: number, userId: string, data: Partial<Pick<GgServer, 'name' | 'avatar_url' | 'banner_url'>>,
+    serverId: number,
+    userId: string,
+    data: Partial<Pick<GgServer, 'name' | 'avatar_url' | 'banner_url'>>,
   ): Promise<GgServer> {
     const { data: server } = await this.db()
       .from('gg_servers')
@@ -254,7 +298,8 @@ export class ChatService {
       .eq('id', serverId)
       .single();
     if (!server) throw new BadRequestException('Server not found');
-    if (server.owner_id !== userId) throw new BadRequestException('Only the owner can update this server');
+    if (server.owner_id !== userId)
+      throw new BadRequestException('Only the owner can update this server');
     const updateData: any = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
@@ -283,11 +328,41 @@ export class ChatService {
       .order('position', { ascending: true });
     if (error) {
       const msg = (error.message ?? error.code ?? '') as string;
-      if (error.code === '42P01' || error.code === '42703' || msg.includes('column') || msg.includes('schema cache')) {
+      if (
+        error.code === '42P01' ||
+        error.code === '42703' ||
+        msg.includes('column') ||
+        msg.includes('schema cache')
+      ) {
         return [
-          { name: 'owner', color: '#ffd700', is_owner: true, permissions: ['manage_server', 'manage_channels', 'manage_roles', 'manage_messages', 'manage_members', 'kick_members'] },
-          { name: 'admin', color: '#ff4444', permissions: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members'] },
-          { name: 'moderator', color: '#00f0ff', permissions: ['manage_messages', 'kick_members'] },
+          {
+            name: 'owner',
+            color: '#ffd700',
+            is_owner: true,
+            permissions: [
+              'manage_server',
+              'manage_channels',
+              'manage_roles',
+              'manage_messages',
+              'manage_members',
+              'kick_members',
+            ],
+          },
+          {
+            name: 'admin',
+            color: '#ff4444',
+            permissions: [
+              'manage_channels',
+              'manage_messages',
+              'manage_members',
+              'kick_members',
+            ],
+          },
+          {
+            name: 'moderator',
+            color: '#00f0ff',
+            permissions: ['manage_messages', 'kick_members'],
+          },
           { name: 'member', color: '#888888', permissions: [] },
         ];
       }
@@ -296,33 +371,72 @@ export class ChatService {
     return data ?? [];
   }
 
-  async createServerRole(serverId: number, userId: string, name: string, color?: string, permissions?: string[]): Promise<any> {
-    const server = await this.db().from('gg_servers').select('owner_id').eq('id', serverId).single();
-    if (!server.data || server.data.owner_id !== userId) throw new BadRequestException('Only the owner can create roles');
+  async createServerRole(
+    serverId: number,
+    userId: string,
+    name: string,
+    color?: string,
+    permissions?: string[],
+  ): Promise<any> {
+    const server = await this.db()
+      .from('gg_servers')
+      .select('owner_id')
+      .eq('id', serverId)
+      .single();
+    if (!server.data || server.data.owner_id !== userId)
+      throw new BadRequestException('Only the owner can create roles');
     const { data, error } = await this.db()
       .from('gg_server_roles')
-      .insert({ server_id: serverId, name: name.trim(), color: color || '#00f0ff', permissions: permissions ?? [] })
+      .insert({
+        server_id: serverId,
+        name: name.trim(),
+        color: color || '#00f0ff',
+        permissions: permissions ?? [],
+      })
       .select()
       .single();
     if (error) {
       const msg = (error.message ?? error.code ?? '') as string;
-      if (error.code === '42P01' || error.code === '42703' || msg.includes('column') || msg.includes('schema cache')) {
-        return { name: name.trim(), color: color || '#00f0ff', permissions: permissions ?? [] };
+      if (
+        error.code === '42P01' ||
+        error.code === '42703' ||
+        msg.includes('column') ||
+        msg.includes('schema cache')
+      ) {
+        return {
+          name: name.trim(),
+          color: color || '#00f0ff',
+          permissions: permissions ?? [],
+        };
       }
       throw error;
     }
     return data;
   }
 
-  async deleteServerRole(serverId: number, userId: string, roleName: string): Promise<void> {
-    const server = await this.db().from('gg_servers').select('owner_id').eq('id', serverId).single();
-    if (!server.data || server.data.owner_id !== userId) throw new BadRequestException('Only the owner can delete roles');
+  async deleteServerRole(
+    serverId: number,
+    userId: string,
+    roleName: string,
+  ): Promise<void> {
+    const server = await this.db()
+      .from('gg_servers')
+      .select('owner_id')
+      .eq('id', serverId)
+      .single();
+    if (!server.data || server.data.owner_id !== userId)
+      throw new BadRequestException('Only the owner can delete roles');
     const { error } = await this.db()
       .from('gg_server_roles')
       .delete()
       .eq('server_id', serverId)
       .eq('name', roleName);
-    if (error && error.code !== '42P01' && !((error.message ?? '') as string).includes('schema cache')) throw error;
+    if (
+      error &&
+      error.code !== '42P01' &&
+      !((error.message ?? '') as string).includes('schema cache')
+    )
+      throw error;
   }
 
   // ===== CHANNELS =====
@@ -340,21 +454,27 @@ export class ChatService {
     const { data: chRoles } = await this.db()
       .from('gg_channel_allowed_roles')
       .select('channel_id, role')
-      .in('channel_id', channels.map(c => c.id));
+      .in(
+        'channel_id',
+        channels.map((c) => c.id),
+      );
     const roleMap = new Map<number, string[]>();
     for (const cr of chRoles ?? []) {
       if (!roleMap.has(cr.channel_id)) roleMap.set(cr.channel_id, []);
       roleMap.get(cr.channel_id)!.push(cr.role);
     }
 
-    channels = channels.map(ch => ({ ...ch, allowed_roles: roleMap.get(ch.id) ?? [] }));
+    channels = channels.map((ch) => ({
+      ...ch,
+      allowed_roles: roleMap.get(ch.id) ?? [],
+    }));
 
     if (userId) {
       const userRoles = await this.getMemberRoles(serverId, userId);
-      channels = channels.filter(ch => {
+      channels = channels.filter((ch) => {
         if (!ch.allowed_roles || ch.allowed_roles.length === 0) return true;
         if (!userRoles || userRoles.length === 0) return false;
-        return ch.allowed_roles.some(r => userRoles.includes(r));
+        return ch.allowed_roles.some((r) => userRoles.includes(r));
       });
     }
 
@@ -362,7 +482,11 @@ export class ChatService {
   }
 
   async createChannel(
-    serverId: number, name: string, type: 'text' | 'voice', userId: string, allowedRoles?: string[],
+    serverId: number,
+    name: string,
+    type: 'text' | 'voice',
+    userId: string,
+    allowedRoles?: string[],
   ): Promise<GgChannel> {
     await this.requirePermission(serverId, userId, 'manage_channels');
     const { data: channels } = await this.db()
@@ -395,20 +519,30 @@ export class ChatService {
   }
 
   async setChannelRoles(channelId: number, roles: string[]): Promise<void> {
-    await this.db().from('gg_channel_allowed_roles').delete().eq('channel_id', channelId);
+    await this.db()
+      .from('gg_channel_allowed_roles')
+      .delete()
+      .eq('channel_id', channelId);
     if (roles.length > 0) {
-      const { error } = await this.db().from('gg_channel_allowed_roles').insert(
-        roles.map(r => ({ channel_id: channelId, role: r })),
-      );
+      const { error } = await this.db()
+        .from('gg_channel_allowed_roles')
+        .insert(roles.map((r) => ({ channel_id: channelId, role: r })));
       if (error) throw error;
     }
   }
 
   async deleteChannel(channelId: number, userId: string): Promise<void> {
-    const { data: ch } = await this.db().from('gg_channels').select('server_id').eq('id', channelId).single();
+    const { data: ch } = await this.db()
+      .from('gg_channels')
+      .select('server_id')
+      .eq('id', channelId)
+      .single();
     if (!ch) throw new BadRequestException('Channel not found');
     await this.requirePermission(ch.server_id, userId, 'manage_channels');
-    const { error } = await this.db().from('gg_channels').delete().eq('id', channelId);
+    const { error } = await this.db()
+      .from('gg_channels')
+      .delete()
+      .eq('id', channelId);
     if (error) throw error;
   }
 
@@ -423,14 +557,16 @@ export class ChatService {
     const members = data ?? [];
     if (members.length === 0) return [];
 
-    const userIds = members.map(m => m.user_id);
+    const userIds = members.map((m) => m.user_id);
     const { data: users } = await this.db()
       .from('users')
       .select('id, username, avatar, gender, status, sys_status')
       .in('id', userIds);
-    const userMap = new Map<string, any>((users ?? []).map((u: any) => [u.id, u]));
+    const userMap = new Map<string, any>(
+      (users ?? []).map((u: any) => [u.id, u]),
+    );
 
-    return members.map(m => {
+    return members.map((m) => {
       const user = userMap.get(m.user_id);
       const status = user?.status ?? user?.sys_status ?? 'invisible';
       return {
@@ -460,7 +596,8 @@ export class ChatService {
       .from('gg_server_members')
       .insert(memberPayload);
     if (error?.code === 'PGRST204') {
-      error = (await this.db().from('gg_server_members').insert(memberPayload)).error;
+      error = (await this.db().from('gg_server_members').insert(memberPayload))
+        .error;
     }
     if (error) throw error;
   }
@@ -474,7 +611,10 @@ export class ChatService {
     if (error) throw error;
   }
 
-  private async requireServerAccess(serverId: number, userId: string): Promise<void> {
+  private async requireServerAccess(
+    serverId: number,
+    userId: string,
+  ): Promise<void> {
     const { data } = await this.db()
       .from('gg_server_members')
       .select('roles')
@@ -484,7 +624,10 @@ export class ChatService {
     if (!data) throw new BadRequestException('Not a member of this server');
   }
 
-  async getMemberRoles(serverId: number, userId: string): Promise<string[] | null> {
+  async getMemberRoles(
+    serverId: number,
+    userId: string,
+  ): Promise<string[] | null> {
     const { data } = await this.db()
       .from('gg_server_members')
       .select('roles')
@@ -496,10 +639,16 @@ export class ChatService {
 
   hasPermission(roles: string[] | null, permission: Permission): boolean {
     if (!roles || roles.length === 0) return false;
-    return roles.some(r => ROLE_PERMISSIONS[r]?.includes(permission) ?? false);
+    return roles.some(
+      (r) => ROLE_PERMISSIONS[r]?.includes(permission) ?? false,
+    );
   }
 
-  async requirePermission(serverId: number, userId: string, permission: Permission): Promise<void> {
+  async requirePermission(
+    serverId: number,
+    userId: string,
+    permission: Permission,
+  ): Promise<void> {
     const { data } = await this.db()
       .from('gg_server_members')
       .select('roles')
@@ -512,17 +661,30 @@ export class ChatService {
     }
   }
 
-  async changeMemberRoles(serverId: number, targetUserId: string, newRoles: string[], requesterId: string): Promise<void> {
+  async changeMemberRoles(
+    serverId: number,
+    targetUserId: string,
+    newRoles: string[],
+    requesterId: string,
+  ): Promise<void> {
     await this.requirePermission(serverId, requesterId, 'manage_members');
-    if (newRoles.some(r => !['admin', 'moderator', 'member'].includes(r))) {
-      throw new BadRequestException('Invalid role. Allowed: admin, moderator, member');
+    if (newRoles.some((r) => !['admin', 'moderator', 'member'].includes(r))) {
+      throw new BadRequestException(
+        'Invalid role. Allowed: admin, moderator, member',
+      );
     }
     const requesterRoles = await this.getMemberRoles(serverId, requesterId);
     const targetRoles = await this.getMemberRoles(serverId, targetUserId);
-    if (!targetRoles) throw new BadRequestException('Target user not found in server');
-    if (targetRoles.includes('owner')) throw new BadRequestException('Cannot change owner roles');
-    if (getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)) {
-      throw new BadRequestException('Cannot change roles of someone with equal or higher rank');
+    if (!targetRoles)
+      throw new BadRequestException('Target user not found in server');
+    if (targetRoles.includes('owner'))
+      throw new BadRequestException('Cannot change owner roles');
+    if (
+      getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)
+    ) {
+      throw new BadRequestException(
+        'Cannot change roles of someone with equal or higher rank',
+      );
     }
     const { error } = await this.db()
       .from('gg_server_members')
@@ -532,15 +694,25 @@ export class ChatService {
     if (error) throw error;
   }
 
-  async kickMember(serverId: number, targetUserId: string, requesterId: string): Promise<void> {
+  async kickMember(
+    serverId: number,
+    targetUserId: string,
+    requesterId: string,
+  ): Promise<void> {
     await this.requirePermission(serverId, requesterId, 'kick_members');
-    if (targetUserId === requesterId) throw new BadRequestException('Cannot kick yourself');
+    if (targetUserId === requesterId)
+      throw new BadRequestException('Cannot kick yourself');
     const targetRoles = await this.getMemberRoles(serverId, targetUserId);
     if (!targetRoles) throw new BadRequestException('User not found in server');
-    if (targetRoles.includes('owner')) throw new BadRequestException('Cannot kick the owner');
+    if (targetRoles.includes('owner'))
+      throw new BadRequestException('Cannot kick the owner');
     const requesterRoles = await this.getMemberRoles(serverId, requesterId);
-    if (getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)) {
-      throw new BadRequestException('Cannot kick someone with equal or higher rank');
+    if (
+      getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)
+    ) {
+      throw new BadRequestException(
+        'Cannot kick someone with equal or higher rank',
+      );
     }
     const { error } = await this.db()
       .from('gg_server_members')
@@ -550,15 +722,25 @@ export class ChatService {
     if (error) throw error;
   }
 
-  async banMember(serverId: number, targetUserId: string, requesterId: string): Promise<void> {
+  async banMember(
+    serverId: number,
+    targetUserId: string,
+    requesterId: string,
+  ): Promise<void> {
     await this.requirePermission(serverId, requesterId, 'kick_members');
-    if (targetUserId === requesterId) throw new BadRequestException('Cannot ban yourself');
+    if (targetUserId === requesterId)
+      throw new BadRequestException('Cannot ban yourself');
     const targetRoles = await this.getMemberRoles(serverId, targetUserId);
     if (!targetRoles) throw new BadRequestException('User not found in server');
-    if (targetRoles.includes('owner')) throw new BadRequestException('Cannot ban the owner');
+    if (targetRoles.includes('owner'))
+      throw new BadRequestException('Cannot ban the owner');
     const requesterRoles = await this.getMemberRoles(serverId, requesterId);
-    if (getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)) {
-      throw new BadRequestException('Cannot ban someone with equal or higher rank');
+    if (
+      getHighestRoleLevel(requesterRoles) <= getHighestRoleLevel(targetRoles)
+    ) {
+      throw new BadRequestException(
+        'Cannot ban someone with equal or higher rank',
+      );
     }
     // Remove from server
     await this.db()
@@ -575,7 +757,11 @@ export class ChatService {
     if (error && !error.message?.includes('duplicate')) throw error;
   }
 
-  async unbanMember(serverId: number, targetUserId: string, requesterId: string): Promise<void> {
+  async unbanMember(
+    serverId: number,
+    targetUserId: string,
+    requesterId: string,
+  ): Promise<void> {
     await this.requirePermission(serverId, requesterId, 'kick_members');
     const { error } = await this.db()
       .from('banned_users')
@@ -585,7 +771,10 @@ export class ChatService {
     if (error) throw error;
   }
 
-  async getBannedMembers(serverId: number, requesterId: string): Promise<any[]> {
+  async getBannedMembers(
+    serverId: number,
+    requesterId: string,
+  ): Promise<any[]> {
     await this.requirePermission(serverId, requesterId, 'kick_members');
     const { data, error } = await this.db()
       .from('banned_users')
@@ -598,7 +787,9 @@ export class ChatService {
       .from('users')
       .select('id, username, avatar')
       .in('id', userIds);
-    const userMap = new Map<string, any>((users || []).map((u: any) => [u.id, u]));
+    const userMap = new Map<string, any>(
+      (users || []).map((u: any) => [u.id, u]),
+    );
     return data.map((d: any) => ({
       user_id: d.blocked_user_id,
       banned_at: d.created_at,
@@ -666,7 +857,8 @@ export class ChatService {
       .eq('code', code)
       .single();
     if (!invite) throw new BadRequestException('Invalid invite code');
-    if (invite.revoked) throw new BadRequestException('Invite link has been revoked');
+    if (invite.revoked)
+      throw new BadRequestException('Invite link has been revoked');
     if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
       throw new BadRequestException('Invite link has expired');
     }
@@ -707,7 +899,9 @@ export class ChatService {
     return { ...data, avatar: this.resolveAvatar(data.avatar, data.gender) };
   }
 
-  async findBotById(id: string): Promise<{ id: string; username: string } | null> {
+  async findBotById(
+    id: string,
+  ): Promise<{ id: string; username: string } | null> {
     const { data, error } = await this.db()
       .from('ai_bots')
       .select('id, username')
@@ -725,7 +919,10 @@ export class ChatService {
       .neq('id', excludeUserId)
       .limit(20);
     if (error) throw error;
-    return (data ?? []).map(u => ({ ...u, avatar: this.resolveAvatar(u.avatar, u.gender) }));
+    return (data ?? []).map((u) => ({
+      ...u,
+      avatar: this.resolveAvatar(u.avatar, u.gender),
+    }));
   }
 
   async getUserPublicById(userId: string): Promise<any> {
@@ -739,29 +936,42 @@ export class ChatService {
     return { ...data, avatar: this.resolveAvatar(data.avatar, data.gender) };
   }
 
-  async sendFriendRequest(userId: string, friendUsername: string): Promise<any> {
+  async sendFriendRequest(
+    userId: string,
+    friendUsername: string,
+  ): Promise<any> {
     const { data: friend } = await this.db()
       .from('users')
       .select('id')
       .eq('username', friendUsername)
       .single();
     if (!friend) throw new BadRequestException('User not found');
-    if (friend.id === userId) throw new BadRequestException('Cannot add yourself');
+    if (friend.id === userId)
+      throw new BadRequestException('Cannot add yourself');
 
     const { data: existing } = await this.db()
       .from('friends')
       .select('*')
-      .or(`and(user_id.eq.${userId},friend_id.eq.${friend.id}),and(user_id.eq.${friend.id},friend_id.eq.${userId})`)
+      .or(
+        `and(user_id.eq.${userId},friend_id.eq.${friend.id}),and(user_id.eq.${friend.id},friend_id.eq.${userId})`,
+      )
       .maybeSingle();
     if (existing) {
-      if (existing.status === 'accepted') throw new BadRequestException('Already friends');
-      if (existing.status === 'pending') throw new BadRequestException('Friend request already sent');
+      if (existing.status === 'accepted')
+        throw new BadRequestException('Already friends');
+      if (existing.status === 'pending')
+        throw new BadRequestException('Friend request already sent');
       throw new BadRequestException('Cannot send friend request');
     }
 
     const { data, error } = await this.db()
       .from('friends')
-      .insert({ user_id: userId, friend_id: friend.id, status: 'pending', action_user_id: userId })
+      .insert({
+        user_id: userId,
+        friend_id: friend.id,
+        status: 'pending',
+        action_user_id: userId,
+      })
       .select()
       .single();
     if (error) throw error;
@@ -776,7 +986,8 @@ export class ChatService {
       .eq('id', friendId)
       .single();
     if (!data) throw new BadRequestException('Friend request not found');
-    if (data.friend_id !== userId) throw new BadRequestException('Not your request');
+    if (data.friend_id !== userId)
+      throw new BadRequestException('Not your request');
 
     const { error } = await this.db()
       .from('friends')
@@ -849,7 +1060,9 @@ export class ChatService {
       .eq('user_id', userId);
     if (error) throw error;
 
-    const conversations = (data ?? []).map((m: any) => m.dm_conversations).filter(Boolean);
+    const conversations = (data ?? [])
+      .map((m: any) => m.dm_conversations)
+      .filter(Boolean);
 
     for (const conv of conversations) {
       const { data: members } = await this.db()
@@ -884,8 +1097,12 @@ export class ChatService {
     return conversations;
   }
 
-  async createDmConversation(userId: string, otherUserId: string): Promise<any> {
-    if (userId === otherUserId) throw new BadRequestException('Cannot DM yourself');
+  async createDmConversation(
+    userId: string,
+    otherUserId: string,
+  ): Promise<any> {
+    if (userId === otherUserId)
+      throw new BadRequestException('Cannot DM yourself');
 
     const { data: existing } = await this.db()
       .from('dm_conversation_members')
@@ -917,28 +1134,42 @@ export class ChatService {
       .single();
     if (ce) throw ce;
 
-    await this.db().from('dm_conversation_members').insert([
-      { conversation_id: conv.id, user_id: userId },
-      { conversation_id: conv.id, user_id: otherUserId },
-    ]);
+    await this.db()
+      .from('dm_conversation_members')
+      .insert([
+        { conversation_id: conv.id, user_id: userId },
+        { conversation_id: conv.id, user_id: otherUserId },
+      ]);
 
     return conv;
   }
 
-  async getDmHistory(conversationId: number, limit = 50): Promise<ChatMessage[]> {
+  async getDmHistory(
+    conversationId: number,
+    limit = 50,
+  ): Promise<ChatMessage[]> {
     const channelId = `dm_${conversationId}`;
-    let query = this.db().from('chat_messages').select('*').eq('channel_id', channelId);
-    const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+    const query = this.db()
+      .from('chat_messages')
+      .select('*')
+      .eq('channel_id', channelId);
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(limit);
     if (error) throw error;
     const messages = (data ?? []).reverse() as ChatMessage[];
 
-    const replyToIds = messages.map(m => m.reply_to).filter((id): id is number => id != null);
+    const replyToIds = messages
+      .map((m) => m.reply_to)
+      .filter((id): id is number => id != null);
     if (replyToIds.length > 0) {
       const { data: parentMessages } = await this.db()
         .from('chat_messages')
         .select('*')
         .in('id', replyToIds);
-      const parentMap = new Map<number, ChatMessage>((parentMessages ?? []).map(m => [m.id, m as ChatMessage]));
+      const parentMap = new Map<number, ChatMessage>(
+        (parentMessages ?? []).map((m) => [m.id, m as ChatMessage]),
+      );
       for (const msg of messages) {
         if (msg.reply_to != null) {
           msg.replyToMessage = parentMap.get(msg.reply_to) ?? null;
@@ -963,7 +1194,8 @@ export class ChatService {
 
     const trimmed = content.trim();
     if (!trimmed) throw new BadRequestException('Message cannot be empty');
-    if (trimmed.length > 500) throw new BadRequestException('Message too long (max 500)');
+    if (trimmed.length > 500)
+      throw new BadRequestException('Message too long (max 500)');
 
     const { data, error } = await this.db()
       .from('chat_messages')
@@ -986,11 +1218,21 @@ export class ChatService {
   // ===== NOTIFICATIONS =====
 
   async createNotification(
-    userId: string, type: string, title: string, body?: string, data?: any,
+    userId: string,
+    type: string,
+    title: string,
+    body?: string,
+    data?: any,
   ): Promise<any> {
     const { data: notif, error } = await this.db()
       .from('notifications')
-      .insert({ user_id: userId, type, title, body: body ?? '', data: data ?? null })
+      .insert({
+        user_id: userId,
+        type,
+        title,
+        body: body ?? '',
+        data: data ?? null,
+      })
       .select()
       .single();
     if (error) throw error;
@@ -1033,7 +1275,10 @@ export class ChatService {
     if (error) throw error;
   }
 
-  async deleteNotification(userId: string, notificationId: number): Promise<void> {
+  async deleteNotification(
+    userId: string,
+    notificationId: number,
+  ): Promise<void> {
     const { error } = await this.db()
       .from('notifications')
       .delete()
@@ -1051,7 +1296,8 @@ export class ChatService {
       .eq('id', requestId)
       .single();
     if (!data) throw new BadRequestException('Friend request not found');
-    if (data.friend_id !== userId) throw new BadRequestException('Not your request');
+    if (data.friend_id !== userId)
+      throw new BadRequestException('Not your request');
     await this.db().from('friends').delete().eq('id', requestId);
   }
 
@@ -1062,7 +1308,8 @@ export class ChatService {
       .eq('id', requestId)
       .single();
     if (!data) throw new BadRequestException('Friend request not found');
-    if (data.user_id !== userId) throw new BadRequestException('Not your request');
+    if (data.user_id !== userId)
+      throw new BadRequestException('Not your request');
     await this.db().from('friends').delete().eq('id', requestId);
   }
 
@@ -1071,8 +1318,9 @@ export class ChatService {
   // ================================================================
 
   async blockUser(userId: string, blockUserId: string): Promise<void> {
-    if (userId === blockUserId) throw new BadRequestException('Cannot block yourself');
-    
+    if (userId === blockUserId)
+      throw new BadRequestException('Cannot block yourself');
+
     const { error: insertError } = await this.db()
       .from('blocked_users')
       .insert({ user_id: userId, blocked_user_id: blockUserId });
@@ -1100,7 +1348,7 @@ export class ChatService {
       .select('blocked_user_id')
       .eq('user_id', userId);
     if (error) throw error;
-    
+
     const blockedUserIds = (data ?? []).map((r: any) => r.blocked_user_id);
     if (blockedUserIds.length === 0) return [];
 
@@ -1123,7 +1371,10 @@ export class ChatService {
   // DM OPERATIONS
   // ================================================================
 
-  async deleteDmConversation(userId: string, conversationId: number): Promise<void> {
+  async deleteDmConversation(
+    userId: string,
+    conversationId: number,
+  ): Promise<void> {
     // Verify user is part of this conversation
     const { data: member } = await this.db()
       .from('dm_conversation_members')
@@ -1162,18 +1413,24 @@ export class ChatService {
   // MESSAGE EDIT / DELETE
   // ================================================================
 
-  async editMessage(messageId: number, userId: string, content: string): Promise<any> {
+  async editMessage(
+    messageId: number,
+    userId: string,
+    content: string,
+  ): Promise<any> {
     const { data: msg } = await this.db()
       .from('chat_messages')
       .select('*')
       .eq('id', messageId)
       .single();
     if (!msg) throw new BadRequestException('Message not found');
-    if (msg.user_id !== userId) throw new BadRequestException('You can only edit your own messages');
+    if (msg.user_id !== userId)
+      throw new BadRequestException('You can only edit your own messages');
 
     const trimmed = content.trim();
     if (!trimmed) throw new BadRequestException('Message cannot be empty');
-    if (trimmed.length > 500) throw new BadRequestException('Message too long (max 500)');
+    if (trimmed.length > 500)
+      throw new BadRequestException('Message too long (max 500)');
 
     const { data: updated, error } = await this.db()
       .from('chat_messages')
@@ -1205,7 +1462,10 @@ export class ChatService {
   // ================================================================
 
   async updateServerRole(
-    serverId: number, userId: string, roleName: string, data: { name?: string; color?: string; permissions?: string[] },
+    serverId: number,
+    userId: string,
+    roleName: string,
+    data: { name?: string; color?: string; permissions?: string[] },
   ): Promise<any> {
     const { data: server } = await this.db()
       .from('gg_servers')
@@ -1213,7 +1473,8 @@ export class ChatService {
       .eq('id', serverId)
       .single();
     if (!server) throw new BadRequestException('Server not found');
-    if (server.owner_id !== userId) throw new BadRequestException('Only the owner can edit roles');
+    if (server.owner_id !== userId)
+      throw new BadRequestException('Only the owner can edit roles');
 
     const roles = (server.roles ?? []) as any[];
     const idx = roles.findIndex((r: any) => r.name === roleName);
@@ -1221,7 +1482,8 @@ export class ChatService {
 
     if (data.name !== undefined) roles[idx].name = data.name;
     if (data.color !== undefined) roles[idx].color = data.color;
-    if (data.permissions !== undefined) roles[idx].permissions = data.permissions;
+    if (data.permissions !== undefined)
+      roles[idx].permissions = data.permissions;
 
     const { data: updated, error } = await this.db()
       .from('gg_servers')

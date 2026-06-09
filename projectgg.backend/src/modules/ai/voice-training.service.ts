@@ -203,6 +203,7 @@ export class VoiceTrainingService {
   async getProfile(userId: string): Promise<any | null> {
     try {
       const { data, error } = await this.supabase
+      .schema('projectgg')
         .from('ai_voice_profiles')
         .select('*')
         .eq('user_id', userId)
@@ -254,6 +255,7 @@ export class VoiceTrainingService {
 
       if (existing) {
         const { error } = await this.supabase
+        .schema('projectgg')
           .from('ai_voice_profiles')
           .update(updateData)
           .eq('user_id', userId);
@@ -263,7 +265,7 @@ export class VoiceTrainingService {
           return false;
         }
       } else {
-        const { error } = await this.supabase.from('ai_voice_profiles').insert({
+        const { error } = await this.supabase.schema('projectgg').from('ai_voice_profiles').insert({
           user_id: userId,
           voice_fingerprint: profileData.voiceFingerprint || {},
           custom_vocabulary: profileData.customVocabulary || [],
@@ -330,6 +332,7 @@ export class VoiceTrainingService {
       }
 
       const { error } = await this.supabase
+        .schema('projectgg')
         .from('ai_voice_profiles')
         .delete()
         .eq('user_id', userId);

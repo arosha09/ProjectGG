@@ -1,5 +1,14 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, Query, Req, UseGuards, BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
@@ -8,21 +17,19 @@ import { PlatformConnectionsService } from './platform-connections.service';
 @ApiTags('Platform Connections')
 @Controller('platform')
 export class PlatformConnectionsController {
-  constructor(
-    private readonly service: PlatformConnectionsService,
-  ) {}
+  constructor(private readonly service: PlatformConnectionsService) {}
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('connections')
   @ApiQuery({ name: 'user_id', type: String, required: false })
-  async getConnections(
-    @Req() req: any,
-    @Query('user_id') userId?: string,
-  ) {
+  async getConnections(@Req() req: any, @Query('user_id') userId?: string) {
     // If user_id is provided, use it. Otherwise, use authenticated user.
     const uid = userId || req.user?.id;
-    if (!uid) throw new BadRequestException('Provide user_id query param or authenticate');
+    if (!uid)
+      throw new BadRequestException(
+        'Provide user_id query param or authenticate',
+      );
     return this.service.getConnections(uid);
   }
 
@@ -185,7 +192,8 @@ export class PlatformConnectionsController {
       req.user.id,
       platform,
     );
-    if (!result) return { statusCode: 404, message: 'No track currently playing' };
+    if (!result)
+      return { statusCode: 404, message: 'No track currently playing' };
     return result;
   }
 

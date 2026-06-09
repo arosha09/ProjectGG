@@ -20,13 +20,20 @@ export class GamesSyncService {
       .trim();
   }
 
-  private static sanitizeDescription(text: string | null | undefined): string | undefined {
+  private static sanitizeDescription(
+    text: string | null | undefined,
+  ): string | undefined {
     if (text == null) return undefined;
-    const s = String(text).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const s = String(text)
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     return s.length > 0 ? s : undefined;
   }
 
-  private static isHardwareOrMarketingDescription(text: string | null | undefined): boolean {
+  private static isHardwareOrMarketingDescription(
+    text: string | null | undefined,
+  ): boolean {
     if (!text) return false;
     const t = text.toLowerCase();
     // common signs of hardware/marketing blurbs or Steam controller copy
@@ -82,7 +89,9 @@ export class GamesSyncService {
     ];
   }
 
-  private static extractRawgPlot(text: string | null | undefined): string | undefined {
+  private static extractRawgPlot(
+    text: string | null | undefined,
+  ): string | undefined {
     if (!text) return undefined;
     const t = String(text).replace(/\r\n/g, '\n');
 
@@ -90,7 +99,10 @@ export class GamesSyncService {
 
     const extractSection = (heading: string): string | undefined => {
       const mdMatch = t.match(
-        new RegExp(`^###\\s*[^\\n]*${heading}[^\\n]*\\n([\\s\\S]*?)(?=\\n###\\s*[^\\n]+|$)`, 'im'),
+        new RegExp(
+          `^###\\s*[^\\n]*${heading}[^\\n]*\\n([\\s\\S]*?)(?=\\n###\\s*[^\\n]+|$)`,
+          'im',
+        ),
       );
       if (mdMatch && mdMatch[1]) {
         const cleaned = mdMatch[1].replace(/\s+/g, ' ').trim();
@@ -98,10 +110,16 @@ export class GamesSyncService {
       }
 
       const htmlMatch = t.match(
-        new RegExp(`<h3[^>]*>\\s*[^<]*${heading}[^<]*\\s*<\\/h3>\\s*([\\s\\S]*?)(?=<h[1-6][^>]*>|$)`, 'i'),
+        new RegExp(
+          `<h3[^>]*>\\s*[^<]*${heading}[^<]*\\s*<\\/h3>\\s*([\\s\\S]*?)(?=<h[1-6][^>]*>|$)`,
+          'i',
+        ),
       );
       if (htmlMatch && htmlMatch[1]) {
-        const cleaned = htmlMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        const cleaned = htmlMatch[1]
+          .replace(/<[^>]*>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
         if (cleaned.length > 0) return cleaned;
       }
 
@@ -137,18 +155,26 @@ export class GamesSyncService {
   }
 
   /** Returns true if the name (normalized alphanumeric) has a sequel suffix (II, III, 2, 3, etc.) immediately after the given prefix. */
-  private static hasSequelSuffixAfter(normalizedName: string, prefix: string): boolean {
+  private static hasSequelSuffixAfter(
+    normalizedName: string,
+    prefix: string,
+  ): boolean {
     if (!normalizedName.startsWith(prefix)) return false;
     const suffix = normalizedName.slice(prefix.length);
     if (suffix.length === 0) return false;
     // Check if suffix starts with a Roman numeral or Arabic digit (sequel indicator)
-    return /^(I{1,3}|IV|VI{0,3}|IX|X{1,3}|XIV|XIX|XL|L|LX{0,3}|XC{0,2}|C{1,3}|CD|D|DC{0,3}|CM|M{0,4}|\d)/i.test(suffix);
+    return /^(I{1,3}|IV|VI{0,3}|IX|X{1,3}|XIV|XIX|XL|L|LX{0,3}|XC{0,2}|C{1,3}|CD|D|DC{0,3}|CM|M{0,4}|\d)/i.test(
+      suffix,
+    );
   }
 
   /** Returns true if the name ends with a Roman numeral (I, IV, IX…) or Arabic digit (1, 2…). */
   private static hasTrailingNumeral(name: string): boolean {
-    return /\b(I{1,3}|IV|VI{0,3}|IX|X{1,3}|XIV|XIX|XL|L|LX{0,3}|XC{0,2}|C{1,3}|CD|D|DC{0,3}|CM|M{0,4})\b\s*$/i.test(name)
-      || /\d+\s*$/.test(name);
+    return (
+      /\b(I{1,3}|IV|VI{0,3}|IX|X{1,3}|XIV|XIX|XL|L|LX{0,3}|XC{0,2}|C{1,3}|CD|D|DC{0,3}|CM|M{0,4})\b\s*$/i.test(
+        name,
+      ) || /\d+\s*$/.test(name)
+    );
   }
 
   /** If the name has no trailing numeral, append " I" (first game in series). */
@@ -197,7 +223,10 @@ export class GamesSyncService {
     }
   }
 
-  async searchExternal(query: string, loose = false): Promise<SyncSearchResultDto[]> {
+  async searchExternal(
+    query: string,
+    loose = false,
+  ): Promise<SyncSearchResultDto[]> {
     const seenMap = new Map<string, SyncSearchResultDto>();
     const ownedSet = await this.searchLocal(query);
 
@@ -270,8 +299,10 @@ export class GamesSyncService {
     if (!loose) {
       entries = entries.filter((r) => {
         const normalized = GamesSyncService.normalizeForCompare(r.name);
-        return normalized.startsWith(normalizedQuery) &&
-          !GamesSyncService.hasSequelSuffixAfter(normalized, normalizedQuery);
+        return (
+          normalized.startsWith(normalizedQuery) &&
+          !GamesSyncService.hasSequelSuffixAfter(normalized, normalizedQuery)
+        );
       });
     }
 
@@ -500,24 +531,44 @@ export class GamesSyncService {
 
     const steamResult = await this.trySteam(name, code);
     if (steamResult.success) {
-      const rawgData = !locked.includes('genres') || !locked.includes('rating') || !locked.includes('release_year') || !locked.includes('platforms')
-        ? await this.getRawgFallbackData(name, code)
-        : null;
+      const rawgData =
+        !locked.includes('genres') ||
+        !locked.includes('rating') ||
+        !locked.includes('release_year') ||
+        !locked.includes('platforms')
+          ? await this.getRawgFallbackData(name, code)
+          : null;
       if (rawgData) {
         const filled: string[] = [];
-        if ((!steamResult.genres || steamResult.genres.length === 0) && rawgData.genres?.length && !locked.includes('genres')) {
+        if (
+          (!steamResult.genres || steamResult.genres.length === 0) &&
+          rawgData.genres?.length &&
+          !locked.includes('genres')
+        ) {
           steamResult.genres = rawgData.genres;
           filled.push('genres');
         }
-        if ((!steamResult.rating) && rawgData.rating != null && !locked.includes('rating')) {
+        if (
+          !steamResult.rating &&
+          rawgData.rating != null &&
+          !locked.includes('rating')
+        ) {
           steamResult.rating = rawgData.rating;
           filled.push('rating');
         }
-        if ((!steamResult.release_year) && rawgData.release_year != null && !locked.includes('release_year')) {
+        if (
+          !steamResult.release_year &&
+          rawgData.release_year != null &&
+          !locked.includes('release_year')
+        ) {
           steamResult.release_year = rawgData.release_year;
           filled.push('release_year');
         }
-        if ((!steamResult.platforms || steamResult.platforms.length === 0) && rawgData.platforms?.length && !locked.includes('platforms')) {
+        if (
+          (!steamResult.platforms || steamResult.platforms.length === 0) &&
+          rawgData.platforms?.length &&
+          !locked.includes('platforms')
+        ) {
           steamResult.platforms = rawgData.platforms;
           filled.push('platforms');
         }
@@ -548,24 +599,44 @@ export class GamesSyncService {
 
     const gogResult = await this.tryGOG(name, code);
     if (gogResult.success) {
-      const rawgData = !locked.includes('genres') || !locked.includes('rating') || !locked.includes('release_year') || !locked.includes('platforms')
-        ? await this.getRawgFallbackData(name, code)
-        : null;
+      const rawgData =
+        !locked.includes('genres') ||
+        !locked.includes('rating') ||
+        !locked.includes('release_year') ||
+        !locked.includes('platforms')
+          ? await this.getRawgFallbackData(name, code)
+          : null;
       if (rawgData) {
         const filled: string[] = [];
-        if ((!gogResult.genres || gogResult.genres.length === 0) && rawgData.genres?.length && !locked.includes('genres')) {
+        if (
+          (!gogResult.genres || gogResult.genres.length === 0) &&
+          rawgData.genres?.length &&
+          !locked.includes('genres')
+        ) {
           gogResult.genres = rawgData.genres;
           filled.push('genres');
         }
-        if ((!gogResult.rating) && rawgData.rating != null && !locked.includes('rating')) {
+        if (
+          !gogResult.rating &&
+          rawgData.rating != null &&
+          !locked.includes('rating')
+        ) {
           gogResult.rating = rawgData.rating;
           filled.push('rating');
         }
-        if ((!gogResult.release_year) && rawgData.release_year != null && !locked.includes('release_year')) {
+        if (
+          !gogResult.release_year &&
+          rawgData.release_year != null &&
+          !locked.includes('release_year')
+        ) {
           gogResult.release_year = rawgData.release_year;
           filled.push('release_year');
         }
-        if ((!gogResult.platforms || gogResult.platforms.length === 0) && rawgData.platforms?.length && !locked.includes('platforms')) {
+        if (
+          (!gogResult.platforms || gogResult.platforms.length === 0) &&
+          rawgData.platforms?.length &&
+          !locked.includes('platforms')
+        ) {
           gogResult.platforms = rawgData.platforms;
           filled.push('platforms');
         }
@@ -614,24 +685,44 @@ export class GamesSyncService {
 
     const sgdbResult = await this.trySteamGridDB(name, code);
     if (sgdbResult.success) {
-      const rawgData = !locked.includes('genres') || !locked.includes('rating') || !locked.includes('release_year') || !locked.includes('platforms')
-        ? await this.getRawgFallbackData(name, code)
-        : null;
+      const rawgData =
+        !locked.includes('genres') ||
+        !locked.includes('rating') ||
+        !locked.includes('release_year') ||
+        !locked.includes('platforms')
+          ? await this.getRawgFallbackData(name, code)
+          : null;
       if (rawgData) {
         const filled: string[] = [];
-        if ((!sgdbResult.genres || sgdbResult.genres.length === 0) && rawgData.genres?.length && !locked.includes('genres')) {
+        if (
+          (!sgdbResult.genres || sgdbResult.genres.length === 0) &&
+          rawgData.genres?.length &&
+          !locked.includes('genres')
+        ) {
           sgdbResult.genres = rawgData.genres;
           filled.push('genres');
         }
-        if ((!sgdbResult.rating) && rawgData.rating != null && !locked.includes('rating')) {
+        if (
+          !sgdbResult.rating &&
+          rawgData.rating != null &&
+          !locked.includes('rating')
+        ) {
           sgdbResult.rating = rawgData.rating;
           filled.push('rating');
         }
-        if ((!sgdbResult.release_year) && rawgData.release_year != null && !locked.includes('release_year')) {
+        if (
+          !sgdbResult.release_year &&
+          rawgData.release_year != null &&
+          !locked.includes('release_year')
+        ) {
           sgdbResult.release_year = rawgData.release_year;
           filled.push('release_year');
         }
-        if ((!sgdbResult.platforms || sgdbResult.platforms.length === 0) && rawgData.platforms?.length && !locked.includes('platforms')) {
+        if (
+          (!sgdbResult.platforms || sgdbResult.platforms.length === 0) &&
+          rawgData.platforms?.length &&
+          !locked.includes('platforms')
+        ) {
           sgdbResult.platforms = rawgData.platforms;
           filled.push('platforms');
         }
@@ -706,12 +797,12 @@ export class GamesSyncService {
     name: string,
     code: string,
   ): Promise<{
-      genres?: string[];
-      rating?: number | null;
-      release_year?: number | null;
-      desc?: string;
-      platforms?: string[];
-    } | null> {
+    genres?: string[];
+    rating?: number | null;
+    release_year?: number | null;
+    desc?: string;
+    platforms?: string[];
+  } | null> {
     if (!this.raggApiKey) return null;
     try {
       const searchUrl = `https://api.rawg.io/api/games?key=${this.raggApiKey}&search=${encodeURIComponent(name)}&page_size=1`;
@@ -737,9 +828,12 @@ export class GamesSyncService {
       const releaseYear = detailData.released
         ? new Date(detailData.released).getFullYear()
         : null;
-      const rawDesc = detailData.description_raw ?? detailData.description ?? null;
+      const rawDesc =
+        detailData.description_raw ?? detailData.description ?? null;
       const plot = GamesSyncService.extractRawgPlot(rawDesc);
-      const desc = GamesSyncService.sanitizeDescription(plot ?? rawDesc ?? null);
+      const desc = GamesSyncService.sanitizeDescription(
+        plot ?? rawDesc ?? null,
+      );
       const rawgPlatforms: { platform: { slug: string } }[] =
         detailData.platforms ?? [];
       const platforms = GamesSyncService.rawgPlatforms(rawgPlatforms);
@@ -783,18 +877,21 @@ export class GamesSyncService {
     return result;
   }
 
-  async importToGame(code: string, data: {
-    name: string;
-    cover_url?: string;
-    genres?: string[];
-    external_id?: string;
-    source?: string;
-    rating?: number | null;
-    release_year?: number | null;
-    desc?: string;
-    platforms?: string[];
-    sources?: string[];
-  }): Promise<SyncResultDto> {
+  async importToGame(
+    code: string,
+    data: {
+      name: string;
+      cover_url?: string;
+      genres?: string[];
+      external_id?: string;
+      source?: string;
+      rating?: number | null;
+      release_year?: number | null;
+      desc?: string;
+      platforms?: string[];
+      sources?: string[];
+    },
+  ): Promise<SyncResultDto> {
     const result: SyncResultDto = {
       code,
       success: true,
@@ -810,7 +907,15 @@ export class GamesSyncService {
       sources: data.sources ?? ['pc'],
     };
 
-    const ALL_COLUMNS = ['cover_url', 'genres', 'rating', 'platforms', 'desc', 'sources', 'release_year'];
+    const ALL_COLUMNS = [
+      'cover_url',
+      'genres',
+      'rating',
+      'platforms',
+      'desc',
+      'sources',
+      'release_year',
+    ];
     await this.persistSync(code, result, []);
 
     // Lock all columns so future syncs don't overwrite
@@ -858,9 +963,13 @@ export class GamesSyncService {
     return { locked_columns: locked };
   }
 
-  async forceSetRawgDesc(code: string, name?: string): Promise<{ success: boolean; desc?: string; message?: string }> {
+  async forceSetRawgDesc(
+    code: string,
+    name?: string,
+  ): Promise<{ success: boolean; desc?: string; message?: string }> {
     const rawgData = await this.getRawgFallbackData(name ?? code, code);
-    if (!rawgData || !rawgData.desc) return { success: false, message: 'RAWG description not found' };
+    if (!rawgData || !rawgData.desc)
+      return { success: false, message: 'RAWG description not found' };
 
     // Push only the description into the external update RPC so we don't overwrite other fields
     const { error } = await this.supabase.rpc('update_game_external', {
@@ -1142,7 +1251,9 @@ export class GamesSyncService {
       const releaseYear = appData.release_date?.date
         ? new Date(appData.release_date.date).getFullYear()
         : null;
-      const desc = GamesSyncService.sanitizeDescription(appData.about_the_game ?? appData.short_description ?? null);
+      const desc = GamesSyncService.sanitizeDescription(
+        appData.about_the_game ?? appData.short_description ?? null,
+      );
 
       return {
         code,
@@ -1204,9 +1315,12 @@ export class GamesSyncService {
       const releaseYear = detailData.released
         ? new Date(detailData.released).getFullYear()
         : null;
-      const rawDesc = detailData.description_raw ?? detailData.description ?? null;
+      const rawDesc =
+        detailData.description_raw ?? detailData.description ?? null;
       const plot = GamesSyncService.extractRawgPlot(rawDesc);
-      const desc = GamesSyncService.sanitizeDescription(plot ?? rawDesc ?? null);
+      const desc = GamesSyncService.sanitizeDescription(
+        plot ?? rawDesc ?? null,
+      );
       const rawgPlatforms: { platform: { slug: string } }[] =
         detailData.platforms ?? [];
       const platforms = GamesSyncService.rawgPlatforms(rawgPlatforms);
@@ -1419,9 +1533,12 @@ export class GamesSyncService {
           const detailRes = await fetch(detailUrl);
           if (detailRes.ok) {
             const detailData: any = await detailRes.json();
-            desc = GamesSyncService.sanitizeDescription(
-              detailData.description?.lead ?? detailData.description?.full ?? '',
-            ) ?? '';
+            desc =
+              GamesSyncService.sanitizeDescription(
+                detailData.description?.lead ??
+                  detailData.description?.full ??
+                  '',
+              ) ?? '';
           }
         } catch {}
 
@@ -1510,7 +1627,10 @@ export class GamesSyncService {
           const appData = detailData[String(item.id)]?.data;
           if (appData) {
             rating = appData.metacritic?.score ?? null;
-            desc = GamesSyncService.sanitizeDescription(appData.about_the_game ?? appData.short_description ?? '') ?? '';
+            desc =
+              GamesSyncService.sanitizeDescription(
+                appData.about_the_game ?? appData.short_description ?? '',
+              ) ?? '';
             genres = (appData.genres ?? []).map((g: any) => g.description);
           }
         }
@@ -1559,7 +1679,9 @@ export class GamesSyncService {
         genres: (game.genres ?? []).map((g: any) => g.name),
         sources: ['rawg'],
         rating,
-        desc: GamesSyncService.extractRawgPlot(game.description_raw ?? game.description ?? null),
+        desc: GamesSyncService.extractRawgPlot(
+          game.description_raw ?? game.description ?? null,
+        ),
         platforms,
       };
     } catch {
@@ -1587,7 +1709,9 @@ export class GamesSyncService {
         rating:
           game.metacritic ??
           (game.rating ? Math.round(game.rating * 20) : null),
-        desc: GamesSyncService.extractRawgPlot(game.description_raw ?? game.description ?? null),
+        desc: GamesSyncService.extractRawgPlot(
+          game.description_raw ?? game.description ?? null,
+        ),
         platforms,
       };
     });

@@ -3570,6 +3570,50 @@
     border-left: none;
     border-top: none;
   }
+
+  .gg-voice-ns-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    margin-top: 2px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.3);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    &:hover {
+      background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.15);
+      color: var(--text);
+      border-color: var(--accent-color);
+    }
+    &.active {
+      background: linear-gradient(
+        135deg,
+        rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.2) 0%,
+        rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.1) 100%
+      );
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+      box-shadow: 0 0 10px rgba(var(--accent-color-r), var(--accent-color-g), var(--accent-color-b), 0.3);
+    }
+    .gg-voice-ns-label {
+      flex: 1;
+      text-align: left;
+    }
+  }
 }
 
 // ── VOICE USERS UNDER CHANNEL (sidebar) ──
@@ -5782,7 +5826,7 @@
   }
 }
 
-// Bot message styling for A.P.E.X.
+// Bot message styling for APEX
 .chat-msg.msg-bot {
   background: linear-gradient(135deg, rgba(255, 170, 0, 0.08), rgba(255, 170, 0, 0.02));
   border-left: 3px solid var(--neon-gold, #ffaa00);
@@ -5818,7 +5862,7 @@
   }
 }
 
-// Override for voice channel system messages that use A.P.E.X. username
+// Override for voice channel system messages that use APEX username
 .msg-system.apex-system {
   .msg-content {
     color: var(--neon-gold, #ffaa00);

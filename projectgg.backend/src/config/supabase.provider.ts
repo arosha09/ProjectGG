@@ -12,7 +12,9 @@ export const supabaseProvider = {
     const key = configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!url || !key) {
-      throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment');
+      throw new Error(
+        'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment',
+      );
     }
 
     return createClient(url, key, {

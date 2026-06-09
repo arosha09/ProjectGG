@@ -32,7 +32,8 @@ import { ChatGateway } from 'src/modules/chat/chat.gateway';
 export class XpController {
   constructor(
     private readonly xpService: XpService,
-    @Inject(forwardRef(() => ChatGateway)) private readonly chatGateway: ChatGateway,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   @Get('rank')
@@ -42,7 +43,10 @@ export class XpController {
     @Query('user_id', new ParseUUIDPipe({ optional: true })) userId?: string,
   ): Promise<UserRankDto> {
     const uid = userId || req.user?.id;
-    if (!uid) throw new BadRequestException('Provide user_id query param or authenticate');
+    if (!uid)
+      throw new BadRequestException(
+        'Provide user_id query param or authenticate',
+      );
     return this.xpService.getUserRank(uid);
   }
 
@@ -68,7 +72,10 @@ export class XpController {
     @Query('user_id', new ParseUUIDPipe({ optional: true })) userId?: string,
   ): Promise<CanClaimDailyDto> {
     const uid = userId || req.user?.id;
-    if (!uid) throw new BadRequestException('Provide user_id query param or authenticate');
+    if (!uid)
+      throw new BadRequestException(
+        'Provide user_id query param or authenticate',
+      );
     return this.xpService.canClaimDaily(uid);
   }
 

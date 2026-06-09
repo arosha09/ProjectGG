@@ -13,7 +13,9 @@ import { Server, Socket } from 'socket.io';
   cors: { origin: '*', methods: ['GET', 'POST'] },
   namespace: '/realtime',
 })
-export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server!: Server;
 

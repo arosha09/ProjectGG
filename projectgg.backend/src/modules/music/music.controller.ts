@@ -1,5 +1,13 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, Query, Req, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
@@ -20,10 +28,7 @@ export class MusicController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post('playlists')
-  async createPlaylist(
-    @Req() req: any,
-    @Body() body: { name: string },
-  ) {
+  async createPlaylist(@Req() req: any, @Body() body: { name: string }) {
     return this.service.createPlaylist(req.user.id, body.name);
   }
 
@@ -42,7 +47,13 @@ export class MusicController {
   @Post('playlists/:id/tracks')
   async addTrack(
     @Param('id') id: string,
-    @Body() body: { videoId: string; title: string; artist: string; thumbnail: string | null },
+    @Body()
+    body: {
+      videoId: string;
+      title: string;
+      artist: string;
+      thumbnail: string | null;
+    },
   ) {
     return this.service.addTrackToPlaylist(Number(id), body);
   }
@@ -54,7 +65,10 @@ export class MusicController {
     @Param('playlistId') playlistId: string,
     @Param('trackIndex') trackIndex: string,
   ) {
-    return this.service.removeTrackFromPlaylist(Number(playlistId), Number(trackIndex));
+    return this.service.removeTrackFromPlaylist(
+      Number(playlistId),
+      Number(trackIndex),
+    );
   }
 
   @UseGuards(JwtAuthGuard)

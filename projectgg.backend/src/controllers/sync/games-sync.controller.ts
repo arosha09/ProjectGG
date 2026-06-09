@@ -1,9 +1,26 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards, Req, UseInterceptors, UploadedFile, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  Req,
+  UseInterceptors,
+  UploadedFile,
+  ForbiddenException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiQuery, ApiBody, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { GamesSyncService } from 'src/services/sync/games-sync.service';
-import { SyncResultDto, SyncQueueDto, SyncSearchResultDto } from 'src/dto/sync/sync.dto';
+import {
+  SyncResultDto,
+  SyncQueueDto,
+  SyncSearchResultDto,
+} from 'src/dto/sync/sync.dto';
 
 @ApiTags('Games Sync')
 @Controller('games/sync')
@@ -30,7 +47,9 @@ export class GamesSyncController {
   @ApiBearerAuth('access-token')
   @Get('search/external')
   @ApiQuery({ name: 'q', type: String, required: true })
-  async searchExternal(@Query('q') query: string): Promise<SyncSearchResultDto[]> {
+  async searchExternal(
+    @Query('q') query: string,
+  ): Promise<SyncSearchResultDto[]> {
     return this.syncService.searchExternal(query);
   }
 
@@ -55,18 +74,21 @@ export class GamesSyncController {
       required: ['name'],
     },
   })
-  async importGame(@Body() body: {
-    name: string;
-    cover_url?: string;
-    genres?: string[];
-    external_id?: string;
-    external_source?: string;
-    rating?: number | null;
-    release_year?: number | null;
-    desc?: string;
-    platforms?: string[];
-    sources?: string[];
-  }): Promise<any> {
+  async importGame(
+    @Body()
+    body: {
+      name: string;
+      cover_url?: string;
+      genres?: string[];
+      external_id?: string;
+      external_source?: string;
+      rating?: number | null;
+      release_year?: number | null;
+      desc?: string;
+      platforms?: string[];
+      sources?: string[];
+    },
+  ): Promise<any> {
     return this.syncService.createGameFromExternal({
       ...body,
       platforms: body.platforms ?? ['pc'],
@@ -98,7 +120,8 @@ export class GamesSyncController {
   @ApiBearerAuth('access-token')
   @Get('missing-series')
   async getMissingSeries(@Req() req: any): Promise<string[]> {
-    if (!req.user || req.user.role !== 'admin') throw new ForbiddenException('admin required');
+    if (!req.user || req.user.role !== 'admin')
+      throw new ForbiddenException('admin required');
     return this.syncService.getMissingSeries();
   }
 
@@ -106,11 +129,21 @@ export class GamesSyncController {
   @ApiBearerAuth('access-token')
   @Post('series-cover')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadSeriesCover(@Req() req: any, @Body('name') name: string, @UploadedFile() file: Express.Multer.File): Promise<{ success: boolean }> {
-    if (!req.user || req.user.role !== 'admin') throw new ForbiddenException('admin required');
+  async uploadSeriesCover(
+    @Req() req: any,
+    @Body('name') name: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<{ success: boolean }> {
+    if (!req.user || req.user.role !== 'admin')
+      throw new ForbiddenException('admin required');
     if (!name) throw new ForbiddenException('name is required');
     if (!file) throw new ForbiddenException('file is required');
-    await this.syncService.uploadSeriesCover(name, file.buffer, file.mimetype, file.originalname);
+    await this.syncService.uploadSeriesCover(
+      name,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+    );
     return { success: true };
   }
 
@@ -152,7 +185,8 @@ export class GamesSyncController {
   })
   async importToGame(
     @Param('code') code: string,
-    @Body() body: {
+    @Body()
+    body: {
       name: string;
       cover_url?: string;
       genres?: string[];
@@ -171,8 +205,13 @@ export class GamesSyncController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post('force-rawg-desc/:code')
-  async forceRawgDesc(@Req() req: any, @Param('code') code: string, @Query('name') name?: string): Promise<any> {
-    if (!req.user || req.user.role !== 'admin') throw new ForbiddenException('admin required');
+  async forceRawgDesc(
+    @Req() req: any,
+    @Param('code') code: string,
+    @Query('name') name?: string,
+  ): Promise<any> {
+    if (!req.user || req.user.role !== 'admin')
+      throw new ForbiddenException('admin required');
     return this.syncService.forceSetRawgDesc(code, name);
   }
 }

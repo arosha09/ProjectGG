@@ -98,6 +98,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard, AdminGuard]
   },
   {
+    path: 'admin/settings',
+    loadComponent: () => import('./pages/admin/settings/admin-settings.component').then(m => m.AdminSettingsComponent),
+    canActivate: [AuthGuard, AdminGuard]
+  },
+  {
     path: 'gifts',
     loadComponent: () => import('./pages/gifts/gift-tracking.component').then(m => m.GiftTrackingComponent),
     canActivate: [AuthGuard]

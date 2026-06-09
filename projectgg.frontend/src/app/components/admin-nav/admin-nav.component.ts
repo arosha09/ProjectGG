@@ -23,6 +23,10 @@ import { MatIconModule } from '@angular/material/icon';
           <mat-icon svgIcon="assignment"></mat-icon>
           <span>TASKS</span>
         </a>
+        <a class="admin-nav-btn" routerLink="/admin/settings">
+          <mat-icon svgIcon="settings"></mat-icon>
+          <span>SETTINGS</span>
+        </a>
       </div>
     </header>
   `,

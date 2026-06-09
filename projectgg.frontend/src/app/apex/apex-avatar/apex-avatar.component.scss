@@ -1,0 +1,299 @@
+:host {
+  display: block;
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+
+  &.avatar-hidden {
+    display: none;
+  }
+}
+
+.apex-avatar-wrapper {
+  position: fixed;
+  pointer-events: auto;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+
+  &:hover {
+    filter: drop-shadow(0 0 16px rgba(180, 80, 220, 0.6)) drop-shadow(0 0 16px rgba(255, 170, 0, 0.4));
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  // ─── Booting / Happy — canvas handles all visuals ──────────────────────
+
+  // ─── Fully on — glow handled by canvas ─────────────────────────────────
+  &.booted-on {
+    filter: drop-shadow(0 0 12px rgba(180, 80, 220, 0.45)) drop-shadow(0 0 8px rgba(255, 170, 0, 0.3));
+  }
+
+  // CRT power-on is driven by JavaScript in the render loop
+
+  // ─── CRT power-off (500ms) — TV switch-off effect ────────────────────
+  &.crt-off {
+    animation: crt-switch-off 0.5s ease-in forwards;
+    transform-origin: center center;
+    will-change: transform, filter, opacity;
+  }
+
+  // ─── Drag shake ──────────────────────────────────────────────────────────
+  &.dragging {
+    cursor: grabbing;
+
+    .avatar-canvas {
+      animation: face-shake 0.08s linear infinite;
+    }
+
+    &:hover {
+      filter: drop-shadow(0 0 20px rgba(255, 60, 60, 0.7)) drop-shadow(0 0 12px rgba(255, 170, 0, 0.5));
+    }
+  }
+
+  // ─── Petted hover glow ──────────────────────────────────────────────────
+  &.petted {
+    filter: drop-shadow(0 0 18px rgba(238, 119, 255, 0.8)) drop-shadow(0 0 10px rgba(255, 200, 255, 0.5));
+    animation: petted-pulse 0.6s ease-in-out infinite alternate;
+  }
+
+  // ─── Sleeping glow ──────────────────────────────────────────────────────
+  &.sleeping {
+    filter: drop-shadow(0 0 10px rgba(100, 80, 180, 0.4)) drop-shadow(0 0 6px rgba(150, 120, 255, 0.25));
+    animation: sleep-breathe 3s ease-in-out infinite alternate;
+  }
+}
+
+.avatar-canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+  width: 240px;
+  height: 187px;
+  filter: drop-shadow(0 0 8px rgba(180, 80, 220, 0.4)) drop-shadow(0 0 4px rgba(255, 170, 0, 0.2));
+  transition: filter 0.15s ease;
+}
+
+// ─── Pixel-art speech bubble (right side of head, HTML overlay) ──────────────
+// Used only for ZZZ; boot/shutdown/drag bubbles are drawn on canvas.
+.pixel-bubble {
+  position: absolute;
+  top: 8px;
+  left: calc(100% - 16px);
+  pointer-events: none;
+  z-index: 2;
+  image-rendering: pixelated;
+  animation: bubble-pop 0.2s ease-out;
+
+  .pixel-text {
+    display: block;
+    background: rgba(10, 5, 25, 0.95);
+    border: 2px solid rgba(180, 80, 220, 0.6);
+    padding: 4px 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: 1px;
+    line-height: 1;
+    box-shadow:
+      inset 0 0 6px rgba(180, 80, 220, 0.15),
+      0 0 8px rgba(180, 80, 220, 0.25);
+  }
+
+  // Pixel-art pointer pointing left
+  &::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: -6px;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-right: 6px solid rgba(180, 80, 220, 0.6);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: -4px;
+    width: 0;
+    height: 0;
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-right: 4px solid rgba(10, 5, 25, 0.95);
+  }
+}
+
+.boot-bubble {
+  .pixel-text {
+    color: #dd99ff;
+    border-color: rgba(221, 153, 255, 0.5);
+    box-shadow:
+      inset 0 0 6px rgba(180, 80, 220, 0.15),
+      0 0 10px rgba(221, 153, 255, 0.3);
+  }
+
+  &::before { border-right-color: rgba(221, 153, 255, 0.5); }
+  &::after  { border-right-color: rgba(10, 5, 25, 0.95); }
+}
+
+.shutdown-bubble {
+  .pixel-text {
+    color: #ff7777;
+    border-color: rgba(255, 80, 80, 0.5);
+    box-shadow:
+      inset 0 0 6px rgba(255, 50, 50, 0.1),
+      0 0 10px rgba(255, 80, 80, 0.25);
+  }
+
+  &::before { border-right-color: rgba(255, 80, 80, 0.5); }
+  &::after  { border-right-color: rgba(10, 5, 25, 0.95); }
+}
+
+@keyframes bubble-pop {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+// ─── ZZZ floating animation ───────────────────────────────────────────────────
+.zzz-group {
+  position: absolute;
+  top: 12px;
+  left: 130px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.zzz {
+  position: absolute;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-style: italic;
+  color: #aa88ff;
+  opacity: 0;
+}
+
+.zzz-1 {
+  font-size: 14px;
+  left: 0;
+  top: 0;
+  animation: zzz-out 1.8s ease-out infinite;
+}
+
+.zzz-2 {
+  font-size: 11px;
+  left: 16px;
+  top: 0;
+  animation: zzz-out 1.8s ease-out infinite 0.6s;
+}
+
+.zzz-3 {
+  font-size: 8px;
+  left: 32px;
+  top: 0;
+  animation: zzz-out 1.8s ease-out infinite 1.2s;
+}
+
+@keyframes zzz-out {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(6px, -22px) scale(0.7);
+  }
+}
+
+@keyframes face-shake {
+  0%   { transform: translate(-2px, -1px) rotate(-0.8deg); }
+  20%  { transform: translate(2px, 1px) rotate(0.6deg); }
+  40%  { transform: translate(-1px, 2px) rotate(-0.4deg); }
+  60%  { transform: translate(2px, -1px) rotate(0.8deg); }
+  80%  { transform: translate(-2px, 0px) rotate(-0.6deg); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+
+@keyframes petted-pulse {
+  from {
+    filter: drop-shadow(0 0 14px rgba(238, 119, 255, 0.7)) drop-shadow(0 0 7px rgba(255, 200, 255, 0.4));
+  }
+  to {
+    filter: drop-shadow(0 0 24px rgba(238, 119, 255, 1)) drop-shadow(0 0 14px rgba(255, 200, 255, 0.8));
+  }
+}
+
+@keyframes sleep-breathe {
+  from {
+    filter: drop-shadow(0 0 8px rgba(100, 80, 180, 0.3)) drop-shadow(0 0 4px rgba(150, 120, 255, 0.15));
+    transform: scale(1);
+  }
+  to {
+    filter: drop-shadow(0 0 14px rgba(100, 80, 180, 0.55)) drop-shadow(0 0 8px rgba(150, 120, 255, 0.35));
+    transform: scale(1.012);
+  }
+}
+
+// ─── CRT switch-on (400ms) — thin horizontal line expands to full ───────────
+@keyframes crt-switch-on {
+  0% {
+    transform: scaleY(0.005) scaleX(1);
+    filter: brightness(3) drop-shadow(0 0 20px rgba(255, 255, 255, 0.9));
+    opacity: 1;
+  }
+  30% {
+    transform: scaleY(0.005) scaleX(1);
+    filter: brightness(2.5) drop-shadow(0 0 16px rgba(255, 255, 255, 0.7));
+    opacity: 1;
+  }
+  60% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1.5) drop-shadow(0 0 10px rgba(180, 80, 220, 0.5));
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1) drop-shadow(0 0 8px rgba(180, 80, 220, 0.3));
+    opacity: 1;
+  }
+}
+
+// ─── CRT switch-off (500ms) — collapses to thin line then disappears ───────
+@keyframes crt-switch-off {
+  0% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1) drop-shadow(0 0 8px rgba(180, 80, 220, 0.4));
+    opacity: 1;
+  }
+  30% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(2) drop-shadow(0 0 16px rgba(255, 255, 255, 0.6));
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(0.005) scaleX(1);
+    filter: brightness(3) drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+    opacity: 1;
+  }
+  70% {
+    transform: scaleY(0.005) scaleX(1);
+    filter: brightness(4) drop-shadow(0 0 24px rgba(255, 255, 255, 0.9));
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0) scaleX(1);
+    filter: brightness(5) drop-shadow(0 0 30px rgba(255, 255, 255, 1));
+    opacity: 0;
+  }
+}

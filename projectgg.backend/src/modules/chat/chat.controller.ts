@@ -1,6 +1,21 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, Query, Inject, forwardRef,
-  UseInterceptors, UploadedFile, BadRequestException, HttpException, HttpStatus,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  Query,
+  Inject,
+  forwardRef,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -32,7 +47,11 @@ export class ChatController {
     return members.map((m: any) => String(m.user_id));
   }
 
-  private async notifyServerMembers(serverId: number, event: string, data: any): Promise<void> {
+  private async notifyServerMembers(
+    serverId: number,
+    event: string,
+    data: any,
+  ): Promise<void> {
     const memberIds = await this.getServerMemberIds(serverId);
     for (const uid of memberIds) {
       this.chatGateway.sendToUser(uid, event, data);
@@ -59,10 +78,12 @@ export class ChatController {
       .single();
 
     if (conn?.platform_user_id) {
-      const perms = await this.discordBot.getUserPermissions(conn.platform_user_id);
+      const perms = await this.discordBot.getUserPermissions(
+        conn.platform_user_id,
+      );
       if (perms?.permissions) {
         allowedChannelIds = new Set(
-          perms.permissions.filter(p => p.canView).map(p => p.channelId),
+          perms.permissions.filter((p) => p.canView).map((p) => p.channelId),
         );
       }
     }
@@ -102,7 +123,9 @@ export class ChatController {
       .eq('platform', 'discord')
       .single();
     if (!data?.platform_user_id) return { linked: false, permissions: null };
-    const perms = await this.discordBot.getUserPermissions(data.platform_user_id);
+    const perms = await this.discordBot.getUserPermissions(
+      data.platform_user_id,
+    );
     return { linked: true, permissions: perms };
   }
 
@@ -122,7 +145,11 @@ export class ChatController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('chat/history')
-  async getHistory(@Req() req: any, @Query('channel') channel?: string, @Query('limit') limit?: string) {
+  async getHistory(
+    @Req() req: any,
+    @Query('channel') channel?: string,
+    @Query('limit') limit?: string,
+  ) {
     // Backfill Discord history into DB if needed (idempotent — skips if already populated)
     if (channel) {
       await this.discordBot.backfillChannel(channel).catch(() => {});
@@ -139,7 +166,13 @@ export class ChatController {
   @Post('chat/send')
   async sendMessage(
     @Req() req: any,
-    @Body() body: { content: string; channel_id?: string; reply_to?: number; attachment_url?: string },
+    @Body()
+    body: {
+      content: string;
+      channel_id?: string;
+      reply_to?: number;
+      attachment_url?: string;
+    },
   ) {
     const userId = req.user.id;
     const user = await this.chatService.findUserById(userId);
@@ -147,13 +180,21 @@ export class ChatController {
     const avatarUrl = user?.avatar ?? null;
 
     const msg = await this.chatService.saveMessage(
-      userId, username, body.content, body.channel_id, avatarUrl, body.reply_to, body.attachment_url,
+      userId,
+      username,
+      body.content,
+      body.channel_id,
+      avatarUrl,
+      body.reply_to,
+      body.attachment_url,
     );
 
     // Relay to Discord bot
     let discordContent = `**${username}**: ${body.content}`;
     if (body.attachment_url) discordContent += `\n${body.attachment_url}`;
-    this.discordBot.sendToDiscord(discordContent, body.channel_id).catch(() => {});
+    this.discordBot
+      .sendToDiscord(discordContent, body.channel_id)
+      .catch(() => {});
 
     this.chatGateway.broadcastMessage(msg);
     return msg;
@@ -166,9 +207,17 @@ export class ChatController {
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file provided');
 
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4'];
+    const allowedMimes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'video/mp4',
+    ];
     if (!allowedMimes.includes(file.mimetype)) {
-      throw new BadRequestException('Invalid file type. Allowed: jpeg, png, gif, webp, mp4');
+      throw new BadRequestException(
+        'Invalid file type. Allowed: jpeg, png, gif, webp, mp4',
+      );
     }
 
     const maxSize = 25 * 1024 * 1024;
@@ -188,7 +237,10 @@ export class ChatController {
     fs.unlinkSync(file.path);
 
     if (uploadError) {
-      throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        uploadError.message,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
 
     // Use signed URL
@@ -197,7 +249,10 @@ export class ChatController {
       .createSignedUrl(filename, 315360000);
 
     if (signError || !signedData?.signedUrl) {
-      throw new HttpException(signError?.message ?? 'Failed to sign URL', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        signError?.message ?? 'Failed to sign URL',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
 
     return { url: signedData.signedUrl };
@@ -217,27 +272,96 @@ export class ChatController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Delete('chat/messages/:id')
-  async deleteMessage(
-    @Req() req: any,
-    @Param('id') id: string,
-  ) {
+  async deleteMessage(@Req() req: any, @Param('id') id: string) {
     await this.chatService.deleteMessage(Number(id), req.user.id);
     return { ok: true };
   }
 
   private readonly fallbackGifs = [
-    { id: 'wave', url: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif', preview: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif', title: 'Wave' },
-    { id: 'hype', url: 'https://media0.giphy.com/media/l0HlNaQ6gW0X7l6qY/giphy.gif', preview: 'https://media0.giphy.com/media/l0HlNaQ6gW0X7l6qY/giphy-downsized-small.gif', title: 'Hype' },
-    { id: 'laugh', url: 'https://media2.giphy.com/media/l0HlTy9QUVqYjgxHy/giphy.gif', preview: 'https://media2.giphy.com/media/l0HlTy9QUVqYjgxHy/giphy-downsized-small.gif', title: 'Laugh' },
-    { id: 'shrug', url: 'https://media4.giphy.com/media/10zfF42YbPLnwI/giphy.gif', preview: 'https://media4.giphy.com/media/10zfF42YbPLnwI/giphy-downsized-small.gif', title: 'Shrug' },
-    { id: 'wow', url: 'https://media2.giphy.com/media/3oriO0OEd9QIDdllqE/giphy.gif', preview: 'https://media2.giphy.com/media/3oriO0OEd9QIDdllqE/giphy-downsized-small.gif', title: 'Wow' },
-    { id: 'party', url: 'https://media1.giphy.com/media/xT8qBf6V1MNs8oI3ni/giphy.gif', preview: 'https://media1.giphy.com/media/xT8qBf6V1MNs8oI3ni/giphy-downsized-small.gif', title: 'Party' },
-    { id: 'think', url: 'https://media0.giphy.com/media/1BXa2alBjrCXC/giphy.gif', preview: 'https://media0.giphy.com/media/1BXa2alBjrCXC/giphy-downsized-small.gif', title: 'Think' },
-    { id: 'fire', url: 'https://media3.giphy.com/media/3o7aD2sa1jK4F3f5Wc/giphy.gif', preview: 'https://media3.giphy.com/media/3o7aD2sa1jK4F3f5Wc/giphy-downsized-small.gif', title: 'Fire' },
-    { id: 'cry', url: 'https://media1.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif', preview: 'https://media1.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy-downsized-small.gif', title: 'Cry' },
-    { id: 'yes', url: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif', preview: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif', title: 'Yes' },
-    { id: 'no', url: 'https://media2.giphy.com/media/3o7btT1TBYmX2mY3eE/giphy.gif', preview: 'https://media2.giphy.com/media/3o7btT1TBYmX2mY3eE/giphy-downsized-small.gif', title: 'No' },
-    { id: 'eyes', url: 'https://media3.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif', preview: 'https://media3.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif', title: 'Eyes' },
+    {
+      id: 'wave',
+      url: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif',
+      preview:
+        'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif',
+      title: 'Wave',
+    },
+    {
+      id: 'hype',
+      url: 'https://media0.giphy.com/media/l0HlNaQ6gW0X7l6qY/giphy.gif',
+      preview:
+        'https://media0.giphy.com/media/l0HlNaQ6gW0X7l6qY/giphy-downsized-small.gif',
+      title: 'Hype',
+    },
+    {
+      id: 'laugh',
+      url: 'https://media2.giphy.com/media/l0HlTy9QUVqYjgxHy/giphy.gif',
+      preview:
+        'https://media2.giphy.com/media/l0HlTy9QUVqYjgxHy/giphy-downsized-small.gif',
+      title: 'Laugh',
+    },
+    {
+      id: 'shrug',
+      url: 'https://media4.giphy.com/media/10zfF42YbPLnwI/giphy.gif',
+      preview:
+        'https://media4.giphy.com/media/10zfF42YbPLnwI/giphy-downsized-small.gif',
+      title: 'Shrug',
+    },
+    {
+      id: 'wow',
+      url: 'https://media2.giphy.com/media/3oriO0OEd9QIDdllqE/giphy.gif',
+      preview:
+        'https://media2.giphy.com/media/3oriO0OEd9QIDdllqE/giphy-downsized-small.gif',
+      title: 'Wow',
+    },
+    {
+      id: 'party',
+      url: 'https://media1.giphy.com/media/xT8qBf6V1MNs8oI3ni/giphy.gif',
+      preview:
+        'https://media1.giphy.com/media/xT8qBf6V1MNs8oI3ni/giphy-downsized-small.gif',
+      title: 'Party',
+    },
+    {
+      id: 'think',
+      url: 'https://media0.giphy.com/media/1BXa2alBjrCXC/giphy.gif',
+      preview:
+        'https://media0.giphy.com/media/1BXa2alBjrCXC/giphy-downsized-small.gif',
+      title: 'Think',
+    },
+    {
+      id: 'fire',
+      url: 'https://media3.giphy.com/media/3o7aD2sa1jK4F3f5Wc/giphy.gif',
+      preview:
+        'https://media3.giphy.com/media/3o7aD2sa1jK4F3f5Wc/giphy-downsized-small.gif',
+      title: 'Fire',
+    },
+    {
+      id: 'cry',
+      url: 'https://media1.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
+      preview:
+        'https://media1.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy-downsized-small.gif',
+      title: 'Cry',
+    },
+    {
+      id: 'yes',
+      url: 'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif',
+      preview:
+        'https://media0.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif',
+      title: 'Yes',
+    },
+    {
+      id: 'no',
+      url: 'https://media2.giphy.com/media/3o7btT1TBYmX2mY3eE/giphy.gif',
+      preview:
+        'https://media2.giphy.com/media/3o7btT1TBYmX2mY3eE/giphy-downsized-small.gif',
+      title: 'No',
+    },
+    {
+      id: 'eyes',
+      url: 'https://media3.giphy.com/media/26ufdip6qU2Hm7CBu/giphy.gif',
+      preview:
+        'https://media3.giphy.com/media/26ufdip6qU2Hm7CBu/giphy-downsized-small.gif',
+      title: 'Eyes',
+    },
   ];
 
   @Get('chat/gifs')
@@ -267,7 +391,9 @@ export class ChatController {
     }
 
     const filtered = query
-      ? this.fallbackGifs.filter(g => g.title.toLowerCase().includes(query.toLowerCase()))
+      ? this.fallbackGifs.filter((g) =>
+          g.title.toLowerCase().includes(query.toLowerCase()),
+        )
       : this.fallbackGifs;
     return { results: filtered.slice(0, limitNum) };
   }
@@ -292,8 +418,12 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Post('gg/servers')
   async createServer(@Req() req: any, @Body() body: { name: string }) {
-    if (!body.name?.trim()) throw new BadRequestException('Server name required');
-    const server = await this.chatService.createServer(body.name.trim(), req.user.id);
+    if (!body.name?.trim())
+      throw new BadRequestException('Server name required');
+    const server = await this.chatService.createServer(
+      body.name.trim(),
+      req.user.id,
+    );
     this.chatGateway.sendToUser(req.user.id, 'server-created', server);
     return server;
   }
@@ -306,7 +436,11 @@ export class ChatController {
     @Param('id') id: string,
     @Body() body: { name?: string; avatar_url?: string },
   ) {
-    const server = await this.chatService.updateServer(Number(id), req.user.id, body);
+    const server = await this.chatService.updateServer(
+      Number(id),
+      req.user.id,
+      body,
+    );
     await this.notifyServerMembers(Number(id), 'server-updated', server);
     return server;
   }
@@ -324,11 +458,14 @@ export class ChatController {
     const serverId = Number(body.serverId);
     const server = await this.chatService.getServer(serverId);
     if (!server) throw new BadRequestException('Server not found');
-    if (server.owner_id !== req.user.id) throw new BadRequestException('Not authorized');
+    if (server.owner_id !== req.user.id)
+      throw new BadRequestException('Not authorized');
 
     const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedMimes.includes(file.mimetype)) {
-      throw new BadRequestException('Invalid file type. Allowed: jpeg, png, gif, webp');
+      throw new BadRequestException(
+        'Invalid file type. Allowed: jpeg, png, gif, webp',
+      );
     }
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
@@ -343,12 +480,17 @@ export class ChatController {
       .upload(filename, fileBuffer, { contentType: file.mimetype });
     fs.unlinkSync(file.path);
     if (uploadError) {
-      throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        uploadError.message,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
-    return this.chatService.updateServer(serverId, req.user.id, { avatar_url: filename }).then(async (updated) => {
-      await this.notifyServerMembers(serverId, 'server-updated', updated);
-      return updated;
-    });
+    return this.chatService
+      .updateServer(serverId, req.user.id, { avatar_url: filename })
+      .then(async (updated) => {
+        await this.notifyServerMembers(serverId, 'server-updated', updated);
+        return updated;
+      });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -364,11 +506,14 @@ export class ChatController {
     const serverId = Number(body.serverId);
     const server = await this.chatService.getServer(serverId);
     if (!server) throw new BadRequestException('Server not found');
-    if (server.owner_id !== req.user.id) throw new BadRequestException('Not authorized');
+    if (server.owner_id !== req.user.id)
+      throw new BadRequestException('Not authorized');
 
     const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedMimes.includes(file.mimetype)) {
-      throw new BadRequestException('Invalid file type. Allowed: jpeg, png, gif, webp');
+      throw new BadRequestException(
+        'Invalid file type. Allowed: jpeg, png, gif, webp',
+      );
     }
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
@@ -383,12 +528,17 @@ export class ChatController {
       .upload(filename, fileBuffer, { contentType: file.mimetype });
     fs.unlinkSync(file.path);
     if (uploadError) {
-      throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        uploadError.message,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
-    return this.chatService.updateServer(serverId, req.user.id, { banner_url: filename }).then(async (updated) => {
-      await this.notifyServerMembers(serverId, 'server-updated', updated);
-      return updated;
-    });
+    return this.chatService
+      .updateServer(serverId, req.user.id, { banner_url: filename })
+      .then(async (updated) => {
+        await this.notifyServerMembers(serverId, 'server-updated', updated);
+        return updated;
+      });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -430,7 +580,13 @@ export class ChatController {
     @Param('serverId') serverId: string,
     @Body() body: { name: string; color?: string; permissions?: string[] },
   ) {
-    return this.chatService.createServerRole(Number(serverId), req.user.id, body.name, body.color, body.permissions);
+    return this.chatService.createServerRole(
+      Number(serverId),
+      req.user.id,
+      body.name,
+      body.color,
+      body.permissions,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -441,7 +597,11 @@ export class ChatController {
     @Param('serverId') serverId: string,
     @Param('roleName') roleName: string,
   ) {
-    return this.chatService.deleteServerRole(Number(serverId), req.user.id, roleName);
+    return this.chatService.deleteServerRole(
+      Number(serverId),
+      req.user.id,
+      roleName,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -453,7 +613,12 @@ export class ChatController {
     @Param('roleName') roleName: string,
     @Body() body: { name?: string; color?: string; permissions?: string[] },
   ) {
-    return this.chatService.updateServerRole(Number(serverId), req.user.id, roleName, body);
+    return this.chatService.updateServerRole(
+      Number(serverId),
+      req.user.id,
+      roleName,
+      body,
+    );
   }
 
   // ================================================================
@@ -473,12 +638,21 @@ export class ChatController {
   async createChannel(
     @Req() req: any,
     @Param('serverId') serverId: string,
-    @Body() body: { name: string; type: 'text' | 'voice'; allowed_roles?: string[] },
+    @Body()
+    body: { name: string; type: 'text' | 'voice'; allowed_roles?: string[] },
   ) {
     const channel = await this.chatService.createChannel(
-      Number(serverId), body.name, body.type ?? 'text', req.user.id, body.allowed_roles,
+      Number(serverId),
+      body.name,
+      body.type ?? 'text',
+      req.user.id,
+      body.allowed_roles,
     );
-    await this.notifyServerMembers(Number(serverId), 'channel-created', channel);
+    await this.notifyServerMembers(
+      Number(serverId),
+      'channel-created',
+      channel,
+    );
     return channel;
   }
 
@@ -487,10 +661,18 @@ export class ChatController {
   @Delete('gg/channels/:id')
   async deleteChannel(@Req() req: any, @Param('id') id: string) {
     const channelId = Number(id);
-    const { data: ch } = await this.supabase.schema('projectgg').from('gg_channels').select('server_id').eq('id', channelId).single();
+    const { data: ch } = await this.supabase
+      .schema('projectgg')
+      .from('gg_channels')
+      .select('server_id')
+      .eq('id', channelId)
+      .single();
     await this.chatService.deleteChannel(channelId, req.user.id);
     if (ch?.server_id) {
-      await this.notifyServerMembers(ch.server_id, 'channel-deleted', { channelId, serverId: ch.server_id });
+      await this.notifyServerMembers(ch.server_id, 'channel-deleted', {
+        channelId,
+        serverId: ch.server_id,
+      });
     }
     return { success: true };
   }
@@ -511,11 +693,24 @@ export class ChatController {
     @Body() body: { roles: string[] },
   ) {
     const channelId = Number(id);
-    const { data: ch } = await this.supabase.schema('projectgg').from('gg_channels').select('server_id').eq('id', channelId).single();
+    const { data: ch } = await this.supabase
+      .schema('projectgg')
+      .from('gg_channels')
+      .select('server_id')
+      .eq('id', channelId)
+      .single();
     if (!ch) throw new BadRequestException('Channel not found');
-    await this.chatService.requirePermission(ch.server_id, req.user.id, 'manage_channels');
+    await this.chatService.requirePermission(
+      ch.server_id,
+      req.user.id,
+      'manage_channels',
+    );
     await this.chatService.setChannelRoles(channelId, body.roles);
-    await this.notifyServerMembers(ch.server_id, 'channel-roles-updated', { channelId, serverId: ch.server_id, roles: body.roles });
+    await this.notifyServerMembers(ch.server_id, 'channel-roles-updated', {
+      channelId,
+      serverId: ch.server_id,
+      roles: body.roles,
+    });
     return { success: true };
   }
 
@@ -553,7 +748,10 @@ export class ChatController {
   async leaveServer(@Req() req: any, @Param('serverId') serverId: string) {
     const numId = Number(serverId);
     await this.chatService.leaveServer(numId, req.user.id);
-    await this.notifyServerMembers(numId, 'member-left', { serverId: numId, userId: req.user.id });
+    await this.notifyServerMembers(numId, 'member-left', {
+      serverId: numId,
+      userId: req.user.id,
+    });
     return { success: true };
   }
 
@@ -567,9 +765,16 @@ export class ChatController {
     @Body() body: { roles: string[] },
   ) {
     const numId = Number(serverId);
-    await this.chatService.changeMemberRoles(numId, memberId, body.roles, req.user.id);
+    await this.chatService.changeMemberRoles(
+      numId,
+      memberId,
+      body.roles,
+      req.user.id,
+    );
     await this.notifyServerMembers(numId, 'member-roles-updated', {
-      serverId: numId, userId: memberId, roles: body.roles,
+      serverId: numId,
+      userId: memberId,
+      roles: body.roles,
     });
     return { success: true };
   }
@@ -584,8 +789,13 @@ export class ChatController {
   ) {
     const numId = Number(serverId);
     await this.chatService.kickMember(numId, memberId, req.user.id);
-    await this.notifyServerMembers(numId, 'member-kicked', { serverId: numId, userId: memberId });
-    this.chatGateway.sendToUser(memberId, 'kicked-from-server', { serverId: numId });
+    await this.notifyServerMembers(numId, 'member-kicked', {
+      serverId: numId,
+      userId: memberId,
+    });
+    this.chatGateway.sendToUser(memberId, 'kicked-from-server', {
+      serverId: numId,
+    });
     return { success: true };
   }
 
@@ -599,8 +809,13 @@ export class ChatController {
   ) {
     const numId = Number(serverId);
     await this.chatService.banMember(numId, memberId, req.user.id);
-    await this.notifyServerMembers(numId, 'member-banned', { serverId: numId, userId: memberId });
-    this.chatGateway.sendToUser(memberId, 'banned-from-server', { serverId: numId });
+    await this.notifyServerMembers(numId, 'member-banned', {
+      serverId: numId,
+      userId: memberId,
+    });
+    this.chatGateway.sendToUser(memberId, 'banned-from-server', {
+      serverId: numId,
+    });
     return { success: true };
   }
 
@@ -612,22 +827,15 @@ export class ChatController {
     @Param('serverId') serverId: string,
     @Param('memberId') memberId: string,
   ) {
-    await this.chatService.unbanMember(
-      Number(serverId), memberId, req.user.id,
-    );
+    await this.chatService.unbanMember(Number(serverId), memberId, req.user.id);
     return { success: true };
   }
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('gg/servers/:serverId/bans')
-  async getBannedMembers(
-    @Req() req: any,
-    @Param('serverId') serverId: string,
-  ) {
-    return this.chatService.getBannedMembers(
-      Number(serverId), req.user.id,
-    );
+  async getBannedMembers(@Req() req: any, @Param('serverId') serverId: string) {
+    return this.chatService.getBannedMembers(Number(serverId), req.user.id);
   }
 
   // ================================================================
@@ -681,7 +889,10 @@ export class ChatController {
   // ================================================================
 
   @Get('gg/history')
-  async getGgHistory(@Query('channel') channel?: string, @Query('limit') limit?: string) {
+  async getGgHistory(
+    @Query('channel') channel?: string,
+    @Query('limit') limit?: string,
+  ) {
     return this.chatService.getHistory(
       channel || undefined,
       limit ? Math.min(Number(limit), 100) : 50,
@@ -693,7 +904,13 @@ export class ChatController {
   @Post('gg/send')
   async sendGgMessage(
     @Req() req: any,
-    @Body() body: { content: string; channel_id: string; reply_to?: number; attachment_url?: string },
+    @Body()
+    body: {
+      content: string;
+      channel_id: string;
+      reply_to?: number;
+      attachment_url?: string;
+    },
   ) {
     const userIdStr = req.user.id;
     const user = await this.chatService.findUserById(userIdStr);
@@ -701,7 +918,13 @@ export class ChatController {
     const avatarUrl = user?.avatar ?? null;
 
     const msg = await this.chatService.saveMessage(
-      req.user.id, username, body.content, body.channel_id, avatarUrl, body.reply_to, body.attachment_url,
+      req.user.id,
+      username,
+      body.content,
+      body.channel_id,
+      avatarUrl,
+      body.reply_to,
+      body.attachment_url,
     );
 
     this.chatGateway.broadcastMessage(msg);
@@ -785,12 +1008,13 @@ export class ChatController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post('gg/friends/request')
-  async sendFriendRequest(
-    @Req() req: any,
-    @Body() body: { username: string },
-  ) {
-    if (!body.username?.trim()) throw new BadRequestException('Username required');
-    const result = await this.chatService.sendFriendRequest(req.user.id, body.username.trim());
+  async sendFriendRequest(@Req() req: any, @Body() body: { username: string }) {
+    if (!body.username?.trim())
+      throw new BadRequestException('Username required');
+    const result = await this.chatService.sendFriendRequest(
+      req.user.id,
+      body.username.trim(),
+    );
     const targetUser = await this.chatService.findUserById(result.friend_id);
     const senderUser = await this.chatService.findUserById(req.user.id);
     if (targetUser) {
@@ -800,9 +1024,15 @@ export class ChatController {
         username: senderUser?.username ?? 'Unknown',
       });
       await this.chatService.createNotification(
-        targetUser.id, 'friend_request', 'New Friend Request',
+        targetUser.id,
+        'friend_request',
+        'New Friend Request',
         `${senderUser?.username ?? 'Someone'} sent you a friend request`,
-        { requestId: result.id, fromUserId: req.user.id, fromUsername: senderUser?.username },
+        {
+          requestId: result.id,
+          fromUserId: req.user.id,
+          fromUsername: senderUser?.username,
+        },
       );
       this.chatGateway.sendToUser(targetUser.id, 'notification', {});
     }
@@ -833,7 +1063,9 @@ export class ChatController {
       });
       const accepter = await this.chatService.findUserById(req.user.id);
       await this.chatService.createNotification(
-        reqData.user_id, 'friend_accepted', 'Friend Request Accepted',
+        reqData.user_id,
+        'friend_accepted',
+        'Friend Request Accepted',
         `${accepter?.username ?? 'Someone'} accepted your friend request`,
         { friendId: req.user.id, friendUsername: accepter?.username },
       );
@@ -851,11 +1083,20 @@ export class ChatController {
   @Delete('gg/friends/:id')
   async removeFriend(@Req() req: any, @Param('id') id: string) {
     const { data: friendship } = await this.supabase
-      .schema('projectgg').from('friends').select('user_id, friend_id').eq('id', Number(id)).single();
+      .schema('projectgg')
+      .from('friends')
+      .select('user_id, friend_id')
+      .eq('id', Number(id))
+      .single();
     await this.chatService.removeFriend(req.user.id, Number(id));
     if (friendship) {
-      const otherId = friendship.user_id === req.user.id ? friendship.friend_id : friendship.user_id;
-      this.chatGateway.sendToUser(otherId, 'friend-removed', { friendId: req.user.id });
+      const otherId =
+        friendship.user_id === req.user.id
+          ? friendship.friend_id
+          : friendship.user_id;
+      this.chatGateway.sendToUser(otherId, 'friend-removed', {
+        friendId: req.user.id,
+      });
     }
     return { success: true };
   }
@@ -865,10 +1106,18 @@ export class ChatController {
   @Post('gg/friends/reject/:id')
   async rejectFriendRequest(@Req() req: any, @Param('id') id: string) {
     const { data: friendship } = await this.supabase
-      .schema('projectgg').from('friends').select('user_id').eq('id', Number(id)).single();
+      .schema('projectgg')
+      .from('friends')
+      .select('user_id')
+      .eq('id', Number(id))
+      .single();
     await this.chatService.rejectFriendRequest(req.user.id, Number(id));
     if (friendship?.user_id) {
-      this.chatGateway.sendToUser(friendship.user_id, 'friend-request-rejected', { requestId: Number(id) });
+      this.chatGateway.sendToUser(
+        friendship.user_id,
+        'friend-request-rejected',
+        { requestId: Number(id) },
+      );
     }
     return { success: true };
   }
@@ -878,10 +1127,18 @@ export class ChatController {
   @Post('gg/friends/cancel/:id')
   async cancelFriendRequest(@Req() req: any, @Param('id') id: string) {
     const { data: friendship } = await this.supabase
-      .schema('projectgg').from('friends').select('friend_id').eq('id', Number(id)).single();
+      .schema('projectgg')
+      .from('friends')
+      .select('friend_id')
+      .eq('id', Number(id))
+      .single();
     await this.chatService.cancelFriendRequest(req.user.id, Number(id));
     if (friendship?.friend_id) {
-      this.chatGateway.sendToUser(friendship.friend_id, 'friend-request-cancelled', { requestId: Number(id) });
+      this.chatGateway.sendToUser(
+        friendship.friend_id,
+        'friend-request-cancelled',
+        { requestId: Number(id) },
+      );
     }
     return { success: true };
   }
@@ -904,10 +1161,13 @@ export class ChatController {
     @Req() req: any,
     @Body() body: { otherUserId: string },
   ) {
-    const conv = await this.chatService.createDmConversation(req.user.id, body.otherUserId);
-    if (conv && (conv as any).id) {
+    const conv = await this.chatService.createDmConversation(
+      req.user.id,
+      body.otherUserId,
+    );
+    if (conv && conv.id) {
       this.chatGateway.sendToUser(body.otherUserId, 'dm-conversation-created', {
-        conversationId: (conv as any).id,
+        conversationId: conv.id,
         otherUserId: req.user.id,
       });
     }
@@ -917,10 +1177,7 @@ export class ChatController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('gg/dm/history/:id')
-  async getDmHistory(
-    @Param('id') id: string,
-    @Query('limit') limit?: string,
-  ) {
+  async getDmHistory(@Param('id') id: string, @Query('limit') limit?: string) {
     return this.chatService.getDmHistory(
       Number(id),
       limit ? Math.min(Number(limit), 100) : 50,
@@ -932,10 +1189,20 @@ export class ChatController {
   @Post('gg/dm/send')
   async sendDmMessage(
     @Req() req: any,
-    @Body() body: { content: string; conversation_id: number; reply_to?: number; attachment_url?: string },
+    @Body()
+    body: {
+      content: string;
+      conversation_id: number;
+      reply_to?: number;
+      attachment_url?: string;
+    },
   ) {
     const msg = await this.chatService.sendDmMessage(
-      req.user.id, body.content, body.conversation_id, body.reply_to, body.attachment_url,
+      req.user.id,
+      body.content,
+      body.conversation_id,
+      body.reply_to,
+      body.attachment_url,
     );
 
     const { data: members } = await this.supabase

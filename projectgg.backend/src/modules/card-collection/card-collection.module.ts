@@ -18,7 +18,11 @@ import { ChatModule } from '../chat/chat.module';
     RealtimeModule,
   ],
   controllers: [CardCollectionController],
-  providers: [CardCollectionService, CardCollectionRepository, supabaseProvider],
+  providers: [
+    CardCollectionService,
+    CardCollectionRepository,
+    supabaseProvider,
+  ],
   exports: [CardCollectionService],
 })
 export class CardCollectionModule {}

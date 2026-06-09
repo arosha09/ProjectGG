@@ -182,7 +182,7 @@ export class VoiceTrainingComponent {
         }, 1500);
       } else {
         this.trainingComplete = true;
-        this.statusMessage = 'Voice training complete! A.P.E.X. now recognizes your voice.';
+        this.statusMessage = 'Voice training complete! APEX now recognizes your voice.';
         this.cdr.markForCheck();
       }
     } catch (error) {

@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ChatService } from '../../services/chat.service';
 import { PaginatorComponent } from '../paginator/paginator.component';
 import { CyberDropdownComponent, DropdownItem } from '../cyber-dropdown/cyber-dropdown.component';
+import { WebpSrcDirective } from '../webp-src/webp-src.directive';
 
 interface TradeFairnessResult {
   isFair: boolean;
@@ -25,7 +26,7 @@ interface TradeFriend {
   selector: 'app-card-collection',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, PaginatorComponent, CyberDropdownComponent],
+  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, PaginatorComponent, CyberDropdownComponent, WebpSrcDirective],
   template: `
     <section class="collection-shell">
       <div class="collection-header">
@@ -362,7 +363,7 @@ interface TradeFriend {
               </div>
               <img loading="lazy" decoding="async" *ngIf="card.cover_url"
                 class="cover-image"
-                [src]="card.cover_url"
+                [appWebpSrc]="card.cover_url"
                 [alt]="card.game_name"
                 (error)="onImgError($event)"
               />

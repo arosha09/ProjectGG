@@ -14,11 +14,23 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { AuthRepository } from 'src/auth/auth.repository';
 import { UsersService } from 'src/services/users.service';
-import { UpdateProfileDto, ProfileDto, SystemAvatarDto, SystemAvatarCategoryDto, UserAvatarDto } from '../dto/avatar.dto';
+import {
+  UpdateProfileDto,
+  ProfileDto,
+  SystemAvatarDto,
+  SystemAvatarCategoryDto,
+  UserAvatarDto,
+} from '../dto/avatar.dto';
 import { UserDto } from '../dto/user.dto';
 
 @ApiTags('Users')
@@ -30,8 +42,18 @@ export class UsersController {
   ) {}
 
   @Get('get-user-details')
-  @ApiQuery({ name: 'user_id', type: String, required: false, example: '1fc9d73a-2635-42fa-a72f-dceee35a8bad' })
-  @ApiQuery({ name: 'username', type: String, required: false, example: 'john_doe' })
+  @ApiQuery({
+    name: 'user_id',
+    type: String,
+    required: false,
+    example: '1fc9d73a-2635-42fa-a72f-dceee35a8bad',
+  })
+  @ApiQuery({
+    name: 'username',
+    type: String,
+    required: false,
+    example: 'john_doe',
+  })
   async getUserDetails(
     @Query('user_id') userId?: string,
     @Query('username') username?: string,
@@ -129,18 +151,33 @@ export class UsersController {
     }
 
     const allowedTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
-      'image/svg+xml', 'image/bmp', 'image/tiff', 'image/avif',
-      'image/x-icon', 'image/vnd.microsoft.icon',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/svg+xml',
+      'image/bmp',
+      'image/tiff',
+      'image/avif',
+      'image/x-icon',
+      'image/vnd.microsoft.icon',
     ];
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Invalid image format. Allowed: JPEG, PNG, WebP, GIF, SVG, BMP, TIFF, AVIF, ICO');
+      throw new BadRequestException(
+        'Invalid image format. Allowed: JPEG, PNG, WebP, GIF, SVG, BMP, TIFF, AVIF, ICO',
+      );
     }
 
     const user = await this.usersService.getUserDetails({ userId });
     const username = user?.username || userId;
 
-    const path = await this.usersService.uploadAvatar(userId, file.buffer, file.mimetype, username);
+    const path = await this.usersService.uploadAvatar(
+      userId,
+      file.buffer,
+      file.mimetype,
+      username,
+    );
 
     await this.usersService.updateProfile(userId, { avatar: path });
 
@@ -207,7 +244,11 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('settings')
-  async getSettings(@Req() req: any): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] }> {
+  async getSettings(@Req() req: any): Promise<{
+    sound_profile: string;
+    allow_incoming_nudges: boolean;
+    disabled_notification_kinds: string[];
+  }> {
     const userId = req.user.id;
     const settings = await this.usersService.getUserSettings(userId);
     return {
@@ -222,8 +263,17 @@ export class UsersController {
   @Put('settings')
   async updateSettings(
     @Req() req: any,
-    @Body() body: { sound_profile?: string; allow_incoming_nudges?: boolean; disabled_notification_kinds?: string[] },
-  ): Promise<{ sound_profile: string; allow_incoming_nudges: boolean; disabled_notification_kinds: string[] }> {
+    @Body()
+    body: {
+      sound_profile?: string;
+      allow_incoming_nudges?: boolean;
+      disabled_notification_kinds?: string[];
+    },
+  ): Promise<{
+    sound_profile: string;
+    allow_incoming_nudges: boolean;
+    disabled_notification_kinds: string[];
+  }> {
     const userId = req.user.id;
     const updated = await this.usersService.updateUserSettings(userId, body);
     return {

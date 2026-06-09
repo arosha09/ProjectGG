@@ -4,5 +4,5 @@ export const environment = {
   supabase: {
     url: 'https://lgesluubuaikmaigwwxq.supabase.co',
     bucketName: 'game_image',
-  }
+  },
 };

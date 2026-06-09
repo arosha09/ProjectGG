@@ -30,7 +30,13 @@ export interface ChannelPermission {
 }
 
 export interface UserPermissions {
-  roles: { id: string; name: string; color: number; hoist: boolean; position: number }[];
+  roles: {
+    id: string;
+    name: string;
+    color: number;
+    hoist: boolean;
+    position: number;
+  }[];
   permissions: ChannelPermission[];
   joinedAt: string | null;
   nickname: string | null;
@@ -79,7 +85,10 @@ export class DiscordBotService implements OnModuleInit {
     }
 
     return guild.channels.cache
-      .filter((ch: any) => ch.type !== 4 && (!allowedChannelIds || allowedChannelIds.has(ch.id)))
+      .filter(
+        (ch: any) =>
+          ch.type !== 4 && (!allowedChannelIds || allowedChannelIds.has(ch.id)),
+      )
       .map((ch: any) => ({
         id: ch.id,
         name: ch.name,
@@ -92,7 +101,9 @@ export class DiscordBotService implements OnModuleInit {
       .sort((a: GuildChannel, b: GuildChannel) => a.position - b.position);
   }
 
-  async getUserPermissions(discordUserId: string): Promise<UserPermissions | null> {
+  async getUserPermissions(
+    discordUserId: string,
+  ): Promise<UserPermissions | null> {
     if (!this.client) return null;
     const guild = this.client.guilds.cache.get(this.guildId);
     if (!guild) return null;
@@ -141,12 +152,21 @@ export class DiscordBotService implements OnModuleInit {
   private membersCache: { timestamp: number; data: any[] } | null = null;
   private readonly MEMBERS_CACHE_TTL = 300_000; // 5 min
 
-  async getGuildMembers(): Promise<{
-    id: string; username: string; globalName: string | null;
-    avatar: string | null; roles: { id: string; name: string; color: number }[];
-    status: string; isBot: boolean;
-  }[]> {
-    if (this.membersCache && Date.now() - this.membersCache.timestamp < this.MEMBERS_CACHE_TTL) {
+  async getGuildMembers(): Promise<
+    {
+      id: string;
+      username: string;
+      globalName: string | null;
+      avatar: string | null;
+      roles: { id: string; name: string; color: number }[];
+      status: string;
+      isBot: boolean;
+    }[]
+  > {
+    if (
+      this.membersCache &&
+      Date.now() - this.membersCache.timestamp < this.MEMBERS_CACHE_TTL
+    ) {
       return this.membersCache.data;
     }
 
@@ -173,7 +193,7 @@ export class DiscordBotService implements OnModuleInit {
           roles: m.roles.cache
             .filter((r: any) => r.id !== guild.id)
             .map((r: any) => ({ id: r.id, name: r.name, color: r.color })),
-          status: presenceMap.get(m.id) ?? (m.presence?.status ?? 'dnd'),
+          status: presenceMap.get(m.id) ?? m.presence?.status ?? 'dnd',
           isBot: m.user?.bot ?? false,
         }));
 
@@ -191,7 +211,9 @@ export class DiscordBotService implements OnModuleInit {
       this.logger.warn('DISCORD_BOT_TOKEN not set — bot not started');
       return;
     }
-    void this.startBot().catch((e) => this.logger.error('Discord bot start failed:', e));
+    void this.startBot().catch((e) =>
+      this.logger.error('Discord bot start failed:', e),
+    );
   }
 
   private async startBot(): Promise<void> {
@@ -210,7 +232,9 @@ export class DiscordBotService implements OnModuleInit {
       const ready = new Promise<void>((resolve) => {
         this.client.once('ready', () => {
           this.logger.log(`Discord bot logged in as ${this.client.user?.tag}`);
-          const guilds = this.client.guilds.cache.map((g: any) => `${g.name} (${g.id})`);
+          const guilds = this.client.guilds.cache.map(
+            (g: any) => `${g.name} (${g.id})`,
+          );
           this.logger.log(`Watching guilds: ${guilds.join(', ')}`);
           this.syncVoiceStates();
           resolve();
@@ -232,7 +256,8 @@ export class DiscordBotService implements OnModuleInit {
         const attachmentUrl = firstAttachment?.url ?? null;
 
         const firstSticker = message.stickers?.first();
-        const stickerUrl = firstSticker?.imageURL?.() ?? firstSticker?.url ?? null;
+        const stickerUrl =
+          firstSticker?.imageURL?.() ?? firstSticker?.url ?? null;
 
         await this.storeMessage({
           username: message.author.globalName ?? message.author.username,
@@ -250,33 +275,48 @@ export class DiscordBotService implements OnModuleInit {
       });
 
       // --- Voice state changes ---
-      this.client.on('voiceStateUpdate', async (oldState: any, newState: any) => {
-        this.syncVoiceStates();
+      this.client.on(
+        'voiceStateUpdate',
+        async (oldState: any, newState: any) => {
+          this.syncVoiceStates();
 
-        const user = newState.member?.user ?? oldState.member?.user;
-        if (!user || user.bot) return;
-        if (this.guildId && newState.guild?.id !== this.guildId && oldState.guild?.id !== this.guildId) return;
+          const user = newState.member?.user ?? oldState.member?.user;
+          if (!user || user.bot) return;
+          if (
+            this.guildId &&
+            newState.guild?.id !== this.guildId &&
+            oldState.guild?.id !== this.guildId
+          )
+            return;
 
-        const guildName = newState.guild?.name ?? oldState.guild?.name ?? 'Unknown';
+          const guildName =
+            newState.guild?.name ?? oldState.guild?.name ?? 'Unknown';
 
-        if (!oldState.channelId && newState.channelId) {
-          await this.storeSystemMessage(
-            `**${user.globalName ?? user.username}** joined **${newState.channel.name}**`,
-            newState.channel.name, guildName,
-          );
-        } else if (oldState.channelId && !newState.channelId) {
-          await this.storeSystemMessage(
-            `**${user.globalName ?? user.username}** left **${oldState.channel.name}**`,
-            oldState.channel.name, guildName,
-          );
-        } else if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
-          await this.storeSystemMessage(
-            `**${user.globalName ?? user.username}** moved **${oldState.channel.name}** → **${newState.channel.name}**`,
-            newState.channel.name, guildName,
-          );
-        }
-      });
-
+          if (!oldState.channelId && newState.channelId) {
+            await this.storeSystemMessage(
+              `**${user.globalName ?? user.username}** joined **${newState.channel.name}**`,
+              newState.channel.name,
+              guildName,
+            );
+          } else if (oldState.channelId && !newState.channelId) {
+            await this.storeSystemMessage(
+              `**${user.globalName ?? user.username}** left **${oldState.channel.name}**`,
+              oldState.channel.name,
+              guildName,
+            );
+          } else if (
+            oldState.channelId &&
+            newState.channelId &&
+            oldState.channelId !== newState.channelId
+          ) {
+            await this.storeSystemMessage(
+              `**${user.globalName ?? user.username}** moved **${oldState.channel.name}** → **${newState.channel.name}**`,
+              newState.channel.name,
+              guildName,
+            );
+          }
+        },
+      );
     } catch (e) {
       this.logger.error('Failed to start Discord bot:', e);
     }
@@ -293,7 +333,10 @@ export class DiscordBotService implements OnModuleInit {
       if (channel) {
         members.push({
           userId: state.id,
-          username: state.member?.user?.globalName ?? state.member?.user?.username ?? 'Unknown',
+          username:
+            state.member?.user?.globalName ??
+            state.member?.user?.username ??
+            'Unknown',
           channelId: state.channelId,
           channelName: channel.name,
         });
@@ -371,7 +414,11 @@ export class DiscordBotService implements OnModuleInit {
     }
   }
 
-  private async storeSystemMessage(content: string, channelName: string, guildName: string): Promise<void> {
+  private async storeSystemMessage(
+    content: string,
+    channelName: string,
+    guildName: string,
+  ): Promise<void> {
     await this.storeMessage({
       username: 'System',
       content,
@@ -384,8 +431,13 @@ export class DiscordBotService implements OnModuleInit {
 
   private channelTypeLabel(type: number): string {
     const labels: Record<number, string> = {
-      0: 'text', 2: 'voice', 4: 'category',
-      5: 'announcement', 13: 'stage', 15: 'forum', 16: 'media',
+      0: 'text',
+      2: 'voice',
+      4: 'category',
+      5: 'announcement',
+      13: 'stage',
+      15: 'forum',
+      16: 'media',
     };
     return labels[type] ?? 'text';
   }
@@ -398,9 +450,12 @@ export class DiscordBotService implements OnModuleInit {
     const channel = guild.channels.cache.get(channelId);
     if (!channel || (channel.type !== 0 && channel.type !== 5)) return;
 
-    const botMember = guild.members.me ?? await guild.members.fetch(this.client.user.id);
+    const botMember =
+      guild.members.me ?? (await guild.members.fetch(this.client.user.id));
     if (!botMember?.permissionsIn(channel.id).has('ViewChannel')) {
-      this.logger.warn(`Skipping backfill — no ViewChannel permission for ${channel.name} (${channelId})`);
+      this.logger.warn(
+        `Skipping backfill — no ViewChannel permission for ${channel.name} (${channelId})`,
+      );
       return;
     }
 
@@ -426,7 +481,9 @@ export class DiscordBotService implements OnModuleInit {
           .select('discord_message_id')
           .in('discord_message_id', msgIds);
 
-        const existingIds = new Set((existing ?? []).map((r: any) => r.discord_message_id));
+        const existingIds = new Set(
+          (existing ?? []).map((r: any) => r.discord_message_id),
+        );
 
         // Store in chronological order (messages.fetch returns newest first)
         const reversed = Array.from(messages.values()).reverse();
@@ -457,7 +514,9 @@ export class DiscordBotService implements OnModuleInit {
       }
 
       if (fetched > 0) {
-        this.logger.log(`Backfilled ${fetched} messages for channel ${channel.name} (${channelId})`);
+        this.logger.log(
+          `Backfilled ${fetched} messages for channel ${channel.name} (${channelId})`,
+        );
       }
     } catch (e) {
       this.logger.warn(`Failed to backfill channel ${channelId}:`, e);
@@ -474,7 +533,9 @@ export class DiscordBotService implements OnModuleInit {
         const guild = this.client.guilds.cache.get(this.guildId);
         if (!guild) return;
         const channel = guild.channels.cache.find(
-          (c: any) => (c.type === 0 || c.type === 5) && c.permissionsFor?.(this.client.user)?.has?.('SendMessages'),
+          (c: any) =>
+            (c.type === 0 || c.type === 5) &&
+            c.permissionsFor?.(this.client.user)?.has?.('SendMessages'),
         );
         if (channel) await channel.send(content);
       }

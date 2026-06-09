@@ -10,7 +10,13 @@ import { ChatModule } from '../chat/chat.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
-  imports: [AuthModule, forwardRef(() => XpModule), forwardRef(() => CardCollectionModule), forwardRef(() => ChatModule), RealtimeModule],
+  imports: [
+    AuthModule,
+    forwardRef(() => XpModule),
+    forwardRef(() => CardCollectionModule),
+    forwardRef(() => ChatModule),
+    RealtimeModule,
+  ],
   controllers: [TasksController],
   providers: [TasksService, TasksRepository, supabaseProvider],
   exports: [TasksService],

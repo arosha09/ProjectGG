@@ -71,8 +71,7 @@ export class PlatformConnectionsService {
       configService.get<string>('APPLE_MUSIC_PRIVATE_KEY') ?? '';
     this.frontendUrl =
       configService.get<string>('FRONTEND_URL') ?? 'http://localhost:4200';
-    this.youtubeApiKey =
-      configService.get<string>('YOUTUBE_API_KEY') ?? '';
+    this.youtubeApiKey = configService.get<string>('YOUTUBE_API_KEY') ?? '';
   }
 
   private cleanupExpiredStates(): void {
@@ -83,9 +82,7 @@ export class PlatformConnectionsService {
   }
 
   private pc() {
-    return this.supabase
-      .schema('projectgg')
-      .from('user_platform_connections');
+    return this.supabase.schema('projectgg').from('user_platform_connections');
   }
 
   // ============================================================
@@ -540,7 +537,8 @@ export class PlatformConnectionsService {
     }
     this.stateStore.delete(state);
     const userId = stateData.userId;
-    const redirectUri = stateData.redirectUri || `${this.frontendUrl}/auth/spotify/callback`;
+    const redirectUri =
+      stateData.redirectUri || `${this.frontendUrl}/auth/spotify/callback`;
 
     if (!this.spotifyClientId || !this.spotifyClientSecret)
       throw new BadRequestException('Spotify client not configured');
@@ -1098,10 +1096,21 @@ export class PlatformConnectionsService {
       }
 
       const data: any = await res.json();
-      const blocklist = ['trailer', 'gameplay', 'tutorial', 'review', 'reaction', 'podcast', 'interview', 'lofi', 'remix', 'instrumental'];
+      const blocklist = [
+        'trailer',
+        'gameplay',
+        'tutorial',
+        'review',
+        'reaction',
+        'podcast',
+        'interview',
+        'lofi',
+        'remix',
+        'instrumental',
+      ];
       const isMusic = (title: string) => {
         const lower = title.toLowerCase();
-        return !blocklist.some(w => lower.includes(w));
+        return !blocklist.some((w) => lower.includes(w));
       };
 
       return (data?.items ?? [])
@@ -1110,10 +1119,11 @@ export class PlatformConnectionsService {
           videoId: item.id?.videoId ?? '',
           title: item.snippet?.title ?? 'Unknown',
           artist: item.snippet?.channelTitle ?? 'Unknown',
-          thumbnail: item.snippet?.thumbnails?.high?.url
-            ?? item.snippet?.thumbnails?.medium?.url
-            ?? item.snippet?.thumbnails?.default?.url
-            ?? null,
+          thumbnail:
+            item.snippet?.thumbnails?.high?.url ??
+            item.snippet?.thumbnails?.medium?.url ??
+            item.snippet?.thumbnails?.default?.url ??
+            null,
           channelId: item.snippet?.channelId ?? '',
           publishedAt: item.snippet?.publishedAt ?? '',
         }));
@@ -1204,10 +1214,11 @@ export class PlatformConnectionsService {
         id: item.id,
         title: item.snippet?.title ?? 'Untitled',
         description: item.snippet?.description ?? '',
-        thumbnail: item.snippet?.thumbnails?.high?.url
-          ?? item.snippet?.thumbnails?.medium?.url
-          ?? item.snippet?.thumbnails?.default?.url
-          ?? null,
+        thumbnail:
+          item.snippet?.thumbnails?.high?.url ??
+          item.snippet?.thumbnails?.medium?.url ??
+          item.snippet?.thumbnails?.default?.url ??
+          null,
         trackCount: item.contentDetails?.itemCount ?? 0,
         channelTitle: item.snippet?.channelTitle ?? '',
       }));
@@ -1251,13 +1262,15 @@ export class PlatformConnectionsService {
           if (!snippet) continue;
 
           tracks.push({
-            videoId: contentDetails?.videoId ?? snippet.resourceId?.videoId ?? '',
+            videoId:
+              contentDetails?.videoId ?? snippet.resourceId?.videoId ?? '',
             title: snippet.title ?? 'Unknown',
             artist: snippet.channelTitle ?? 'Unknown',
-            thumbnail: snippet.thumbnails?.high?.url
-              ?? snippet.thumbnails?.medium?.url
-              ?? snippet.thumbnails?.default?.url
-              ?? null,
+            thumbnail:
+              snippet.thumbnails?.high?.url ??
+              snippet.thumbnails?.medium?.url ??
+              snippet.thumbnails?.default?.url ??
+              null,
           });
         }
 

@@ -1,5 +1,12 @@
 import {
-  Controller, Post, Get, Body, Req, Query, UseGuards, BadRequestException,
+  Controller,
+  Post,
+  Get,
+  Body,
+  Req,
+  Query,
+  UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
@@ -27,7 +34,12 @@ export class VoiceController {
     const lkSecret = this.config.get<string>('LK_API_SECRET');
     const lkUrl = this.config.get<string>('LK_WS_URL');
 
-    console.log('[LiveKit] ConfigService Key present:', !!lkKey, '| process.env Key present:', !!process.env.LK_API_KEY);
+    console.log(
+      '[LiveKit] ConfigService Key present:',
+      !!lkKey,
+      '| process.env Key present:',
+      !!process.env.LK_API_KEY,
+    );
 
     if (!lkKey || !lkSecret || !lkUrl) {
       throw new BadRequestException('LiveKit is not configured on this server');
@@ -61,7 +73,13 @@ export class VoiceController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('state')
-  getVoiceState(): { channelId: string; guildId: string; userId: string; muted: boolean; deafened: boolean }[] {
+  getVoiceState(): {
+    channelId: string;
+    guildId: string;
+    userId: string;
+    muted: boolean;
+    deafened: boolean;
+  }[] {
     return this.voiceGateway.getVoiceState();
   }
 
@@ -83,7 +101,10 @@ export class VoiceController {
       throw new BadRequestException('Cannot nudge yourself');
     }
 
-    const result = await this.voiceGateway.sendNudgeToUser(senderId, recipientUserId);
+    const result = await this.voiceGateway.sendNudgeToUser(
+      senderId,
+      recipientUserId,
+    );
     return { success: result.success, message: result.reason };
   }
 }

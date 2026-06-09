@@ -9,7 +9,12 @@ import { SUPABASE_CLIENT } from '../../config/supabase.provider';
 import { ChatService } from '../chat/chat.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { ChatMessage, AiResponse } from './ai.types';
-import { getSystemPrompt } from './ai-prompts';
+import { getSystemPrompt, PersonalityPreset } from './ai-prompts';
+
+export interface AiPersonality {
+  preset: PersonalityPreset;
+  custom_prompt: string;
+}
 import {
   findTriviaAnswer,
   getRandomJoke,
@@ -36,6 +41,10 @@ export class AiService implements OnModuleInit {
   private userRequests: Map<string, number[]> = new Map();
   private channelRequests: Map<string, number[]> = new Map();
 
+  private cachedPersonality: AiPersonality | null = null;
+  private personalityLoadedAt = 0;
+  private static readonly PERSONALITY_CACHE_TTL_MS = 30_000;
+
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
     @Inject(forwardRef(() => ChatService))
@@ -45,6 +54,65 @@ export class AiService implements OnModuleInit {
     private readonly voiceTrainingService: VoiceTrainingService,
     private readonly configService: ConfigService,
   ) {}
+
+  async getPersonality(): Promise<AiPersonality> {
+    const now = Date.now();
+    if (this.cachedPersonality && now - this.personalityLoadedAt < AiService.PERSONALITY_CACHE_TTL_MS) {
+      return this.cachedPersonality;
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .schema('apex')
+        .from('server_settings')
+        .select('value')
+        .eq('key', 'apex_personality')
+        .single();
+
+      if (error || !data) {
+        this.cachedPersonality = { preset: 'gaming-buddy', custom_prompt: '' };
+      } else {
+        const saved = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        this.cachedPersonality = {
+          preset: (saved?.preset as PersonalityPreset) || 'gaming-buddy',
+          custom_prompt: saved?.custom_prompt || '',
+        };
+      }
+    } catch {
+      this.cachedPersonality = { preset: 'gaming-buddy', custom_prompt: '' };
+    }
+
+    this.personalityLoadedAt = now;
+    return this.cachedPersonality;
+  }
+
+  async savePersonality(personality: Partial<AiPersonality>): Promise<AiPersonality> {
+    const current = await this.getPersonality();
+    const validPresets = ['gaming-buddy', 'tactical-commander', 'cold-machine', 'cheerful-companion', 'sarcastic-ai', 'custom'];
+    const validPreset = validPresets.includes(personality.preset as string) ? personality.preset! : current.preset;
+    const merged: AiPersonality = {
+      preset: validPreset,
+      custom_prompt: personality.custom_prompt ?? current.custom_prompt,
+    };
+
+    const { error } = await this.supabase
+      .schema('apex')
+      .from('server_settings')
+      .upsert(
+        { key: 'apex_personality', value: JSON.stringify(merged) },
+        { onConflict: 'key' },
+      );
+
+    if (error) {
+      this.logger.error('Failed to save AI personality', error.message);
+      throw new Error('Failed to save personality: ' + error.message);
+    }
+
+    this.cachedPersonality = merged;
+    this.personalityLoadedAt = Date.now();
+    this.logger.log(`APEX personality set to: ${merged.preset}`);
+    return merged;
+  }
 
   onModuleInit() {
     this.cleanupRateLimitMaps();
@@ -162,7 +230,8 @@ export class AiService implements OnModuleInit {
       throw new Error('AI_GROQ_API_KEY not configured');
     }
 
-    let systemPrompt = getSystemPrompt(isVerified, customVocabulary);
+    const personality = await this.getPersonality();
+    let systemPrompt = getSystemPrompt(personality.preset, personality.custom_prompt, isVerified, customVocabulary);
 
     if (pageContext) {
       systemPrompt += `\n\nUSER'S CURRENT PAGE:
@@ -172,16 +241,16 @@ ${pageContext.description ? `Description: ${pageContext.description}` : ''}
 Use this context to provide more relevant responses about what the user is currently viewing.`;
     }
 
-    let messages: any[] = [
-      { role: 'system', content: systemPrompt },
-    ];
+    const messages: any[] = [{ role: 'system', content: systemPrompt }];
 
     if (conversationHistory && conversationHistory.length > 0) {
       const trimmed = conversationHistory.slice(-20);
-      messages.push(...trimmed.map(m => ({ role: m.role, content: m.content })));
+      messages.push(
+        ...trimmed.map((m) => ({ role: m.role, content: m.content })),
+      );
     } else if (context.length > 0) {
       const conversationMsgs = context.map((m) => ({
-        role: m.username === 'A.P.E.X.' ? 'assistant' : 'user',
+        role: m.username === 'APEX' ? 'assistant' : 'user',
         name: m.username,
         content: `${m.username}: ${m.content}`,
       }));
@@ -234,7 +303,8 @@ Use this context to provide more relevant responses about what the user is curre
       throw new Error('AI_GOOGLE_API_KEY not configured');
     }
 
-    let systemPrompt = getSystemPrompt(isVerified, customVocabulary);
+    const personality = await this.getPersonality();
+    let systemPrompt = getSystemPrompt(personality.preset, personality.custom_prompt, isVerified, customVocabulary);
 
     if (pageContext) {
       systemPrompt += `\n\nUSER'S CURRENT PAGE:
@@ -244,9 +314,7 @@ ${pageContext.description ? `Description: ${pageContext.description}` : ''}
 Use this context to provide more relevant responses about what the user is currently viewing.`;
     }
 
-    const contents: any[] = [
-      { role: 'user', parts: [{ text: systemPrompt }] },
-    ];
+    const contents: any[] = [{ role: 'user', parts: [{ text: systemPrompt }] }];
 
     if (conversationHistory && conversationHistory.length > 0) {
       const trimmed = conversationHistory.slice(-20);
@@ -259,7 +327,7 @@ Use this context to provide more relevant responses about what the user is curre
     } else if (context.length > 0) {
       for (const m of context) {
         contents.push({
-          role: m.username === 'A.P.E.X.' ? 'model' : 'user',
+          role: m.username === 'APEX' ? 'model' : 'user',
           parts: [{ text: `${m.username}: ${m.content}` }],
         });
       }
@@ -269,7 +337,9 @@ Use this context to provide more relevant responses about what the user is curre
       contents.push({
         role: 'user',
         parts: [
-          { text: 'Here is a screenshot of what I am currently viewing on my screen:' },
+          {
+            text: 'Here is a screenshot of what I am currently viewing on my screen:',
+          },
           { inlineData: { mimeType: 'image/jpeg', data: screenshot } },
         ],
       });
@@ -307,7 +377,7 @@ Use this context to provide more relevant responses about what the user is curre
       const history = await this.chatService.getHistory(channelId, limit);
       return history.filter(
         (m) =>
-          !m.content.startsWith('@A.P.E.X.') &&
+          !m.content.startsWith('@APEX') &&
           !m.content.startsWith('@APEX') &&
           !m.attachment_url,
       );
@@ -346,7 +416,7 @@ Use this context to provide more relevant responses about what the user is curre
 
       this.chatGateway.broadcastMessage(msg);
     } catch (error) {
-      this.logger.error(`Failed to send A.P.E.X. message: ${error.message}`);
+      this.logger.error(`Failed to send APEX message: ${error.message}`);
     }
   }
 

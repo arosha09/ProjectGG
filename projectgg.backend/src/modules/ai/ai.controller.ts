@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Put,
   Delete,
   Body,
   Req,
@@ -10,8 +11,9 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { AiService } from './ai.service';
+import { AiService, AiPersonality } from './ai.service';
 import { VoiceTrainingService } from './voice-training.service';
+import { PERSONALITIES, PersonalityPreset } from './ai-prompts';
 import { VoiceFingerprint } from './ai.types';
 import type { Request } from 'express';
 
@@ -24,12 +26,16 @@ export class AiController {
 
   @Post('ask')
   @UseGuards(JwtAuthGuard)
-  async askAi(@Req() req: Request, @Body() body: {
-    message: string;
-    conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
-    pageContext?: { url: string; title: string; description: string };
-    screenshot?: string;
-  }) {
+  async askAi(
+    @Req() req: Request,
+    @Body()
+    body: {
+      message: string;
+      conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+      pageContext?: { url: string; title: string; description: string };
+      screenshot?: string;
+    },
+  ) {
     const userId = (req.user as any)?.id;
     if (!userId) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
@@ -63,6 +69,33 @@ export class AiController {
   async getTip(): Promise<{ tip: string }> {
     const tip = await this.aiService.getTip();
     return { tip };
+  }
+
+  @Get('personality')
+  async getPersonality(): Promise<{
+    personality: AiPersonality;
+    presets: Array<{ id: PersonalityPreset; label: string; description: string; emoji: string }>;
+  }> {
+    const personality = await this.aiService.getPersonality();
+    return {
+      personality,
+      presets: PERSONALITIES.map(p => ({
+        id: p.id,
+        label: p.label,
+        description: p.description,
+        emoji: p.emoji,
+      })),
+    };
+  }
+
+  @Put('personality')
+  async savePersonality(
+    @Body() body: { preset?: PersonalityPreset; custom_prompt?: string },
+  ): Promise<AiPersonality> {
+    return this.aiService.savePersonality({
+      preset: body.preset,
+      custom_prompt: body.custom_prompt,
+    });
   }
 
   @Post('voice/upload')

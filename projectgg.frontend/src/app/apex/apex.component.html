@@ -1,28 +1,89 @@
 <div class="apex-trigger" (click)="togglePanel()">
   <div class="apex-avatar">
-    <img src="assets/ai/avatars/apex-avatar.webp" alt="A.P.E.X." onerror="this.style.display='none'" />
+    <img src="assets/ai/avatars/apex-avatar.webp" alt="APEX" onerror="this.style.display='none'" />
   </div>
   <span class="apex-label">A.P.E.X.</span>
 </div>
 
 <div class="apex-panel" *ngIf="isPanelOpen" [class.expanded-mode]="isExpandedManually">
-  <div class="apex-header">
-    <div class="apex-info">
-      <span class="apex-name">A.P.E.X.</span>
-      <span class="apex-tagline">AI Gaming Assistant</span>
-    </div>
-    <div class="apex-actions">
-      <button mat-icon-button (click)="toggleSessionList()" matTooltip="Chats">
-        <mat-icon>forum</mat-icon>
+  <div class="apex-sidebar" *ngIf="isExpandedManually">
+    <div class="apex-tabs">
+      <button mat-icon-button *ngIf="!showSettings && !showSessionList && !showHelp" (click)="toggleSearch()" matTooltip="Search messages"
+              [class.active]="showSearch">
+        <mat-icon svgIcon="search"></mat-icon>
       </button>
-      <button mat-icon-button (click)="toggleExpand()" matTooltip="Expand">
-        <mat-icon>{{ isExpandedManually ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+      <button mat-icon-button (click)="toggleSessionList()" matTooltip="Chats">
+        <mat-icon svgIcon="forum"></mat-icon>
       </button>
       <button mat-icon-button (click)="toggleSettings()" matTooltip="Settings">
-        <mat-icon>settings</mat-icon>
+        <mat-icon svgIcon="settings"></mat-icon>
       </button>
-      <button mat-icon-button (click)="togglePanel()" matTooltip="Close">
-        <mat-icon>close</mat-icon>
+      <button mat-icon-button (click)="toggleHelp()" matTooltip="Help" [class.active]="showHelp">
+        <mat-icon svgIcon="help_outline"></mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <div class="apex-main">
+    <div class="apex-header">
+      <div class="apex-info">
+        <span class="apex-name">A.P.E.X.</span>
+        <span class="apex-tagline">AI Gaming Assistant</span>
+      </div>
+      <div class="apex-tabs-header" *ngIf="!isExpandedManually">
+        <button mat-icon-button (click)="toggleExpand()" matTooltip="Expand">
+          <mat-icon svgIcon="fullscreen"></mat-icon>
+        </button>
+        <button mat-icon-button *ngIf="!showSettings && !showSessionList && !showHelp" (click)="toggleSearch()" matTooltip="Search messages"
+                [class.active]="showSearch">
+          <mat-icon svgIcon="search"></mat-icon>
+        </button>
+        <button mat-icon-button (click)="toggleSessionList()" matTooltip="Chats">
+          <mat-icon svgIcon="forum"></mat-icon>
+        </button>
+        <button mat-icon-button (click)="toggleSettings()" matTooltip="Settings">
+          <mat-icon svgIcon="settings"></mat-icon>
+        </button>
+        <button mat-icon-button (click)="toggleHelp()" matTooltip="Help" [class.active]="showHelp">
+          <mat-icon svgIcon="help_outline"></mat-icon>
+        </button>
+        <button class="apex-close-btn" mat-icon-button (click)="togglePanel()" matTooltip="Close">
+          <mat-icon svgIcon="close"></mat-icon>
+        </button>
+      </div>
+      <div class="apex-tabs-header" *ngIf="isExpandedManually">
+        <button mat-icon-button (click)="toggleExpand()" matTooltip="Collapse">
+          <mat-icon svgIcon="fullscreen_exit"></mat-icon>
+        </button>
+        <button class="apex-close-btn" mat-icon-button (click)="togglePanel()" matTooltip="Close">
+          <mat-icon svgIcon="close"></mat-icon>
+        </button>
+      </div>
+    </div>
+
+  <div class="apex-search-bar" *ngIf="showSearch && isExpandedManually && !showHelp && !showSettings && !showSessionList">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-icon matIconPrefix svgIcon="search" class="search-icon-prefix"></mat-icon>
+      <input #searchInput
+             matInput
+             type="text"
+             [(ngModel)]="searchQuery"
+             (input)="onSearchInput()"
+             placeholder="Search messages..."
+             class="search-input" />
+      <span matSuffix class="search-count" *ngIf="searchQuery.trim()">
+        {{ searchResults.length > 0 ? (currentSearchIndex + 1) + '/' + searchResults.length : '0' }}
+      </span>
+    </mat-form-field>
+    <div class="search-actions">
+      <button class="search-nav-btn" (click)="navigateSearch(-1)" [disabled]="searchResults.length === 0">
+        <mat-icon svgIcon="expand_less"></mat-icon>
+      </button>
+      <button class="search-nav-btn" (click)="navigateSearch(1)" [disabled]="searchResults.length === 0">
+        <mat-icon svgIcon="expand_more"></mat-icon>
+      </button>
+      <button class="search-close-btn" (click)="toggleSearch()">
+        <mat-icon svgIcon="close"></mat-icon>
       </button>
     </div>
   </div>
@@ -37,7 +98,7 @@
       </div>
 
       <button class="new-chat-btn" (click)="createNewSession()" [disabled]="!canCreateSession()">
-        <mat-icon>add</mat-icon>
+        <mat-icon svgIcon="add"></mat-icon>
         New Chat
       </button>
 
@@ -46,7 +107,7 @@
              class="session-item"
              [class.active]="session.id === activeSessionId"
              (click)="selectSession(session.id)">
-          <mat-icon class="session-icon">{{ session.isPinned ? 'push_pin' : 'chat_bubble_outline' }}</mat-icon>
+          <mat-icon class="session-icon" [svgIcon]="session.isPinned ? 'push_pin' : 'chat_bubble_outline'"></mat-icon>
           <div class="session-info">
             <span class="session-title">{{ session.title }}</span>
             <span class="session-meta">{{ session.messages.length }} messages</span>
@@ -56,16 +117,16 @@
                     [class.pinned]="session.isPinned"
                     [matTooltip]="session.isPinned ? 'Unpin' : 'Pin (max ' + maxPinnedPerUser + ')'"
                     [disabled]="!session.isPinned && getPinnedCount() >= maxPinnedPerUser">
-              <mat-icon>push_pin</mat-icon>
+              <mat-icon svgIcon="push_pin"></mat-icon>
             </button>
             <button class="session-action-btn delete" (click)="deleteSession(session.id, $event)"
                     matTooltip="Delete">
-              <mat-icon>delete_outline</mat-icon>
+              <mat-icon svgIcon="delete_outline"></mat-icon>
             </button>
           </div>
         </div>
         <div *ngIf="sessions.length === 0" class="session-empty">
-          <mat-icon>chat_bubble_outline</mat-icon>
+          <mat-icon svgIcon="chat_bubble_outline"></mat-icon>
           <p>No chats yet</p>
           <span>Start a new conversation!</span>
         </div>
@@ -80,7 +141,7 @@
       <div class="settings-section">
         <div class="setting-row">
           <div class="setting-label">
-            <mat-icon>volume_up</mat-icon>
+            <mat-icon svgIcon="volume_up"></mat-icon>
             <div>
               <span class="setting-title">A.P.E.X. Speak</span>
               <span class="setting-sub">Read responses aloud</span>
@@ -93,7 +154,20 @@
 
         <div class="setting-row">
           <div class="setting-label">
-            <mat-icon>visibility</mat-icon>
+            <mat-icon svgIcon="person"></mat-icon>
+            <div>
+              <span class="setting-title">Floating A.P.E.X.</span>
+              <span class="setting-sub">Show avatar overlay on screen</span>
+            </div>
+          </div>
+          <button class="toggle-pill" [class.active]="showFloatingAvatar" [class.disabled]="avatarAnimating" (click)="!avatarAnimating && (showFloatingAvatar = !showFloatingAvatar)">
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
+
+        <div class="setting-row" [class.setting-highlight]="highlightSetting === 'pageContext'">
+          <div class="setting-label">
+            <mat-icon svgIcon="visibility"></mat-icon>
             <div>
               <span class="setting-title">Page Context</span>
               <span class="setting-sub">Let A.P.E.X. see your screen</span>
@@ -106,7 +180,7 @@
 
         <div class="setting-row" *ngIf="voiceOutputEnabled && isSpeechSynthesisSupported()">
           <div class="setting-label">
-            <mat-icon>speed</mat-icon>
+            <mat-icon svgIcon="speed"></mat-icon>
             <div>
               <span class="setting-title">Speed: {{ speechRate }}x</span>
             </div>
@@ -115,19 +189,19 @@
                  (input)="setSpeechRate(+$any($event.target).value)" class="rate-slider" />
         </div>
 
-        <div class="setting-row" *ngIf="voiceOutputEnabled && isSpeechSynthesisSupported()">
+        <div class="setting-row" *ngIf="voiceOutputEnabled">
           <div class="setting-label">
-            <mat-icon>person</mat-icon>
+            <mat-icon svgIcon="person"></mat-icon>
             <div>
               <span class="setting-title">Voice</span>
             </div>
           </div>
-          <select class="voice-select" (change)="selectVoice($any($event.target).value)">
-            <option value="">Default</option>
-            <option *ngFor="let voice of availableVoices" [value]="voice.name" [selected]="selectedVoice?.name === voice.name">
-              {{ voice.name }} ({{ voice.lang }})
-            </option>
-          </select>
+          <app-cyber-select
+            [options]="kokoroVoiceOptions"
+            [value]="kokoroVoice"
+            placeholder="Heart"
+            (valueChange)="selectKokoroVoice($event)"
+          ></app-cyber-select>
         </div>
       </div>
 
@@ -136,16 +210,12 @@
         <h5 class="section-title">Voice Input</h5>
         <div class="voice-modes">
           <button class="mode-btn" [class.active]="voiceMode === 'push-to-talk'" (click)="setVoiceMode('push-to-talk')">
-            <mat-icon>mic</mat-icon>
+            <mat-icon svgIcon="mic"></mat-icon>
             Tap to Talk
           </button>
-          <button class="mode-btn" [class.active]="voiceMode === 'always-listening'" (click)="setVoiceMode('always-listening')">
-            <mat-icon>hearing</mat-icon>
-            Always Listening
-          </button>
           <button class="mode-btn" [class.active]="voiceMode === 'wake-word'" (click)="setVoiceMode('wake-word')">
-            <mat-icon>waves</mat-icon>
-            Hey, A.P.E.X.
+            <mat-icon svgIcon="apex"></mat-icon>
+            Hey, APEX
           </button>
         </div>
       </div>
@@ -155,25 +225,82 @@
         <h5 class="section-title">Voice Training</h5>
         <p class="section-desc">Train A.P.E.X. to recognize your voice (5 phrases)</p>
         <button class="train-btn" (click)="openTraining()">
-          <mat-icon>record_voice_over</mat-icon>
+          <mat-icon svgIcon="record_voice_over"></mat-icon>
           Open Voice Training
         </button>
       </div>
     </div>
 
+    <!-- ─── Help view ──────────────────────────────────────────────────────── -->
+    <div class="apex-help" *ngIf="showHelp && !showSettings && !showSessionList">
+      <h4>Help</h4>
+
+      <div class="help-section">
+        <h5 class="section-title">Quick Commands</h5>
+        <div class="help-item">
+          <span class="help-cmd">@ProjectGG</span>
+          <span class="help-desc">Ask about the current page or your codebase</span>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h5 class="section-title">Voice</h5>
+        <div class="help-item">
+          <span class="help-cmd">Tap mic</span>
+          <span class="help-desc">Push-to-talk: tap to record, auto-stops on silence</span>
+        </div>
+        <div class="help-item">
+          <span class="help-cmd">Hey APEX</span>
+          <span class="help-desc">Wake word mode (requires voice training)</span>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h5 class="section-title">Chat</h5>
+        <div class="help-item">
+          <span class="help-cmd">Shift + Enter</span>
+          <span class="help-desc">New line in message</span>
+        </div>
+        <div class="help-item">
+          <span class="help-cmd">Enter</span>
+          <span class="help-desc">Send message</span>
+        </div>
+        <div class="help-item">
+          <span class="help-cmd">Expand</span>
+          <span class="help-desc">Wider view with search &amp; @ProjectGG</span>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h5 class="section-title">Floating APEX</h5>
+        <div class="help-item">
+          <span class="help-cmd">Drag</span>
+          <span class="help-desc">Drag the avatar to reposition</span>
+        </div>
+        <div class="help-item">
+          <span class="help-cmd">Toggle</span>
+          <span class="help-desc">Show/hide in Settings</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Chat view ──────────────────────────────────────────────────────── -->
-    <ng-container *ngIf="!showSettings && !showSessionList">
-      <div class="apex-chat-history" *ngIf="messages.length > 0">
+    <ng-container *ngIf="!showSettings && !showSessionList && !showHelp">
+      <div class="apex-chat-history" #chatBody (scroll)="onChatScroll()">
         <div *ngFor="let msg of messages" class="apex-msg-wrapper"
              [class.apex-msg-user]="msg.user_id === currentUserId"
              [class.apex-msg-ai]="msg.user_id !== currentUserId">
           <img *ngIf="msg.imageUrl" [src]="msg.imageUrl" class="apex-msg-image" />
           <div class="apex-msg-bubble">{{ msg.content }}</div>
         </div>
+
+        <button class="scroll-to-bottom" *ngIf="showScrollBtn" (click)="scrollToBottom()">
+          <mat-icon svgIcon="keyboard_arrow_down"></mat-icon>
+        </button>
       </div>
 
       <div class="apex-welcome" *ngIf="messages.length === 0 && !pendingAiQuery && !conversationStarted">
-        <div class="apex-logo">🤖</div>
+        <div class="apex-logo"><img CLASS="apex-logo-nobg"src="assets/ai/media/APEX.png" alt="A.P.E.X. Logo" /></div>
         <p>Hey! I'm <strong>A.P.E.X.</strong></p>
         <p class="apex-desc">Your AI gaming assistant. Ask me anything!</p>
 
@@ -184,6 +311,24 @@
         </div>
       </div>
 
+      <div class="apex-msg-wrapper apex-msg-user apex-msg-live" *ngIf="isListening">
+        <div class="apex-msg-bubble apex-msg-recording">
+          <div class="apex-recording-wave">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="apex-live-indicator">
+          <span class="apex-live-dot"></span>
+          Listening...
+        </div>
+      </div>
+
+      <div class="apex-msg-wrapper apex-msg-user apex-msg-live" *ngIf="isTranscribing">
+        <div class="apex-msg-bubble apex-msg-transcribing">
+          Transcribing...
+        </div>
+      </div>
+
       <div class="apex-response apex-loading" *ngIf="pendingAiQuery">
         <span>Thinking...</span>
       </div>
@@ -191,43 +336,61 @@
 
   </div><!-- /.apex-body -->
 
-  <div class="apex-footer" *ngIf="!showSettings && !showSessionList">
+  <div class="apex-footer" *ngIf="!showSettings && !showSessionList && !showHelp">
     <div class="apex-image-preview" *ngIf="imagePreview">
       <img [src]="imagePreview" />
       <button class="remove-image-btn" (click)="removeImage()">
-        <mat-icon>close</mat-icon>
+        <mat-icon svgIcon="close"></mat-icon>
       </button>
     </div>
 
     <div class="apex-chat-controls">
-      <button class="mic-btn"
+      <button *ngIf="ttsLoading || isSpeaking" class="cancel-btn" (click)="cancelResponse()" matTooltip="Stop response">
+        <mat-icon svgIcon="close"></mat-icon>
+      </button>
+      <button *ngIf="!ttsLoading && !isSpeaking" class="mic-btn"
               [class.recording]="isRecording"
               [class.listening]="isListening"
               (click)="toggleMic()"
               [disabled]="!isSupported">
-        <mat-icon>{{ isListening ? 'mic' : 'mic_off' }}</mat-icon>
+        <mat-icon [svgIcon]="isListening ? 'mic' : 'mic_off'"></mat-icon>
       </button>
 
-      <mat-form-field appearance="outline" class="apex-chat-input">
-        <input #chatInput
-               matInput
-               [(ngModel)]="chatMessage"
-               (keyup.enter)="sendMessage()"
-               [placeholder]="isListening ? 'Listening...' : 'Type a message...'"
-               [disabled]="isListening && !liveTranscript" />
-        <button mat-icon-button matSuffix (click)="sendMessage()"
-                [disabled]="(!chatMessage.trim() && !selectedImage) || pendingAiQuery">
-          <mat-icon>send</mat-icon>
-        </button>
-      </mat-form-field>
+      <ng-container *ngIf="!isListening">
+        <div class="apex-input-wrapper">
+          <div class="at-menu" *ngIf="showAtMenu && filteredAtCommands.length > 0">
+            <button class="at-item" *ngFor="let cmd of filteredAtCommands" (mousedown)="insertAtCommand(cmd.name)">
+              <span class="at-cmd">{{ cmd.name }}</span>
+              <span class="at-desc">{{ cmd.description }}</span>
+            </button>
+          </div>
+          <mat-form-field appearance="outline" class="apex-chat-input">
+            <textarea #chatInput
+                   matInput
+                   [(ngModel)]="chatMessage"
+                   (keydown.enter)="onEnterKey($event)"
+                   (input)="onAtInput()"
+                   (blur)="closeAtMenu()"
+                   placeholder="Type a message..."
+                   rows="1"></textarea>
+            <button mat-icon-button matSuffix (click)="sendMessage()"
+                    [disabled]="(!chatMessage.trim() && !selectedImage) || pendingAiQuery">
+              <mat-icon svgIcon="send"></mat-icon>
+            </button>
+          </mat-form-field>
+        </div>
 
-      <label class="image-attach-btn" matTooltip="Attach image">
-        <input type="file" accept="image/*" (change)="onImageSelect($event)" hidden />
-        <mat-icon>image</mat-icon>
-      </label>
+        <label class="image-attach-btn" matTooltip="Attach image">
+          <input type="file" accept="image/*" (change)="onImageSelect($event)" hidden />
+          <mat-icon svgIcon="image"></mat-icon>
+        </label>
+      </ng-container>
     </div>
   </div><!-- /.apex-footer -->
+  </div><!-- /.apex-main -->
 
 </div><!-- /.apex-panel -->
+
+<app-apex-avatar [visible]="showFloatingAvatar" (visibleChange)="showFloatingAvatar = $event" (animatingChange)="avatarAnimating = $event" (silenceDetected)="onSilenceDetected()"></app-apex-avatar>
 
 <app-voice-training *ngIf="showTraining" (close)="closeTraining()"></app-voice-training>

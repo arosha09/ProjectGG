@@ -43,7 +43,9 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = this.socketToUser.get(client.id);
     this.socketToUser.delete(client.id);
     if (!userId) return;
-    this.logger.log(`Jam socket disconnected for ${userId} (kept in session until explicit leave)`);
+    this.logger.log(
+      `Jam socket disconnected for ${userId} (kept in session until explicit leave)`,
+    );
   }
 
   @SubscribeMessage('jam:sync-request')
@@ -55,7 +57,10 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('jam:play')
-  handlePlay(@ConnectedSocket() client: Socket, @MessageBody() data: { currentTime?: number }): void {
+  handlePlay(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { currentTime?: number },
+  ): void {
     const userId = client.data.userId;
     const session = this.jamService.get_user_session(userId);
     if (!session) return;
@@ -74,7 +79,10 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('jam:pause')
-  handlePause(@ConnectedSocket() client: Socket, @MessageBody() data: { currentTime?: number }): void {
+  handlePause(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { currentTime?: number },
+  ): void {
     const userId = client.data.userId;
     const session = this.jamService.get_user_session(userId);
     if (!session) return;
@@ -93,7 +101,10 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('jam:seek')
-  handleSeek(@ConnectedSocket() client: Socket, @MessageBody() data: { time: number }): void {
+  handleSeek(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { time: number },
+  ): void {
     const userId = client.data.userId;
     const session = this.jamService.get_user_session(userId);
     if (!session) return;
@@ -112,7 +123,10 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('jam:track-changed')
-  handleTrackChanged(@ConnectedSocket() client: Socket, @MessageBody() data: { track: JamTrack | null }): void {
+  handleTrackChanged(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { track: JamTrack | null },
+  ): void {
     const userId = client.data.userId;
     const session = this.jamService.set_current_track(userId, data.track);
     if (!session) return;
@@ -172,7 +186,10 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('jam:add-to-queue')
-  handleAddToQueue(@ConnectedSocket() client: Socket, @MessageBody() data: { track: JamTrack }): void {
+  handleAddToQueue(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { track: JamTrack },
+  ): void {
     const userId = client.data.userId;
     const session = this.jamService.get_user_session(userId);
     if (!session) return;
@@ -192,7 +209,10 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('jam:remove-from-queue')
-  handleRemoveFromQueue(@ConnectedSocket() client: Socket, @MessageBody() data: { position: number }): void {
+  handleRemoveFromQueue(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { position: number },
+  ): void {
     const userId = client.data.userId;
     const session = this.jamService.get_user_session(userId);
     if (!session) return;
@@ -213,7 +233,8 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('jam:update-settings')
   handleUpdateSettings(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { settings: Partial<import('./jam.types').JamSettings> },
+    @MessageBody()
+    data: { settings: Partial<import('./jam.types').JamSettings> },
   ): void {
     const userId = client.data.userId;
     const settings = this.jamService.update_settings(userId, data.settings);

@@ -63,14 +63,31 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const channelMap = new Map<string, any[]>();
     for (const [socketId, info] of this.clients.entries()) {
       if (!channelMap.has(info.channelId)) channelMap.set(info.channelId, []);
-      const state = this.userState.get(info.userId) ?? { muted: false, deafened: false, speaking: false, themeColor: '#00ff88' };
-      channelMap.get(info.channelId)!.push({ userId: info.userId, muted: state.muted, deafened: state.deafened, speaking: state.speaking, themeColor: state.themeColor });
+      const state = this.userState.get(info.userId) ?? {
+        muted: false,
+        deafened: false,
+        speaking: false,
+        themeColor: '#00ff88',
+      };
+      channelMap.get(info.channelId)!.push({
+        userId: info.userId,
+        muted: state.muted,
+        deafened: state.deafened,
+        speaking: state.speaking,
+        themeColor: state.themeColor,
+      });
     }
-    const channels = Array.from(channelMap.entries()).map(([channelId, users]) => ({ channelId, users }));
+    const channels = Array.from(channelMap.entries()).map(
+      ([channelId, users]) => ({ channelId, users }),
+    );
     this.chatGateway.server.emit('all-voice-state', { channels });
   }
 
-  private removeClient(socketId: string, info: VoiceClient, socket?: Socket): void {
+  private removeClient(
+    socketId: string,
+    info: VoiceClient,
+    socket?: Socket,
+  ): void {
     this.clients.delete(socketId);
     this.userState.delete(info.userId);
     const members = this.channelMembers.get(info.channelId);
@@ -80,9 +97,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.channelMembers.delete(info.channelId);
         this.voiceService.leaveChannel(info.guildId);
       } else {
-        const emitter = socket ? socket.to(info.channelId) : this.server.to(info.channelId);
+        const emitter = socket
+          ? socket.to(info.channelId)
+          : this.server.to(info.channelId);
         emitter.emit('member-left', { userId: info.userId });
-        emitter.emit('play-sound', { sound: 'voice_leave', userId: info.userId });
+        emitter.emit('play-sound', {
+          sound: 'voice_leave',
+          userId: info.userId,
+        });
       }
     }
     this.broadcastVoiceState();
@@ -91,32 +113,69 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('join-channel')
   async handleJoinChannel(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { guildId: string; channelId: string; userId: string; themeColor?: string },
+    @MessageBody()
+    data: {
+      guildId: string;
+      channelId: string;
+      userId: string;
+      themeColor?: string;
+    },
   ): Promise<void> {
     const { guildId, channelId, userId, themeColor } = data;
     const prev = this.clients.get(client.id);
-    if (prev) { this.removeClient(client.id, prev); client.leave(prev.channelId); }
+    if (prev) {
+      this.removeClient(client.id, prev);
+      client.leave(prev.channelId);
+    }
 
     await this.voiceService.joinChannel(guildId, channelId);
-    this.clients.set(client.id, { socketId: client.id, userId, guildId, channelId });
-    this.userState.set(userId, { muted: false, deafened: false, speaking: false, themeColor: themeColor ?? '#00ff88' });
+    this.clients.set(client.id, {
+      socketId: client.id,
+      userId,
+      guildId,
+      channelId,
+    });
+    this.userState.set(userId, {
+      muted: false,
+      deafened: false,
+      speaking: false,
+      themeColor: themeColor ?? '#00ff88',
+    });
     client.join(channelId);
-    if (!this.channelMembers.has(channelId)) this.channelMembers.set(channelId, new Set());
+    if (!this.channelMembers.has(channelId))
+      this.channelMembers.set(channelId, new Set());
     this.channelMembers.get(channelId)!.add(client.id);
 
     const existingMembers = Array.from(this.channelMembers.get(channelId)!)
-      .map(sid => this.clients.get(sid))
-      .filter((c): c is VoiceClient => c !== undefined && c.socketId !== client.id);
+      .map((sid) => this.clients.get(sid))
+      .filter(
+        (c): c is VoiceClient => c !== undefined && c.socketId !== client.id,
+      );
     if (existingMembers.length > 0) {
       client.emit('existing-members', {
-        members: existingMembers.map(m => {
-          const state = this.userState.get(m.userId) ?? { muted: false, deafened: false, speaking: false, themeColor: '#00ff88' };
-          return { userId: m.userId, muted: state.muted, deafened: state.deafened, themeColor: state.themeColor };
+        members: existingMembers.map((m) => {
+          const state = this.userState.get(m.userId) ?? {
+            muted: false,
+            deafened: false,
+            speaking: false,
+            themeColor: '#00ff88',
+          };
+          return {
+            userId: m.userId,
+            muted: state.muted,
+            deafened: state.deafened,
+            themeColor: state.themeColor,
+          };
         }),
       });
     }
 
-    client.to(channelId).emit('member-joined', { userId, muted: false, deafened: false, themeColor: themeColor ?? '#00ff88' });
+    client.to(channelId).emit('member-joined', {
+      userId,
+      muted: false,
+      deafened: false,
+      themeColor: themeColor ?? '#00ff88',
+    });
     client.to(channelId).emit('play-sound', { sound: 'voice_join', userId });
     this.logger.log(`User ${userId} joined voice channel ${channelId}`);
     this.broadcastVoiceState();
@@ -171,7 +230,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const info = this.clients.get(client.id);
     if (!info) return;
     const state = this.userState.get(info.userId);
-    if (state) { state.deafened = true; state.muted = true; }
+    if (state) {
+      state.deafened = true;
+      state.muted = true;
+    }
     client.to(info.channelId).emit('user-deafened', { userId: info.userId });
     this.broadcastVoiceState();
   }
@@ -181,7 +243,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const info = this.clients.get(client.id);
     if (!info) return;
     const state = this.userState.get(info.userId);
-    if (state) { state.deafened = false; state.muted = false; }
+    if (state) {
+      state.deafened = false;
+      state.muted = false;
+    }
     client.to(info.channelId).emit('user-undeafened', { userId: info.userId });
     this.broadcastVoiceState();
   }
@@ -197,12 +262,16 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('stopped-speaking')
-  async handleStoppedSpeaking(@ConnectedSocket() client: Socket): Promise<void> {
+  async handleStoppedSpeaking(
+    @ConnectedSocket() client: Socket,
+  ): Promise<void> {
     const info = this.clients.get(client.id);
     if (!info) return;
     const state = this.userState.get(info.userId);
     if (state) state.speaking = false;
-    client.to(info.channelId).emit('user-stopped-speaking', { userId: info.userId });
+    client
+      .to(info.channelId)
+      .emit('user-stopped-speaking', { userId: info.userId });
     this.broadcastVoiceState();
   }
 
@@ -223,9 +292,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   isInSameChannel(senderId: string, recipientId: string): boolean {
-    const senderClient = Array.from(this.clients.values()).find(c => c.userId === senderId);
+    const senderClient = Array.from(this.clients.values()).find(
+      (c) => c.userId === senderId,
+    );
     if (!senderClient) return false;
-    const recipientClient = Array.from(this.clients.values()).find(c => c.userId === recipientId);
+    const recipientClient = Array.from(this.clients.values()).find(
+      (c) => c.userId === recipientId,
+    );
     if (!recipientClient) return false;
     return senderClient.channelId === recipientClient.channelId;
   }
@@ -233,20 +306,27 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   checkNudgeRateLimit(userId: string): boolean {
     const now = Date.now();
     const timestamps = this.nudgeRateLimit.get(userId) ?? [];
-    const recent = timestamps.filter(t => t > now - 5000);
+    const recent = timestamps.filter((t) => t > now - 5000);
     recent.push(now);
     this.nudgeRateLimit.set(userId, recent);
     return recent.length <= 3;
   }
 
-  async sendNudgeToUser(senderId: string, recipientId: string): Promise<{ success: boolean; reason?: string }> {
+  async sendNudgeToUser(
+    senderId: string,
+    recipientId: string,
+  ): Promise<{ success: boolean; reason?: string }> {
     if (!this.checkNudgeRateLimit(senderId)) {
       return { success: false, reason: 'Rate limit exceeded' };
     }
 
-    const recipientSettings = await this.usersRepository.getUserSettings(recipientId);
+    const recipientSettings =
+      await this.usersRepository.getUserSettings(recipientId);
     if (recipientSettings?.allow_incoming_nudges === false) {
-      return { success: false, reason: 'Recipient has disabled incoming nudges' };
+      return {
+        success: false,
+        reason: 'Recipient has disabled incoming nudges',
+      };
     }
 
     const sender = await this.usersRepository.findById({ userId: senderId });
@@ -260,10 +340,26 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { success: true };
   }
 
-  getVoiceState(): { channelId: string; guildId: string; userId: string; muted: boolean; deafened: boolean }[] {
-    return Array.from(this.clients.values()).map(c => {
-      const state = this.userState.get(c.userId) ?? { muted: false, deafened: false, speaking: false };
-      return { channelId: c.channelId, guildId: c.guildId, userId: c.userId, muted: state.muted, deafened: state.deafened };
+  getVoiceState(): {
+    channelId: string;
+    guildId: string;
+    userId: string;
+    muted: boolean;
+    deafened: boolean;
+  }[] {
+    return Array.from(this.clients.values()).map((c) => {
+      const state = this.userState.get(c.userId) ?? {
+        muted: false,
+        deafened: false,
+        speaking: false,
+      };
+      return {
+        channelId: c.channelId,
+        guildId: c.guildId,
+        userId: c.userId,
+        muted: state.muted,
+        deafened: state.deafened,
+      };
     });
   }
 }

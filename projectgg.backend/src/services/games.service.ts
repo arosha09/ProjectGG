@@ -15,7 +15,11 @@ export class GamesService {
     return this.gamesRepository.getAllGames(page, pageSize);
   }
 
-  async getUserGames(userId: string, page = 1, pageSize = 12): Promise<GetAllGamesDto[]> {
+  async getUserGames(
+    userId: string,
+    page = 1,
+    pageSize = 12,
+  ): Promise<GetAllGamesDto[]> {
     try {
       return await this.gamesRepository.getUserGames(userId, page, pageSize);
     } catch {
@@ -27,8 +31,11 @@ export class GamesService {
     return this.gamesRepository.removeUserGame(userId, gameCode);
   }
 
-  async searchGames(query: string, page = 1, pageSize = 12): Promise<GetAllGamesDto[]> {
+  async searchGames(
+    query: string,
+    page = 1,
+    pageSize = 12,
+  ): Promise<GetAllGamesDto[]> {
     return this.gamesRepository.searchGames(query, page, pageSize);
   }
 }
-

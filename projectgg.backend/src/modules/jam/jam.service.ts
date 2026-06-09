@@ -38,7 +38,11 @@ export class JamService {
     return sessionId ? this.sessions.get(sessionId) : undefined;
   }
 
-  create_session(hostUserId: string, hostName: string, persistent = false): JamSession {
+  create_session(
+    hostUserId: string,
+    hostName: string,
+    persistent = false,
+  ): JamSession {
     const existing = this.get_user_session(hostUserId);
     if (existing) this.leave_session(hostUserId);
 
@@ -75,11 +79,16 @@ export class JamService {
     return session;
   }
 
-  join_session(code: string, userId: string, displayName: string): JamSession | null {
+  join_session(
+    code: string,
+    userId: string,
+    displayName: string,
+  ): JamSession | null {
     const session = this.get_session_by_code(code);
     if (!session) return null;
 
-    if (session.participants.size >= session.settings.maxParticipants) return null;
+    if (session.participants.size >= session.settings.maxParticipants)
+      return null;
 
     const existing = this.get_user_session(userId);
     if (existing) this.leave_session(userId);
@@ -96,7 +105,9 @@ export class JamService {
     return session;
   }
 
-  leave_session(userId: string): { sessionId: string; wasHost: boolean; newHostId: string | null } | null {
+  leave_session(
+    userId: string,
+  ): { sessionId: string; wasHost: boolean; newHostId: string | null } | null {
     const sessionId = this.userToSession.get(userId);
     if (!sessionId) return null;
 
@@ -116,7 +127,9 @@ export class JamService {
         remaining[0].isHost = true;
         newHostId = remaining[0].userId;
         session.hostUserId = newHostId;
-        this.logger.log(`Host transferred to ${newHostId} in jam ${session.code}`);
+        this.logger.log(
+          `Host transferred to ${newHostId} in jam ${session.code}`,
+        );
       } else {
         this.destroy_session(sessionId);
         return { sessionId, wasHost, newHostId: null };
@@ -155,7 +168,10 @@ export class JamService {
     return this.is_host(userId, session) || session.settings.anyoneCanPlayPause;
   }
 
-  update_settings(userId: string, settings: Partial<JamSettings>): JamSettings | null {
+  update_settings(
+    userId: string,
+    settings: Partial<JamSettings>,
+  ): JamSettings | null {
     const session = this.get_user_session(userId);
     if (!session || !this.is_host(userId, session)) return null;
 
@@ -173,7 +189,11 @@ export class JamService {
     return session;
   }
 
-  set_playing(userId: string, isPlaying: boolean, currentTime?: number): JamSession | null {
+  set_playing(
+    userId: string,
+    isPlaying: boolean,
+    currentTime?: number,
+  ): JamSession | null {
     const session = this.get_user_session(userId);
     if (!session) return null;
 
@@ -192,7 +212,10 @@ export class JamService {
     return session;
   }
 
-  add_to_queue(userId: string, track: JamTrack): { session: JamSession; item: JamQueueItem } | null {
+  add_to_queue(
+    userId: string,
+    track: JamTrack,
+  ): { session: JamSession; item: JamQueueItem } | null {
     const session = this.get_user_session(userId);
     if (!session) return null;
 
@@ -215,7 +238,9 @@ export class JamService {
     return session;
   }
 
-  next_track(userId: string): { session: JamSession; track: JamTrack | null } | null {
+  next_track(
+    userId: string,
+  ): { session: JamSession; track: JamTrack | null } | null {
     const session = this.get_user_session(userId);
     if (!session) return null;
 
@@ -225,7 +250,12 @@ export class JamService {
     } else {
       const next = session.queue.shift()!;
       session.queue.forEach((item, i) => (item.position = i));
-      session.currentTrack = { videoId: next.videoId, title: next.title, artist: next.artist, thumbnail: next.thumbnail };
+      session.currentTrack = {
+        videoId: next.videoId,
+        title: next.title,
+        artist: next.artist,
+        thumbnail: next.thumbnail,
+      };
       session.currentTime = 0;
     }
 
@@ -277,7 +307,8 @@ export class JamService {
           { onConflict: 'id' },
         );
 
-      if (upsertErr) this.logger.error('Failed to persist jam session', upsertErr);
+      if (upsertErr)
+        this.logger.error('Failed to persist jam session', upsertErr);
     } catch (e) {
       this.logger.error('persist_session error', e);
     }

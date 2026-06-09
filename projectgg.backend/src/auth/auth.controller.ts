@@ -73,6 +73,10 @@ export class AuthController {
   @Post('change-password')
   @ApiBody({ type: ChangePasswordDto })
   async changePassword(@Req() req: any, @Body() body: ChangePasswordDto) {
-    return this.auth.changePassword(req.user.id, body.current_password, body.new_password);
+    return this.auth.changePassword(
+      req.user.id,
+      body.current_password,
+      body.new_password,
+    );
   }
 }

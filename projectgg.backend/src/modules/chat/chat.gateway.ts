@@ -7,7 +7,12 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Inject, OnModuleDestroy, OnModuleInit, forwardRef } from '@nestjs/common';
+import {
+  Inject,
+  OnModuleDestroy,
+  OnModuleInit,
+  forwardRef,
+} from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { DiscordBotService } from './discord-bot.service';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
@@ -20,7 +25,13 @@ type UserStatus = 'online' | 'away' | 'dnd' | 'invisible';
   cors: { origin: '*', methods: ['GET', 'POST'] },
   namespace: '/chat',
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy {
+export class ChatGateway
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy
+{
   @WebSocketServer()
   server!: Server;
 
@@ -37,7 +48,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   constructor(
     private readonly discordBot: DiscordBotService,
-    @Inject(forwardRef(() => TasksService)) private readonly tasksService: TasksService,
+    @Inject(forwardRef(() => TasksService))
+    private readonly tasksService: TasksService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
     private readonly realtime: RealtimeGateway,
   ) {}
@@ -52,8 +64,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (this.gatewayInitialized) return;
     this.gatewayInitialized = true;
     this.subscribeToUserStatusChanges();
-    this.heartbeatSweep = setInterval(() => this.pruneStaleHeartbeats(), 10_000);
-    this.taskProgressTick = setInterval(() => this.tickTaskProgress(), this.TASK_TICK_INTERVAL_MS);
+    this.heartbeatSweep = setInterval(
+      () => this.pruneStaleHeartbeats(),
+      10_000,
+    );
+    this.taskProgressTick = setInterval(
+      () => this.tickTaskProgress(),
+      this.TASK_TICK_INTERVAL_MS,
+    );
   }
 
   onModuleDestroy(): void {
@@ -85,7 +103,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   handleDisconnect(client: Socket): void {
-    const userId = (client.data.userId ?? client.handshake.query.userId) as string;
+    const userId = (client.data.userId ??
+      client.handshake.query.userId) as string;
     if (userId) {
       client.leave(`user:${userId}`);
       const sockets = this.connectedSockets.get(userId);
@@ -107,7 +126,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { status?: string },
   ): Promise<void> {
-    const userId = (client.data.userId ?? client.handshake.query.userId) as string;
+    const userId = (client.data.userId ??
+      client.handshake.query.userId) as string;
     const status = this.normalizeStatus(payload?.status);
     if (!userId || !status) return;
     await this.persistStatus(userId, status);
@@ -117,7 +137,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   @SubscribeMessage('heartbeat')
   handleHeartbeat(@ConnectedSocket() client: Socket): void {
-    const userId = (client.data.userId ?? client.handshake.query.userId) as string;
+    const userId = (client.data.userId ??
+      client.handshake.query.userId) as string;
     if (!userId) return;
     this.heartbeatByUser.set(userId, Date.now());
   }
@@ -134,14 +155,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.server?.to(`user:${userId}`).emit(event, data);
   }
 
-  async createNotification(userId: string, type: string, title: string, body?: string, data?: any): Promise<void> {
+  async createNotification(
+    userId: string,
+    type: string,
+    title: string,
+    body?: string,
+    data?: any,
+  ): Promise<void> {
     try {
       const { error } = await this.supabase
         .schema('projectgg')
         .from('notifications')
-        .insert({ user_id: userId, type, title, body: body ?? '', data: data ?? null });
+        .insert({
+          user_id: userId,
+          type,
+          title,
+          body: body ?? '',
+          data: data ?? null,
+        });
       if (!error) {
-        this.realtime.emitToUser(userId, 'notification', { type, title, body: body ?? '', data: data ?? null });
+        this.realtime.emitToUser(userId, 'notification', {
+          type,
+          title,
+          body: body ?? '',
+          data: data ?? null,
+        });
       }
     } catch {}
   }
@@ -149,24 +187,35 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   private subscribeToUserStatusChanges(): void {
     this.usersChannel = this.supabase
       .channel('projectgg-users-status')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'projectgg', table: 'users' }, (payload: any) => {
-        const userId = payload?.new?.id;
-        if (!userId) return;
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'projectgg', table: 'users' },
+        (payload: any) => {
+          const userId = payload?.new?.id;
+          if (!userId) return;
 
-        const status = this.normalizeStatus(payload?.new?.status);
-        const sysStatus = this.normalizeStatus(payload?.new?.sys_status);
-        if (!status && !sysStatus) return;
+          const status = this.normalizeStatus(payload?.new?.status);
+          const sysStatus = this.normalizeStatus(payload?.new?.sys_status);
+          if (!status && !sysStatus) return;
 
-        this.broadcastUserStatus(
-          String(userId),
-          status ?? this.resolveVisibleStatus(sysStatus ?? 'invisible', this.connectedSockets.has(String(userId))),
-          sysStatus ?? status ?? 'invisible',
-        );
-      })
+          this.broadcastUserStatus(
+            String(userId),
+            status ??
+              this.resolveVisibleStatus(
+                sysStatus ?? 'invisible',
+                this.connectedSockets.has(String(userId)),
+              ),
+            sysStatus ?? status ?? 'invisible',
+          );
+        },
+      )
       .subscribe();
   }
 
-  private async persistStatus(userId: string, status: UserStatus): Promise<void> {
+  private async persistStatus(
+    userId: string,
+    status: UserStatus,
+  ): Promise<void> {
     const visibleStatus = status;
     const preferredStatus = status;
     const { error } = await this.supabase
@@ -181,7 +230,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   private async setDisconnectedPresence(userId: string): Promise<void> {
     // Re-verify that user has no active sockets before setting offline
-    if (this.connectedSockets.has(userId) && (this.connectedSockets.get(userId)?.size ?? 0) > 0) {
+    if (
+      this.connectedSockets.has(userId) &&
+      (this.connectedSockets.get(userId)?.size ?? 0) > 0
+    ) {
       return;
     }
 
@@ -194,22 +246,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (error || !data) return;
 
     // Check again, in case a new connection was made during the DB fetch
-    if (this.connectedSockets.has(userId) && (this.connectedSockets.get(userId)?.size ?? 0) > 0) {
+    if (
+      this.connectedSockets.has(userId) &&
+      (this.connectedSockets.get(userId)?.size ?? 0) > 0
+    ) {
       return;
     }
 
-    const preferred = this.normalizeStatus(data.sys_status)
-      ?? this.normalizeStatus(data.status)
-      ?? 'invisible';
+    const preferred =
+      this.normalizeStatus(data.sys_status) ??
+      this.normalizeStatus(data.status) ??
+      'invisible';
     const visibleStatus = this.resolveVisibleStatus(preferred, false);
-    
+
     // Only update 'status', keep 'sys_status' as it represents the user's preferred status
     const { error: updateError } = await this.supabase
       .schema('projectgg')
       .from('users')
       .update({ status: visibleStatus })
       .eq('id', userId);
-    
+
     if (!updateError) {
       this.broadcastUserStatus(userId, visibleStatus, preferred);
     }
@@ -217,7 +273,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   private pruneStaleHeartbeats(): void {
     const now = Date.now();
-    const socketMap: Map<string, Socket> | undefined = (this.server?.sockets as any)?.sockets;
+    const socketMap: Map<string, Socket> | undefined = (
+      this.server?.sockets as any
+    )?.sockets;
     for (const [userId, lastBeat] of this.heartbeatByUser.entries()) {
       const stale = now - lastBeat > this.HEARTBEAT_TIMEOUT_MS;
       if (!stale) continue;
@@ -250,7 +308,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
   }
 
-  private broadcastUserStatus(userId: string, status: UserStatus, sysStatus: UserStatus): void {
+  private broadcastUserStatus(
+    userId: string,
+    status: UserStatus,
+    sysStatus: UserStatus,
+  ): void {
     this.server?.emit('user-status', {
       userId,
       status,
@@ -263,13 +325,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     });
   }
 
-  private resolveVisibleStatus(status: UserStatus, connected: boolean): UserStatus {
+  private resolveVisibleStatus(
+    status: UserStatus,
+    connected: boolean,
+  ): UserStatus {
     if (connected) return status;
     return status === 'away' ? 'away' : 'invisible';
   }
 
   private normalizeStatus(value: any): UserStatus | null {
-    if (value === 'online' || value === 'away' || value === 'dnd' || value === 'invisible') return value;
+    if (
+      value === 'online' ||
+      value === 'away' ||
+      value === 'dnd' ||
+      value === 'invisible'
+    )
+      return value;
     return null;
   }
 
@@ -303,11 +374,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const userIds = Array.from(this.connectedSockets.keys());
     for (const userId of userIds) {
       // Re-verify the user is still connected (race with disconnect)
-      if (!this.connectedSockets.has(userId) || (this.connectedSockets.get(userId)?.size ?? 0) === 0) {
+      if (
+        !this.connectedSockets.has(userId) ||
+        (this.connectedSockets.get(userId)?.size ?? 0) === 0
+      ) {
         continue;
       }
       try {
-        await this.tasksService.accumulateRealtimeProgress(userId, this.TASK_TICK_SECONDS);
+        await this.tasksService.accumulateRealtimeProgress(
+          userId,
+          this.TASK_TICK_SECONDS,
+        );
       } catch {
         // non-critical, keep ticking for the other users
       }

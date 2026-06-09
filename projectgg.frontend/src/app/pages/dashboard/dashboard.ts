@@ -21,6 +21,7 @@ import { UserStatusService, UserStatus } from '../../services/user-status.servic
 import { ChatService } from '../../services/chat.service';
 import { CardDrawComponent } from '../../components/card-draw/card-draw.component';
 import { CardCollectionComponent } from '../../components/card-collection/card-collection.component';
+import { WebpSrcDirective } from '../../components/webp-src/webp-src.directive';
 
 type SeriesGroup = {
   name: string;
@@ -47,6 +48,7 @@ type LibraryItem =
     CardDrawComponent,
     CardCollectionComponent,
     RouterLink,
+    WebpSrcDirective,
   ],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],

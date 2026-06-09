@@ -20,11 +20,21 @@ export class MailService {
       },
     });
     this.fromName = this.config.get<string>('SMTP_FROM_NAME', 'ProjectGG');
-    this.fromEmail = this.config.get<string>('SMTP_FROM_EMAIL', 'noreply@projectgg.app');
-    this.frontendUrl = this.config.get<string>('FRONTEND_URL', 'http://localhost:4200');
+    this.fromEmail = this.config.get<string>(
+      'SMTP_FROM_EMAIL',
+      'noreply@projectgg.app',
+    );
+    this.frontendUrl = this.config.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:4200',
+    );
   }
 
-  async sendVerificationEmail(to: string, code: string, userName: string): Promise<void> {
+  async sendVerificationEmail(
+    to: string,
+    code: string,
+    userName: string,
+  ): Promise<void> {
     const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -133,6 +143,10 @@ export class MailService {
   }
 
   private escapeHtml(str: string): string {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 }

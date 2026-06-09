@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { Game } from '../../models/game.model';
 import { CollectionButtonComponent } from '../collection-button/collection-button.component';
+import { WebpSrcDirective } from '../webp-src/webp-src.directive';
 
 @Component({
   selector: 'app-game-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatCardModule, CollectionButtonComponent],
+  imports: [CommonModule, MatCardModule, CollectionButtonComponent, WebpSrcDirective],
   templateUrl: './game-card.component.html',
   styleUrls: ['./game-card.component.scss'],
 })

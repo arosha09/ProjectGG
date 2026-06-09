@@ -1,8 +1,15 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  Logger,
+} from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/node';
 import * as http from 'http';
+import * as express from 'express';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
@@ -13,7 +20,8 @@ class AllExceptionsFilter implements ExceptionFilter {
     const req = ctx.getRequest();
     const res = ctx.getResponse();
     const err = exception as any;
-    const status = err instanceof HttpException ? err.getStatus() : err?.status ?? 500;
+    const status =
+      err instanceof HttpException ? err.getStatus() : (err?.status ?? 500);
     const message = err?.message ?? 'Internal server error';
     Logger.error(
       `${req.method} ${req.originalUrl} → ${status} | ${message}`,
@@ -41,10 +49,14 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create(AppModule);
 
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
+  app.use(express.json({ limit: '5mb' }));
+
+  app.use(
+    helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }),
+  );
 
   const httpAdapter = app.getHttpAdapter?.();
-  const underlying = httpAdapter?.getInstance?.() as any;
+  const underlying = httpAdapter?.getInstance?.();
   if (underlying && typeof underlying.disable === 'function') {
     underlying.disable('etag');
   }
@@ -100,14 +112,19 @@ async function bootstrap(): Promise<void> {
   if (process.env.SENTRY_DSN) Sentry.captureMessage('Backend started', 'info');
 
   // Self-ping to keep Render free tier alive (every 12 min)
-  if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.RENDER_EXTERNAL_URL
+  ) {
     const url = process.env.RENDER_EXTERNAL_URL;
     const ping = () => {
-      http.get(url, (res) => {
-        Logger.log(`Self-ping → ${res.statusCode}`, 'KeepAlive');
-      }).on('error', (err) => {
-        Logger.warn(`Self-ping failed: ${err.message}`, 'KeepAlive');
-      });
+      http
+        .get(url, (res) => {
+          Logger.log(`Self-ping → ${res.statusCode}`, 'KeepAlive');
+        })
+        .on('error', (err) => {
+          Logger.warn(`Self-ping failed: ${err.message}`, 'KeepAlive');
+        });
     };
     setInterval(ping, 12 * 60 * 1000);
     Logger.log(`KeepAlive active — pinging ${url} every 12 min`, 'KeepAlive');

@@ -26,9 +26,7 @@ export interface PlaylistWithTracks extends PlaylistDto {
 export class MusicService {
   private readonly logger = new Logger(MusicService.name);
 
-  constructor(
-    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
-  ) {}
+  constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: any) {}
 
   async getPlaylists(userId: string): Promise<PlaylistWithTracks[]> {
     try {
@@ -40,7 +38,9 @@ export class MusicService {
         .order('created_at', { ascending: false });
 
       if (plError) {
-        this.logger.warn(`getPlaylists query error (table may not exist): ${plError.message}`);
+        this.logger.warn(
+          `getPlaylists query error (table may not exist): ${plError.message}`,
+        );
         return [];
       }
 
@@ -56,12 +56,17 @@ export class MusicService {
       }
       return result;
     } catch (err: any) {
-      this.logger.warn(`getPlaylists fallback (table may not exist): ${err.message}`);
+      this.logger.warn(
+        `getPlaylists fallback (table may not exist): ${err.message}`,
+      );
       return [];
     }
   }
 
-  async createPlaylist(userId: string, name: string): Promise<PlaylistDto | null> {
+  async createPlaylist(
+    userId: string,
+    name: string,
+  ): Promise<PlaylistDto | null> {
     const trimmed = name.trim();
     if (!trimmed) return null;
 

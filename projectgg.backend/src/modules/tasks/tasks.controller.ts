@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Param, Req, UseGuards, Body, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Req,
+  UseGuards,
+  Body,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { TasksService } from './tasks.service';
@@ -12,15 +25,21 @@ export class TasksController {
   @ApiBearerAuth('access-token')
   @Post()
   async createTask(@Req() req: any, @Body() body: any) {
-    if (!req.user || req.user.role !== 'admin') throw new Error('admin required');
+    if (!req.user || req.user.role !== 'admin')
+      throw new Error('admin required');
     return this.tasksService.createTask(body, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Put(':id')
-  async updateTask(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    if (!req.user || req.user.role !== 'admin') throw new Error('admin required');
+  async updateTask(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    if (!req.user || req.user.role !== 'admin')
+      throw new Error('admin required');
     return this.tasksService.updateTask(Number(id), body);
   }
 
@@ -28,7 +47,8 @@ export class TasksController {
   @ApiBearerAuth('access-token')
   @Delete(':id')
   async deleteTask(@Req() req: any, @Param('id') id: string) {
-    if (!req.user || req.user.role !== 'admin') throw new Error('admin required');
+    if (!req.user || req.user.role !== 'admin')
+      throw new Error('admin required');
     return this.tasksService.deleteTask(Number(id));
   }
 
@@ -92,14 +112,25 @@ export class TasksController {
     const role = String(req.user?.role ?? '').toLowerCase();
     const canForce = role === 'admin' || role === 'dev';
     const forceComplete = canForce && force === 'true';
-    return this.tasksService.completeTask(req.user.id, Number(taskId), forceComplete);
+    return this.tasksService.completeTask(
+      req.user.id,
+      Number(taskId),
+      forceComplete,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post('heartbeat')
-  async heartbeat(@Req() req: any, @Body() body: { task_type: string; duration_seconds: number }) {
-    return this.tasksService.recordHeartbeat(req.user.id, body.task_type, body.duration_seconds);
+  async heartbeat(
+    @Req() req: any,
+    @Body() body: { task_type: string; duration_seconds: number },
+  ) {
+    return this.tasksService.recordHeartbeat(
+      req.user.id,
+      body.task_type,
+      body.duration_seconds,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -110,7 +141,8 @@ export class TasksController {
   async getCollected(
     @Req() req: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('page_size', new DefaultValuePipe(12), ParseIntPipe) pageSize: number,
+    @Query('page_size', new DefaultValuePipe(12), ParseIntPipe)
+    pageSize: number,
   ) {
     return this.tasksService.getCollectedGames(req.user.id, page, pageSize);
   }

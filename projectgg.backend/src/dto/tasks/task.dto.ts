@@ -2,7 +2,12 @@ export class CreateTaskDto {
   title!: string;
   description?: string;
   task_kind?: 'duration' | 'achievement' | 'test';
-  achievement_type?: 'cards_collected' | 'cards_favorited' | 'messages_sent' | 'voice_minutes' | 'reactions';
+  achievement_type?:
+    | 'cards_collected'
+    | 'cards_favorited'
+    | 'messages_sent'
+    | 'voice_minutes'
+    | 'reactions';
   category?: string | null;
   criteria?: Record<string, any>;
   reward_type?: 'xp' | 'tickets';
@@ -19,7 +24,12 @@ export class UpdateTaskDto {
   title?: string;
   description?: string;
   task_kind?: 'duration' | 'achievement' | 'test';
-  achievement_type?: 'cards_collected' | 'cards_favorited' | 'messages_sent' | 'voice_minutes' | 'reactions';
+  achievement_type?:
+    | 'cards_collected'
+    | 'cards_favorited'
+    | 'messages_sent'
+    | 'voice_minutes'
+    | 'reactions';
   category?: string | null;
   criteria?: Record<string, any>;
   reward_type?: 'xp' | 'tickets';

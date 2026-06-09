@@ -1,7 +1,12 @@
 import { Controller, Get, Query, UseGuards, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { YouTubeMusicService, YTMusicSearchResult, YTMusicPlaylist, YTMusicPlaylistTrack } from './youtube-music.service';
+import {
+  YouTubeMusicService,
+  YTMusicSearchResult,
+  YTMusicPlaylist,
+  YTMusicPlaylistTrack,
+} from './youtube-music.service';
 
 @ApiTags('YouTube Music')
 @Controller('youtube-music')
@@ -28,7 +33,10 @@ export class YouTubeMusicController {
     @Param('playlistId') playlistId: string,
     @Query('limit') limit?: string,
   ): Promise<YTMusicPlaylistTrack[]> {
-    return this.ytMusic.getPlaylist(playlistId, limit ? parseInt(limit, 10) : 50);
+    return this.ytMusic.getPlaylist(
+      playlistId,
+      limit ? parseInt(limit, 10) : 50,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -46,7 +54,10 @@ export class YouTubeMusicController {
     @Param('name') name: string,
     @Query('limit') limit?: string,
   ): Promise<YTMusicSearchResult[]> {
-    return this.ytMusic.getArtistTracks(decodeURIComponent(name), limit ? parseInt(limit, 10) : 10);
+    return this.ytMusic.getArtistTracks(
+      decodeURIComponent(name),
+      limit ? parseInt(limit, 10) : 10,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -57,6 +68,9 @@ export class YouTubeMusicController {
     @Param('videoId') videoId: string,
     @Query('limit') limit?: string,
   ): Promise<YTMusicSearchResult[]> {
-    return this.ytMusic.getRelatedTracks(videoId, limit ? parseInt(limit, 10) : 10);
+    return this.ytMusic.getRelatedTracks(
+      videoId,
+      limit ? parseInt(limit, 10) : 10,
+    );
   }
 }

@@ -42,6 +42,11 @@
 
             "styles": [
               "src/styles.scss"
+            ],
+
+            "allowedCommonJsDependencies": [
+              "onnxruntime-web",
+              "@huggingface/transformers"
             ]
           },
 

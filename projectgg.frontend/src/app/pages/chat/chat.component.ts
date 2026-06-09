@@ -100,7 +100,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   showGifPicker = false;
   gifQuery = '';
   gifResults: any[] = [];
-  gifSearchTimeout?: number;
+  gifSearchTimeout?: ReturnType<typeof setTimeout>;
 
   // Mention autocomplete
   showMentionAutocomplete = false;

@@ -182,13 +182,19 @@ export class GamesRepository {
       );
     }
 
-    const codes = [...new Set((collection ?? []).map((row: any) => row.game_code).filter(Boolean))];
+    const codes = [
+      ...new Set(
+        (collection ?? []).map((row: any) => row.game_code).filter(Boolean),
+      ),
+    ];
     if (codes.length === 0) return [];
 
     const { data: games, error: gamesError } = await this.supabase
       .schema('projectgg')
       .from('games_master')
-      .select('name,code,desc,sequence_timeline,sequence_release,is_series,series_name,genres,cover_url,external_id,rating,platforms,sources,last_synced_at')
+      .select(
+        'name,code,desc,sequence_timeline,sequence_release,is_series,series_name,genres,cover_url,external_id,rating,platforms,sources,last_synced_at',
+      )
       .in('code', codes);
 
     if (gamesError) {
@@ -197,7 +203,9 @@ export class GamesRepository {
       );
     }
 
-    const gameMap = new Map<string, any>((games ?? []).map((game: any) => [game.code, game]));
+    const gameMap = new Map<string, any>(
+      (games ?? []).map((game: any) => [game.code, game]),
+    );
     const normalizedGames = (collection ?? []).map((row: any) => {
       const game = gameMap.get(row.game_code) ?? {};
       return {
