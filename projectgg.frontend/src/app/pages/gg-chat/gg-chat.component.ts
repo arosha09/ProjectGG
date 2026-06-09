@@ -132,6 +132,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   voiceGuildId: string | null = null;
   voiceMuted = false;
   voiceDeafened = false;
+  noiseSuppressionEnabled = true;
   showMutedWarning = false;
   mutedFeedbackAlert: string | null = null;
   mutedFeedbackIsDeafened = false;
@@ -145,8 +146,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
   localMicActive = false;
   micPermissionError: string | null = null;
   micDeviceDisconnected = false;
-  showVoiceReconnectConfirm = false;
-  pendingVoiceChannel: GgChannel | null = null;
   // Audio device selection
   audioInputDevices: MediaDeviceInfo[] = [];
   audioOutputDevices: MediaDeviceInfo[] = [];
@@ -260,6 +259,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.currentUser = this.auth.getCurrentUser();
     this.soundService.init();
+    this.noiseSuppressionEnabled = this.voiceService.isNoiseSuppressionEnabled();
     if (!this.auth.isAuthenticated()) {
       this.router.navigate(['/login']);
       return;
@@ -322,26 +322,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.loadNotifications();
     this.connectSocket();
 
-    try {
-      const saved = localStorage.getItem('pendingVoiceReconnect');
-      if (saved) {
-        const { guildId, channelId } = JSON.parse(saved);
-        if (guildId && channelId) {
-          this.pendingVoiceChannel = { id: channelId, guildId, server_id: guildId, name: '', type: 'voice' } as any;
-          this.showVoiceReconnectConfirm = true;
-          this.cdr.markForCheck();
-        }
-      }
-    } catch {}
-
-    if (this.voiceService.connected) {
-      this.voiceConnected = true;
-      this.voiceChannelId = this.voiceService.currentChannelId;
-      this.voiceMuted = false;
-      this.voiceDeafened = false;
-      this.rebindVoiceCallbacks();
-      this.cdr.markForCheck();
-    }
+    // No auto-reconnect to voice on page load. The user must explicitly
+    // click a voice channel to join, even if they were on voice before
+    // the refresh. (The backend drops the user on socket disconnect
+    // anyway; we just don't try to silently rejoin.)
   }
 
   // ===== DATA LOADING =====
@@ -605,7 +589,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
           const match = data.find(c => String(c.id) === this.pendingChannelId);
           this.pendingChannelId = null;
           if (match) {
-            if (!this.showVoiceReconnectConfirm || match.type !== 'voice') {
+            // Voice channels are NOT auto-joined — the user must click
+            // the voice channel to join. Only auto-select non-voice channels.
+            if (match.type !== 'voice') {
               this.selectChannel(match);
               this.cdr.markForCheck();
               return;
@@ -629,7 +615,11 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.selectedDm = null;
     this.persistView();
     if (channel.type === 'voice') {
-      if (!this.showVoiceReconnectConfirm && !(this.voiceConnected && this.voiceChannelId === String(channel.id))) {
+      // User must explicitly click a voice channel to join. No
+      // auto-rejoin, no auto-join on page load, no auto-join via
+      // deep-link. toggleVoice handles the toggle-off case if the
+      // user is already connected to this channel.
+      if (!(this.voiceConnected && this.voiceChannelId === String(channel.id))) {
         this.toggleVoice(channel);
       }
       return;
@@ -1399,15 +1389,17 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     };
     this.voiceService.onDisconnected = () => {
+      // Socket dropped (refresh, network blip, etc.) — silently clear local
+      // voice state. The user must explicitly click a voice channel again
+      // to rejoin. No auto-reconnect prompt.
       this.voiceConnected = false;
+      this.voiceChannelId = null;
+      this.voiceGuildId = null;
+      this.voiceMuted = false;
+      this.voiceDeafened = false;
       this.voiceMembers = [];
       this.speakingUsers = new Set();
       this.localMicActive = false;
-      this.pendingVoiceChannel = this.voiceChannelId
-        ? { id: this.voiceChannelId, guildId: this.voiceGuildId, server_id: this.voiceGuildId, name: '', type: 'voice' } as any
-        : null;
-      this.showVoiceReconnectConfirm = true;
-      localStorage.removeItem('pendingVoiceReconnect');
       this.cdr.markForCheck();
     };
   }
@@ -1443,26 +1435,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceService.onLocalSpeaking = null;
     this.voiceService.onMicPermissionError = null;
     this.voiceService.onDisconnected = null;
-    this.showVoiceReconnectConfirm = false;
-    this.pendingVoiceChannel = null;
-  }
-
-  confirmVoiceReconnect(): void {
-    const ch = this.pendingVoiceChannel;
-    this.showVoiceReconnectConfirm = false;
-    this.pendingVoiceChannel = null;
-    localStorage.removeItem('pendingVoiceReconnect');
-    if (ch) this.joinVoice(ch);
-  }
-
-  cancelVoiceReconnect(): void {
-    this.showVoiceReconnectConfirm = false;
-    this.pendingVoiceChannel = null;
-    this.voiceService.leaveChannel();
-    this.voiceChannelId = null;
-    this.voiceGuildId = null;
-    localStorage.removeItem('pendingVoiceReconnect');
-    this.cdr.markForCheck();
   }
 
   private showMutedWarningForDuration(): void {
@@ -1589,6 +1561,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   selectOutputDevice(deviceId: string): void {
     this.selectedOutputId = deviceId;
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Toggle the in-line noise gate (free, audio-thread worklet).
+   * Sits between the mic source and the mute gain — silences
+   * background noise (keyboard, fans) when disabled signal is below the
+   * adaptive noise floor.
+   */
+  toggleNoiseSuppression(enabled: boolean): void {
+    this.noiseSuppressionEnabled = enabled;
+    this.voiceService.setNoiseSuppression(enabled);
     this.cdr.markForCheck();
   }
 
@@ -2364,11 +2348,23 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   onVoiceContextMute(vm: any): void {
+    const userId = vm.userId;
+    const wasMuted = this.voiceService.isLocalMuted(userId);
+    this.voiceService.setLocalMute(userId, !wasMuted);
+    if (!wasMuted) {
+      this.voiceService.setLocalDeafen(userId, false);
+    }
     this.closeVoiceContextMenu();
     this.cdr.markForCheck();
   }
 
   onVoiceContextDeafen(vm: any): void {
+    const userId = vm.userId;
+    const wasDeafened = this.voiceService.isLocalDeafened(userId);
+    this.voiceService.setLocalDeafen(userId, !wasDeafened);
+    if (!wasDeafened) {
+      this.voiceService.setLocalMute(userId, false);
+    }
     this.closeVoiceContextMenu();
     this.cdr.markForCheck();
   }
@@ -2459,6 +2455,14 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   voiceMemberDeafened(userId: string): boolean {
     return this.voiceMembers.find(m => m.userId === userId)?.deafened ?? false;
+  }
+
+  localMuted(userId: string): boolean {
+    return this.voiceService.isLocalMuted(userId);
+  }
+
+  localDeafened(userId: string): boolean {
+    return this.voiceService.isLocalDeafened(userId);
   }
 
   memberStatus(userId: string): string {

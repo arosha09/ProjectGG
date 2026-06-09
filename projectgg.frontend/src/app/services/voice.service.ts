@@ -19,6 +19,7 @@ export interface VoiceQualityStats {
 }
 
 const VOLUME_STORAGE_KEY = 'gg_voice_user_volumes';
+const NS_STORAGE_KEY = 'gg_voice_noise_suppression';
 const MAX_VOLUME = 2.0;
 
 @Injectable({ providedIn: 'root' })
@@ -28,6 +29,7 @@ export class VoiceService implements OnDestroy {
   private isConnected = false;
   private currentChannel: { guildId: string; channelId: string } | null = null;
   private _deafened = false;
+  private _muted = false;
 
   // Audio graph nodes
   private audioContext: AudioContext | null = null;
@@ -43,8 +45,13 @@ export class VoiceService implements OnDestroy {
   private vadReady = false;
   private speakingState = false;
 
+  // Noise gate (suppression)
+  private noiseGateNode: AudioWorkletNode | null = null;
+  private _noiseSuppression = true;
+
   // Remote audio sources (for cleanup)
   private remoteSources = new Map<string, MediaElementAudioSourceNode>();
+  private remoteAudioElements = new Map<string, HTMLAudioElement>();
 
   // Per-user volume control
   private remoteGainNodes = new Map<string, GainNode>();
@@ -88,6 +95,7 @@ export class VoiceService implements OnDestroy {
     readonly theme: ThemeService,
   ) {
     this.loadUserVolumes();
+    this.loadNoiseSuppressionPreference();
   }
 
   get connected(): boolean {
@@ -232,13 +240,34 @@ export class VoiceService implements OnDestroy {
 
     const micSource = this.audioContext.createMediaStreamSource(this.micStream);
 
+    // ── AudioWorklet VAD (tap — sits on mic source) ─────────────────────
+    await this.setupVAD(micSource);
+
+    // ── Noise gate (in-line on mic path) ───────────────────────────────
+    // Chain: micSource → noiseGate → micGain → micDestination
+    try {
+      await this.audioContext.audioWorklet.addModule('assets/voice/noise-gate-processor.js');
+      this.noiseGateNode = new AudioWorkletNode(this.audioContext, 'noise-gate-processor', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      });
+      this.noiseGateNode.port.postMessage({ type: 'setEnabled', enabled: this._noiseSuppression });
+      micSource.connect(this.noiseGateNode);
+    } catch (err) {
+      console.warn('[Voice] Failed to load noise gate; continuing without suppression:', err);
+      this.noiseGateNode = null;
+    }
+
     // ── Mic gain node (for mute/unmute) ────────────────────────────────
     this.micGainNode = this.audioContext.createGain();
     this.micGainNode.gain.value = 1;
-    micSource.connect(this.micGainNode);
 
-    // ── AudioWorklet VAD (replaces requestAnimationFrame) ──────────────
-    await this.setupVAD(micSource);
+    if (this.noiseGateNode) {
+      this.noiseGateNode.connect(this.micGainNode);
+    } else {
+      micSource.connect(this.micGainNode);
+    }
 
     // ── Publish processed mic to LiveKit ────────────────────────────────
     const micDestination = this.audioContext.createMediaStreamDestination();
@@ -499,6 +528,10 @@ export class VoiceService implements OnDestroy {
                 this.remoteSources.set(track.sid, source);
               }
               this.remoteGainNodes.set(participant.identity, userGain);
+              this.remoteAudioElements.set(participant.identity, el);
+              // Set the element's own volume as a fallback (capped to 0..1).
+              // This is the actual audible output of the media element.
+              el.volume = Math.min(1, Math.max(0, savedVol));
             } catch (err) {
               console.warn('[Voice] Failed to create MediaElementSource:', err);
             }
@@ -513,7 +546,18 @@ export class VoiceService implements OnDestroy {
             this.remoteSources.delete(track.sid);
           }
         }
-        track.detach().forEach(el => el.remove());
+        const detached = track.detach();
+        detached.forEach(el => {
+          // Remove from our elements map and DOM
+          for (const [uid, stored] of this.remoteAudioElements.entries()) {
+            if (stored === el) {
+              this.remoteAudioElements.delete(uid);
+              this.remoteGainNodes.delete(uid);
+              break;
+            }
+          }
+          el.remove();
+        });
       })
       .on(RoomEvent.ParticipantDisconnected, (participant: Participant) => {
         console.log('[Voice] Participant left:', participant.identity);
@@ -633,6 +677,11 @@ export class VoiceService implements OnDestroy {
       this.vadReady = false;
     }
 
+    if (this.noiseGateNode) {
+      this.noiseGateNode.disconnect();
+      this.noiseGateNode = null;
+    }
+
     if (this.room) {
       this.room.disconnect().catch(() => {});
       this.room = null;
@@ -672,6 +721,7 @@ export class VoiceService implements OnDestroy {
     // Clean up per-user gain nodes
     this.remoteGainNodes.forEach(g => g.disconnect());
     this.remoteGainNodes.clear();
+    this.remoteAudioElements.clear();
 
     if (this.audioContext) {
       this.audioContext.close().catch(() => {});
@@ -688,6 +738,7 @@ export class VoiceService implements OnDestroy {
 
     this.currentChannel = null;
     this._deafened = false;
+    this._muted = false;
     if (wasConnected) {
       this.sound.play('voice_leave');
     }
@@ -697,16 +748,24 @@ export class VoiceService implements OnDestroy {
   //  Mute / Deafen
   // ════════════════════════════════════════════════════════════════════════
   mute(): void {
+    this._muted = true;
     if (this.micGainNode) {
-      this.micGainNode.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
+      const t = this.audioContext?.currentTime ?? 0;
+      this.micGainNode.gain.cancelScheduledValues(t);
+      this.micGainNode.gain.setValueAtTime(0, t);
     }
     this.socket?.emit('mute');
     if (!this._deafened) this.sound.play('voice_mute');
   }
 
   unmute(): void {
-    if (this.micGainNode) {
-      this.micGainNode.gain.setValueAtTime(1, this.audioContext?.currentTime ?? 0);
+    this._muted = false;
+    // Mic is only restored if user is not currently deafened —
+    // deafen implies mute and must remain until explicitly undone.
+    if (!this._deafened && this.micGainNode) {
+      const t = this.audioContext?.currentTime ?? 0;
+      this.micGainNode.gain.cancelScheduledValues(t);
+      this.micGainNode.gain.setValueAtTime(1, t);
     }
     this.socket?.emit('unmute');
     if (!this._deafened) this.sound.play('voice_unmute');
@@ -714,11 +773,14 @@ export class VoiceService implements OnDestroy {
 
   deafen(): void {
     this._deafened = true;
+    const t = this.audioContext?.currentTime ?? 0;
     if (this.micGainNode) {
-      this.micGainNode.gain.value = 0;
+      this.micGainNode.gain.cancelScheduledValues(t);
+      this.micGainNode.gain.setValueAtTime(0, t);
     }
     if (this.outputGainNode) {
-      this.outputGainNode.gain.value = 0;
+      this.outputGainNode.gain.cancelScheduledValues(t);
+      this.outputGainNode.gain.setValueAtTime(0, t);
     }
     this.socket?.emit('deafen');
     this.sound.play('voice_deafen');
@@ -726,8 +788,16 @@ export class VoiceService implements OnDestroy {
 
   undeafen(): void {
     this._deafened = false;
+    const t = this.audioContext?.currentTime ?? 0;
     if (this.outputGainNode) {
-      this.outputGainNode.gain.value = 1;
+      this.outputGainNode.gain.cancelScheduledValues(t);
+      this.outputGainNode.gain.setValueAtTime(1, t);
+    }
+    // Restore mic only if user had not explicitly muted before deafening.
+    // The `_muted` flag captures that intent independently.
+    if (!this._muted && this.micGainNode) {
+      this.micGainNode.gain.cancelScheduledValues(t);
+      this.micGainNode.gain.setValueAtTime(1, t);
     }
     this.socket?.emit('undeafen');
     this.sound.play('voice_undeafen');
@@ -744,8 +814,20 @@ export class VoiceService implements OnDestroy {
 
     const gain = this.remoteGainNodes.get(userId);
     if (gain && this.audioContext) {
-      // Smooth ramp to avoid clicks/pops
-      gain.gain.linearRampToValueAtTime(clamped, this.audioContext.currentTime + 0.02);
+      // Use setValueAtTime — linearRampToValueAtTime requires a prior
+      // setValueAtTime to anchor the ramp; on rapid slider drags the
+      // scheduled ramp simply never reaches the target.
+      const t = this.audioContext.currentTime;
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(clamped, t);
+    }
+
+    // Also push to the underlying <audio> element. The MediaElementSource
+    // routes audio through the Web Audio graph, but the element's own
+    // volume still acts as a master on the source.
+    const el = this.remoteAudioElements.get(userId);
+    if (el) {
+      el.volume = Math.min(1, Math.max(0, clamped));
     }
 
     // Persist to localStorage
@@ -778,6 +860,95 @@ export class VoiceService implements OnDestroy {
         for (const [k, v] of Object.entries(obj)) {
           this.userVolumes.set(k, v);
         }
+      }
+    } catch {}
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  Local Mute / Deafen (per-remote-user, client-side only)
+  // ════════════════════════════════════════════════════════════════════════
+
+  private localMutedUsers = new Set<string>();
+  private localDeafenedUsers = new Set<string>();
+
+  /** Locally mute a remote user (silences their audio on this client only). */
+  setLocalMute(userId: string, muted: boolean): void {
+    if (muted) {
+      this.localMutedUsers.add(userId);
+    } else {
+      this.localMutedUsers.delete(userId);
+    }
+    this.applyLocalMuteState(userId);
+  }
+
+  /** Locally deafen a remote user (silences their audio, like local mute). */
+  setLocalDeafen(userId: string, deafened: boolean): void {
+    if (deafened) {
+      this.localDeafenedUsers.add(userId);
+    } else {
+      this.localDeafenedUsers.delete(userId);
+    }
+    this.applyLocalMuteState(userId);
+  }
+
+  isLocalMuted(userId: string): boolean {
+    return this.localMutedUsers.has(userId);
+  }
+
+  isLocalDeafened(userId: string): boolean {
+    return this.localDeafenedUsers.has(userId);
+  }
+
+  /** Apply gain = 0 if locally muted/deafened, otherwise restore saved volume. */
+  private applyLocalMuteState(userId: string): void {
+    const gain = this.remoteGainNodes.get(userId);
+    if (!gain || !this.audioContext) return;
+
+    const muted = this.localMutedUsers.has(userId) || this.localDeafenedUsers.has(userId);
+    const t = this.audioContext.currentTime;
+    gain.gain.cancelScheduledValues(t);
+
+    if (muted) {
+      gain.gain.setValueAtTime(0, t);
+    } else {
+      const savedVol = this.userVolumes.get(userId) ?? 1;
+      gain.gain.setValueAtTime(savedVol, t);
+    }
+
+    const el = this.remoteAudioElements.get(userId);
+    if (el) {
+      el.volume = muted ? 0 : Math.min(1, Math.max(0, this.userVolumes.get(userId) ?? 1));
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  Noise Suppression (adaptive noise gate, free — runs on audio thread)
+  // ════════════════════════════════════════════════════════════════════════
+
+  /** Read the current noise-suppression state. */
+  isNoiseSuppressionEnabled(): boolean {
+    return this._noiseSuppression;
+  }
+
+  /**
+   * Toggle the in-line noise gate. When connected, this mutates the gate
+   * worklet immediately. The preference is persisted to localStorage.
+   */
+  setNoiseSuppression(enabled: boolean): void {
+    this._noiseSuppression = enabled;
+    if (this.noiseGateNode) {
+      this.noiseGateNode.port.postMessage({ type: 'setEnabled', enabled });
+    }
+    try {
+      localStorage.setItem(NS_STORAGE_KEY, JSON.stringify(enabled));
+    } catch {}
+  }
+
+  private loadNoiseSuppressionPreference(): void {
+    try {
+      const raw = localStorage.getItem(NS_STORAGE_KEY);
+      if (raw !== null) {
+        this._noiseSuppression = JSON.parse(raw) === true;
       }
     } catch {}
   }

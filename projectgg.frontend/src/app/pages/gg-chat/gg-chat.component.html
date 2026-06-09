@@ -43,6 +43,7 @@
       [audioOutputDevices]="audioOutputDevices"
       [selectedInputId]="selectedInputId"
       [selectedOutputId]="selectedOutputId"
+      [noiseSuppressionEnabled]="noiseSuppressionEnabled"
       [(serverDropdownOpen)]="serverDropdownOpen"
       (selectServer)="selectServer($event)"
       (goToDms)="goToDms()"
@@ -62,6 +63,7 @@
       (toggleDevicePicker)="toggleDevicePicker()"
       (onInputDeviceChange)="selectInputDevice($event)"
       (onOutputDeviceChange)="selectOutputDevice($event)"
+      (onNoiseSuppressionChange)="toggleNoiseSuppression($event)"
       (openChannelSettings)="openChannelSettings($event)"
       (voiceContextMenuRequest)="openVoiceContextMenu($event.event, $event.vm)"
     ></app-channel-list>
@@ -256,14 +258,14 @@
                 [class.msg-discord]="msg.source === 'discord'"
                 [class.msg-web]="msg.source === 'web'"
                 [class.msg-voice]="msg.channel_type === 'voice'"
-                [class.msg-bot]="msg.username === 'A.P.E.X.'"
+                [class.msg-bot]="msg.username === 'APEX'"
                 (contextmenu)="openContextMenu($event, msg)"
               >
                 @if (msg.username !== 'System') {
                   <div class="msg-avatar-col">
                     <div class="msg-avatar-wrapper">
                       <div class="gg-avatar-sk"></div>
-                      <img loading="lazy" decoding="async" class="msg-avatar" [src]="avatarForUsername(msg.username) || msg.avatar_url || (msg.username === 'A.P.E.X.' ? 'assets/ai/avatars/apex-avatar.webp' : '')" alt="" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+                      <img loading="lazy" decoding="async" class="msg-avatar" [src]="avatarForUsername(msg.username) || msg.avatar_url || (msg.username === 'APEX' ? 'assets/ai/avatars/apex-avatar.webp' : '')" alt="" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
                     </div>
                   </div>
                 }
@@ -435,11 +437,11 @@
                             <span class="gg-voice-avatar-initial">{{ voiceMemberName(vm.userId)[0] }}</span>
                           }
                         </div>
-                        @if (voiceMemberMuted(vm.userId) || voiceMemberDeafened(vm.userId)) {
+                        @if (voiceMemberMuted(vm.userId) || voiceMemberDeafened(vm.userId) || localMuted(vm.userId) || localDeafened(vm.userId)) {
                           <div class="gg-voice-avatar-status-icon"
-                               [class.muted]="voiceMemberMuted(vm.userId) && !voiceMemberDeafened(vm.userId)"
-                               [class.deafened]="voiceMemberDeafened(vm.userId)">
-                            <mat-icon [svgIcon]="voiceMemberDeafened(vm.userId) ? 'headset_off' : 'mic_off'"></mat-icon>
+                               [class.muted]="(voiceMemberMuted(vm.userId) && !voiceMemberDeafened(vm.userId)) || (localMuted(vm.userId) && !localDeafened(vm.userId))"
+                               [class.deafened]="voiceMemberDeafened(vm.userId) || localDeafened(vm.userId)">
+                            <mat-icon [svgIcon]="(voiceMemberDeafened(vm.userId) || localDeafened(vm.userId)) ? 'headset_off' : 'mic_off'"></mat-icon>
                           </div>
                         }
                       </div>
@@ -919,20 +921,7 @@
     }
   </div>
 
-  <!-- VOICE RECONNECT CONFIRM -->
-  @if (showVoiceReconnectConfirm) {
-    <div class="gg-overlay">
-      <div class="voice-reconnect-modal" (click)="$event.stopPropagation()">
-        <div class="vr-modal-top-line"></div>
-        <h2 class="vr-modal-title">Reconnect to Voice?</h2>
-        <p class="vr-modal-desc">You were disconnected from voice. Rejoin?</p>
-        <div class="vr-modal-actions">
-          <button class="vr-btn vr-btn-leave" (click)="cancelVoiceReconnect()">Leave</button>
-          <button class="vr-btn vr-btn-rejoin" (click)="confirmVoiceReconnect()">Rejoin</button>
-        </div>
-      </div>
-    </div>
-  }
+  <!-- VOICE RECONNECT CONFIRM — removed: no auto-reconnect on page load/refresh -->
 
   <!-- INVITE LINKS MODAL -->
   @if (showInviteLinks) {
@@ -1039,10 +1028,10 @@
         </button>
       } @else {
         <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
-          <mat-icon svgIcon="mic_off"></mat-icon> Mute
+          <mat-icon svgIcon="mic_off"></mat-icon> {{ localMuted(voiceContextMenu.vm.userId) ? 'Unmute' : 'Mute' }}
         </button>
         <button class="cyber-ctx-item" (click)="onVoiceContextDeafen(voiceContextMenu.vm); closeVoiceContextMenu()">
-          <mat-icon svgIcon="headset_off"></mat-icon> Deafen
+          <mat-icon svgIcon="headset_off"></mat-icon> {{ localDeafened(voiceContextMenu.vm.userId) ? 'Undeafen' : 'Deafen' }}
         </button>
         <div class="cyber-ctx-divider"></div>
         <div class="cyber-ctx-volume">
