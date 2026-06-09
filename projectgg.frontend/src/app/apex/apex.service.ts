@@ -230,6 +230,10 @@ setKokoroVoice(voice: string): void {
       if (apexPanel) apexPanel.style.display = 'none';
       if (trigger) trigger.style.display = 'none';
 
+      // Swap cross-origin image srcs to proxied URLs so html2canvas can
+      // read the pixels without CORS errors.
+      const swapped = this.proxyCrossOriginImages();
+
       const canvas = await html2canvas(document.body, {
         useCORS: true,
         allowTaint: true,
@@ -238,6 +242,9 @@ setKokoroVoice(voice: string): void {
         logging: false,
       });
 
+      // Restore original srcs
+      this.restoreProxiedImages(swapped);
+
       if (apexPanel) apexPanel.style.display = '';
       if (trigger) trigger.style.display = '';
 
@@ -245,6 +252,33 @@ setKokoroVoice(voice: string): void {
     } catch (err) {
       console.warn('[Apex] Screenshot capture failed:', err);
       return null;
+    }
+  }
+
+  /** Replace cross-origin <img> srcs with /api/image-proxy URLs. Returns the map of swapped elements. */
+  private proxyCrossOriginImages(): Map<HTMLImageElement, string> {
+    const swapped = new Map<HTMLImageElement, string>();
+    const imgs = document.querySelectorAll<HTMLImageElement>('img');
+    for (const img of imgs) {
+      const src = img.getAttribute('src');
+      if (!src) continue;
+      // Skip blob: and data: URLs (already local)
+      if (src.startsWith('blob:') || src.startsWith('data:')) continue;
+      // Only proxy cross-origin URLs
+      try {
+        const url = new URL(src, location.href);
+        if (url.origin === location.origin) continue;
+      } catch { continue; }
+      swapped.set(img, src);
+      img.setAttribute('src', `/api/image-proxy?url=${encodeURIComponent(src)}`);
+    }
+    return swapped;
+  }
+
+  /** Restore original srcs after screenshot capture. */
+  private restoreProxiedImages(swapped: Map<HTMLImageElement, string>): void {
+    for (const [img, originalSrc] of swapped) {
+      img.setAttribute('src', originalSrc);
     }
   }
 
