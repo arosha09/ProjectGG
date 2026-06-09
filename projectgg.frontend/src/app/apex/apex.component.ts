@@ -531,16 +531,37 @@ export class ApexChatComponent implements OnInit, OnDestroy {
         });
       },
       error: () => {
-        session.messages = [...session.messages, {
-          user_id: 'apex',
-          content: 'Failed to get response. Try again.',
-          timestamp: Date.now(),
-        }];
-        this.pendingAiQuery = false;
-        this.apexService.setThinking(false);
-        this.saveSessions();
-        this.scrollIfNeeded();
-        this.cdr.markForCheck();
+        // Retry once
+        this.apexService.askAi(userText, history, this.pageContextEnabled).subscribe({
+          next: (res) => {
+            session.lastActive = Date.now();
+            this.apexService.setThinking(false);
+            this.speakWithKokoro(res.response, () => {
+              session.messages = [...session.messages, {
+                user_id: 'apex',
+                content: res.response,
+                timestamp: Date.now(),
+              }];
+              this.pendingAiQuery = false;
+              this.saveSessions();
+              this.scrollIfNeeded();
+              this.cdr.markForCheck();
+            });
+          },
+          error: (err) => {
+            const msg = err?.error?.message || err?.message || 'Unknown error';
+            session.messages = [...session.messages, {
+              user_id: 'apex',
+              content: `Failed to get response: ${msg}`,
+              timestamp: Date.now(),
+            }];
+            this.pendingAiQuery = false;
+            this.apexService.setThinking(false);
+            this.saveSessions();
+            this.scrollIfNeeded();
+            this.cdr.markForCheck();
+          },
+        });
       },
     });
   }
