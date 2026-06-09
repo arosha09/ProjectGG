@@ -6,8 +6,7 @@ COPY . .
 RUN npm run build
 
 FROM node:20-alpine AS production
-RUN apk add --no-cache python3 py3-pip
-RUN pip3 install --break-system-packages edge-tts
+RUN apk add --no-cache python3 py3-pip && pip3 install --no-cache-dir edge-tts
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
