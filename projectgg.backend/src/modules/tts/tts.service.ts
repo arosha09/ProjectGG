@@ -1,14 +1,8 @@
 import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import WebSocket from 'ws';
 import { SUPABASE_CLIENT } from '../../config/supabase.provider';
-
-const execFileAsync = promisify(execFile);
 
 export type TtsProvider = 'edge-tts' | 'google-tts' | 'webspeech';
 
@@ -264,30 +258,78 @@ export class TtsService implements OnModuleInit {
     const preset = TtsService.EDGE_VOICES.find(v => v.id === voiceId);
     const pitch = overrides?.pitch?.trim() || preset?.pitch;
     const rate = overrides?.rate?.trim() || preset?.rate;
-    const tmpFile = path.join(os.tmpdir(), `tts-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
 
-    try {
-      const args = ['--voice', voiceId, '--text', text, '--write-media', tmpFile];
-      if (rate) args.push('--rate', rate);
-      if (pitch) args.push('--pitch', pitch);
+    const connId = crypto.randomUUID().replace(/-/g, '');
+    const url = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4&ConnectionId=${connId}`;
 
-      this.logger.log(`edge-tts args: ${args.join(' ')}`);
+    // Build SSML
+    let prosody = '';
+    if (rate) prosody += ` rate="${rate}"`;
+    if (pitch) prosody += ` pitch="${pitch}"`;
+    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voiceId}'><prosody${prosody}>${this.escapeXml(text)}</prosody></voice></speak>`;
 
-      await execFileAsync('edge-tts', args, { timeout: 30_000 });
+    return new Promise<{ audio: Buffer; contentType: string }>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const timer = setTimeout(() => {
+        ws.close();
+        reject(new Error('Edge TTS WebSocket timed out'));
+      }, 30_000);
 
-      const audio = await fs.promises.readFile(tmpFile);
-      return { audio, contentType: 'audio/mpeg' };
-    } catch (err: any) {
-      this.logger.error('edge-tts failed', err.message);
+      const ws = new WebSocket(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+        },
+      });
 
-      if (err.code === 'ENOENT') {
-        this.logger.error('edge-tts not found. Install with: pip install edge-tts');
-      }
+      ws.on('open', () => {
+        // Send speech config
+        const config = `Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`;
+        ws.send(config);
 
-      throw new Error('edge-tts synthesis failed: ' + (err.message || 'unknown error'));
-    } finally {
-      try { await fs.promises.unlink(tmpFile); } catch {}
-    }
+        // Send SSML
+        const msgId = crypto.randomUUID().replace(/-/g, '');
+        const ssmlMsg = `X-RequestId:${msgId}\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n${ssml}`;
+        ws.send(ssmlMsg);
+      });
+
+      ws.on('message', (data: Buffer, isBinary: boolean) => {
+        if (isBinary) {
+          // Binary audio data — strip the 2-byte header (WebSocket protocol)
+          // The first message has a variable-length header; subsequent ones are just audio
+          const str = data.toString('utf-8', 0, Math.min(200, data.length));
+          const pathIdx = str.indexOf('Path:audio\r\n');
+          if (pathIdx !== -1) {
+            const audioStart = pathIdx + 'Path:audio\r\n'.length;
+            chunks.push(data.subarray(audioStart));
+          } else {
+            chunks.push(data);
+          }
+        }
+      });
+
+      ws.on('close', () => {
+        clearTimeout(timer);
+        if (chunks.length === 0) {
+          reject(new Error('Edge TTS returned no audio'));
+        } else {
+          resolve({ audio: Buffer.concat(chunks), contentType: 'audio/mpeg' });
+        }
+      });
+
+      ws.on('error', (err: Error) => {
+        clearTimeout(timer);
+        reject(new Error(`Edge TTS WebSocket error: ${err.message}`));
+      });
+    });
+  }
+
+  private escapeXml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
   }
 
   private async synthesizeGoogle(text: string, voice: string, apiKey: string): Promise<{ audio: Buffer; contentType: string }> {

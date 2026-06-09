@@ -7,6 +7,7 @@
     }
   },
   "rewrites": [
+    { "source": "/api/keep-alive", "destination": "/api/keep-alive.ts" },
     { "source": "/api/(.*)", "destination": "https://projectgg-api-ch95.onrender.com/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
