@@ -318,7 +318,7 @@ setKokoroVoice(voice: string): void {
             next: res => subscriber.next(res),
             error: err => subscriber.error(err),
           });
-        });
+        }).catch(err => subscriber.error(err));
       });
     }
     return this.http.post<{ response: string }>('/api/ai/ask', {

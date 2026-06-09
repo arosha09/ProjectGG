@@ -51,7 +51,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   transcribedText = '';
   liveTranscript = '';
   voiceOutputEnabled = true;
-  pageContextEnabled = true;
+  pageContextEnabled = false;
   voiceMode: 'push-to-talk' | 'always-listening' | 'wake-word' = 'push-to-talk';
   selectedVoice: SpeechSynthesisVoice | null = null;
   speechRate = 1.0;
@@ -505,6 +505,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
     this.checkAtBottom();
     this.saveSessions();
     this.cdr.markForCheck();
+    setTimeout(() => this.scrollToBottom(), 50);
 
     const history = session.messages
       .filter(m => !m.imageUrl)
