@@ -268,8 +268,8 @@ export class TtsService implements OnModuleInit {
 
     try {
       const args = ['--voice', voiceId, '--text', text, '--write-media', tmpFile];
-      if (rate) args.push('--rate', rate);
-      if (pitch) args.push('--pitch', pitch);
+      if (rate) args.push(`--rate=${rate}`);
+      if (pitch) args.push(`--pitch=${pitch}`);
 
       await execFileAsync('edge-tts', args, { timeout: 30_000 });
 
