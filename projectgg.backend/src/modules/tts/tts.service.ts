@@ -271,9 +271,12 @@ export class TtsService implements OnModuleInit {
       if (rate) args.push(`--rate=${rate}`);
       if (pitch) args.push(`--pitch=${pitch}`);
 
-      await execFileAsync('edge-tts', args, { timeout: 30_000 });
+      await execFileAsync('edge-tts', args, { timeout: 60_000 });
 
       const audio = await fs.promises.readFile(tmpFile);
+      if (audio.length < 1000) {
+        throw new Error('edge-tts produced empty or truncated audio');
+      }
       return { audio, contentType: 'audio/mpeg' };
     } catch (err: any) {
       this.logger.error('edge-tts failed', err.message);

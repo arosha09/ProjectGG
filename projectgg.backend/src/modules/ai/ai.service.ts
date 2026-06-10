@@ -196,8 +196,10 @@ export class AiService implements OnModuleInit {
           screenshot,
         );
       } catch (error) {
-        if (error.status === 429 || error.message?.includes('rate limit')) {
-          this.logger.warn('Groq rate limited, falling back to Gemini');
+        const isRateLimit = error.status === 429 || error.message?.includes('rate limit');
+        const isImageError = error.message?.includes('does not support image');
+        if (isRateLimit || isImageError) {
+          this.logger.warn(isRateLimit ? 'Groq rate limited' : 'Groq does not support images, falling back to Gemini');
           return await this.callGemini(
             prompt,
             context,

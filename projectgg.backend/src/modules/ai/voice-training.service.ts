@@ -112,13 +112,21 @@ export class VoiceTrainingService {
     try {
       const profile = await this.getProfile(userId);
       if (!profile?.voice_fingerprint || !profile.training_completed) {
+        this.logger.warn(`Speaker verify: no profile or training incomplete for user ${userId}`);
         return false;
       }
 
-      return this.compareFingerprints(
+      this.logger.log(`Speaker verify: comparing fingerprint for user ${userId}`);
+      this.logger.log(`  Stored: pitch=${JSON.stringify(profile.voice_fingerprint.pitch)} rate=${profile.voice_fingerprint.speakingRate} formants=${JSON.stringify(profile.voice_fingerprint.formants)}`);
+      this.logger.log(`  Sample: pitch=${JSON.stringify(audioFingerprint.pitch)} rate=${audioFingerprint.speakingRate} formants=${JSON.stringify(audioFingerprint.formants)}`);
+
+      const result = this.compareFingerprints(
         profile.voice_fingerprint,
         audioFingerprint,
       );
+
+      this.logger.log(`Speaker verify result: ${result}`);
+      return result;
     } catch (error) {
       this.logger.error(`Speaker verification error: ${error.message}`);
       return false;
@@ -136,24 +144,28 @@ export class VoiceTrainingService {
     const pitchMinDist =
       Math.abs(stored.pitch.min - sample.pitch.min) /
       Math.max(stored.pitch.min, sample.pitch.min, 1);
+    this.logger.log(`  pitchMinDist: ${pitchMinDist.toFixed(3)} (stored=${stored.pitch.min.toFixed(1)} sample=${sample.pitch.min.toFixed(1)})`);
     totalDistance += pitchMinDist;
     dimensions++;
 
     const pitchMaxDist =
       Math.abs(stored.pitch.max - sample.pitch.max) /
       Math.max(stored.pitch.max, sample.pitch.max, 1);
+    this.logger.log(`  pitchMaxDist: ${pitchMaxDist.toFixed(3)} (stored=${stored.pitch.max.toFixed(1)} sample=${sample.pitch.max.toFixed(1)})`);
     totalDistance += pitchMaxDist;
     dimensions++;
 
     const pitchAvgDist =
       Math.abs(stored.pitch.avg - sample.pitch.avg) /
       Math.max(stored.pitch.avg, sample.pitch.avg, 1);
+    this.logger.log(`  pitchAvgDist: ${pitchAvgDist.toFixed(3)} (stored=${stored.pitch.avg.toFixed(1)} sample=${sample.pitch.avg.toFixed(1)})`);
     totalDistance += pitchAvgDist;
     dimensions++;
 
     const rateDist =
       Math.abs(stored.speakingRate - sample.speakingRate) /
       Math.max(stored.speakingRate, sample.speakingRate, 1);
+    this.logger.log(`  rateDist: ${rateDist.toFixed(3)} (stored=${stored.speakingRate.toFixed(1)} sample=${sample.speakingRate.toFixed(1)})`);
     totalDistance += rateDist;
     dimensions++;
 
@@ -165,6 +177,7 @@ export class VoiceTrainingService {
       const fDist =
         Math.abs(stored.formants[i] - sample.formants[i]) /
         Math.max(stored.formants[i], sample.formants[i], 1);
+      this.logger.log(`  formant${i}Dist: ${fDist.toFixed(3)} (stored=${stored.formants[i].toFixed(1)} sample=${sample.formants[i].toFixed(1)})`);
       totalDistance += fDist;
       dimensions++;
     }
@@ -172,9 +185,7 @@ export class VoiceTrainingService {
     if (dimensions === 0) return false;
 
     const similarity = totalDistance / dimensions;
-    this.logger.debug(
-      `Speaker similarity: ${(1 - similarity).toFixed(3)} (threshold: ${tolerance})`,
-    );
+    this.logger.log(`  Total distance: ${totalDistance.toFixed(3)} dimensions: ${dimensions} avg: ${similarity.toFixed(3)} threshold: ${tolerance} pass: ${similarity < tolerance}`);
     return similarity < tolerance;
   }
 

@@ -150,6 +150,13 @@
     }
   }
 
+  &.transcribing {
+    background: rgba(0, 200, 255, 0.15);
+    border-color: #00c8ff;
+    color: #00c8ff;
+    animation: vt-transcribing-pulse 1s ease-in-out infinite;
+  }
+
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -302,4 +309,9 @@
 @keyframes vt-ring-expand {
   0% { transform: scale(1); opacity: 0.8; }
   100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes vt-transcribing-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 200, 255, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(0, 200, 255, 0.6); }
 }

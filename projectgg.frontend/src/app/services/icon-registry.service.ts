@@ -65,7 +65,7 @@ export class IconRegistryService extends MatIconRegistry {
     'tag', 'thumb_up', 'timer', 'today',
     'upload', 'verified', 'videogame_asset', 'visibility', 'volume_down',
     'volume_off', 'volume_up', 'vpn_key', 'waves',
-    'warning', 'work', 'apex', 'hourglass', 'tune', 'record_voice_over'
+    'warning', 'work', 'apex', 'hourglass', 'tune', 'record_voice_over', 'subtitles'
   ];
 
   override getNamedSvgIcon(name: string, namespace: string = ''): Observable<SVGElement> {

@@ -10,6 +10,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { AiService, AiPersonality } from './ai.service';
 import { VoiceTrainingService } from './voice-training.service';
@@ -175,6 +176,36 @@ export class AiController {
     return result;
   }
 
+  @Post('voice/verify')
+  @UseGuards(JwtAuthGuard)
+  async verifySpeaker(
+    @Req() req: Request,
+    @Body() body: { fingerprint: VoiceFingerprint },
+  ) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    console.log('[AI] voice/verify called for user:', userId);
+    console.log('[AI] Fingerprint received:', JSON.stringify(body.fingerprint, null, 2));
+
+    if (!body.fingerprint || typeof body.fingerprint !== 'object') {
+      throw new HttpException(
+        'Fingerprint data required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const isVerified = await this.voiceTrainingService.verifySpeaker(
+      userId,
+      body.fingerprint,
+    );
+
+    console.log('[AI] voice/verify result:', isVerified);
+    return { verified: isVerified };
+  }
+
   @Get('voice/profile')
   @UseGuards(JwtAuthGuard)
   async getVoiceProfile(@Req() req: Request) {
@@ -241,6 +272,7 @@ export class AiController {
     return { success: true, words: validWords };
   }
 
+  @SkipThrottle()
   @Post('transcribe')
   @UseGuards(JwtAuthGuard)
   async transcribe(@Req() req: Request, @Body() body: { audio: string }) {

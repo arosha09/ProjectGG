@@ -13,6 +13,7 @@ import { VoiceTrainingComponent } from './voice-training/voice-training.componen
 import { ApexAvatarComponent } from './apex-avatar/apex-avatar.component';
 import { CyberSelectComponent, CyberSelectOption } from '../components/cyber-select/cyber-select.component';
 import { Subscription } from 'rxjs';
+import { WakeWordState } from './wake-word.service';
 
 interface ChatMessage {
   user_id: string;
@@ -53,7 +54,8 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   voiceOutputEnabled = true;
   pageContextEnabled = false;
   voiceMode: 'push-to-talk' | 'always-listening' | 'wake-word' = 'push-to-talk';
-  selectedVoice: SpeechSynthesisVoice | null = null;
+  wakeWordState: WakeWordState = 'idle';
+  selectedVoice: SpeechSynthesisVoice | string | null = null;
   speechRate = 1.0;
   availableVoices: SpeechSynthesisVoice[] = [];
 
@@ -62,6 +64,8 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   showHelp = false;
   showSearch = false;
   showScrollBtn = false;
+  showWakeTranscript = false;
+  private trainingForWakeWord = false;
 
   get showFloatingAvatar(): boolean {
     return this._showFloatingAvatar;
@@ -110,6 +114,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
 
   private stateSub?: Subscription;
   private wakeWordSub?: Subscription;
+  private wakeWordStateSub?: Subscription;
   private liveTranscriptSub?: Subscription;
   private voicesSub?: Subscription;
   private selectedVoiceSub?: Subscription;
@@ -155,6 +160,19 @@ export class ApexChatComponent implements OnInit, OnDestroy {
       if (saved !== null) this._showFloatingAvatar = JSON.parse(saved);
     } catch {}
 
+    try {
+      const savedMode = localStorage.getItem('apex_voice_mode') as 'push-to-talk' | 'always-listening' | 'wake-word' | null;
+      if (savedMode && ['push-to-talk', 'always-listening', 'wake-word'].includes(savedMode)) {
+        this.apexService.setVoiceMode(savedMode);
+        this.voiceMode = savedMode;
+      }
+    } catch {}
+
+    try {
+      const saved = localStorage.getItem('apex_show_wake_transcript');
+      if (saved !== null) this.showWakeTranscript = JSON.parse(saved);
+    } catch {}
+
     this.voicesSub = this.kokoroTtsService.voices$.subscribe(options => {
       this.kokoroVoiceOptions = options;
       this.cdr.markForCheck();
@@ -193,19 +211,20 @@ export class ApexChatComponent implements OnInit, OnDestroy {
     });
 
     this.wakeWordSub = this.apexService.wakeWordDetected$.subscribe(() => {
+      console.log('[Apex] Wake word detected, voiceMode:', this.voiceMode);
       if (this.voiceMode === 'wake-word') {
-        this.apexService.getVoiceProfile().subscribe({
-          next: (response: any) => {
-            const trained = response?.status?.completed;
-            if (!trained) {
-              this.isPanelOpen = true;
-              this.showSettings = false;
-              this.cdr.markForCheck();
-            }
-          },
-          error: () => {},
-        });
+        if (!this.isPanelOpen) {
+          this.isPanelOpen = true;
+          setTimeout(() => this.scrollToBottom(), 100);
+        }
+        this.cdr.markForCheck();
       }
+    });
+
+    this.wakeWordStateSub = this.apexService.wakeWordState$.subscribe(state => {
+      console.log('[Apex] Wake word state:', state);
+      this.wakeWordState = state;
+      this.cdr.markForCheck();
     });
 
     this.speakingSub = this.apexService.speaking$.subscribe(v => {
@@ -217,6 +236,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stateSub?.unsubscribe();
     this.wakeWordSub?.unsubscribe();
+    this.wakeWordStateSub?.unsubscribe();
     this.liveTranscriptSub?.unsubscribe();
     this.voicesSub?.unsubscribe();
     this.selectedVoiceSub?.unsubscribe();
@@ -238,7 +258,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
     if (!this.isPanelOpen) {
       this.isExpandedManually = false;
     } else {
-      setTimeout(() => this.scrollToBottom(), 0);
+      setTimeout(() => this.scrollToBottom(), 200);
     }
     this.cdr.markForCheck();
   }
@@ -428,6 +448,10 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   }
 
   onEnterKey(event: Event): void {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.shiftKey) {
+      return; // Allow default newline behavior
+    }
     event.preventDefault();
     if (this.showAtMenu && this.filteredAtCommands.length > 0) {
       this.insertAtCommand(this.filteredAtCommands[0].name);
@@ -518,10 +542,11 @@ export class ApexChatComponent implements OnInit, OnDestroy {
       next: (res) => {
         session.lastActive = Date.now();
         this.apexService.setThinking(false);
-        this.speakWithKokoro(res.response, () => {
+        const responseText = res?.response || 'No response received.';
+        this.speakWithKokoro(responseText, () => {
           session.messages = [...session.messages, {
             user_id: 'apex',
-            content: res.response,
+            content: responseText,
             timestamp: Date.now(),
           }];
           this.pendingAiQuery = false;
@@ -536,10 +561,11 @@ export class ApexChatComponent implements OnInit, OnDestroy {
           next: (res) => {
             session.lastActive = Date.now();
             this.apexService.setThinking(false);
-            this.speakWithKokoro(res.response, () => {
+            const responseText = res?.response || 'No response received.';
+            this.speakWithKokoro(responseText, () => {
               session.messages = [...session.messages, {
                 user_id: 'apex',
-                content: res.response,
+                content: responseText,
                 timestamp: Date.now(),
               }];
               this.pendingAiQuery = false;
@@ -595,6 +621,14 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   // ─── Mic Toggle ──────────────────────────────────────────────────────────────
 
   toggleMic(): void {
+    if (this.voiceMode === 'wake-word') {
+      if (this.apexService.getWakeWordState() !== 'idle') {
+        this.apexService.setVoiceMode('push-to-talk');
+      } else {
+        this.apexService.setVoiceMode('wake-word');
+      }
+      return;
+    }
     if (this.isListening) {
       this.apexService.stopListening();
     } else {
@@ -605,10 +639,40 @@ export class ApexChatComponent implements OnInit, OnDestroy {
     }
   }
 
+  getMicIcon(): string {
+    if (this.voiceMode === 'wake-word') {
+      if (this.wakeWordState === 'idle') return 'mic_off';
+      return 'mic';
+    }
+    return this.isListening ? 'mic' : 'mic_off';
+  }
+
+  getMicTooltip(): string {
+    if (this.voiceMode === 'wake-word') {
+      switch (this.wakeWordState) {
+        case 'idle': return 'Start wake word listening';
+        case 'listening': return 'Stop wake word listening';
+        case 'verifying': return 'Verifying speaker...';
+        case 'unauthorized': return 'Voice not recognized';
+        case 'command-recording': return 'Recording command...';
+        case 'transcribing': return 'Transcribing...';
+        default: return 'Wake word';
+      }
+    }
+    return this.isListening ? 'Stop listening' : 'Start listening';
+  }
+
   onSilenceDetected(): void {
-    if (this.isListening) {
+    // Don't interfere with wake word mode — it manages its own recording lifecycle
+    if (this.voiceMode !== 'wake-word' && this.isListening) {
       this.apexService.stopListening();
     }
+  }
+
+  toggleWakeTranscript(): void {
+    this.showWakeTranscript = !this.showWakeTranscript;
+    try { localStorage.setItem('apex_show_wake_transcript', JSON.stringify(this.showWakeTranscript)); } catch {}
+    this.cdr.markForCheck();
   }
 
   private handleTranscriptionComplete(text: string): void {
@@ -654,10 +718,11 @@ export class ApexChatComponent implements OnInit, OnDestroy {
         this.sendingVoice = false;
         session.lastActive = Date.now();
         this.apexService.setThinking(false);
-        this.speakWithKokoro(res.response, () => {
+        const responseText = res?.response || 'No response received.';
+        this.speakWithKokoro(responseText, () => {
           session.messages = [...session.messages, {
             user_id: 'apex',
-            content: res.response,
+            content: responseText,
             timestamp: Date.now(),
           }];
           this.pendingAiQuery = false;
@@ -689,27 +754,43 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   }
 
   setVoiceMode(mode: 'push-to-talk' | 'always-listening' | 'wake-word'): void {
+    console.log('[Apex] setVoiceMode:', mode);
+    try { localStorage.setItem('apex_voice_mode', mode); } catch {}
     if (mode === 'push-to-talk') {
       this.apexService.setVoiceMode(mode);
       return;
     }
-    this.apexService.getVoiceProfile().subscribe({
-      next: (response: any) => {
-        const count = response?.status?.count ?? 0;
-        if (count >= 5) {
-          this.apexService.setVoiceMode(mode);
-        } else {
+    if (mode === 'wake-word') {
+      if (!this.apexService.isWakeWordSupported()) {
+        this.showSettings = true;
+        this.cdr.markForCheck();
+        return;
+      }
+      // Start synchronously — SpeechRecognition MUST be in user gesture
+      this.apexService.setVoiceMode(mode);
+      // Check profile async — if not trained, stop and open training
+      this.apexService.getVoiceProfile().subscribe({
+        next: (response: any) => {
+          const trained = response?.status?.completed;
+          if (!trained) {
+            this.apexService.setVoiceMode('push-to-talk');
+            this.trainingForWakeWord = true;
+            this.showSettings = true;
+            this.openTraining();
+            this.cdr.markForCheck();
+          }
+        },
+        error: () => {
+          this.apexService.setVoiceMode('push-to-talk');
+          this.trainingForWakeWord = true;
           this.showSettings = true;
           this.openTraining();
           this.cdr.markForCheck();
-        }
-      },
-      error: () => {
-        this.showSettings = true;
-        this.openTraining();
-        this.cdr.markForCheck();
-      },
-    });
+        },
+      });
+      return;
+    }
+    this.apexService.setVoiceMode(mode);
   }
 
   setSpeechRate(rate: number): void {
@@ -732,6 +813,10 @@ export class ApexChatComponent implements OnInit, OnDestroy {
 
   closeTraining(): void {
     this.showTraining = false;
+    if (this.trainingForWakeWord) {
+      this.trainingForWakeWord = false;
+      this.apexService.setVoiceMode('wake-word');
+    }
   }
 
   selectKokoroVoice(voice: string): void {

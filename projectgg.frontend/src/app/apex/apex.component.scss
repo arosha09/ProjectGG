@@ -941,7 +941,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.664);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1286,6 +1286,41 @@
     color: #fff;
   }
 
+  &.wake-active {
+    background: rgba(0, 200, 255, 0.15);
+    border-color: #00c8ff;
+    color: #00c8ff;
+    animation: wake-pulse 1.5s ease-in-out infinite;
+  }
+
+  &.wake-detected {
+    background: #00c8ff;
+    border-color: #00c8ff;
+    color: #000;
+    animation: wake-flash 0.3s ease-in-out 3;
+  }
+
+  &.wake-verifying {
+    background: rgba(255, 170, 0, 0.2);
+    border-color: var(--neon-gold, #ffaa00);
+    color: var(--neon-gold, #ffaa00);
+    animation: pulse-glow 1s ease-in-out infinite;
+  }
+
+  &.wake-unauthorized {
+    background: rgba(255, 68, 68, 0.2);
+    border-color: #ff4444;
+    color: #ff4444;
+    animation: wake-flash 0.3s ease-in-out 3;
+  }
+
+  &.wake-transcribing {
+    background: rgba(180, 80, 220, 0.2);
+    border-color: #b850dc;
+    color: #b850dc;
+    animation: pulse-glow 1s ease-in-out infinite;
+  }
+
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
@@ -1547,6 +1582,187 @@
   }
 }
 
+// ─── Wake word indicator ─────────────────────────────────────────────────────
+.apex-wake-indicator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 8px 12px;
+  background: rgba(0, 200, 255, 0.06);
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  border-radius: 10px;
+  animation: fade-in 0.3s ease;
+
+  &.apex-wake-active {
+    background: rgba(0, 200, 255, 0.12);
+    border-color: rgba(0, 200, 255, 0.4);
+  }
+
+  &.apex-wake-verifying {
+    background: rgba(255, 170, 0, 0.08);
+    border-color: rgba(255, 170, 0, 0.3);
+  }
+
+  &.apex-wake-unauthorized {
+    background: rgba(255, 68, 68, 0.08);
+    border-color: rgba(255, 68, 68, 0.3);
+  }
+
+  &.apex-wake-transcribing {
+    background: rgba(180, 80, 220, 0.08);
+    border-color: rgba(180, 80, 220, 0.3);
+  }
+}
+
+.apex-wake-pulse {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  border-radius: 50%;
+  background: rgba(0, 200, 255, 0.4);
+  animation: wake-dot-pulse 2s ease-in-out infinite;
+
+  &.active {
+    background: #00c8ff;
+    animation: wake-dot-active 0.6s ease-in-out infinite;
+  }
+
+  &.verifying {
+    background: var(--neon-gold, #ffaa00);
+    animation: wake-dot-verifying 0.8s ease-in-out infinite;
+  }
+
+  &.unauthorized {
+    background: #ff4444;
+    animation: wake-dot-unauthorized 0.4s ease-in-out 3;
+  }
+
+  &.transcribing {
+    background: #b850dc;
+    animation: wake-dot-transcribing 1s ease-in-out infinite;
+  }
+}
+
+.apex-wake-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: rgba(0, 200, 255, 0.8);
+  letter-spacing: 0.5px;
+
+  .apex-wake-verifying & {
+    color: rgba(255, 170, 0, 0.8);
+  }
+
+  .apex-wake-unauthorized & {
+    color: rgba(255, 68, 68, 0.8);
+  }
+
+  .apex-wake-transcribing & {
+    color: rgba(180, 80, 220, 0.8);
+  }
+}
+
+.apex-wake-transcript {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: #0a0800;
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  border-radius: 6px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--neon-gold, #ffaa00);
+  word-break: break-all;
+
+  .apex-wake-transcript-text {
+    display: block;
+    line-height: 1.4;
+  }
+}
+
+// ─── Mode status badge ──────────────────────────────────────────────────────
+.mode-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.mode-status-dot {
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+
+  &.active {
+    background: #00ff88;
+    box-shadow: 0 0 6px rgba(0, 255, 136, 0.5);
+  }
+
+  &.unauthorized {
+    background: #ff4444;
+    box-shadow: 0 0 6px rgba(255, 68, 68, 0.5);
+  }
+}
+
+// ─── Wake word transcript ───────────────────────────────────────────────────
+.apex-msg-transcript {
+  font-style: italic;
+  color: rgba(0, 200, 255, 0.9) !important;
+}
+
+.transcript-cursor {
+  animation: blink 0.8s step-end infinite;
+  color: #00c8ff;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes wake-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(0, 200, 255, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(0, 200, 255, 0.6); }
+}
+
+@keyframes wake-flash {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes wake-dot-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+@keyframes wake-dot-active {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 8px rgba(0, 200, 255, 0.6); }
+  50% { opacity: 0.6; transform: scale(1.4); box-shadow: 0 0 16px rgba(0, 200, 255, 0.8); }
+}
+
+@keyframes wake-dot-verifying {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes wake-dot-unauthorized {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.5); }
+}
+
+@keyframes wake-dot-transcribing {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
 // ─── Shared animations ────────────────────────────────────────────────────────
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 6px rgba(180, 80, 220, 0.5), 0 0 6px rgba(255, 170, 0, 0.3); }
@@ -1561,4 +1777,33 @@
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+// ─── Floating subtitle overlay ──────────────────────────────────────────────
+.apex-subtitle-overlay {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 170, 0, 0.4);
+  border-radius: 6px;
+  padding: 8px 20px;
+  max-width: 90vw;
+  animation: subtitle-in 0.2s ease;
+
+  .apex-subtitle-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    color: var(--neon-gold, #ffaa00);
+    letter-spacing: 0.5px;
+    text-align: center;
+    text-shadow: 0 0 8px rgba(255, 170, 0, 0.3);
+  }
+}
+
+@keyframes subtitle-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }

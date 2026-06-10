@@ -216,6 +216,23 @@
           <button class="mode-btn" [class.active]="voiceMode === 'wake-word'" (click)="setVoiceMode('wake-word')">
             <mat-icon svgIcon="apex"></mat-icon>
             Hey, APEX
+            <span class="mode-status" *ngIf="voiceMode === 'wake-word'">
+              <span class="mode-status-dot" [class.active]="wakeWordState === 'listening' || wakeWordState === 'command-recording'"></span>
+              {{ wakeWordState === 'listening' ? 'Active' : wakeWordState === 'verifying' ? 'Verifying...' : wakeWordState === 'unauthorized' ? 'Not you' : wakeWordState === 'command-recording' ? 'Recording...' : wakeWordState === 'transcribing' ? 'Transcribing...' : wakeWordState === 'error' ? 'Mic blocked' : 'Starting...' }}
+            </span>
+          </button>
+        </div>
+
+        <div class="setting-row" *ngIf="voiceMode === 'wake-word'">
+          <div class="setting-label">
+            <mat-icon svgIcon="subtitles"></mat-icon>
+            <div>
+              <span class="setting-title">Show Live Transcript</span>
+              <span class="setting-sub">Display what APEX hears from mic</span>
+            </div>
+          </div>
+          <button class="toggle-pill" [class.active]="showWakeTranscript" (click)="toggleWakeTranscript()">
+            <span class="toggle-knob"></span>
           </button>
         </div>
       </div>
@@ -300,7 +317,7 @@
       </div>
 
       <div class="apex-welcome" *ngIf="messages.length === 0 && !pendingAiQuery && !conversationStarted">
-        <div class="apex-logo"><img CLASS="apex-logo-nobg"src="assets/ai/media/APEX.png" alt="A.P.E.X. Logo" /></div>
+        <div class="apex-logo"><img class="apex-logo-nobg" src="assets/ai/media/APEX.png" alt="A.P.E.X. Logo" /></div>
         <p>Hey! I'm <strong>A.P.E.X.</strong></p>
         <p class="apex-desc">Your AI gaming assistant. Ask me anything!</p>
 
@@ -323,9 +340,46 @@
         </div>
       </div>
 
+      <!-- Wake word: listening for "Hey APEX" -->
+      <div class="apex-wake-indicator" *ngIf="voiceMode === 'wake-word' && wakeWordState === 'listening'">
+        <div class="apex-wake-pulse"></div>
+        <span class="apex-wake-text">Listening for "Hey APEX"...</span>
+      </div>
+
+      <!-- Wake word: verifying speaker -->
+      <div class="apex-wake-indicator apex-wake-verifying" *ngIf="wakeWordState === 'verifying'">
+        <div class="apex-wake-pulse verifying"></div>
+        <span class="apex-wake-text">Verifying voice...</span>
+      </div>
+
+      <!-- Wake word: not recognized as the user -->
+      <div class="apex-wake-indicator apex-wake-unauthorized" *ngIf="wakeWordState === 'unauthorized'">
+        <div class="apex-wake-pulse unauthorized"></div>
+        <span class="apex-wake-text">Voice not recognized</span>
+      </div>
+
+      <!-- Wake word: detected, now recording command -->
+      <div class="apex-wake-indicator apex-wake-active" *ngIf="wakeWordState === 'wake-detected' || wakeWordState === 'command-recording'">
+        <div class="apex-wake-pulse active"></div>
+        <span class="apex-wake-text">Hey APEX detected! Speak your command...</span>
+      </div>
+
+      <!-- Wake word: transcribing command -->
+      <div class="apex-wake-indicator apex-wake-transcribing" *ngIf="wakeWordState === 'transcribing'">
+        <div class="apex-wake-pulse transcribing"></div>
+        <span class="apex-wake-text">Transcribing your command...</span>
+      </div>
+
       <div class="apex-msg-wrapper apex-msg-user apex-msg-live" *ngIf="isTranscribing">
         <div class="apex-msg-bubble apex-msg-transcribing">
           Transcribing...
+        </div>
+      </div>
+
+      <!-- Live transcript from wake word command -->
+      <div class="apex-msg-wrapper apex-msg-user apex-msg-live" *ngIf="voiceMode === 'wake-word' && wakeWordState === 'command-recording' && liveTranscript">
+        <div class="apex-msg-bubble apex-msg-transcript">
+          {{ liveTranscript }}<span class="transcript-cursor">|</span>
         </div>
       </div>
 
@@ -351,9 +405,15 @@
       <button *ngIf="!ttsLoading && !isSpeaking" class="mic-btn"
               [class.recording]="isRecording"
               [class.listening]="isListening"
+              [class.wake-active]="voiceMode === 'wake-word' && wakeWordState === 'listening'"
+              [class.wake-detected]="wakeWordState === 'wake-detected' || wakeWordState === 'command-recording'"
+              [class.wake-verifying]="wakeWordState === 'verifying'"
+              [class.wake-unauthorized]="wakeWordState === 'unauthorized'"
+              [class.wake-transcribing]="wakeWordState === 'transcribing'"
               (click)="toggleMic()"
-              [disabled]="!isSupported">
-        <mat-icon [svgIcon]="isListening ? 'mic' : 'mic_off'"></mat-icon>
+              [disabled]="!isSupported"
+              [matTooltip]="getMicTooltip()">
+        <mat-icon [svgIcon]="getMicIcon()"></mat-icon>
       </button>
 
       <ng-container *ngIf="!isListening">
@@ -391,6 +451,11 @@
 
 </div><!-- /.apex-panel -->
 
-<app-apex-avatar [visible]="showFloatingAvatar" (visibleChange)="showFloatingAvatar = $event" (animatingChange)="avatarAnimating = $event" (silenceDetected)="onSilenceDetected()"></app-apex-avatar>
+<app-apex-avatar [visible]="showFloatingAvatar" [wakeWordState]="wakeWordState" (visibleChange)="showFloatingAvatar = $event" (animatingChange)="avatarAnimating = $event" (silenceDetected)="onSilenceDetected()"></app-apex-avatar>
+
+<!-- Floating subtitle overlay -->
+<div class="apex-subtitle-overlay" *ngIf="showWakeTranscript && voiceMode === 'wake-word' && wakeWordState === 'listening' && liveTranscript">
+  <span class="apex-subtitle-text">{{ liveTranscript }}</span>
+</div>
 
 <app-voice-training *ngIf="showTraining" (close)="closeTraining()"></app-voice-training>

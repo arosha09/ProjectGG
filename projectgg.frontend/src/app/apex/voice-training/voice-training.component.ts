@@ -16,15 +16,16 @@ export class VoiceTrainingComponent {
   @Output() close = new EventEmitter<void>();
 
   trainingPhrases = [
-    'This is my voice training APEX to recognize me better.',
-    'The quick brown fox jumps over the lazy dog near the riverbank.',
-    'I love playing card games and trading rare items with friends.',
-    'APEX what is the rarest card in the entire collection right now?',
-    'Hey APEX tell me a funny gaming joke to brighten my day.',
+    'Hey APEX, what\'s up?',
+    'Hello, how are you doing?',
+    'Can you help me with something?',
+    'What\'s the weather like today?',
+    'Thanks APEX, have a good one!',
   ];
 
   currentStep = 0;
   isRecording = false;
+  isTranscribing = false;
   trainingComplete = false;
   progress = 0;
   statusMessage = '';
@@ -34,9 +35,9 @@ export class VoiceTrainingComponent {
 
   private pendingBlob: Blob | null = null;
   private pendingFingerprint: VoiceFingerprint | null = null;
+  private collectedFingerprints: VoiceFingerprint[] = [];
   previewUrl: string | null = null;
   recognizedText = '';
-  private recognition: any = null;
 
   constructor(
     private voiceService: ApexVoiceService,
@@ -57,7 +58,7 @@ export class VoiceTrainingComponent {
   }
 
   async startRecording(): Promise<void> {
-    if (this.isRecording || this.isPreview) return;
+    if (this.isRecording || this.isPreview || this.isTranscribing) return;
 
     this.discardPending();
     this.recognizedText = '';
@@ -86,7 +87,6 @@ export class VoiceTrainingComponent {
       };
 
       this.mediaRecorder.onstop = async () => {
-        this.stopRecognition();
         await this.processRecording();
       };
 
@@ -94,8 +94,6 @@ export class VoiceTrainingComponent {
       this.isRecording = true;
       this.statusMessage = 'Recording... Read the phrase above.';
       this.cdr.markForCheck();
-
-      this.startRecognition();
 
       setTimeout(() => {
         if (this.mediaRecorder?.state === 'recording') {
@@ -119,17 +117,58 @@ export class VoiceTrainingComponent {
   private async processRecording(): Promise<void> {
     const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
 
-    if (this.recognizedText) {
-      const score = this.phraseMatchScore(this.currentPhrase, this.recognizedText);
-      if (score < 0.5) {
-        this.statusMessage = `Couldn't understand clearly. You said: "${this.recognizedText}". Please try again.`;
-        this.discardPending();
-        this.recognizedText = '';
-        this.cdr.markForCheck();
-        return;
-      }
+    if (blob.size < 1000) {
+      this.statusMessage = 'Recording too short. Tap the mic to try again.';
+      this.discardPending();
+      this.cdr.markForCheck();
+      return;
     }
 
+    // Release mic while we transcribe
+    if (this.stream) {
+      this.stream.getTracks().forEach(t => t.stop());
+      this.stream = null;
+    }
+
+    // Transcribe with Whisper
+    this.isTranscribing = true;
+    this.statusMessage = 'Listening...';
+    this.cdr.markForCheck();
+
+    try {
+      const base64 = await this.voiceService.blobToBase64(blob);
+      const res: any = await this.http
+        .post('/api/ai/transcribe', { audio: base64 })
+        .toPromise();
+      this.recognizedText = res?.transcript || '';
+      console.log('[VoiceTraining] Whisper transcript:', this.recognizedText);
+    } catch (err) {
+      console.error('[VoiceTraining] Transcription failed:', err);
+      this.recognizedText = '';
+    }
+
+    this.isTranscribing = false;
+    this.cdr.markForCheck();
+
+    // Validate phrase match
+    if (!this.recognizedText || this.recognizedText.trim().length < 3) {
+      this.statusMessage = 'Couldn\'t hear you clearly. Please try again, speak a bit louder.';
+      this.discardPending();
+      this.recognizedText = '';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const score = this.phraseMatchScore(this.currentPhrase, this.recognizedText);
+    if (score < 0.7) {
+      this.statusMessage = `I heard "${this.recognizedText}" — that doesn't match. Please read the phrase above.`;
+      this.discardPending();
+      this.recognizedText = '';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // Phrase matched — analyze voice fingerprint and show preview
     try {
       this.statusMessage = 'Analyzing your voice...';
       this.cdr.markForCheck();
@@ -139,13 +178,8 @@ export class VoiceTrainingComponent {
       this.previewUrl = URL.createObjectURL(blob);
       this.statusMessage = 'Press play to review your recording.';
       this.cdr.markForCheck();
-
-      if (this.stream) {
-        this.stream.getTracks().forEach(t => t.stop());
-        this.stream = null;
-      }
     } catch (error) {
-      this.statusMessage = 'Failed to analyze recording. Please try again.';
+      this.statusMessage = 'Something went wrong. Tap the mic to try again.';
       this.discardPending();
       this.cdr.markForCheck();
     }
@@ -164,29 +198,34 @@ export class VoiceTrainingComponent {
 
       const base64 = await this.voiceService.blobToBase64(blob);
 
+      this.collectedFingerprints.push(fingerprint);
+
+      const isLastRecording = this.currentStep >= 4;
+
       await this.http.post('/api/ai/voice/upload', {
         audio: base64,
         index: this.currentStep,
-        fingerprint,
+        fingerprint: isLastRecording ? this.averageFingerprints(this.collectedFingerprints) : fingerprint,
       }).toPromise();
 
       this.progress = this.currentStep + 1;
-      this.statusMessage = `Recording ${this.progress}/10 saved.`;
+      this.statusMessage = `Recording ${this.progress}/5 saved.`;
       this.cdr.markForCheck();
 
-      if (this.currentStep < 4) {
+      if (!isLastRecording) {
         setTimeout(() => {
           this.currentStep++;
           this.statusMessage = '';
           this.cdr.markForCheck();
         }, 1500);
       } else {
+        this.collectedFingerprints = [];
         this.trainingComplete = true;
         this.statusMessage = 'Voice training complete! APEX now recognizes your voice.';
         this.cdr.markForCheck();
       }
     } catch (error) {
-      this.statusMessage = 'Failed to upload. Please try again.';
+      this.statusMessage = 'Upload failed. Tap the mic to try again.';
       this.cdr.markForCheck();
     }
   }
@@ -209,6 +248,7 @@ export class VoiceTrainingComponent {
 
   async recalibrate(): Promise<void> {
     this.discardPending();
+    this.collectedFingerprints = [];
     this.currentStep = 0;
     this.progress = 0;
     this.trainingComplete = false;
@@ -226,14 +266,13 @@ export class VoiceTrainingComponent {
       this.statusMessage = 'Voice profile deleted.';
       this.cdr.markForCheck();
     } catch (error) {
-      this.statusMessage = 'Failed to delete profile.';
+      this.statusMessage = 'Could not delete profile. Try again.';
       this.cdr.markForCheck();
     }
   }
 
   onClose(): void {
     this.discardPending();
-    this.stopRecognition();
     if (this.stream) {
       this.stream.getTracks().forEach(t => t.stop());
       this.stream = null;
@@ -244,54 +283,65 @@ export class VoiceTrainingComponent {
     this.close.emit();
   }
 
-  private startRecognition(): void {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    this.recognition = new SpeechRecognition();
-    this.recognition.lang = 'en-US';
-    this.recognition.interimResults = true;
-    this.recognition.continuous = true;
-
-    this.recognition.onresult = (event: any) => {
-      let final = '';
-      for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          final += event.results[i][0].transcript;
-        }
-      }
-      if (final) {
-        this.recognizedText = final;
-        this.cdr.markForCheck();
-      }
-    };
-
-    this.recognition.onerror = () => {};
-    this.recognition.onend = () => {};
-
-    try {
-      this.recognition.start();
-    } catch {}
-  }
-
-  private stopRecognition(): void {
-    if (this.recognition) {
-      try { this.recognition.stop(); } catch {}
-      this.recognition = null;
-    }
-  }
-
   private normalizeText(text: string): string {
     return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
   }
 
   private phraseMatchScore(expected: string, spoken: string): number {
     const expWords = this.normalizeText(expected).split(' ');
-    const spkWords = new Set(this.normalizeText(spoken).split(' '));
+    const spkWords = this.normalizeText(spoken).split(' ');
+    const spkSet = new Set(spkWords);
+
+    // Word presence score
     let matched = 0;
     for (const w of expWords) {
-      if (spkWords.has(w)) matched++;
+      if (spkSet.has(w)) matched++;
     }
-    return matched / expWords.length;
+    const presenceScore = matched / expWords.length;
+
+    // Order score: check how many expected words appear in correct order
+    let orderMatches = 0;
+    let spkIdx = 0;
+    for (const w of expWords) {
+      const found = spkWords.indexOf(w, spkIdx);
+      if (found !== -1) {
+        orderMatches++;
+        spkIdx = found + 1;
+      }
+    }
+    const orderScore = orderMatches / expWords.length;
+
+    // Combined: weight presence and order equally
+    return (presenceScore * 0.5 + orderScore * 0.5);
+  }
+
+  private averageFingerprints(fingerprints: VoiceFingerprint[]): VoiceFingerprint {
+    const n = fingerprints.length;
+    if (n === 0) return { pitch: { min: 0, max: 0, avg: 0 }, tone: { brightness: 0, warmth: 0 }, speakingRate: 0, formants: [] };
+    if (n === 1) return fingerprints[0];
+
+    const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+    return {
+      pitch: {
+        min: avg(fingerprints.map(f => f.pitch.min)),
+        max: avg(fingerprints.map(f => f.pitch.max)),
+        avg: avg(fingerprints.map(f => f.pitch.avg)),
+      },
+      tone: {
+        brightness: avg(fingerprints.map(f => f.tone.brightness)),
+        warmth: avg(fingerprints.map(f => f.tone.warmth)),
+      },
+      speakingRate: avg(fingerprints.map(f => f.speakingRate)),
+      formants: (() => {
+        const maxLen = Math.max(...fingerprints.map(f => f.formants.length));
+        const result: number[] = [];
+        for (let i = 0; i < maxLen; i++) {
+          const vals = fingerprints.map(f => f.formants[i]).filter(v => v !== undefined);
+          result.push(vals.length > 0 ? avg(vals) : 0);
+        }
+        return result;
+      })(),
+    };
   }
 }

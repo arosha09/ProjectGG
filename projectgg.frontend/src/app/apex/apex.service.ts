@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject, BehaviorSubject } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { ApexVoiceService, VoiceFingerprint } from './apex-voice.service';
+import { WakeWordService, WakeWordState } from './wake-word.service';
 import html2canvas from 'html2canvas';
 
 export interface ApexVoiceState {
@@ -9,7 +10,7 @@ export interface ApexVoiceState {
   isListening: boolean;
   transcribedText: string;
   voiceOutputEnabled: boolean;
-  selectedVoice: SpeechSynthesisVoice | null;
+  selectedVoice: SpeechSynthesisVoice | string | null;
   speechRate: number;
   voiceMode: 'push-to-talk' | 'always-listening' | 'wake-word';
   wakeWordDetected: boolean;
@@ -38,6 +39,11 @@ export class ApexService {
   private transcriptionCompleteSubject = new Subject<string>();
   public transcriptionComplete$ = this.transcriptionCompleteSubject.asObservable();
 
+  private wakeWordStateSubject = new BehaviorSubject<WakeWordState>('idle');
+  public wakeWordState$ = this.wakeWordStateSubject.asObservable();
+
+  private wakeCommandSub?: Subscription;
+
   private state: ApexVoiceState = {
     isRecording: false,
     isListening: false,
@@ -53,13 +59,39 @@ export class ApexService {
   private audioChunks: Blob[] = [];
   private micStream: MediaStream | null = null;
 
-  constructor(private http: HttpClient, private voiceAnalysis: ApexVoiceService) {}
+  constructor(
+    private http: HttpClient,
+    private voiceAnalysis: ApexVoiceService,
+    private wakeWordService: WakeWordService,
+  ) {
+    // Forward wake word state to observable
+    this.wakeWordService.state$.subscribe(state => {
+      this.wakeWordStateSubject.next(state);
+    });
+
+    // Forward wake word listening state to apex listening state
+    this.wakeWordService.listening$.subscribe(listening => {
+      this.listeningSubject.next(listening);
+    });
+
+    // When a command is received via wake word, emit as transcription complete
+    this.wakeCommandSub = this.wakeWordService.commandReceived$.subscribe(text => {
+      if (text.trim()) {
+        this.transcriptionCompleteSubject.next(text);
+      }
+    });
+
+    // Forward wake word live transcript
+    this.wakeWordService.liveTranscript$.subscribe(text => {
+      this.liveTranscriptSubject.next(text);
+    });
+  }
 
 setKokoroVoice(voice: string): void {
     try {
       localStorage.setItem('apex_kokoro_voice', voice);
     } catch {}
-    this.state.selectedVoice = voice as any;
+    this.state.selectedVoice = voice;
   }
 
   getKokoroVoice(): string | null {
@@ -318,7 +350,15 @@ setKokoroVoice(voice: string): void {
             next: res => subscriber.next(res),
             error: err => subscriber.error(err),
           });
-        }).catch(err => subscriber.error(err));
+        }).catch(() => {
+          this.http.post<{ response: string }>('/api/ai/ask', {
+            message,
+            conversationHistory,
+          }).subscribe({
+            next: res => subscriber.next(res),
+            error: err => subscriber.error(err),
+          });
+        });
       });
     }
     return this.http.post<{ response: string }>('/api/ai/ask', {
@@ -397,7 +437,16 @@ setKokoroVoice(voice: string): void {
 
   setVoiceMode(mode: 'push-to-talk' | 'always-listening' | 'wake-word'): void {
     this.stopListening();
+
+    if (this.state.voiceMode === 'wake-word' && mode !== 'wake-word') {
+      this.wakeWordService.stop();
+    }
+
     this.updateState({ voiceMode: mode });
+
+    if (mode === 'wake-word') {
+      this.wakeWordService.start();
+    }
   }
 
   setSpeechRate(rate: number): void {
@@ -410,6 +459,16 @@ setKokoroVoice(voice: string): void {
 
   isSpeechSynthesisSupported(): boolean {
     return !!window.speechSynthesis;
+  }
+
+  isWakeWordSupported(): boolean {
+    const hasMic = typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function';
+    const hasRecorder = typeof window !== 'undefined' && typeof window.MediaRecorder === 'function';
+    return hasMic && hasRecorder;
+  }
+
+  getWakeWordState(): WakeWordState {
+    return this.wakeWordService.currentState;
   }
 
   private updateState(partial: Partial<ApexVoiceState>): void {

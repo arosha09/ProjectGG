@@ -31,7 +31,7 @@
         </div>
       } @else {
         <div class="vt-progress">
-          <span class="vt-step-label">Recording {{ currentStep + 1 }} of 10</span>
+          <span class="vt-step-label">Recording {{ currentStep + 1 }} of 5</span>
           <div class="vt-progress-bar">
             <div class="vt-progress-fill" [style.width.%]="progressPercent"></div>
           </div>
@@ -60,17 +60,18 @@
             <button
               class="vt-mic-btn"
               [class.recording]="isRecording"
+              [class.transcribing]="isTranscribing"
               (click)="isRecording ? stopRecording() : startRecording()"
-              [disabled]="statusMessage.includes('Analyzing') || statusMessage.includes('Uploading') || statusMessage.includes('Review')">
-              <mat-icon>{{ isRecording ? 'stop' : 'mic' }}</mat-icon>
+              [disabled]="isTranscribing || statusMessage.includes('Analyzing') || statusMessage.includes('Uploading')">
+              <mat-icon>{{ isRecording ? 'stop' : (isTranscribing ? 'hourglass_top' : 'mic') }}</mat-icon>
               <span class="vt-mic-ring" *ngIf="isRecording"></span>
             </button>
-            <span class="vt-mic-label">{{ isRecording ? 'Tap to stop' : 'Tap to record' }}</span>
+            <span class="vt-mic-label">{{ isRecording ? 'Tap to stop' : (isTranscribing ? 'Transcribing...' : 'Tap to record') }}</span>
           }
         </div>
 
         @if (statusMessage) {
-          <div class="vt-status" [class.error]="statusMessage.includes('Failed') || statusMessage.includes('denied') || statusMessage.includes('Couldn')">
+          <div class="vt-status" [class.error]="statusMessage.includes('Failed') || statusMessage.includes('failed') || statusMessage.includes('denied') || statusMessage.includes('Couldn') || statusMessage.includes('wrong') || statusMessage.includes('not match')">
             {{ statusMessage }}
           </div>
         }

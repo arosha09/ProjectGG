@@ -64,7 +64,8 @@ type FaceState =
   | 'angry'
   | 'petted'
   | 'sleeping'
-  | 'thinking';
+  | 'thinking'
+  | 'listening';
 
 // ─── Visor inner drawable bounds (pixel-art space) ───────────────────────────
 const VISOR = { x: 15, y: 21, w: 18, h: 12 } as const;
@@ -82,6 +83,7 @@ const VCY = VISOR.y + VISOR.h / 2; // 27
 export class ApexAvatarComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @ViewChild('avatarCanvas') canvasRef!: ElementRef<HTMLCanvasElement>;
   @Input() visible = true;
+  @Input() wakeWordState: string = 'idle';
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() animatingChange = new EventEmitter<boolean>();
   @Output() silenceDetected = new EventEmitter<void>();
@@ -134,7 +136,7 @@ export class ApexAvatarComponent implements OnInit, OnChanges, OnDestroy, AfterV
   private isThinking = false;
   private isTyping = false;
   private typingTimer: ReturnType<typeof setTimeout> | null = null;
-  private savedFaceState: FaceState = 'normal';
+  private savedFaceState: FaceState | null = null;
   private silenceFrames = 0;
   private readonly SILENCE_THRESHOLD = 0.03;
   private readonly SILENCE_FRAMES_REQUIRED = 90;
@@ -287,7 +289,8 @@ export class ApexAvatarComponent implements OnInit, OnChanges, OnDestroy, AfterV
           this.savedFaceState = this.faceState;
           this.faceState = 'thinking';
         } else {
-          this.faceState = this.savedFaceState;
+          this.faceState = this.savedFaceState || 'normal';
+          this.savedFaceState = null;
         }
       }),
     );
@@ -299,6 +302,19 @@ export class ApexAvatarComponent implements OnInit, OnChanges, OnDestroy, AfterV
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['wakeWordState'] && !changes['wakeWordState'].firstChange) {
+      const wws = changes['wakeWordState'].currentValue;
+      if (wws === 'wake-detected' || wws === 'command-recording' || wws === 'verifying') {
+        this.savedFaceState = this.savedFaceState || this.faceState;
+        this.faceState = 'listening';
+      } else if (wws === 'idle' || wws === 'unauthorized' || wws === 'transcribing') {
+        if (this.faceState === 'listening') {
+          this.faceState = this.savedFaceState || 'normal';
+        }
+        this.savedFaceState = null;
+      }
+    }
+
     if (changes['visible'] && !changes['visible'].firstChange) {
       const newVal = changes['visible'].currentValue;
       const prevVal = changes['visible'].previousValue;
@@ -1339,6 +1355,25 @@ export class ApexAvatarComponent implements OnInit, OnChanges, OnDestroy, AfterV
         this.px(22, 29, C.mouth1, 0.5);
         this.px(23, 29, C.mouth1, 0.5);
         this.px(24, 29, C.mouth1, 0.5);
+      } else if (this.faceState === 'listening' && !blink) {
+        // Listening — wide attentive eyes, small focused mouth
+        const cyan = '#00e5ff';
+        const pulse = 0.7 + 0.3 * Math.sin(this.phase * 4);
+        // Wide eyes
+        this.px(19, 23, cyan, pulse);
+        this.px(20, 22, C.eye1, gA);
+        this.px(21, 23, cyan, pulse);
+        this.px(27, 23, cyan, pulse);
+        this.px(28, 22, C.eye1, gA);
+        this.px(29, 23, cyan, pulse);
+        // Eye glow
+        this.px(20, 24, cyan, 0.3);
+        this.px(28, 24, cyan, 0.3);
+        // Small focused mouth
+        this.px(22, 29, C.mouth1, gA);
+        this.px(23, 29, C.mouth1, gA);
+        this.px(24, 29, C.mouth1, gA);
+        this.px(25, 29, C.mouth1, gA);
       } else {
         // NORMAL face
         if (!blink) {
@@ -1385,7 +1420,7 @@ export class ApexAvatarComponent implements OnInit, OnChanges, OnDestroy, AfterV
       this.endVisorClip();
     }
 
-    // Visor audio pulse border
+// Visor audio pulse border
     if (
       (this.al > 0.05 || this.talking) &&
       !blink &&
@@ -1397,7 +1432,6 @@ export class ApexAvatarComponent implements OnInit, OnChanges, OnDestroy, AfterV
       this.pr(VISOR.x, VISOR.y, 1, VISOR.h, C.eye2, va * 0.9);
       this.pr(VISOR.x + VISOR.w - 1, VISOR.y, 1, VISOR.h, C.eye2, va * 0.9);
     } else if (this.micOn && !blink && this.faceState === 'normal') {
-      // Listening idle pulse — subtle glow when mic is on but user isn't speaking
       const la = 0.15 + 0.1 * Math.sin(this.phase * 4);
       this.pr(VISOR.x, VISOR.y, VISOR.w, 1, C.eye3, la);
       this.pr(VISOR.x, VISOR.y + VISOR.h - 1, VISOR.w, 1, C.eye3, la);
