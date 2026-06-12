@@ -3,7 +3,7 @@
   <div class="cyber-player-expanded">
     <div class="cyber-player-expanded-inner" (click)="$event.stopPropagation()">
 
-      <div class="cyber-now-playing">
+      <div class="cyber-now-track">
         <div class="cyber-art-container">
           @if (track?.thumbnail) {
             <img loading="lazy" decoding="async" [src]="getThumb(track!.thumbnail, track!.videoId)" alt="Album art" class="cyber-album-art" />
