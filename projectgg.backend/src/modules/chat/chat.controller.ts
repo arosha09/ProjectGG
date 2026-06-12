@@ -1064,21 +1064,74 @@ export class ChatController {
     this.aiService.handleMessage(msg);
 
     // Create mention notifications
+    const channelIdNum = Number(body.channel_id);
+    const serverId = await this.chatService.getServerIdForChannel(channelIdNum);
+
+    // Collect @username mentions (excluding @everyone and @role)
     const mentionRegex = /@(\w+)/g;
     let match: RegExpExecArray | null;
     const mentionedUsernames = new Set<string>();
+    let hasEveryone = false;
+    const mentionedRoles = new Set<string>();
+    const builtInRoles = ['owner', 'admin', 'moderator', 'member'];
+
     while ((match = mentionRegex.exec(body.content)) !== null) {
-      const uname = match[1];
-      if (uname.toLowerCase() !== username.toLowerCase()) {
-        mentionedUsernames.add(uname);
+      const tag = match[1];
+      if (tag.toLowerCase() === 'everyone') {
+        hasEveryone = true;
+      } else if (serverId && await this.chatService.roleExists(serverId, tag)) {
+        mentionedRoles.add(tag);
+      } else if (tag.toLowerCase() !== username.toLowerCase()) {
+        mentionedUsernames.add(tag);
       }
     }
+
+    const notifiedUserIds = new Set<string>();
+
+    // @everyone — notify all server members
+    if (hasEveryone && serverId) {
+      const members = await this.chatService.getServerMembers(serverId);
+      for (const m of members) {
+        if (m.user_id !== userIdStr && !notifiedUserIds.has(m.user_id)) {
+          notifiedUserIds.add(m.user_id);
+          this.chatGateway.createNotification(
+            m.user_id,
+            'mention',
+            `${username} mentioned @everyone`,
+            body.content.slice(0, 200),
+            { channelId: body.channel_id, messageId: msg.id },
+          );
+        }
+      }
+    }
+
+    // @role — notify all members with that role
+    if (mentionedRoles.size > 0 && serverId) {
+      for (const roleName of mentionedRoles) {
+        const members = await this.chatService.getMembersWithRole(serverId, roleName);
+        for (const m of members) {
+          if (m.user_id !== userIdStr && !notifiedUserIds.has(m.user_id)) {
+            notifiedUserIds.add(m.user_id);
+            this.chatGateway.createNotification(
+              m.user_id,
+              'mention',
+              `${username} mentioned @${roleName}`,
+              body.content.slice(0, 200),
+              { channelId: body.channel_id, messageId: msg.id },
+            );
+          }
+        }
+      }
+    }
+
+    // @username — notify specific users
     if (mentionedUsernames.size > 0) {
       const mentionedUsers = await this.chatService.findUsersByUsernames(
         Array.from(mentionedUsernames),
       );
       for (const mu of mentionedUsers) {
-        if (mu.id !== userIdStr) {
+        if (mu.id !== userIdStr && !notifiedUserIds.has(mu.id)) {
+          notifiedUserIds.add(mu.id);
           this.chatGateway.createNotification(
             mu.id,
             'mention',
@@ -1091,6 +1144,16 @@ export class ChatController {
     }
 
     return msg;
+  }
+
+  private async roleExists(serverId: number, roleName: string): Promise<boolean> {
+    const { data } = await (this.chatService as any).db()
+      .from('gg_server_roles')
+      .select('name')
+      .eq('server_id', serverId)
+      .eq('name', roleName)
+      .maybeSingle();
+    return !!data;
   }
 
   @UseGuards(JwtAuthGuard)

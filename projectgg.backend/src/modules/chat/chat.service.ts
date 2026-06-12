@@ -380,6 +380,18 @@ export class ChatService {
     return data ?? [];
   }
 
+  async roleExists(serverId: number, roleName: string): Promise<boolean> {
+    const builtIn = ['owner', 'admin', 'moderator', 'member'];
+    if (builtIn.includes(roleName.toLowerCase())) return true;
+    const { data } = await this.db()
+      .from('gg_server_roles')
+      .select('name')
+      .eq('server_id', serverId)
+      .eq('name', roleName)
+      .maybeSingle();
+    return !!data;
+  }
+
   async createServerRole(
     serverId: number,
     userId: string,
@@ -739,6 +751,42 @@ export class ChatService {
         status,
       };
     });
+  }
+
+  async getServerIdForChannel(channelId: number): Promise<number | null> {
+    const { data: ch } = await this.db()
+      .from('gg_channels')
+      .select('server_id')
+      .eq('id', channelId)
+      .single();
+    return ch?.server_id ?? null;
+  }
+
+  async getMembersByChannelId(channelId: number): Promise<GgServerMember[]> {
+    const serverId = await this.getServerIdForChannel(channelId);
+    if (!serverId) return [];
+    return this.getServerMembers(serverId);
+  }
+
+  async getMembersWithRole(serverId: number, roleName: string): Promise<GgServerMember[]> {
+    const { data, error } = await this.db()
+      .from('gg_server_members')
+      .select('*')
+      .eq('server_id', serverId)
+      .contains('roles', [roleName]);
+    if (error) return [];
+    const members = data ?? [];
+    if (members.length === 0) return [];
+    const userIds = members.map((m) => m.user_id);
+    const { data: users } = await this.db()
+      .from('users')
+      .select('id, username')
+      .in('id', userIds);
+    const userMap = new Map<string, any>((users ?? []).map((u: any) => [u.id, u]));
+    return members.map((m) => ({
+      ...m,
+      username: userMap.get(m.user_id)?.username ?? m.user_id,
+    }));
   }
 
   async joinServer(serverId: number, userId: string): Promise<void> {
