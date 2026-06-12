@@ -20,6 +20,12 @@ interface VoiceClient {
   channelId: string;
 }
 
+interface SoundboardState {
+  channelId: string;
+  userId: string;
+  soundName: string;
+}
+
 interface UserVoiceState {
   muted: boolean;
   deafened: boolean;
@@ -40,6 +46,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private channelMembers = new Map<string, Set<string>>();
   private userState = new Map<string, UserVoiceState>(); // userId -> state
   private nudgeRateLimit = new Map<string, number[]>();
+  private activeSoundboardUsers = new Map<string, SoundboardState>(); // userId -> state
 
   constructor(
     private readonly voiceService: VoiceService,
@@ -49,6 +56,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket): void {
     this.logger.log(`Voice client connected: ${client.id}`);
+    const userId = client.handshake.query.userId as string;
+    if (userId) {
+      this.chatGateway.sendVoiceStateToClient(client.id, this.buildVoiceChannels());
+    }
   }
 
   handleDisconnect(client: Socket): void {
@@ -59,7 +70,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Voice client disconnected: ${client.id}`);
   }
 
-  private broadcastVoiceState(): void {
+  private buildVoiceChannels(): any[] {
     const channelMap = new Map<string, any[]>();
     for (const [socketId, info] of this.clients.entries()) {
       if (!channelMap.has(info.channelId)) channelMap.set(info.channelId, []);
@@ -77,9 +88,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         themeColor: state.themeColor,
       });
     }
-    const channels = Array.from(channelMap.entries()).map(
+    return Array.from(channelMap.entries()).map(
       ([channelId, users]) => ({ channelId, users }),
     );
+  }
+
+  private broadcastVoiceState(): void {
+    const channels = this.buildVoiceChannels();
     this.chatGateway.server.emit('all-voice-state', { channels });
   }
 
@@ -90,6 +105,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): void {
     this.clients.delete(socketId);
     this.userState.delete(info.userId);
+    this.activeSoundboardUsers.delete(info.userId);
     const members = this.channelMembers.get(info.channelId);
     if (members) {
       members.delete(socketId);
@@ -285,6 +301,36 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const state = this.userState.get(info.userId);
     if (state) state.themeColor = data.themeColor;
     this.broadcastVoiceState();
+  }
+
+  @SubscribeMessage('soundboard-start')
+  handleSoundboardStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { soundName: string },
+  ): void {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    this.activeSoundboardUsers.set(info.userId, {
+      channelId: info.channelId,
+      userId: info.userId,
+      soundName: data.soundName,
+    });
+    client.to(info.channelId).emit('user-soundboard-start', {
+      userId: info.userId,
+      soundName: data.soundName,
+    });
+  }
+
+  @SubscribeMessage('soundboard-stop')
+  handleSoundboardStop(
+    @ConnectedSocket() client: Socket,
+  ): void {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    this.activeSoundboardUsers.delete(info.userId);
+    client.to(info.channelId).emit('user-soundboard-stop', {
+      userId: info.userId,
+    });
   }
 
   emitToUser(userId: string, event: string, data: any): void {

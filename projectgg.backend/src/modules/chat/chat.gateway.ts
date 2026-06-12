@@ -144,12 +144,45 @@ export class ChatGateway
     this.heartbeatByUser.set(userId, Date.now());
   }
 
+  @SubscribeMessage('typing')
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { channelId?: string; username?: string },
+  ): void {
+    const userId = (client.data.userId ??
+      client.handshake.query.userId) as string;
+    if (!userId || !payload?.channelId) return;
+    client.broadcast.emit('typing-start', {
+      userId,
+      username: payload.username ?? 'Someone',
+      channelId: payload.channelId,
+    });
+  }
+
+  @SubscribeMessage('typing-stop')
+  handleTypingStop(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { channelId?: string },
+  ): void {
+    const userId = (client.data.userId ??
+      client.handshake.query.userId) as string;
+    if (!userId || !payload?.channelId) return;
+    client.broadcast.emit('typing-stop', {
+      userId,
+      channelId: payload.channelId,
+    });
+  }
+
   broadcastMessage(msg: any): void {
     this.server?.emit('message', msg);
   }
 
   broadcastServerEvent(event: string, data: any): void {
     this.server?.emit(event, data);
+  }
+
+  sendVoiceStateToClient(clientId: string, channels: any[]): void {
+    this.server?.to(clientId).emit('all-voice-state', { channels });
   }
 
   sendToUser(userId: string, event: string, data: any): void {
@@ -162,9 +195,9 @@ export class ChatGateway
     title: string,
     body?: string,
     data?: any,
-  ): Promise<void> {
+  ): Promise<{ id: number; read: boolean; created_at: string } | null> {
     try {
-      const { error } = await this.supabase
+      const { data: inserted, error } = await this.supabase
         .schema('projectgg')
         .from('notifications')
         .insert({
@@ -173,16 +206,23 @@ export class ChatGateway
           title,
           body: body ?? '',
           data: data ?? null,
-        });
-      if (!error) {
-        this.sendToUser(userId, 'notification', {
-          type,
-          title,
-          body: body ?? '',
-          data: data ?? null,
-        });
-      }
-    } catch {}
+        })
+        .select('id, read, created_at')
+        .single();
+      if (error) return null;
+      this.sendToUser(userId, 'notification', {
+        id: inserted.id,
+        type,
+        title,
+        body: body ?? '',
+        data: data ?? null,
+        read: inserted.read,
+        created_at: inserted.created_at,
+      });
+      return inserted;
+    } catch {
+      return null;
+    }
   }
 
   private subscribeToUserStatusChanges(): void {

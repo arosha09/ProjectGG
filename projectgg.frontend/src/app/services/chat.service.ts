@@ -356,6 +356,18 @@ export class ChatService {
     }
   }
 
+  emitTyping(channelId: string, username: string): void {
+    if (this.socket) {
+      this.socket.emit('typing', { channelId, username });
+    }
+  }
+
+  emitTypingStop(channelId: string): void {
+    if (this.socket) {
+      this.socket.emit('typing-stop', { channelId });
+    }
+  }
+
   // ===== SERVER SETTINGS =====
   getServer(id: number): Observable<GgServer> {
     return this.http.get<GgServer>(`${this.apiUrl}/gg/servers/${id}`);

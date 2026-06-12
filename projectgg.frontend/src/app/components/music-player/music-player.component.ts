@@ -46,6 +46,12 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
   loadingYoutubePreview = false;
   showJamPanel = false;
   needsInteraction = false;
+  volume = 0.8;
+  previousVolume = 0.8;
+  showVolumeSlider = false;
+  showPlaylistPicker = false;
+  private volumeDragging = false;
+  private onBeforeUnload = (): void => {};
 
   readonly platformDefs = [
     { id: 'youtube', name: 'YouTube', slug: 'youtube', active: true },
@@ -102,9 +108,18 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     this.music.youtubePlaylistsObs$.pipe(takeUntil(this.destroy$)).subscribe(p => { this.youtubePlaylists = p; this.cdr.markForCheck(); });
     this.music.loadingYoutubePlaylistsObs$.pipe(takeUntil(this.destroy$)).subscribe(l => { this.loadingYoutubePlaylists = l; this.cdr.markForCheck(); });
     this.music.needsInteractionObs$.pipe(takeUntil(this.destroy$)).subscribe(n => { this.needsInteraction = n; this.cdr.markForCheck(); });
+    this.music.volumeObs$.pipe(takeUntil(this.destroy$)).subscribe(v => { this.volume = v; this.cdr.markForCheck(); });
+
+    this.onBeforeUnload = (): void => {
+      if (this.jamService.sessionValue) {
+        this.jamService.leaveSessionBeacon();
+      }
+    };
+    window.addEventListener('beforeunload', this.onBeforeUnload);
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -266,6 +281,16 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     this.music.addToQueue({ videoId, title: trk.title, artist: trk.artist, thumbnail: trk.thumbnail ?? null });
   }
 
+  addSearchResultToQueue(track: Track, event: Event): void {
+    event.stopPropagation();
+    const session = this.jamService.sessionValue;
+    if (session) {
+      this.addTrackToJamQueue(track);
+    } else {
+      this.music.addToQueue(track);
+    }
+  }
+
   addTrackToJamQueue(track: Track): void {
     const jamTrack: JamTrack = {
       videoId: track.videoId,
@@ -274,5 +299,52 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
       thumbnail: track.thumbnail,
     };
     this.jamService.add_to_queue(jamTrack);
+  }
+
+  isJamActive(): boolean {
+    return !!this.jamService.sessionValue;
+  }
+
+  addTrackToSavedPlaylist(playlist: Playlist): void {
+    if (!this.track) return;
+    this.music.addTrackToPlaylist(playlist.id, this.track);
+    this.showPlaylistPicker = false;
+  }
+
+  toggleMute(): void {
+    if (this.volume > 0) {
+      this.previousVolume = this.volume;
+      this.music.setVolume(0);
+    } else {
+      this.music.setVolume(this.previousVolume || 0.8);
+    }
+  }
+
+  onVolumeInput(event: Event): void {
+    const val = parseFloat((event.target as HTMLInputElement).value);
+    this.music.setVolume(val);
+  }
+
+  onVolumeBarMouseDown(event: MouseEvent): void {
+    this.volumeDragging = true;
+    this.updateVolumeFromMouse(event);
+    const onMove = (e: MouseEvent) => {
+      if (this.volumeDragging) this.updateVolumeFromMouse(e);
+    };
+    const onUp = () => {
+      this.volumeDragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  private updateVolumeFromMouse(event: MouseEvent): void {
+    const bar = document.querySelector('.cyber-volume-slider') as HTMLElement;
+    if (!bar) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = 1 - Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+    this.music.setVolume(ratio);
   }
 }

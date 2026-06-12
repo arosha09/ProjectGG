@@ -71,10 +71,14 @@ export class VoiceService implements OnDestroy {
   // Network quality
   private lastQualityStats: VoiceQualityStats | null = null;
 
+  // Visibility handler for AudioContext resume
+  private _visibilityHandler: (() => void) | null = null;
+
   // Soundboard
   private soundboardTrack: any = null;
   private soundboardSource: AudioBufferSourceNode | null = null;
   private mutedSoundboardUsers = new Set<string>();
+  private activeSoundboardUsers = new Set<string>();
 
   // Callbacks
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
@@ -93,6 +97,8 @@ export class VoiceService implements OnDestroy {
   onVoiceNudge: ((fromUserId: string, fromUsername: string) => void) | null = null;
   onDisconnected: (() => void) | null = null;
   onQualityUpdate: ((stats: VoiceQualityStats) => void) | null = null;
+  onUserSoundboardStart: ((userId: string, soundName: string) => void) | null = null;
+  onUserSoundboardStop: ((userId: string) => void) | null = null;
 
   constructor(
     private readonly auth: AuthService,
@@ -131,6 +137,13 @@ export class VoiceService implements OnDestroy {
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Connection timeout')), 15000);
+
+      this._visibilityHandler = () => {
+        if (document.visibilityState === 'visible' && this.audioContext?.state === 'suspended') {
+          this.audioContext.resume().catch(() => {});
+        }
+      };
+      document.addEventListener('visibilitychange', this._visibilityHandler);
 
       this.socket!.on('connect', async () => {
         try {
@@ -339,6 +352,11 @@ export class VoiceService implements OnDestroy {
           if (data.value !== this.speakingState) {
             this.speakingState = data.value;
             this.onLocalSpeaking?.(data.value);
+            if (data.value) {
+              this.socket?.emit('speaking');
+            } else {
+              this.socket?.emit('stopped-speaking');
+            }
           }
         }
         // 'level' messages available for UI level meters if needed
@@ -374,6 +392,11 @@ export class VoiceService implements OnDestroy {
       if (speaking !== this.speakingState) {
         this.speakingState = speaking;
         this.onLocalSpeaking?.(speaking);
+        if (speaking) {
+          this.socket?.emit('speaking');
+        } else {
+          this.socket?.emit('stopped-speaking');
+        }
       }
 
       requestAnimationFrame(detect);
@@ -523,6 +546,11 @@ export class VoiceService implements OnDestroy {
               // Set the element's own volume as a fallback (capped to 0..1).
               // This is the actual audible output of the media element.
               el.volume = Math.min(1, Math.max(0, savedVol));
+
+              // Apply soundboard mute if this user is actively playing soundboard
+              if (this.activeSoundboardUsers.has(participant.identity)) {
+                this.applySoundboardMuteForUser(participant.identity);
+              }
             } catch {}
           }
         }
@@ -558,7 +586,11 @@ export class VoiceService implements OnDestroy {
       .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         if (!this.room) return;
         const speakerIds = new Set(speakers.map(s => s.identity));
-
+        const isLocalSpeaking = this.room.localParticipant && speakerIds.has(this.room.localParticipant.identity);
+        if (isLocalSpeaking !== undefined && isLocalSpeaking !== this.speakingState) {
+          this.speakingState = isLocalSpeaking;
+          this.onLocalSpeaking?.(isLocalSpeaking);
+        }
         this.room.remoteParticipants.forEach((p) => {
           if (speakerIds.has(p.identity)) {
             this.onUserSpeaking?.(p.identity);
@@ -640,6 +672,18 @@ export class VoiceService implements OnDestroy {
     this.socket.on('voice-nudge', (data: { fromUserId: string; fromUsername: string }) => {
       this.onVoiceNudge?.(data.fromUserId, data.fromUsername);
     });
+
+    this.socket.on('user-soundboard-start', (data: { userId: string; soundName: string }) => {
+      this.activeSoundboardUsers.add(data.userId);
+      this.onUserSoundboardStart?.(data.userId, data.soundName);
+      this.applySoundboardMuteForUser(data.userId);
+    });
+
+    this.socket.on('user-soundboard-stop', (data: { userId: string }) => {
+      this.activeSoundboardUsers.delete(data.userId);
+      this.onUserSoundboardStop?.(data.userId);
+      this.unapplySoundboardMuteForUser(data.userId);
+    });
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -704,6 +748,16 @@ export class VoiceService implements OnDestroy {
     this.remoteGainNodes.forEach(g => g.disconnect());
     this.remoteGainNodes.clear();
     this.remoteAudioElements.clear();
+
+    // Clean up soundboard state
+    this.activeSoundboardUsers.clear();
+    this.stopSoundboard();
+
+    // Clean up visibility handler
+    if (this._visibilityHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      this._visibilityHandler = null;
+    }
 
     if (this.audioContext) {
       this.audioContext.close().catch(() => {});
@@ -807,7 +861,7 @@ export class VoiceService implements OnDestroy {
   //  Soundboard
   // ════════════════════════════════════════════════════════════════════════
 
-  async playSoundboard(url: string): Promise<void> {
+  async playSoundboard(url: string, soundName: string = 'sound'): Promise<void> {
     if (!this.room || !this.audioContext || !this.isConnected) return;
     this.stopSoundboard();
 
@@ -833,6 +887,8 @@ export class VoiceService implements OnDestroy {
 
       source.start();
 
+      this.socket?.emit('soundboard-start', { soundName });
+
       source.onended = () => {
         this.stopSoundboard();
       };
@@ -842,6 +898,7 @@ export class VoiceService implements OnDestroy {
   }
 
   stopSoundboard(): void {
+    const wasPlaying = this.soundboardSource !== null;
     if (this.soundboardSource) {
       try { this.soundboardSource.stop(); } catch {}
       this.soundboardSource = null;
@@ -850,6 +907,9 @@ export class VoiceService implements OnDestroy {
       this.soundboardTrack.stop();
       this.room.localParticipant.unpublishTrack(this.soundboardTrack);
       this.soundboardTrack = null;
+    }
+    if (wasPlaying) {
+      this.socket?.emit('soundboard-stop');
     }
   }
 
@@ -867,6 +927,41 @@ export class VoiceService implements OnDestroy {
 
   isSoundboardMutedFor(userId: string): boolean {
     return this.mutedSoundboardUsers.has(userId);
+  }
+
+  private applySoundboardMuteForUser(userId: string): void {
+    if (!this.sound.isMuteSoundboard) return;
+    const gain = this.remoteGainNodes.get(userId);
+    if (gain) {
+      gain.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
+    }
+    const el = this.remoteAudioElements.get(userId);
+    if (el) {
+      el.volume = 0;
+    }
+  }
+
+  private unapplySoundboardMuteForUser(userId: string): void {
+    const gain = this.remoteGainNodes.get(userId);
+    if (gain) {
+      const savedVol = this.userVolumes.get(userId) ?? 1;
+      gain.gain.setValueAtTime(savedVol, this.audioContext?.currentTime ?? 0);
+    }
+    const el = this.remoteAudioElements.get(userId);
+    if (el) {
+      const savedVol = this.userVolumes.get(userId) ?? 1;
+      el.volume = Math.min(1, Math.max(0, savedVol));
+    }
+  }
+
+  refreshSoundboardMuteAll(): void {
+    for (const userId of this.activeSoundboardUsers) {
+      if (this.sound.isMuteSoundboard) {
+        this.applySoundboardMuteForUser(userId);
+      } else {
+        this.unapplySoundboardMuteForUser(userId);
+      }
+    }
   }
 
   getSoundboardSounds(serverId: number) {

@@ -31,6 +31,28 @@
         </div>
 
         <div class="cyber-controls">
+          <div class="cyber-controls-side">
+            <div class="cyber-volume-wrap" (mouseenter)="showVolumeSlider = true" (mouseleave)="showVolumeSlider = false">
+              <button class="cyber-ctrl-btn" (click)="toggleMute()" type="button" title="Volume">
+                @if (volume === 0) {
+                  <mat-icon svgIcon="volume_off"></mat-icon>
+                } @else if (volume < 0.5) {
+                  <mat-icon svgIcon="volume_down"></mat-icon>
+                } @else {
+                  <mat-icon svgIcon="volume_up"></mat-icon>
+                }
+              </button>
+              @if (showVolumeSlider) {
+                <div class="cyber-volume-slider-wrap">
+                  <div class="cyber-volume-slider" (mousedown)="onVolumeBarMouseDown($event)">
+                    <div class="cyber-volume-fill" [style.height.%]="volume * 100"></div>
+                    <div class="cyber-volume-knob" [style.bottom.%]="volume * 100"></div>
+                  </div>
+                  <span class="cyber-volume-label">{{ (volume * 100) | number:'1.0-0' }}%</span>
+                </div>
+              }
+            </div>
+          </div>
           <button class="cyber-ctrl-btn" [class.active]="shuffle" (click)="music.toggleShuffle()" type="button" title="Shuffle">
             <mat-icon svgIcon="shuffle"></mat-icon>
           </button>
@@ -50,6 +72,27 @@
               <mat-icon svgIcon="repeat"></mat-icon>
             }
           </button>
+          <div class="cyber-controls-side">
+            <div class="cyber-playlist-add-wrap" (mouseenter)="showPlaylistPicker = true" (mouseleave)="showPlaylistPicker = false">
+              <button class="cyber-ctrl-btn" [disabled]="!track" type="button" title="Add to playlist">
+                <mat-icon svgIcon="playlist_add"></mat-icon>
+              </button>
+              @if (showPlaylistPicker && track) {
+                <div class="cyber-playlist-picker">
+                  <div class="cyber-playlist-picker-title">Add to playlist</div>
+                  @if (playlists.length > 0) {
+                    @for (pl of playlists; track pl.name) {
+                      <button class="cyber-playlist-picker-item" (click)="addTrackToSavedPlaylist(pl)" type="button">
+                        <span>{{ pl.name }}</span>
+                      </button>
+                    }
+                  } @else {
+                    <div class="cyber-playlist-picker-empty">No saved playlists</div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
         </div>
 
         <div class="cyber-jam-toggle">
@@ -84,20 +127,25 @@
           @if (showResults && searchResults.length > 0) {
             <div class="cyber-results-list">
               @for (item of searchResults; track item.videoId) {
-                <button class="cyber-result-item" (click)="selectTrack(item)" type="button">
-                  @if (item.thumbnail) {
-                    <div class="cyber-thumb-clip cyber-result-thumb"><img [src]="getThumb(item.thumbnail, item.videoId)" alt="" class="cyber-thumb-img" loading="lazy" /></div>
-                  } @else {
-                    <div class="cyber-result-thumb cyber-result-thumb-empty">
-                      <mat-icon svgIcon="music_note"></mat-icon>
+                <div class="cyber-result-item-row">
+                  <button class="cyber-result-item" (click)="selectTrack(item)" type="button">
+                    @if (item.thumbnail) {
+                      <div class="cyber-thumb-clip cyber-result-thumb"><img [src]="getThumb(item.thumbnail, item.videoId)" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                    } @else {
+                      <div class="cyber-result-thumb cyber-result-thumb-empty">
+                        <mat-icon svgIcon="music_note"></mat-icon>
+                      </div>
+                    }
+                    <div class="cyber-result-info">
+                      <span class="cyber-result-title">{{ item.title }}</span>
+                      <span class="cyber-result-artist">{{ item.artist }}</span>
                     </div>
-                  }
-                  <div class="cyber-result-info">
-                    <span class="cyber-result-title">{{ item.title }}</span>
-                    <span class="cyber-result-artist">{{ item.artist }}</span>
-                  </div>
-                  <mat-icon svgIcon="play_circle"></mat-icon>
-                </button>
+                    <mat-icon svgIcon="play_circle"></mat-icon>
+                  </button>
+                  <button class="cyber-pl-add-btn" (click)="addSearchResultToQueue(item, $event)" type="button" title="Add to queue">
+                    <mat-icon svgIcon="add"></mat-icon>
+                  </button>
+                </div>
               }
             </div>
           }
@@ -291,7 +339,7 @@
                                 </div>
                                 <mat-icon svgIcon="play_circle" class="cyber-pl-track-play"></mat-icon>
                               </button>
-                              <button class="cyber-pl-add-btn" (click)="addTrackToJamQueue(trk); $event.stopPropagation()" type="button" title="Add to queue">
+                              <button class="cyber-pl-add-btn" (click)="addSearchResultToQueue(trk, $event)" type="button" title="Add to queue">
                                 <mat-icon svgIcon="add"></mat-icon>
                               </button>
                             </div>

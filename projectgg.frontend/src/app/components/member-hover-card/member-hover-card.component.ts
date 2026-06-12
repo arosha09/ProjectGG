@@ -320,6 +320,17 @@ export class MemberHoverCardComponent implements OnDestroy {
   }
 
   private extractColorsFromAvatar(url: string): void {
+    if (url.includes('/assets/avatars/')) {
+      if (url.includes('male')) {
+        this.extractedColors = ['#1a1a1a', '#e0e0e0'];
+      } else if (url.includes('female')) {
+        this.extractedColors = ['#1a1a1a', '#e0e0e0'];
+      } else {
+        this.extractedColors = ['#606060', '#b0b0b0'];
+      }
+      this.cdr.markForCheck();
+      return;
+    }
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {

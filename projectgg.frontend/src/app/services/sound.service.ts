@@ -61,6 +61,7 @@ export class SoundService {
   private readonly eventsKey = 'disabledSoundEvents';
   private readonly nudgesKey = 'allowIncomingNudges';
   private readonly silentKey = 'soundSilent';
+  private readonly muteSoundboardKey = 'muteSoundboard';
 
   private setId: string = 'cyber';
   private volume: number = 0.7;
@@ -69,6 +70,7 @@ export class SoundService {
   private disabledEvents = new Set<SoundEvent>(['cursor_hover']);
   private preSilentDisabledEvents: Set<SoundEvent> | null = null;
   private allowIncomingNudges: boolean = true;
+  private muteSoundboard: boolean = false;
   private audioContext: AudioContext | null = null;
 
   constructor(
@@ -99,6 +101,9 @@ export class SoundService {
 
     const savedNudges = localStorage.getItem(this.nudgesKey);
     this.allowIncomingNudges = savedNudges !== 'false';
+
+    const savedMuteSoundboard = localStorage.getItem(this.muteSoundboardKey);
+    this.muteSoundboard = savedMuteSoundboard === 'true';
 
     this.http.get<any>(`${this.apiUrl}/users/settings`).subscribe({
       next: (settings) => {
@@ -149,6 +154,16 @@ export class SoundService {
 
   get isAllowIncomingNudges(): boolean {
     return this.allowIncomingNudges;
+  }
+
+  get isMuteSoundboard(): boolean {
+    return this.muteSoundboard;
+  }
+
+  setMuteSoundboard(mute: boolean): void {
+    this.muteSoundboard = mute;
+    localStorage.setItem(this.muteSoundboardKey, String(mute));
+    this.http.put(`${this.apiUrl}/users/settings`, { mute_soundboard: mute }).subscribe();
   }
 
   selectSet(id: string): void {

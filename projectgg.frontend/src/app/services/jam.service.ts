@@ -192,6 +192,19 @@ export class JamService {
     return this.http.post(`${this.apiUrl}/jam/leave`, {});
   }
 
+  leaveSessionBeacon(): void {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`${this.apiUrl}/jam/leave`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: '{}',
+      keepalive: true,
+    }).catch(() => {});
+    this.sessionSubject.next(null);
+    this.disconnect_socket();
+  }
+
   get_current(): Observable<{ session: JamState | null }> {
     return this.http.get<{ session: JamState | null }>(`${this.apiUrl}/jam/current`).pipe(
       tap((res) => {

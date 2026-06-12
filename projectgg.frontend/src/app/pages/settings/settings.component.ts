@@ -13,6 +13,7 @@ import { GamesService } from '../../services/games.service';
 import { ThemeService } from '../../services/theme.service';
 import { CursorService, CursorSet, CursorType } from '../../services/cursor.service';
 import { SoundService, SoundEvent } from '../../services/sound.service';
+import { VoiceService } from '../../services/voice.service';
 import { DropdownItem } from '../../components/cyber-dropdown/cyber-dropdown.component';
 import { CyberDropdownComponent } from '../../components/cyber-dropdown/cyber-dropdown.component';
 import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
@@ -194,6 +195,7 @@ export class SettingsComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly themeService: ThemeService,
     private readonly userStatus: UserStatusService,
     private readonly sound: SoundService,
+    private readonly voiceService: VoiceService,
   ) {}
 
   ngOnInit(): void {
@@ -829,6 +831,16 @@ export class SettingsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleSoundAllowIncomingNudges(): void {
     this.sound.setAllowIncomingNudges(!this.soundAllowIncomingNudges);
+    this.cdr.markForCheck();
+  }
+
+  get soundMuteSoundboard(): boolean {
+    return this.sound.isMuteSoundboard;
+  }
+
+  toggleMuteSoundboard(): void {
+    this.sound.setMuteSoundboard(!this.soundMuteSoundboard);
+    this.voiceService.refreshSoundboardMuteAll();
     this.cdr.markForCheck();
   }
 

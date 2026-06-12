@@ -656,6 +656,18 @@
                     <span class="toggle-text">Allow incoming nudges</span>
                   </label>
                 </div>
+
+                <div class="sound-nudge-row">
+                  <label class="toggle-label">
+                    <input
+                      type="checkbox"
+                      [checked]="soundMuteSoundboard"
+                      (change)="toggleMuteSoundboard()"
+                    />
+                    <span class="toggle-switch"></span>
+                    <span class="toggle-text">Mute soundboard sounds</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

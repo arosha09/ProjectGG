@@ -16,6 +16,7 @@ import { UserStatusService } from './services/user-status.service';
 import { TaskTrackerService } from './services/task-tracker.service';
 import { RealtimeService } from './services/realtime.service';
 import { SoundService } from './services/sound.service';
+import { JamService } from './services/jam.service';
 import { ApexChatComponent } from './apex/apex.component';
 
 @Component({
@@ -55,6 +56,7 @@ export class App implements OnInit, OnDestroy {
     private readonly realtime: RealtimeService,
     public readonly statusNotification: StatusNotificationService,
     private readonly sound: SoundService,
+    private readonly jamService: JamService,
   ) {}
 
   get currentStatus(): string {
@@ -143,6 +145,9 @@ export class App implements OnInit, OnDestroy {
   }
 
   logout(): void {
+    if (this.jamService.sessionValue) {
+      this.jamService.leaveSessionBeacon();
+    }
     this.auth.logout();
     this.router.navigate(['/home']);
   }

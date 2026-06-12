@@ -274,7 +274,7 @@ export class ChatController {
   @ApiBearerAuth('access-token')
   @Delete('chat/messages/:id')
   async deleteMessage(@Req() req: any, @Param('id') id: string) {
-    await this.chatService.deleteMessage(Number(id), req.user.id);
+    const result = await this.chatService.deleteMessage(Number(id), req.user.id);
     return { ok: true };
   }
 
@@ -1093,6 +1093,61 @@ export class ChatController {
     return msg;
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/messages/:id')
+  async editGgMessage(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { content: string },
+  ) {
+    return this.chatService.editMessage(Number(id), req.user.id, body.content);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/messages/:id')
+  async deleteGgMessage(@Req() req: any, @Param('id') id: string) {
+    const result = await this.chatService.deleteMessage(Number(id), req.user.id);
+    this.chatGateway.broadcastServerEvent('message-deleted', {
+      messageId: Number(id),
+      channelId: result.channelId,
+    });
+    return { ok: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/dm/messages/:id')
+  async deleteGgDmMessage(@Req() req: any, @Param('id') id: string) {
+    const result = await this.chatService.deleteDmMessage(Number(id), req.user.id);
+    this.chatGateway.broadcastServerEvent('message-deleted', {
+      messageId: Number(id),
+      channelId: result.channelId,
+    });
+    return { ok: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/channels/:channelId/clear')
+  async clearChannelMessages(
+    @Req() req: any,
+    @Param('channelId') channelId: string,
+    @Body() body: { count: number },
+  ) {
+    const deleted = await this.chatService.clearChannelMessages(
+      Number(channelId),
+      body.count,
+      req.user.id,
+    );
+    this.chatGateway.broadcastServerEvent('messages-cleared', {
+      channelId: Number(channelId),
+      count: deleted,
+    });
+    return { ok: true, deleted };
+  }
+
   // ================================================================
   // GG CHAT — USER SEARCH
   // ================================================================
@@ -1184,7 +1239,7 @@ export class ChatController {
         userId: req.user.id,
         username: senderUser?.username ?? 'Unknown',
       });
-      await this.chatService.createNotification(
+      const notif = await this.chatService.createNotification(
         targetUser.id,
         'friend_request',
         'New Friend Request',
@@ -1195,7 +1250,9 @@ export class ChatController {
           fromUsername: senderUser?.username,
         },
       );
-      this.chatGateway.sendToUser(targetUser.id, 'notification', {});
+      if (notif) {
+        this.chatGateway.sendToUser(targetUser.id, 'notification', notif);
+      }
     }
     this.chatGateway.sendToUser(req.user.id, 'friend-request-sent', {
       id: result.id,
@@ -1223,14 +1280,16 @@ export class ChatController {
         friendId: req.user.id,
       });
       const accepter = await this.chatService.findUserById(req.user.id);
-      await this.chatService.createNotification(
+      const notif = await this.chatService.createNotification(
         reqData.user_id,
         'friend_accepted',
         'Friend Request Accepted',
         `${accepter?.username ?? 'Someone'} accepted your friend request`,
         { friendId: req.user.id, friendUsername: accepter?.username },
       );
-      this.chatGateway.sendToUser(reqData.user_id, 'notification', {});
+      if (notif) {
+        this.chatGateway.sendToUser(reqData.user_id, 'notification', notif);
+      }
     }
     this.chatGateway.sendToUser(req.user.id, 'friend-accepted', {
       friendId: reqData?.friend_id ?? '',

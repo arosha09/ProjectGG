@@ -127,7 +127,7 @@
           </div>
         </div>
 
-        <div class="gg-messages gg-dm-messages">
+        <div class="gg-messages gg-dm-messages" (scroll)="onScroll($event)">
           @if (dmMessagesLoading) {
             @for (_ of [1,2,3,4,5]; track _) {
               <div class="gg-msg-skeleton">
@@ -180,7 +180,18 @@
           }
         </div>
 
+        @if (showScrollToBottom) {
+          <button class="scroll-to-bottom-btn" (click)="scrollToBottomClick()">
+            <mat-icon svgIcon="keyboard_arrow_down"></mat-icon>
+          </button>
+        }
+
         <footer class="chat-footer-panel">
+          @if (chatFooterInfo) {
+            <div class="chat-footer-info">{{ chatFooterInfo }}</div>
+          } @else if (typingText) {
+            <div class="chat-footer-info typing-indicator">{{ typingText }}</div>
+          }
           @if (replyToMessage) {
             <div class="reply-preview-bar">
               <div class="reply-preview-info">
@@ -245,7 +256,7 @@
           <h2>{{ selectedChannel.name }}</h2>
         </div>
 
-        <div class="gg-messages">
+        <div class="gg-messages" (scroll)="onScroll($event)">
           @if (messagesLoading) {
             @for (_ of [1,2,3,4,5]; track _) {
               <div class="gg-msg-skeleton">
@@ -334,6 +345,12 @@
           }
         </div>
 
+        @if (showScrollToBottom) {
+          <button class="scroll-to-bottom-btn" (click)="scrollToBottomClick()">
+            <mat-icon svgIcon="keyboard_arrow_down"></mat-icon>
+          </button>
+        }
+
         <footer class="chat-footer-panel">
           @if (selectedChannel && !canSendInChannel(selectedChannel.id)) {
             <div class="no-permission-bar">
@@ -341,6 +358,11 @@
               <span>You don't have permission to send messages in <strong>#{{ selectedChannel.name }}</strong></span>
             </div>
           } @else {
+            @if (chatFooterInfo) {
+              <div class="chat-footer-info">{{ chatFooterInfo }}</div>
+            } @else if (typingText) {
+              <div class="chat-footer-info typing-indicator">{{ typingText }}</div>
+            }
             @if (replyToMessage) {
               <div class="reply-preview-bar">
                 <div class="reply-preview-info">
@@ -369,6 +391,19 @@
                 <button class="gg-pending-attachment-remove" (click)="removeAttachment()">
                   <mat-icon svgIcon="close"></mat-icon>
                 </button>
+              </div>
+            }
+            @if (showCommandAutocomplete) {
+              <div class="command-autocomplete">
+                @for (c of filteredCommands; track c.cmd) {
+                  <div class="command-item" (click)="insertCommand(c.cmd)" [class.active]="commandIndex === $index">
+                    <span class="command-name">{{ c.cmd }}</span>
+                    <span class="command-desc">{{ c.desc }}</span>
+                    @if (c.permission) {
+                      <span class="command-permission">{{ c.permission }}</span>
+                    }
+                  </div>
+                }
               </div>
             }
             @if (showMentionAutocomplete) {
@@ -458,6 +493,11 @@
                             <mat-icon [svgIcon]="(voiceMemberDeafened(vm.userId) || localDeafened(vm.userId)) ? 'headset_off' : 'mic_off'"></mat-icon>
                           </div>
                         }
+                        @if (voiceMemberSoundboard(vm.userId)) {
+                          <div class="gg-voice-avatar-status-icon soundboard-active">
+                            <mat-icon svgIcon="graphic_eq"></mat-icon>
+                          </div>
+                        }
                       </div>
                       <span class="gg-voice-avatar-name">
                         {{ voiceMemberName(vm.userId) }}{{ vm.userId === currentUser?.id ? ' (You)' : '' }}
@@ -498,7 +538,7 @@
                    <div class="gg-soundboard-grid">
                     @for (sound of soundboardSounds; track sound.id) {
                       <div class="gg-soundboard-item">
-                        <button class="gg-soundboard-btn" (click)="playSoundboardSound(sound.file_url)" [disabled]="soundboardPlaying" [title]="sound.name">
+                        <button class="gg-soundboard-btn" (click)="playSoundboardSound(sound.file_url, sound.name)" [disabled]="soundboardPlaying" [title]="sound.name">
                           <span>{{ sound.name }}</span>
                         </button>
                         @if (canManageSoundboard()) {
@@ -1075,20 +1115,10 @@
         </button>
         <div class="cyber-ctx-divider"></div>
       }
-      @if (voiceContextMenu.vm.userId === currentUser?.id) {
-        <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
-          <mat-icon svgIcon="mic_off"></mat-icon> {{ voiceMuted ? 'Unmute' : 'Mute' }}
-        </button>
-        <button class="cyber-ctx-item" (click)="onVoiceContextDeafen(voiceContextMenu.vm); closeVoiceContextMenu()">
-          <mat-icon svgIcon="headset_off"></mat-icon> {{ voiceDeafened ? 'Undeafen' : 'Deafen' }}
-        </button>
-      } @else {
-        <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
-          <mat-icon svgIcon="mic_off"></mat-icon> {{ localMuted(voiceContextMenu.vm.userId) ? 'Unmute' : 'Mute' }}
-        </button>
-        <button class="cyber-ctx-item" (click)="onVoiceContextDeafen(voiceContextMenu.vm); closeVoiceContextMenu()">
-          <mat-icon svgIcon="headset_off"></mat-icon> {{ localDeafened(voiceContextMenu.vm.userId) ? 'Undeafen' : 'Deafen' }}
-        </button>
+      <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
+        <mat-icon svgIcon="mic_off"></mat-icon> {{ (voiceContextMenu.vm.userId === currentUser?.id ? voiceMuted : localMuted(voiceContextMenu.vm.userId)) ? 'Unmute' : 'Mute' }}
+      </button>
+      @if (voiceContextMenu.vm.userId !== currentUser?.id) {
         <div class="cyber-ctx-divider"></div>
         <div class="cyber-ctx-volume">
           <div class="cyber-ctx-volume-header" (click)="setUserVolume(voiceContextMenu.vm.userId, 0); $event.stopPropagation()">
@@ -1165,16 +1195,19 @@
         <button class="cyber-ctx-item" (click)="startEdit(contextMenu.msg); closeContextMenu()">
           <mat-icon svgIcon="edit"></mat-icon> Edit
         </button>
+      }
+      @if (contextMenu.msg.username === currentUser?.username || (viewMode === 'server' && canManageMessages())) {
+        <div class="cyber-ctx-divider"></div>
         <button class="cyber-ctx-item cyber-ctx-danger" (click)="deleteMessage(contextMenu.msg); closeContextMenu()">
           <mat-icon svgIcon="delete"></mat-icon> Delete
         </button>
       }
-      @if (viewMode === 'server' && selectedServer && contextMenu.msg.user_id && contextMenu.msg.user_id !== currentUser?.id) {
+      @if (viewMode === 'server' && selectedServer && contextMenu.msg.user_id && contextMenu.msg.user_id !== currentUser?.id && canKick()) {
         <div class="cyber-ctx-divider"></div>
         <button class="cyber-ctx-item" (click)="kickMemberFromMsg(contextMenu.msg); closeContextMenu()">
           <mat-icon svgIcon="logout"></mat-icon> Kick
         </button>
-        <button class="cyber-ctx-item" (click)="banMemberFromMsg(contextMenu.msg); closeContextMenu()">
+        <button class="cyber-ctx-item cyber-ctx-danger" (click)="banMemberFromMsg(contextMenu.msg); closeContextMenu()">
           <mat-icon svgIcon="block"></mat-icon> Ban
         </button>
       }

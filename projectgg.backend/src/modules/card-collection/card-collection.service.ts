@@ -220,7 +220,7 @@ export class CardCollectionService {
       const body = isCounter
         ? `${proposer?.username ?? 'Someone'} sent you a counter offer.`
         : `${proposer?.username ?? 'Someone'} wants to trade cards with you.`;
-      await this.supabase
+      const { data: notif } = await this.supabase
         .schema('projectgg')
         .from('notifications')
         .insert({
@@ -229,12 +229,17 @@ export class CardCollectionService {
           title,
           body,
           data: { tradeId, fromUserId: proposerId, parentTradeId },
-        });
+        })
+        .select('id, read, created_at')
+        .single();
       this.chatGateway.sendToUser(receiverId, 'notification', {
+        id: notif?.id,
         type: isCounter ? 'trade_counter' : 'trade_offer',
         title,
         body,
-        data: { tradeId },
+        data: { tradeId, fromUserId: proposerId, parentTradeId },
+        read: notif?.read ?? false,
+        created_at: notif?.created_at ?? new Date().toISOString(),
       });
     } catch {
       /* non-critical */
@@ -337,7 +342,7 @@ export class CardCollectionService {
         .select('username')
         .eq('id', userId)
         .single();
-      await this.supabase
+      const { data: notif } = await this.supabase
         .schema('projectgg')
         .from('notifications')
         .insert({
@@ -346,12 +351,17 @@ export class CardCollectionService {
           title: 'Trade Accepted',
           body: `${accepter?.username ?? 'Someone'} accepted your trade.`,
           data: { tradeId },
-        });
+        })
+        .select('id, read, created_at')
+        .single();
       this.chatGateway.sendToUser(otherUserId, 'notification', {
+        id: notif?.id,
         type: 'trade_accepted',
         title: 'Trade Accepted',
         body: `${accepter?.username ?? 'Someone'} accepted your trade.`,
         data: { tradeId },
+        read: notif?.read ?? false,
+        created_at: notif?.created_at ?? new Date().toISOString(),
       });
     } catch {
       /* non-critical */

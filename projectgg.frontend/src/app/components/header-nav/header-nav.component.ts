@@ -152,9 +152,20 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
-  private _notifHandler = (data: { type?: string; title?: string }) => {
+  private _notifHandler = (data: AppNotification) => {
       this.sound.play(this.mapNotifTypeToSound(data?.type, data?.title));
-      this.loadNotifications();
+      if (data?.id) {
+        const exists = this.notifications.some(n => n.id === data.id);
+        if (!exists) {
+          this.notifications = [data, ...this.notifications];
+          if (!data.read) {
+            this.unreadCount++;
+          }
+          this.cdr.markForCheck();
+        }
+      } else {
+        this.loadNotifications();
+      }
     };
 
   private mapNotifTypeToSound(type?: string, title?: string): 'notification_msg' | 'notification_mention' | 'notification_friend_req' | 'notification_msg' {

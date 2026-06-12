@@ -1642,7 +1642,7 @@ export class ChatService {
     return updated;
   }
 
-  async deleteMessage(messageId: number, userId: string): Promise<void> {
+  async deleteMessage(messageId: number, userId: string): Promise<{ channelId: string }> {
     const { data: msg } = await this.db()
       .from('chat_messages')
       .select('*')
@@ -1650,11 +1650,75 @@ export class ChatService {
       .single();
     if (!msg) throw new BadRequestException('Message not found');
 
+    const isOwner = String(msg.user_id) === String(userId);
+    if (!isOwner) {
+      const channelId = msg.channel_id;
+      if (channelId && !channelId.startsWith('dm_')) {
+        const channelIdNum = Number(channelId);
+        const { data: ch } = await this.db()
+          .from('gg_channels')
+          .select('server_id')
+          .eq('id', channelIdNum)
+          .single();
+        if (ch?.server_id) {
+          await this.requirePermission(ch.server_id, userId, 'manage_messages');
+        }
+      } else {
+        throw new BadRequestException('You can only delete your own messages');
+      }
+    }
+
     const { error } = await this.db()
       .from('chat_messages')
       .delete()
       .eq('id', messageId);
     if (error) throw error;
+    return { channelId: msg.channel_id };
+  }
+
+  async deleteDmMessage(messageId: number, userId: string): Promise<{ channelId: string }> {
+    const { data: msg } = await this.db()
+      .from('chat_messages')
+      .select('*')
+      .eq('id', messageId)
+      .single();
+    if (!msg) throw new BadRequestException('Message not found');
+    if (String(msg.user_id) !== String(userId))
+      throw new BadRequestException('You can only delete your own messages');
+
+    const { error } = await this.db()
+      .from('chat_messages')
+      .delete()
+      .eq('id', messageId);
+    if (error) throw error;
+    return { channelId: msg.channel_id };
+  }
+
+  async clearChannelMessages(channelId: number, count: number, userId: string): Promise<number> {
+    const { data: ch } = await this.db()
+      .from('gg_channels')
+      .select('server_id')
+      .eq('id', channelId)
+      .single();
+    if (!ch) throw new BadRequestException('Channel not found');
+    await this.requirePermission(ch.server_id, userId, 'manage_messages');
+
+    const clamped = Math.min(Math.max(count, 1), 100);
+    const { data: msgs } = await this.db()
+      .from('chat_messages')
+      .select('id')
+      .eq('channel_id', String(channelId))
+      .order('created_at', { ascending: false })
+      .limit(clamped);
+    if (!msgs || msgs.length === 0) return 0;
+
+    const ids = msgs.map((m: any) => m.id);
+    const { error } = await this.db()
+      .from('chat_messages')
+      .delete()
+      .in('id', ids);
+    if (error) throw error;
+    return ids.length;
   }
 
   // ================================================================

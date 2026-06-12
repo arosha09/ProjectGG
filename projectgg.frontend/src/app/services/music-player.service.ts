@@ -64,6 +64,7 @@ export class MusicPlayerService implements OnDestroy {
   private readonly volume$ = new BehaviorSubject<number>(0.8);
   private readonly frequencyData$ = new BehaviorSubject<number[]>(new Array(30).fill(0));
   private readonly needsInteraction$ = new BehaviorSubject<boolean>(false);
+  private originalQueue: Track[] = [];
 
   private player: any = null;
   private apiLoaded = false;
@@ -76,6 +77,7 @@ export class MusicPlayerService implements OnDestroy {
   private vizFrameCount = 0;
   private applyingJamState = false;
   private pendingPlayAction: 'play' | 'pause' | null = null;
+  private endCheckRaf: number | null = null;
 
   readonly track$ = this.currentTrack$.asObservable();
   readonly playing$ = this.isPlaying$.asObservable();
@@ -223,6 +225,9 @@ export class MusicPlayerService implements OnDestroy {
     const exists = current.some(t => t.videoId === track.videoId);
     if (!exists) {
       this.queue$.next([...current, track]);
+      if (this.shuffle$.value) {
+        this.originalQueue.push(track);
+      }
     }
   }
 
@@ -236,11 +241,28 @@ export class MusicPlayerService implements OnDestroy {
     });
   }
 
+  addTrackToPlaylist(playlistId: number, track: Track): void {
+    this.http.post<Playlist>(`${this.apiUrl}/music/playlists/${playlistId}/tracks`, {
+      videoId: track.videoId,
+      title: track.title,
+      artist: track.artist,
+      thumbnail: track.thumbnail,
+    }).subscribe({
+      next: (updated) => {
+        if (updated) {
+          const current = this.playlists$.value.map(p => p.id === updated.id ? updated : p);
+          this.playlists$.next(current);
+        }
+      },
+    });
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
     this.clearProgressInterval();
     this.stopProgressRaf();
+    this.stopEndCheck();
     this.stopVizLoop();
     try { this.player?.destroy(); } catch {}
   }
@@ -308,6 +330,9 @@ export class MusicPlayerService implements OnDestroy {
     } else {
       this.queue$.next([...current, track]);
       this.queueIndex$.next(current.length);
+      if (this.shuffle$.value) {
+        this.originalQueue.push(track);
+      }
     }
 
     this.syncTrackToJamIfHost(track);
@@ -368,14 +393,16 @@ export class MusicPlayerService implements OnDestroy {
         try { this.duration$.next(this.player?.getDuration() ?? 0); } catch {}
         this.startProgressSync();
         this.startVizLoop();
+        this.startEndCheck();
         break;
       case YT?.PlayerState?.PAUSED:
         this.isPlaying$.next(false);
         this.stopProgressRaf();
+        this.stopEndCheck();
         this.startVizLoop();
         break;
       case YT?.PlayerState?.ENDED:
-      case YT?.PlayerState?.CUED:
+        this.stopEndCheck();
         this.isPlaying$.next(false);
         this.clearProgressInterval();
         this.stopProgressRaf();
@@ -388,6 +415,11 @@ export class MusicPlayerService implements OnDestroy {
         } else {
           this.next();
         }
+        break;
+      case YT?.PlayerState?.CUED:
+        this.isPlaying$.next(false);
+        this.progress$.next(0);
+        this.currentTime$.next(0);
         break;
     }
   }
@@ -446,13 +478,6 @@ export class MusicPlayerService implements OnDestroy {
     const queue = this.queue$.value;
     if (!queue.length) return;
 
-    if (this.shuffle$.value) {
-      const randomIdx = Math.floor(Math.random() * queue.length);
-      this.queueIndex$.next(randomIdx);
-      this.playTrack(queue[randomIdx]);
-      return;
-    }
-
     const idx = this.queueIndex$.value;
     if (idx < queue.length - 1) {
       const nextIdx = idx + 1;
@@ -477,13 +502,6 @@ export class MusicPlayerService implements OnDestroy {
     const queue = this.queue$.value;
     if (!queue.length) return;
 
-    if (this.shuffle$.value) {
-      const randomIdx = Math.floor(Math.random() * queue.length);
-      this.queueIndex$.next(randomIdx);
-      this.playTrack(queue[randomIdx]);
-      return;
-    }
-
     const idx = this.queueIndex$.value;
     if (idx > 0) {
       const prevIdx = idx - 1;
@@ -505,8 +523,13 @@ export class MusicPlayerService implements OnDestroy {
   removeFromQueue(index: number): void {
     const queue = [...this.queue$.value];
     const currentIdx = this.queueIndex$.value;
+    const removed = queue[index];
     queue.splice(index, 1);
     this.queue$.next(queue);
+
+    if (this.shuffle$.value && removed) {
+      this.originalQueue = this.originalQueue.filter(t => t.videoId !== removed.videoId);
+    }
 
     if (index < currentIdx) {
       this.queueIndex$.next(currentIdx - 1);
@@ -548,7 +571,42 @@ export class MusicPlayerService implements OnDestroy {
   }
 
   toggleShuffle(): void {
-    this.shuffle$.next(!this.shuffle$.value);
+    const next = !this.shuffle$.value;
+    this.shuffle$.next(next);
+
+    const queue = this.queue$.value;
+    if (!queue.length) return;
+
+    if (next) {
+      this.originalQueue = [...queue];
+      const currentIdx = this.queueIndex$.value;
+      const currentTrack = currentIdx >= 0 ? queue[currentIdx] : null;
+      const rest = queue.filter((_, i) => i !== currentIdx);
+      this.shuffleArray(rest);
+      const shuffled = currentTrack ? [currentTrack, ...rest] : rest;
+      this.queue$.next(shuffled);
+      this.queueIndex$.next(currentTrack ? 0 : -1);
+    } else {
+      const currentIdx = this.queueIndex$.value;
+      const currentTrack = currentIdx >= 0 ? queue[currentIdx] : null;
+      if (currentTrack && this.originalQueue.length) {
+        const restored = [...this.originalQueue];
+        const origIdx = restored.findIndex(t => t.videoId === currentTrack.videoId);
+        this.queue$.next(restored);
+        this.queueIndex$.next(origIdx >= 0 ? origIdx : 0);
+      } else if (this.originalQueue.length) {
+        this.queue$.next([...this.originalQueue]);
+        this.queueIndex$.next(0);
+      }
+      this.originalQueue = [];
+    }
+  }
+
+  private shuffleArray(arr: Track[]): void {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
   }
 
   cycleRepeat(): void {
@@ -802,6 +860,44 @@ export class MusicPlayerService implements OnDestroy {
     if (this.progressInterval) {
       clearInterval(this.progressInterval);
       this.progressInterval = null;
+    }
+  }
+
+  private startEndCheck(): void {
+    this.stopEndCheck();
+    const check = () => {
+      if (!this.player || !this.isPlaying$.value || this.applyingJamState) {
+        this.endCheckRaf = null;
+        return;
+      }
+      try {
+        const ct = this.player.getCurrentTime();
+        const dur = this.player.getDuration();
+        if (isFinite(ct) && isFinite(dur) && dur > 0 && ct >= dur - 0.5 && dur - ct > 0) {
+          this.stopEndCheck();
+          this.isPlaying$.next(false);
+          this.clearProgressInterval();
+          this.stopProgressRaf();
+          this.progress$.next(0);
+          this.currentTime$.next(0);
+          if (this.repeat$.value === 'one') {
+            this.player?.seekTo(0, true);
+            this.player?.playVideo();
+          } else {
+            this.next();
+          }
+          return;
+        }
+      } catch {}
+      this.endCheckRaf = requestAnimationFrame(check);
+    };
+    this.endCheckRaf = requestAnimationFrame(check);
+  }
+
+  private stopEndCheck(): void {
+    if (this.endCheckRaf !== null) {
+      cancelAnimationFrame(this.endCheckRaf);
+      this.endCheckRaf = null;
     }
   }
 }

@@ -97,6 +97,17 @@ export class GgChatComponent implements OnInit, OnDestroy {
   showMentionAutocomplete = false;
   filteredMentions: any[] = [];
   mentionIndex = 0;
+  showScrollToBottom = false;
+  chatFooterInfo: string | null = null;
+  private chatFooterInfoTimer: any = null;
+  typingUsers: Map<string, { username: string; timer: any }> = new Map();
+  private myTypingTimer: any = null;
+  showCommandAutocomplete = false;
+  filteredCommands: { cmd: string; desc: string; permission?: string }[] = [];
+  commandIndex = 0;
+  private readonly commands: { cmd: string; desc: string; permission?: string }[] = [
+    { cmd: '/clear', desc: 'Clear recent messages', permission: 'manage_messages' },
+  ];
 
   get messageText(): string {
     return this.newMessage;
@@ -112,6 +123,14 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   get gifToSend(): string | null {
     return this.pendingAttachmentUrl;
+  }
+
+  get typingText(): string {
+    const names = Array.from(this.typingUsers.values()).map(t => t.username);
+    if (names.length === 0) return '';
+    if (names.length === 1) return `${names[0]} is typing...`;
+    if (names.length === 2) return `${names[0]} and ${names[1]} are typing...`;
+    return `${names[0]} and ${names.length - 1} others are typing...`;
   }
 
   get gifQuery(): string {
@@ -772,8 +791,42 @@ export class GgChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  private handleCommand(text: string): boolean {
+    const clearMatch = text.match(/^\/clear\s+(\d+)$/);
+    if (clearMatch) {
+      if (!this.selectedChannel || this.viewMode !== 'server') {
+        this.showFooterInfo('/clear can only be used in server channels');
+        return true;
+      }
+      if (!this.canManageMessages()) {
+        this.showFooterInfo('You need the Manage Messages permission to use /clear');
+        return true;
+      }
+      const count = Math.min(Math.max(parseInt(clearMatch[1], 10), 1), 100);
+      this.sending = true;
+      this.http.post<{ ok: boolean; deleted: number }>(`${this.apiUrl}/gg/channels/${this.selectedChannel.id}/clear`, { count }).subscribe({
+        next: (res) => {
+          this.sending = false;
+          this.newMessage = '';
+          this.showFooterInfo(`Cleared ${res.deleted} message${res.deleted !== 1 ? 's' : ''}`);
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.sending = false;
+          this.showFooterInfo(err.error?.message ?? 'Failed to clear messages');
+          this.cdr.markForCheck();
+        },
+      });
+      return true;
+    }
+    return false;
+  }
+
   send(): void {
     const content = this.newMessage.trim();
+    if (content.startsWith('/')) {
+      if (this.handleCommand(content)) return;
+    }
     if ((!content && !this.pendingAttachmentUrl) || this.sending || !this.selectedChannel) return;
     this.sending = true;
     this.chatService.sendGgMessage(content, String(this.selectedChannel.id), this.pendingAttachmentUrl ?? undefined, this.replyToMessage?.id).subscribe({
@@ -785,6 +838,13 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.pendingAttachmentUrl = null;
         this.replyToMessage = null;
         this.sending = false;
+        if (this.myTypingTimer) {
+          clearTimeout(this.myTypingTimer);
+          this.myTypingTimer = null;
+        }
+        if (this.selectedChannel) {
+          this.chatService.emitTypingStop(String(this.selectedChannel.id));
+        }
         this.cdr.markForCheck();
         this.scrollToBottom(true);
       },
@@ -826,7 +886,27 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.cancelReply();
       this.showGifPicker = false;
       this.showMentionAutocomplete = false;
+      this.showCommandAutocomplete = false;
     }
+    // Command autocomplete navigation
+    if (this.showCommandAutocomplete) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this.commandIndex = Math.min(this.commandIndex + 1, this.filteredCommands.length - 1);
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.commandIndex = Math.max(this.commandIndex - 1, 0);
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault();
+        if (this.filteredCommands[this.commandIndex]) {
+          this.insertCommand(this.filteredCommands[this.commandIndex].cmd);
+        }
+      }
+      return;
+    }
+    // Mention autocomplete navigation
     if (event.key === 'ArrowDown' && this.showMentionAutocomplete) {
       event.preventDefault();
       this.mentionIndex = Math.min(this.mentionIndex + 1, this.filteredMentions.length - 1);
@@ -853,16 +933,56 @@ export class GgChatComponent implements OnInit, OnDestroy {
     const textarea = document.querySelector('.chat-textarea') as HTMLTextAreaElement | null;
     const cursorPos = textarea?.selectionStart ?? 0;
     const textBefore = this.messageText.slice(0, cursorPos);
-    const atMatch = textBefore.match(/@(\w*)$/);
-    if (atMatch) {
-      const query = atMatch[1].toLowerCase();
-      this.filteredMentions = this.members.filter(m =>
-        (m.username ?? '').toLowerCase().includes(query)
-      ).slice(0, 8);
-      this.showMentionAutocomplete = this.filteredMentions.length > 0;
-      this.mentionIndex = 0;
-    } else {
+
+    // Command autocomplete
+    if (textBefore.startsWith('/') && !textBefore.includes(' ')) {
+      const query = textBefore.toLowerCase();
+      this.filteredCommands = this.commands.filter(c => c.cmd.startsWith(query));
+      if (this.viewMode === 'server' && this.selectedChannel) {
+        this.filteredCommands = this.filteredCommands;
+      } else {
+        this.filteredCommands = this.filteredCommands.filter(c => !c.permission);
+      }
+      this.showCommandAutocomplete = this.filteredCommands.length > 0;
+      this.commandIndex = 0;
       this.showMentionAutocomplete = false;
+    } else {
+      this.showCommandAutocomplete = false;
+    }
+
+    // Mention autocomplete
+    if (!this.showCommandAutocomplete) {
+      const atMatch = textBefore.match(/@(\w*)$/);
+      if (atMatch) {
+        const query = atMatch[1].toLowerCase();
+        this.filteredMentions = this.members.filter(m =>
+          (m.username ?? '').toLowerCase().includes(query)
+        ).slice(0, 8);
+        this.showMentionAutocomplete = this.filteredMentions.length > 0;
+        this.mentionIndex = 0;
+      } else {
+        this.showMentionAutocomplete = false;
+      }
+    }
+
+    // Typing indicator
+    if (this.messageText.trim() && this.selectedChannel) {
+      if (!this.myTypingTimer) {
+        this.chatService.emitTyping(String(this.selectedChannel.id), this.currentUser?.username ?? 'Someone');
+      }
+      if (this.myTypingTimer) clearTimeout(this.myTypingTimer);
+      this.myTypingTimer = setTimeout(() => {
+        this.myTypingTimer = null;
+        if (this.selectedChannel) {
+          this.chatService.emitTypingStop(String(this.selectedChannel.id));
+        }
+      }, 2000);
+    } else if (this.myTypingTimer) {
+      clearTimeout(this.myTypingTimer);
+      this.myTypingTimer = null;
+      if (this.selectedChannel) {
+        this.chatService.emitTypingStop(String(this.selectedChannel.id));
+      }
     }
   }
 
@@ -874,6 +994,15 @@ export class GgChatComponent implements OnInit, OnDestroy {
     const atIndex = textBefore.lastIndexOf('@');
     this.messageText = textBefore.slice(0, atIndex) + '@' + member.username + ' ' + textAfter;
     this.showMentionAutocomplete = false;
+  }
+
+  insertCommand(cmd: string): void {
+    this.messageText = cmd + ' ';
+    this.showCommandAutocomplete = false;
+    setTimeout(() => {
+      const textarea = document.querySelector('.chat-textarea') as HTMLTextAreaElement | null;
+      textarea?.focus();
+    });
   }
 
   highlightMentions(content: string): string {
@@ -915,6 +1044,41 @@ export class GgChatComponent implements OnInit, OnDestroy {
         el.scrollTop = el.scrollHeight;
       }
     }, 50);
+  }
+
+  onScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    this.showScrollToBottom = distFromBottom > 200;
+    this.cdr.markForCheck();
+  }
+
+  scrollToBottomClick(): void {
+    const el = document.querySelector('.gg-messages, .gg-dm-messages') as HTMLElement | null;
+    if (!el) return;
+    try {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } catch {
+      el.scrollTop = el.scrollHeight;
+    }
+    this.showScrollToBottom = false;
+  }
+
+  showFooterInfo(message: string, durationMs = 4000): void {
+    if (this.chatFooterInfoTimer) {
+      clearTimeout(this.chatFooterInfoTimer);
+      this.chatFooterInfoTimer = null;
+    }
+    this.chatFooterInfo = message;
+    this.cdr.markForCheck();
+    if (durationMs > 0) {
+      this.chatFooterInfoTimer = setTimeout(() => {
+        this.chatFooterInfo = null;
+        this.chatFooterInfoTimer = null;
+        this.cdr.markForCheck();
+      }, durationMs);
+    }
   }
 
   // ===== ATTACHMENTS / GIFS =====
@@ -1034,6 +1198,25 @@ export class GgChatComponent implements OnInit, OnDestroy {
       if ((builtInPerms[r] ?? []).includes('manage_channels')) return true;
       const customRole = this.serverRoles.find((sr: any) => sr.name === r);
       if (customRole && (customRole.permissions ?? []).includes('manage_channels')) return true;
+    }
+    return false;
+  }
+
+  canManageMessages(): boolean {
+    if (!this.selectedServer || !this.currentUser) return false;
+    const me = this.members.find(m => String(m.user_id) === String(this.currentUser?.id));
+    if (!me) return false;
+    const roles: string[] = me.roles ?? [];
+    if (roles.includes('owner') || roles.includes('admin')) return true;
+    const builtInPerms: Record<string, string[]> = {
+      admin: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members', 'manage_soundboard', 'control_voice'],
+      moderator: ['manage_messages', 'kick_members', 'manage_soundboard', 'control_voice'],
+      member: [],
+    };
+    for (const r of roles) {
+      if ((builtInPerms[r] ?? []).includes('manage_messages')) return true;
+      const customRole = this.serverRoles.find((sr: any) => sr.name === r);
+      if (customRole && (customRole.permissions ?? []).includes('manage_messages')) return true;
     }
     return false;
   }
@@ -1330,15 +1513,17 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.rebindVoiceCallbacks();
 
       const guildId = String((channel as any).server_id ?? this.selectedServer?.id ?? '');
-      await this.voiceService.joinChannel(guildId, String(channel.id));
-      this.voiceConnected = true;
       this.voiceChannelId = String(channel.id);
       this.voiceGuildId = String((channel as any).server_id ?? '');
+      this.voiceConnected = true;
+      await this.voiceService.joinChannel(guildId, String(channel.id));
       this.voiceMuted = false;
       this.voiceDeafened = false;
       this.startDeviceMonitoring();
     } catch (e) {
       console.error('Voice join failed:', e);
+      this.voiceConnected = false;
+      this.voiceChannelId = null;
     }
     this.voiceConnecting = false;
     this.cdr.markForCheck();
@@ -1478,6 +1663,28 @@ export class GgChatComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     };
+    this.voiceService.onAllVoiceState = (channels) => {
+      const currentUserId = this.auth.getCurrentUser()?.id;
+      for (const ch of channels) {
+        if (ch.channelId === this.voiceChannelId) {
+          this.voiceMembers = ch.users.map(u => ({
+            userId: u.userId,
+            muted: u.muted,
+            deafened: u.deafened,
+          }));
+          const remoteSpeakerIds = ch.users
+            .filter(u => u.speaking && u.userId !== currentUserId)
+            .map(u => u.userId);
+          const localSpeaking = currentUserId && ch.users.some(u => u.userId === currentUserId && u.speaking);
+          const merged = new Set(remoteSpeakerIds);
+          if (localSpeaking && currentUserId) merged.add(currentUserId);
+          else if (currentUserId) merged.delete(currentUserId);
+          this.speakingUsers = merged;
+          break;
+        }
+      }
+      this.cdr.markForCheck();
+    };
     this.voiceService.onMicPermissionError = (err) => {
       this.stopDeviceMonitoring();
       this.voiceService.leaveChannel();
@@ -1534,9 +1741,13 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceService.onUserUnmuted = null;
     this.voiceService.onUserDeafened = null;
     this.voiceService.onUserUndeafened = null;
-    this.voiceService.onLocalSpeaking = null;
+    this.voiceService.onExistingMembers = null;
+    this.voiceService.onAllVoiceState = null;
     this.voiceService.onMicPermissionError = null;
     this.voiceService.onDisconnected = null;
+    this.voiceService.onUserSoundboardStart = null;
+    this.voiceService.onUserSoundboardStop = null;
+    this.soundboardUsers = new Set();
   }
 
   private showMutedWarningForDuration(): void {
@@ -1656,10 +1867,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  playSoundboardSound(url: string): void {
+  playSoundboardSound(url: string, soundName: string): void {
     if (this.soundboardPlaying) return;
     this.soundboardPlaying = true;
-    this.voiceService.playSoundboard(url).finally(() => {
+    this.voiceService.playSoundboard(url, soundName).finally(() => {
       this.soundboardPlaying = false;
       this.cdr.markForCheck();
     });
@@ -1969,6 +2180,47 @@ export class GgChatComponent implements OnInit, OnDestroy {
       }
     });
 
+    this.socket.on('message-deleted', (payload: { messageId: number; channelId: string }) => {
+      const { messageId, channelId } = payload;
+      if (this.viewMode === 'server' && this.selectedChannel && channelId === String(this.selectedChannel.id)) {
+        this.messages = this.messages.filter(m => m.id !== messageId);
+        this.cdr.markForCheck();
+      }
+      if (this.viewMode === 'dm' && this.selectedDm && channelId === `dm_${this.selectedDm.id}`) {
+        this.dmMessages = this.dmMessages.filter(m => m.id !== messageId);
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('messages-cleared', (payload: { channelId: number; count: number }) => {
+      if (this.viewMode === 'server' && this.selectedChannel && payload.channelId === this.selectedChannel.id) {
+        this.loadMessages(this.selectedChannel.id);
+      }
+    });
+
+    this.socket.on('typing-start', (payload: { userId: string; username: string; channelId: string }) => {
+      if (!this.selectedChannel || payload.channelId !== String(this.selectedChannel.id)) return;
+      if (payload.userId === this.currentUser?.id) return;
+      if (this.typingUsers.has(payload.userId)) {
+        clearTimeout(this.typingUsers.get(payload.userId)!.timer);
+      }
+      const timer = setTimeout(() => {
+        this.typingUsers.delete(payload.userId);
+        this.cdr.markForCheck();
+      }, 3000);
+      this.typingUsers.set(payload.userId, { username: payload.username, timer });
+      this.cdr.markForCheck();
+    });
+
+    this.socket.on('typing-stop', (payload: { userId: string; channelId: string }) => {
+      if (!this.selectedChannel || payload.channelId !== String(this.selectedChannel.id)) return;
+      if (this.typingUsers.has(payload.userId)) {
+        clearTimeout(this.typingUsers.get(payload.userId)!.timer);
+        this.typingUsers.delete(payload.userId);
+        this.cdr.markForCheck();
+      }
+    });
+
     this.socket.on('friend-request', () => {
       this.loadFriends();
     });
@@ -1978,9 +2230,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.loadDmConversations();
     });
 
-    this.socket.on('notification', () => {
+    this.socket.on('notification', (data: AppNotification) => {
       this.soundService.play('notification_msg');
-      this.loadNotifications();
+      if (data?.id) {
+        const exists = this.notifications.some(n => n.id === data.id);
+        if (!exists) {
+          this.notifications = [data, ...this.notifications];
+          this.unreadCount = this.notifications.filter(x => !x.read).length;
+          this.cdr.markForCheck();
+        }
+      } else {
+        this.loadNotifications();
+      }
     });
 
     this.socket.on('server-created', (server: any) => {
@@ -2522,7 +2783,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
         }
         this.cdr.markForCheck();
       },
-      error: (err) => this.showCyberAlert(err.error?.message ?? 'Failed to delete message'),
+      error: (err) => this.showFooterInfo(err.error?.message ?? 'Failed to delete message'),
     });
   }
 
@@ -2621,17 +2882,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceService.setLocalMute(userId, !wasMuted);
     if (!wasMuted) {
       this.voiceService.setLocalDeafen(userId, false);
-    }
-    this.closeVoiceContextMenu();
-    this.cdr.markForCheck();
-  }
-
-  onVoiceContextDeafen(vm: any): void {
-    const userId = vm.userId;
-    const wasDeafened = this.voiceService.isLocalDeafened(userId);
-    this.voiceService.setLocalDeafen(userId, !wasDeafened);
-    if (!wasDeafened) {
-      this.voiceService.setLocalMute(userId, false);
     }
     this.closeVoiceContextMenu();
     this.cdr.markForCheck();
@@ -2746,7 +2996,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.hoverCardIsSelf = msg.user_id != null && String(msg.user_id) === String(this.currentUser?.id);
     this.hoverCardIsFriend = msg.user_id != null && this.friends.some(f => f.other_id === String(msg.user_id));
     this.hoverCardStatus = this.memberStatus(String(msg.user_id ?? ''));
-    this.hoverCardAvatar = msg.avatar_url || null;
+    this.hoverCardAvatar = this.avatarForUsername(msg.username) || msg.avatar_url || null;
     this.hoverCardBanner = null;
     this.hoverCard?.show(event, msg);
     if (this.selectedServer && msg.user_id) {
