@@ -4,7 +4,7 @@
     <span>PROJECT GG</span>
   </a>
 
-  @if (musicTrack && (musicPlaying || queue.length > 0)) {
+  @if (musicTrack) {
     <div class="mini-player">
       <div class="mini-viz-art" (click)="musicService.toggleExpanded()">
         @for (b of vizBars; track $index) {
