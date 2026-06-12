@@ -75,6 +75,7 @@ export class MusicPlayerService implements OnDestroy {
   private prevFreqBars: number[] = new Array(30).fill(0);
   private vizFrameCount = 0;
   private applyingJamState = false;
+  private pendingPlayAction: 'play' | 'pause' | null = null;
 
   readonly track$ = this.currentTrack$.asObservable();
   readonly playing$ = this.isPlaying$.asObservable();
@@ -312,8 +313,10 @@ export class MusicPlayerService implements OnDestroy {
     this.syncTrackToJamIfHost(track);
 
     if (!this.apiLoaded) return;
-    if (this.player) {
+    if (this.player && this.playerReady) {
       this.player.loadVideoById(track.videoId);
+    } else if (this.player && !this.playerReady) {
+      try { this.player.loadVideoById(track.videoId); } catch {}
     } else {
       this.createPlayer(track.videoId);
     }
@@ -341,7 +344,15 @@ export class MusicPlayerService implements OnDestroy {
         onReady: () => {
           this.ngZone.run(() => {
             this.playerReady = true;
-            this.player?.playVideo();
+            if (this.pendingPlayAction) {
+              try {
+                if (this.pendingPlayAction === 'play') this.player?.playVideo();
+                else this.player?.pauseVideo();
+              } catch {}
+              this.pendingPlayAction = null;
+            } else {
+              try { this.player?.playVideo(); } catch {}
+            }
           });
         },
         onStateChange: (event: any) => this.ngZone.run(() => this.onStateChange(event)),
@@ -382,7 +393,7 @@ export class MusicPlayerService implements OnDestroy {
   }
 
   togglePlay(): void {
-    if (!this.player || !this.currentTrack$.value) return;
+    if (!this.player || !this.playerReady || !this.currentTrack$.value) return;
     const session = this.jamService.sessionValue;
 
     if (session) {
@@ -520,7 +531,11 @@ export class MusicPlayerService implements OnDestroy {
     this.needsInteraction$.next(false);
     const session = this.jamService.sessionValue;
     if (session && session.isPlaying && this.player) {
-      try { this.player.playVideo(); } catch {}
+      if (this.playerReady) {
+        try { this.player.playVideo(); } catch {}
+      } else {
+        this.pendingPlayAction = 'play';
+      }
     }
   }
 
@@ -612,11 +627,16 @@ export class MusicPlayerService implements OnDestroy {
         });
         this.showResults$.next(false);
         try {
-          if (this.player) {
+          if (this.player && this.playerReady) {
             console.log('[JamApply] Loading video into existing player:', session.currentTrack.videoId);
             this.player.loadVideoById(session.currentTrack.videoId);
+          } else if (this.player && !this.playerReady) {
+            console.log('[JamApply] Player exists but not ready, queuing load');
+            this.pendingPlayAction = session.isPlaying ? 'play' : 'pause';
+            try { this.player.loadVideoById(session.currentTrack.videoId); } catch {}
           } else {
             console.log('[JamApply] Creating new player for:', session.currentTrack.videoId);
+            this.pendingPlayAction = session.isPlaying ? 'play' : 'pause';
             this.createPlayer(session.currentTrack.videoId);
           }
         } catch (e) { console.error('[JamApply] Error loading video:', e); }
@@ -624,19 +644,29 @@ export class MusicPlayerService implements OnDestroy {
 
       if (session.isPlaying && !this.isPlaying$.value) {
         if (this.hasUserGesture) {
-          console.log('[JamApply] Playing video');
-          try { this.player?.playVideo(); } catch (e) { console.error('[JamApply] playVideo error:', e); }
+          if (this.playerReady) {
+            console.log('[JamApply] Playing video');
+            try { this.player?.playVideo(); } catch (e) { console.error('[JamApply] playVideo error:', e); }
+          } else {
+            console.log('[JamApply] Player not ready, queuing play');
+            this.pendingPlayAction = 'play';
+          }
         } else {
           console.log('[JamApply] No user gesture, showing interaction overlay');
           this.needsInteraction$.next(true);
         }
       } else if (!session.isPlaying && this.isPlaying$.value) {
-        console.log('[JamApply] Pausing video');
-        try { this.player?.pauseVideo(); } catch {}
+        if (this.playerReady) {
+          console.log('[JamApply] Pausing video');
+          try { this.player?.pauseVideo(); } catch {}
+        } else {
+          console.log('[JamApply] Player not ready, queuing pause');
+          this.pendingPlayAction = 'pause';
+        }
       }
 
       const drift = Math.abs(this.currentTime$.value - session.currentTime);
-      if (drift > 0.5 && this.player && this.duration$.value > 0) {
+      if (drift > 0.5 && this.player && this.playerReady && this.duration$.value > 0) {
         console.log('[JamApply] Correcting drift:', drift.toFixed(2), 's');
         try { this.player.seekTo(session.currentTime, true); } catch {}
       }
