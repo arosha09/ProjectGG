@@ -154,8 +154,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
   voiceConnected = false;
   voiceChannelId: string | null = null;
   voiceGuildId: string | null = null;
-  voiceMuted = false;
-  voiceDeafened = false;
+  voiceMuted = localStorage.getItem('voiceMuted') === 'true';
+  voiceDeafened = localStorage.getItem('voiceDeafened') === 'true';
   noiseSuppressionEnabled = true;
   showMutedWarning = false;
   mutedFeedbackAlert: string | null = null;
@@ -1536,7 +1536,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
     try {
       const currentUserId = this.auth.getCurrentUser()?.id;
-      this.voiceMembers = currentUserId ? [{ userId: currentUserId, muted: false, deafened: false }] : [];
+      this.voiceMembers = currentUserId ? [{ userId: currentUserId, muted: this.voiceMuted, deafened: this.voiceDeafened }] : [];
 
       this.rebindVoiceCallbacks();
 
@@ -1545,8 +1545,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.voiceGuildId = String((channel as any).server_id ?? '');
       this.voiceConnected = true;
       await this.voiceService.joinChannel(guildId, String(channel.id));
-      this.voiceMuted = false;
-      this.voiceDeafened = false;
+      this.voiceConnected = true;
+      if (this.voiceMuted) this.voiceService.mute();
+      if (this.voiceDeafened) this.voiceService.deafen();
+      this.syncLocalVoiceMemberState(this.voiceMuted, this.voiceDeafened);
       this.startDeviceMonitoring();
     } catch (e) {
       console.error('Voice join failed:', e);
@@ -1729,21 +1731,14 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.micPermissionError = err;
       this.voiceConnected = false;
       this.voiceChannelId = null;
-      this.voiceMuted = false;
-      this.voiceDeafened = false;
       this.voiceMembers = [];
       this.localMicActive = false;
       this.cdr.markForCheck();
     };
     this.voiceService.onDisconnected = () => {
-      // Socket dropped (refresh, network blip, etc.) — silently clear local
-      // voice state. The user must explicitly click a voice channel again
-      // to rejoin. No auto-reconnect prompt.
       this.voiceConnected = false;
       this.voiceChannelId = null;
       this.voiceGuildId = null;
-      this.voiceMuted = false;
-      this.voiceDeafened = false;
       this.voiceMembers = [];
       this.speakingUsers = new Set();
       this.localMicActive = false;
@@ -1758,8 +1753,6 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceConnected = false;
     this.voiceChannelId = null;
     this.voiceGuildId = null;
-    this.voiceMuted = false;
-    this.voiceDeafened = false;
     this.voiceMembers = [];
     this.localMicActive = false;
     this.showMutedWarning = false;
@@ -1843,44 +1836,51 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   toggleVoiceMute(): void {
     if (this.voiceMuted) {
-      // Turning OFF mute
-      this.voiceService.unmute();
       this.voiceMuted = false;
       if (this.voiceDeafened) {
-        // defeaned state implies muted+deafened. Turning off mute also clears deafen.
-        this.voiceService.undeafen();
         this.voiceDeafened = false;
       }
-      this.syncLocalVoiceMemberState(false, this.voiceDeafened);
+      if (this.voiceConnected) {
+        this.voiceService.unmute();
+        if (!this.voiceDeafened) this.voiceService.undeafen();
+        this.syncLocalVoiceMemberState(false, this.voiceDeafened);
+      }
       this.clearMutedFeedback();
     } else {
-      // Turning ON mute (just mute, don't change deafen state)
-      this.voiceService.mute();
       this.voiceMuted = true;
-      this.syncLocalVoiceMemberState(true, this.voiceDeafened);
+      if (this.voiceConnected) {
+        this.voiceService.mute();
+        this.syncLocalVoiceMemberState(true, this.voiceDeafened);
+      }
       this.showMutedWarningForDuration();
       this.triggerMutedFeedback();
     }
+    localStorage.setItem('voiceMuted', String(this.voiceMuted));
+    localStorage.setItem('voiceDeafened', String(this.voiceDeafened));
     this.cdr.markForCheck();
   }
 
   toggleVoiceDeaf(): void {
     if (this.voiceDeafened) {
-      // Turning OFF deafen: also unmute (since defeaned implies muted+deafened)
-      this.voiceService.undeafen();
       this.voiceDeafened = false;
       this.voiceMuted = false;
-      this.syncLocalVoiceMemberState(false, false);
+      if (this.voiceConnected) {
+        this.voiceService.undeafen();
+        this.syncLocalVoiceMemberState(false, false);
+      }
       this.clearMutedFeedback();
     } else {
-      // Turning ON deafen: also mute
-      this.voiceService.deafen();
       this.voiceDeafened = true;
       this.voiceMuted = true;
-      this.syncLocalVoiceMemberState(true, true);
+      if (this.voiceConnected) {
+        this.voiceService.deafen();
+        this.syncLocalVoiceMemberState(true, true);
+      }
       this.showMutedWarningForDuration();
       this.triggerMutedFeedback();
     }
+    localStorage.setItem('voiceMuted', String(this.voiceMuted));
+    localStorage.setItem('voiceDeafened', String(this.voiceDeafened));
     this.cdr.markForCheck();
   }
 
