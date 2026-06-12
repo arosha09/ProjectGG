@@ -45,6 +45,21 @@ import { GgServerMember } from '../../services/chat.service';
             }
           </div>
 
+          @if (about) {
+            <div class="mhc-about">{{ about }}</div>
+          }
+
+          @if (connections && connections.length > 0) {
+            <div class="mhc-connections">
+              @for (conn of connections; track conn.platform) {
+                <span class="mhc-conn-badge" [title]="conn.platform_username || conn.platform">
+                  <img [src]="getPlatformLogo(conn.platform)" [alt]="conn.platform" class="mhc-conn-logo" />
+                  <span class="mhc-conn-name">{{ conn.platform_username || conn.platform }}</span>
+                </span>
+              }
+            </div>
+          }
+
           <div class="mhc-divider"></div>
 
           <!-- Action buttons -->
@@ -175,6 +190,43 @@ import { GgServerMember } from '../../services/chat.service';
       background: rgba(255, 255, 255, 0.08);
       margin: 12px 0;
     }
+    .mhc-about {
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #dbdee1;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .mhc-connections {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .mhc-conn-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 11px;
+      color: #b5bac1;
+      max-width: 140px;
+    }
+    .mhc-conn-logo {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .mhc-conn-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .mhc-actions {
       display: flex;
       flex-direction: column;
@@ -235,6 +287,8 @@ export class MemberHoverCardComponent implements OnDestroy {
   @Input() status: string = 'offline';
   @Input() isFriend = false;
   @Input() isSelf = false;
+  @Input() about: string | null = null;
+  @Input() connections: Array<{ platform: string; platform_username?: string | null; platform_user_id?: string | null }> | null = null;
 
   private extractedColors: string[] = [];
 
@@ -295,6 +349,10 @@ export class MemberHoverCardComponent implements OnDestroy {
 
   onLeave(): void {
     this.hide();
+  }
+
+  getPlatformLogo(platform: string): string {
+    return `assets/platforms/${platform}.svg`;
   }
 
   getGradient(): string {

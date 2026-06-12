@@ -88,6 +88,18 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
 
   // Per-server profile
   serverProfile: any = null;
+  serverProfileAbout = '';
+  serverProfileSaving = false;
+  serverConnections: any[] = [];
+  readonly platforms = [
+    { id: 'steam', name: 'Steam' },
+    { id: 'discord', name: 'Discord' },
+    { id: 'gog', name: 'GOG' },
+    { id: 'epic', name: 'Epic Games' },
+    { id: 'ubisoft', name: 'Ubisoft' },
+    { id: 'ea', name: 'EA App' },
+    { id: 'spotify', name: 'Spotify' },
+  ];
 
   get dropListIds(): string[] {
     const ids = ['uncategorized'];
@@ -494,9 +506,56 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
     const userId = this.auth.getCurrentUser()?.id;
     if (!userId) return;
     this.chatService.getServerProfile(this.serverId, String(userId)).subscribe({
-      next: (p) => { this.serverProfile = p; this.cdr.markForCheck(); },
-      error: () => { this.serverProfile = null; this.cdr.markForCheck(); },
+      next: (p) => {
+        this.serverProfile = {
+          avatar_url: p?.avatar_url ?? null,
+          banner_url: p?.banner_url ?? null,
+          about: p?.about ?? '',
+          show_connections: p?.show_connections ?? true,
+          show_about: p?.show_about ?? true,
+        };
+        this.serverProfileAbout = this.serverProfile.about ?? '';
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.serverProfile = { avatar_url: null, banner_url: null, about: '', show_connections: true, show_about: true };
+        this.serverProfileAbout = '';
+        this.cdr.markForCheck();
+      },
     });
+    this.chatService.getConnections(String(userId)).subscribe({
+      next: (c) => { this.serverConnections = c ?? []; this.cdr.markForCheck(); },
+      error: () => { this.serverConnections = []; },
+    });
+  }
+
+  saveServerProfileAbout(): void {
+    if (this.serverProfileSaving) return;
+    this.serverProfileSaving = true;
+    this.chatService.updateServerProfile(this.serverId, { about: this.serverProfileAbout }).subscribe({
+      next: () => { this.serverProfileSaving = false; this.cdr.markForCheck(); },
+      error: () => { this.serverProfileSaving = false; this.cdr.markForCheck(); },
+    });
+  }
+
+  toggleServerProfileShowConnections(): void {
+    const next = !this.serverProfile?.show_connections;
+    this.serverProfile = { ...this.serverProfile, show_connections: next };
+    this.chatService.updateServerProfile(this.serverId, { show_connections: next }).subscribe();
+  }
+
+  toggleServerProfileShowAbout(): void {
+    const next = !this.serverProfile?.show_about;
+    this.serverProfile = { ...this.serverProfile, show_about: next };
+    this.chatService.updateServerProfile(this.serverId, { show_about: next }).subscribe();
+  }
+
+  getPlatformLogo(id: string): string {
+    return `assets/platforms/${id}.svg`;
+  }
+
+  getServerConnection(platformId: string): any {
+    return this.serverConnections.find(c => c.platform === platformId);
   }
 
   onServerProfileAvatarSelect(event: Event): void {

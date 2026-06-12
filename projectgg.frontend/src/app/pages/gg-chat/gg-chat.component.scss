@@ -2473,6 +2473,15 @@
   letter-spacing: 0.5px;
 }
 
+.gg-profile-about {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
 .gg-profile-value {
   font-size: 14px;
   color: var(--text-primary);

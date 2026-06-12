@@ -1592,7 +1592,7 @@ export class ChatController {
       .eq('server_id', Number(serverId))
       .eq('user_id', userId)
       .single();
-    return data ?? { avatar_url: null, banner_url: null };
+    return data ?? { avatar_url: null, banner_url: null, about: null, show_connections: true, show_about: true };
   }
 
   @Get('gg/servers/:serverId/profiles')
@@ -1600,7 +1600,7 @@ export class ChatController {
     const { data } = await this.supabase
       .schema('projectgg')
       .from('gg_server_profiles')
-      .select('user_id, avatar_url, banner_url')
+      .select('user_id, avatar_url, banner_url, about, show_connections, show_about')
       .eq('server_id', Number(serverId));
     return data ?? [];
   }
@@ -1612,13 +1612,16 @@ export class ChatController {
   async updateServerProfile(
     @Req() req: any,
     @Param('serverId') serverId: string,
-    @Body() body: { avatar_url?: string; banner_url?: string },
+    @Body() body: { avatar_url?: string; banner_url?: string; about?: string; show_connections?: boolean; show_about?: boolean },
   ) {
     const numId = Number(serverId);
     const userId = req.user.id;
     const updates: any = { user_id: userId, server_id: numId };
     if (body.avatar_url !== undefined) updates.avatar_url = body.avatar_url;
     if (body.banner_url !== undefined) updates.banner_url = body.banner_url;
+    if (body.about !== undefined) updates.about = body.about;
+    if (body.show_connections !== undefined) updates.show_connections = body.show_connections;
+    if (body.show_about !== undefined) updates.show_about = body.show_about;
 
     const { data: existing } = await this.supabase
       .schema('projectgg')

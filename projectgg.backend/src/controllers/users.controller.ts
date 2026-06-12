@@ -119,6 +119,7 @@ export class UsersController {
       updates.email = body.email;
       updates.email_verified = false;
     }
+    if ((body as any).about !== undefined) updates.about = (body as any).about;
 
     const updated = await this.usersService.updateProfile(userId, updates);
     if (!updated) {

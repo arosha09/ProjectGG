@@ -783,6 +783,12 @@
             </button>
           </div>
           <div class="gg-profile-body">
+            @if (profileUser?.about) {
+              <div class="gg-profile-section">
+                <span class="gg-profile-label">About</span>
+                <p class="gg-profile-about">{{ profileUser.about }}</p>
+              </div>
+            }
             @if (profileUser.rank) {
               <div class="gg-profile-section">
                 <span class="gg-profile-label">Rank</span>
@@ -1032,48 +1038,58 @@
 
   <!-- INVITE LINKS MODAL -->
   @if (showInviteLinks) {
-    <div class="gg-overlay" (click)="closeInviteLinks()">
-      <div class="gg-modal gg-modal-sm" (click)="$event.stopPropagation()">
-        <div class="gg-modal-header">
-          <h2 class="gg-modal-title">Invite Links</h2>
-          <button class="gg-modal-close" (click)="closeInviteLinks()">
+    <div class="cyber-invite-backdrop" (click)="closeInviteLinks()">
+      <div class="cyber-invite-modal" (click)="$event.stopPropagation()">
+        <div class="cyber-invite-header">
+          <h2 class="cyber-invite-title">Invite Links</h2>
+          <button class="cyber-invite-close" (click)="closeInviteLinks()">
             <mat-icon svgIcon="close"></mat-icon>
           </button>
         </div>
 
-        <div class="gg-modal-body">
+        <div class="cyber-invite-body">
           @if (inviteLoading) {
-            <div class="gg-skeleton-list">
+            <div class="cyber-skeleton-list">
               @for (_ of [1]; track _) {
-                <div class="gg-sk-invite">
-                  <div class="gg-sk-line gg-sk-w90"></div>
-                  <div class="gg-sk-line gg-sk-w50"></div>
+                <div class="cyber-sk-invite">
+                  <div class="cyber-sk-line cyber-sk-w90"></div>
+                  <div class="cyber-sk-line cyber-sk-w50"></div>
                 </div>
               }
             </div>
           } @else {
             @if (activeInvite) {
-              <div class="gg-invite-section">
-                <label class="gg-invite-label">Active Invite Link</label>
-                <div class="gg-invite-code-row">
-                  <input class="gg-modal-input gg-invite-input" [value]="inviteLinkUrl" readonly (click)="$event.target.select()" />
-                  <button class="gg-btn gg-btn-icon" (click)="copyInviteLink()" title="Copy">
+              <div class="cyber-invite-section">
+                <label class="cyber-invite-label">Active Invite Link</label>
+                <div class="cyber-invite-code-row">
+                  <input class="cyber-invite-input" [value]="inviteLinkUrl" readonly (click)="$event.target.select()" />
+                  <button class="cyber-invite-copy-btn" (click)="copyInviteLink()" title="Copy Link">
                     <mat-icon svgIcon="content_copy"></mat-icon>
                   </button>
                 </div>
-                <div class="gg-invite-meta">
-                  <span>Code: <strong>{{ activeInvite.code }}</strong></span>
-                  <span>Uses: {{ activeInvite.use_count }}</span>
+
+                <div class="cyber-invite-code-section">
+                  <label class="cyber-invite-label">Invite Code</label>
+                  <div class="cyber-invite-code-row">
+                    <span class="cyber-invite-code-text">{{ activeInvite.code }}</span>
+                    <button class="cyber-invite-copy-btn" (click)="copyInviteCode()" title="Copy Code">
+                      <mat-icon svgIcon="content_copy"></mat-icon>
+                    </button>
+                  </div>
+                  <div class="cyber-invite-meta">
+                    <span>Uses: {{ activeInvite.use_count }}</span>
+                  </div>
                 </div>
+
                 @if (copied) {
-                  <span class="gg-invite-copied">Copied!</span>
+                  <span class="cyber-invite-copied">Copied to clipboard!</span>
                 }
               </div>
             } @else {
-              <p class="gg-modal-desc">No active invite links. Generate one to invite people.</p>
+              <p class="cyber-invite-empty">No active invite links. Generate one to invite people.</p>
             }
 
-            <button class="gg-btn gg-btn-primary gg-invite-generate" (click)="generateInvite()">
+            <button class="cyber-invite-generate" (click)="generateInvite()">
               <mat-icon svgIcon="refresh"></mat-icon>
               {{ activeInvite ? 'Regenerate' : 'Generate' }} Invite Link
             </button>

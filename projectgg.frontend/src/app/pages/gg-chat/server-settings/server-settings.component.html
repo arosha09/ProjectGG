@@ -155,46 +155,96 @@
             <h2 class="ss-section-title">Server Profile</h2>
             <p class="ss-muted">Customize how you appear in this server. These settings only apply here.</p>
 
-            <!-- Banner -->
-            <div class="ss-label">Banner</div>
-            <div class="ss-profile-banner-preview"
-              [style.backgroundImage]="serverProfile?.banner_url ? 'url(' + serverProfile.banner_url + ')' : 'none'"
-              [style.backgroundColor]="serverProfile?.banner_url ? 'transparent' : 'var(--bg-panel)'">
-              @if (!serverProfile?.banner_url) {
-                <mat-icon svgIcon="image"></mat-icon>
-              }
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:24px;">
-              <label class="ss-btn ss-btn-sm">
-                <mat-icon svgIcon="upload"></mat-icon> Upload Banner
-                <input type="file" accept="image/*" hidden (change)="onServerProfileBannerSelect($event)" />
-              </label>
-              @if (serverProfile?.banner_url) {
-                <button class="ss-btn ss-btn-sm ss-btn-danger" (click)="removeServerProfileBanner()">
-                  <mat-icon svgIcon="delete"></mat-icon> Remove
-                </button>
-              }
+            <!-- Hero: Banner + Avatar -->
+            <div class="ssp-hero">
+              <button type="button" class="ssp-banner"
+                [style.background]="serverProfile?.banner_url ? 'url(' + serverProfile.banner_url + ') center/cover no-repeat' : 'var(--bg-panel)'">
+                <div class="ssp-banner-overlay">
+                  <mat-icon svgIcon="upload"></mat-icon>
+                </div>
+                @if (serverProfile?.banner_url) {
+                  <span class="ssp-banner-remove" title="Remove Banner" (click)="removeServerProfileBanner(); $event.stopPropagation()">
+                    <mat-icon svgIcon="delete"></mat-icon>
+                  </span>
+                }
+              </button>
+              <input type="file" accept="image/*" hidden (change)="onServerProfileBannerSelect($event)" />
+
+              <div class="ssp-hero-row">
+                <div class="ssp-avatar-wrap">
+                  @if (serverProfile?.avatar_url) {
+                    <img [src]="serverProfile.avatar_url" alt="Avatar" class="ssp-avatar-img" />
+                  } @else {
+                    <div class="ssp-avatar-placeholder">
+                      <mat-icon svgIcon="person"></mat-icon>
+                    </div>
+                  }
+                  <label class="ssp-avatar-edit">
+                    <mat-icon svgIcon="upload"></mat-icon>
+                    <input type="file" accept="image/*" hidden (change)="onServerProfileAvatarSelect($event)" />
+                  </label>
+                  @if (serverProfile?.avatar_url) {
+                    <button class="ssp-avatar-remove" title="Remove Avatar" (click)="removeServerProfileAvatar()">
+                      <mat-icon svgIcon="close"></mat-icon>
+                    </button>
+                  }
+                </div>
+                <div class="ssp-hero-text">
+                  <p class="ssp-eyebrow">Server Identity</p>
+                  <h3>{{ server?.name || 'Server' }}</h3>
+                </div>
+              </div>
             </div>
 
-            <!-- Avatar -->
-            <div class="ss-label">Avatar</div>
-            <div class="ss-profile-avatar-preview">
-              @if (serverProfile?.avatar_url) {
-                <img [src]="serverProfile.avatar_url" alt="Server avatar" />
-              } @else {
-                <mat-icon svgIcon="person"></mat-icon>
-              }
+            <!-- About -->
+            <div class="ssp-card">
+              <div class="ssp-card-head">
+                <mat-icon svgIcon="info"></mat-icon>
+                <h3>About</h3>
+                <label class="ssp-toggle" [class.on]="serverProfile?.show_about" (click)="toggleServerProfileShowAbout()">
+                  <span class="ssp-toggle-knob"></span>
+                </label>
+              </div>
+              <div class="ssp-card-body">
+                <textarea
+                  class="ssp-about-input"
+                  [(ngModel)]="serverProfileAbout"
+                  (blur)="saveServerProfileAbout()"
+                  placeholder="Tell others about yourself in this server..."
+                  rows="3"
+                  maxlength="500"></textarea>
+                <div class="ssp-about-meta">
+                  <span class="ssp-about-hint">Visible in your server profile preview</span>
+                  <span class="ssp-about-count">{{ serverProfileAbout?.length || 0 }}/500</span>
+                </div>
+              </div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <label class="ss-btn ss-btn-sm">
-                <mat-icon svgIcon="upload"></mat-icon> Upload Avatar
-                <input type="file" accept="image/*" hidden (change)="onServerProfileAvatarSelect($event)" />
-              </label>
-              @if (serverProfile?.avatar_url) {
-                <button class="ss-btn ss-btn-sm ss-btn-danger" (click)="removeServerProfileAvatar()">
-                  <mat-icon svgIcon="delete"></mat-icon> Remove
-                </button>
-              }
+
+            <!-- Connected Accounts -->
+            <div class="ssp-card">
+              <div class="ssp-card-head">
+                <mat-icon svgIcon="link"></mat-icon>
+                <h3>Connected Accounts</h3>
+                <label class="ssp-toggle" [class.on]="serverProfile?.show_connections" (click)="toggleServerProfileShowConnections()">
+                  <span class="ssp-toggle-knob"></span>
+                </label>
+              </div>
+              <div class="ssp-card-body">
+                <p class="ssp-muted-inline">Platforms linked to your main account. Toggle to show or hide in this server.</p>
+                @for (p of platforms; track p.id) {
+                  <div class="ssp-platform-row">
+                    <img class="ssp-platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
+                    <div class="ssp-platform-info">
+                      <span class="ssp-platform-name">{{ p.name }}</span>
+                      @if (getServerConnection(p.id); as conn) {
+                        <span class="ssp-platform-user">{{ conn.platform_username || conn.platform_user_id || 'Connected' }}</span>
+                      } @else {
+                        <span class="ssp-platform-user not-linked">Not linked</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
             </div>
           </section>
         }
