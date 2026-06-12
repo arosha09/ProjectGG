@@ -168,6 +168,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   soundboardPlaying = false;
   soundboardSounds: { id: number; name: string; file_url: string }[] = [];
   soundboardUploading = false;
+  soundboardUsers = new Set<string>();
   newSoundboardName = '';
   voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
   allVoiceChannels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[] = [];
@@ -1712,6 +1713,16 @@ export class GgChatComponent implements OnInit, OnDestroy {
       }
       this.cdr.markForCheck();
     };
+    this.voiceService.onUserSoundboardStart = (userId) => {
+      this.soundboardUsers = new Set([...this.soundboardUsers, userId]);
+      this.cdr.markForCheck();
+    };
+    this.voiceService.onUserSoundboardStop = (userId) => {
+      const next = new Set(this.soundboardUsers);
+      next.delete(userId);
+      this.soundboardUsers = next;
+      this.cdr.markForCheck();
+    };
     this.voiceService.onMicPermissionError = (err) => {
       this.stopDeviceMonitoring();
       this.voiceService.leaveChannel();
@@ -3123,6 +3134,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   voiceMemberDeafened(userId: string): boolean {
     return this.voiceMembers.find(m => m.userId === userId)?.deafened ?? false;
+  }
+
+  voiceMemberSoundboard(userId: string): boolean {
+    return this.soundboardUsers.has(userId);
   }
 
   localMuted(userId: string): boolean {
