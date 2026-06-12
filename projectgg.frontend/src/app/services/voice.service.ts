@@ -135,7 +135,6 @@ export class VoiceService implements OnDestroy {
       this.socket!.on('connect', async () => {
         try {
           const transport = (this.socket as any)?.io?.engine?.transport?.name ?? 'unknown';
-          console.log('[Voice] Socket connected via', transport);
           this.setupSocketListeners();
 
           const themeColor = this.getCurrentUserThemeColor();
@@ -256,7 +255,6 @@ export class VoiceService implements OnDestroy {
     this.bindRoomEvents();
 
     await this.room.connect(wsUrl, token);
-    console.log('[Voice] LiveKit room connected');
 
     // ── Microphone (high-quality capture) ───────────────────────────────
     this.micStream = await navigator.mediaDevices.getUserMedia({
@@ -292,8 +290,7 @@ export class VoiceService implements OnDestroy {
       });
       this.noiseGateNode.port.postMessage({ type: 'setEnabled', enabled: this._noiseSuppression });
       micSource.connect(this.noiseGateNode);
-    } catch (err) {
-      console.warn('[Voice] Failed to load noise gate; continuing without suppression:', err);
+    } catch {
       this.noiseGateNode = null;
     }
 
@@ -350,10 +347,7 @@ export class VoiceService implements OnDestroy {
       // Connect mic source to VAD node
       micSource.connect(this.vadNode);
       this.vadReady = true;
-      console.log('[Voice] AudioWorklet VAD initialized');
-    } catch (err) {
-      console.warn('[Voice] AudioWorklet VAD failed, falling back to analyser:', err);
-      // Fallback to analyser-based detection
+    } catch {
       this.setupFallbackVAD(micSource);
     }
   }
@@ -432,7 +426,6 @@ export class VoiceService implements OnDestroy {
     this.livekitReconnectAttempts++;
 
     const delay = Math.min(1000 * Math.pow(2, this.livekitReconnectAttempts - 1), 10000);
-    console.log(`[Voice] LiveKit reconnect attempt ${this.livekitReconnectAttempts}/${VoiceService.LIVEKIT_MAX_RECONNECT} in ${delay}ms`);
 
     await new Promise(r => setTimeout(r, delay));
 
@@ -459,13 +452,10 @@ export class VoiceService implements OnDestroy {
 
       this.livekitReconnecting = false;
       this.livekitReconnectAttempts = 0;
-      console.log('[Voice] LiveKit reconnected successfully');
-    } catch (err) {
-      console.warn('[Voice] LiveKit reconnect failed:', err);
+    } catch {
       this.livekitReconnecting = false;
 
       if (this.livekitReconnectAttempts >= VoiceService.LIVEKIT_MAX_RECONNECT) {
-        console.error('[Voice] Max reconnect attempts reached, leaving channel');
         this.leaveChannel();
       } else {
         this.attemptLiveKitReconnect();
@@ -479,10 +469,7 @@ export class VoiceService implements OnDestroy {
     const refreshMs = 3.5 * 60 * 60 * 1000;
     this.tokenRefreshTimer = setTimeout(() => {
       if (this.isConnected && this.currentChannel) {
-        console.log('[Voice] Refreshing LiveKit token');
-        this.connectToLiveKit(this.currentChannel.guildId, this.currentChannel.channelId).catch(() => {
-          console.warn('[Voice] Token refresh failed');
-        });
+        this.connectToLiveKit(this.currentChannel.guildId, this.currentChannel.channelId).catch(() => {});
       }
     }, refreshMs);
   }
@@ -501,11 +488,8 @@ export class VoiceService implements OnDestroy {
     if (!this.room) return;
 
     this.room
-      .on(RoomEvent.Connected, () => {
-        console.log('[Voice] LiveKit connected');
-      })
+      .on(RoomEvent.Connected, () => {})
       .on(RoomEvent.Disconnected, () => {
-        console.log('[Voice] LiveKit disconnected');
         if (this.isConnected && this.currentChannel && !this.livekitReconnecting) {
           this.attemptLiveKitReconnect();
         } else if (this.isConnected) {
@@ -539,9 +523,7 @@ export class VoiceService implements OnDestroy {
               // Set the element's own volume as a fallback (capped to 0..1).
               // This is the actual audible output of the media element.
               el.volume = Math.min(1, Math.max(0, savedVol));
-            } catch (err) {
-              console.warn('[Voice] Failed to create MediaElementSource:', err);
-            }
+            } catch {}
           }
         }
       })
@@ -567,7 +549,6 @@ export class VoiceService implements OnDestroy {
         });
       })
       .on(RoomEvent.ParticipantDisconnected, (participant: Participant) => {
-        console.log('[Voice] Participant left:', participant.identity);
         const gain = this.remoteGainNodes.get(participant.identity);
         if (gain) {
           gain.disconnect();
@@ -586,14 +567,8 @@ export class VoiceService implements OnDestroy {
           }
         });
       })
-      .on(RoomEvent.ParticipantConnected, (participant: Participant) => {
-        console.log('[Voice] Participant joined:', participant.identity);
-      })
-      .on(RoomEvent.ParticipantDisconnected, (participant: Participant) => {
-        console.log('[Voice] Participant left:', participant.identity);
-      })
+      .on(RoomEvent.ParticipantConnected, (participant: Participant) => {})
       .on(RoomEvent.MediaDevicesError, (error: Error) => {
-        console.error('[Voice] Media device error:', error);
         this.onMicPermissionError?.(`Microphone error: ${error.message}`);
       });
   }

@@ -567,32 +567,16 @@ export class MusicPlayerService implements OnDestroy {
 
   private isJamHost(): boolean {
     const session = this.jamService.sessionValue;
-    if (!session) {
-      console.log('[JamHost] No session');
-      return false;
-    }
+    if (!session) return false;
     const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    const hostMatch = !!user.id && session.hostUserId === user.id;
-    console.log('[JamHost] hostUserId:', session.hostUserId, 'userId:', user.id, 'match:', hostMatch);
-    return hostMatch;
+    return !!user.id && session.hostUserId === user.id;
   }
 
   private syncTrackToJamIfHost(track: Track): void {
-    console.log('[JamSync] syncTrackToJamIfHost called, applyingJamState:', this.applyingJamState);
-    if (this.applyingJamState) {
-      console.log('[JamSync] Skipped — applyingJamState is true');
-      return;
-    }
+    if (this.applyingJamState) return;
     const session = this.jamService.sessionValue;
-    if (!session) {
-      console.log('[JamSync] Skipped — no session');
-      return;
-    }
-    if (!this.isJamHost()) {
-      console.log('[JamSync] Skipped — not host');
-      return;
-    }
-    console.log('[JamSync] Sending track to jam:', track.title);
+    if (!session) return;
+    if (!this.isJamHost()) return;
     this.jamService.set_track({
       videoId: track.videoId,
       title: track.title,
@@ -602,21 +586,13 @@ export class MusicPlayerService implements OnDestroy {
   }
 
   private applyJamState(session: JamState | null): void {
-    if (!session || !session.currentTrack) {
-      console.log('[JamApply] No session or no track');
-      return;
-    }
-    if (!this.apiLoaded) {
-      console.log('[JamApply] YouTube API not loaded yet');
-      return;
-    }
+    if (!session || !session.currentTrack) return;
+    if (!this.apiLoaded) return;
 
-    console.log('[JamApply] Applying state, track:', session.currentTrack.title, 'playing:', session.isPlaying, 'applyingJamState:', this.applyingJamState);
     this.applyingJamState = true;
     try {
       const localTrack = this.currentTrack$.value;
       const trackChanged = !localTrack || localTrack.videoId !== session.currentTrack.videoId;
-      console.log('[JamApply] trackChanged:', trackChanged, 'localVideoId:', localTrack?.videoId, 'remoteVideoId:', session.currentTrack.videoId);
 
       if (trackChanged) {
         this.currentTrack$.next({
@@ -628,46 +604,37 @@ export class MusicPlayerService implements OnDestroy {
         this.showResults$.next(false);
         try {
           if (this.player && this.playerReady) {
-            console.log('[JamApply] Loading video into existing player:', session.currentTrack.videoId);
             this.player.loadVideoById(session.currentTrack.videoId);
           } else if (this.player && !this.playerReady) {
-            console.log('[JamApply] Player exists but not ready, queuing load');
             this.pendingPlayAction = session.isPlaying ? 'play' : 'pause';
             try { this.player.loadVideoById(session.currentTrack.videoId); } catch {}
           } else {
-            console.log('[JamApply] Creating new player for:', session.currentTrack.videoId);
             this.pendingPlayAction = session.isPlaying ? 'play' : 'pause';
             this.createPlayer(session.currentTrack.videoId);
           }
-        } catch (e) { console.error('[JamApply] Error loading video:', e); }
+        } catch {}
       }
 
       if (session.isPlaying && !this.isPlaying$.value) {
         if (this.hasUserGesture) {
           if (this.playerReady) {
-            console.log('[JamApply] Playing video');
-            try { this.player?.playVideo(); } catch (e) { console.error('[JamApply] playVideo error:', e); }
+            try { this.player?.playVideo(); } catch {}
           } else {
-            console.log('[JamApply] Player not ready, queuing play');
             this.pendingPlayAction = 'play';
           }
         } else {
-          console.log('[JamApply] No user gesture, showing interaction overlay');
           this.needsInteraction$.next(true);
         }
       } else if (!session.isPlaying && this.isPlaying$.value) {
         if (this.playerReady) {
-          console.log('[JamApply] Pausing video');
           try { this.player?.pauseVideo(); } catch {}
         } else {
-          console.log('[JamApply] Player not ready, queuing pause');
           this.pendingPlayAction = 'pause';
         }
       }
 
       const drift = Math.abs(this.currentTime$.value - session.currentTime);
       if (drift > 0.5 && this.player && this.playerReady && this.duration$.value > 0) {
-        console.log('[JamApply] Correcting drift:', drift.toFixed(2), 's');
         try { this.player.seekTo(session.currentTime, true); } catch {}
       }
     } finally {

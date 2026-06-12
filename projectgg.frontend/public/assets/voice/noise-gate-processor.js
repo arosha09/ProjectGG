@@ -3,7 +3,7 @@
  * Runs on the audio rendering thread — zero main-thread overhead.
  *
  * Features:
- *  - Adaptive noise floor estimation (EMA)
+ *  - Adaptive noise floor estimation (EMA) — updates even when gate is open
  *  - Hysteresis: open at openThresh * noiseFloor, close at closeThresh * noiseFloor
  *  - Smooth gain ramps (attack ~10ms, release ~100ms) — no clicks/pops
  *  - Hangover: keeps gate open briefly after signal drops, prevents choppy cutoffs
@@ -13,12 +13,13 @@ class NoiseGateProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
 
-    this.noiseFloor = 0.001;
-    this.noiseAlpha = 0.92;
-    this.noiseFloorMax = 0.04;
+    this.noiseFloor = 0.02;
+    this.closedAlpha = 0.95;
+    this.openAlpha = 0.995;
+    this.noiseFloorMax = 0.15;
 
-    this.openMultiplier = 2.2;
-    this.closeMultiplier = 1.3;
+    this.openMultiplier = 1.8;
+    this.closeMultiplier = 1.2;
 
     this.attackCoeff = 0.6;
     this.releaseCoeff = 0.04;
@@ -27,7 +28,7 @@ class NoiseGateProcessor extends AudioWorkletProcessor {
     this.targetGain = 0;
     this.isOpen = false;
 
-    this.hangoverFrames = 6;
+    this.hangoverFrames = 8;
     this.hangoverCounter = 0;
 
     this.enabled = true;
@@ -38,10 +39,12 @@ class NoiseGateProcessor extends AudioWorkletProcessor {
         if (!this.enabled) {
           this.isOpen = true;
           this.targetGain = 1;
+          this.currentGain = 1;
         } else {
           this.isOpen = false;
           this.targetGain = 0;
           this.currentGain = 0;
+          this.noiseFloor = 0.02;
         }
       }
     };
@@ -68,10 +71,10 @@ class NoiseGateProcessor extends AudioWorkletProcessor {
     }
     const rms = Math.sqrt(sum / inSamples.length);
 
-    if (!this.isOpen) {
-      this.noiseFloor = this.noiseFloor * this.noiseAlpha + rms * (1 - this.noiseAlpha);
-      if (this.noiseFloor > this.noiseFloorMax) this.noiseFloor = this.noiseFloorMax;
-    }
+    const alpha = this.isOpen ? this.openAlpha : this.closedAlpha;
+    this.noiseFloor = this.noiseFloor * alpha + rms * (1 - alpha);
+    if (this.noiseFloor > this.noiseFloorMax) this.noiseFloor = this.noiseFloorMax;
+    if (this.noiseFloor < 0.001) this.noiseFloor = 0.001;
 
     const openLevel = this.noiseFloor * this.openMultiplier;
     const closeLevel = this.noiseFloor * this.closeMultiplier;
