@@ -1073,7 +1073,6 @@ export class ChatController {
     const mentionedUsernames = new Set<string>();
     let hasEveryone = false;
     const mentionedRoles = new Set<string>();
-    const builtInRoles = ['owner', 'admin', 'moderator', 'member'];
 
     while ((match = mentionRegex.exec(body.content)) !== null) {
       const tag = match[1];
@@ -1144,16 +1143,6 @@ export class ChatController {
     }
 
     return msg;
-  }
-
-  private async roleExists(serverId: number, roleName: string): Promise<boolean> {
-    const { data } = await (this.chatService as any).db()
-      .from('gg_server_roles')
-      .select('name')
-      .eq('server_id', serverId)
-      .eq('name', roleName)
-      .maybeSingle();
-    return !!data;
   }
 
   @UseGuards(JwtAuthGuard)

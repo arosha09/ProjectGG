@@ -1934,6 +1934,25 @@
   padding: 0 2px;
 }
 
+.mention-everyone {
+  background: rgba(255, 70, 70, 0.15);
+  color: #ff5555;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.mention-role {
+  background: rgba(88, 166, 255, 0.12);
+  color: #58a6ff;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.mention-self-role {
+  background: rgba(var(--color-primary-rgb, 0, 255, 136), 0.15);
+  color: var(--color-primary);
+}
+
 .msg-highlight {
   background: rgba(var(--color-primary-rgb, 0, 255, 136), 0.06);
   border-left: 2px solid var(--color-primary);

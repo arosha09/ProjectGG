@@ -1008,24 +1008,51 @@ export class GgChatComponent implements OnInit, OnDestroy {
   highlightMentions(content: string): string {
     if (!content) return '';
     const currentUsername = this.auth.getCurrentUser()?.username;
-    if (!currentUsername) {
-      return content.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
-    }
-    return content.replace(/@(\w+)/g, (_, username) => {
-      const isSelf = username.toLowerCase() === currentUsername.toLowerCase();
-      const cls = isSelf ? 'mention mention-self' : 'mention';
-      return `<span class="${cls}">@${username}</span>`;
+    return content.replace(/@(\w+)/g, (_, tag) => {
+      const lower = tag.toLowerCase();
+      if (lower === 'everyone') {
+        return `<span class="mention mention-everyone">@everyone</span>`;
+      }
+      if (this.isRoleMention(tag)) {
+        const isSelfRole = this.userHasRole(tag);
+        const cls = isSelfRole ? 'mention mention-role mention-self-role' : 'mention mention-role';
+        return `<span class="${cls}">@${tag}</span>`;
+      }
+      if (currentUsername && lower === currentUsername.toLowerCase()) {
+        return `<span class="mention mention-self">@${tag}</span>`;
+      }
+      return `<span class="mention">@${tag}</span>`;
     });
+  }
+
+  private isRoleMention(roleName: string): boolean {
+    const builtIn = ['owner', 'admin', 'moderator', 'member'];
+    if (builtIn.includes(roleName.toLowerCase())) return true;
+    return this.serverRoles.some(r => r.name?.toLowerCase() === roleName.toLowerCase());
+  }
+
+  private userHasRole(roleName: string): boolean {
+    const currentUserId = this.auth.getCurrentUser()?.id;
+    if (!currentUserId) return false;
+    const member = this.members.find(m => m.user_id === currentUserId);
+    return member?.roles?.includes(roleName.toLowerCase()) ?? false;
   }
 
   isMessageHighlight(msg: any): boolean {
     const currentUserId = this.auth.getCurrentUser()?.id;
     if (!currentUserId) return false;
     if (msg.replyToMessage?.user_id === currentUserId) return true;
+    const content = msg.content ?? '';
+    if (/@everyone\b/i.test(content)) return true;
     const currentUsername = this.auth.getCurrentUser()?.username;
-    if (!currentUsername) return false;
-    const mentionRegex = new RegExp(`@${currentUsername}\\b`, 'i');
-    return mentionRegex.test(msg.content);
+    if (currentUsername && new RegExp(`@${currentUsername}\\b`, 'i').test(content)) return true;
+    const member = this.members.find(m => m.user_id === currentUserId);
+    if (member?.roles) {
+      for (const role of member.roles) {
+        if (new RegExp(`@${role}\\b`, 'i').test(content)) return true;
+      }
+    }
+    return false;
   }
 
   openImage(url: string): void {
