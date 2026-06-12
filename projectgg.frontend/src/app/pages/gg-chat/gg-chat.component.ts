@@ -878,7 +878,25 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   highlightMentions(content: string): string {
     if (!content) return '';
-    return content.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+    const currentUsername = this.auth.getCurrentUser()?.username;
+    if (!currentUsername) {
+      return content.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+    }
+    return content.replace(/@(\w+)/g, (_, username) => {
+      const isSelf = username.toLowerCase() === currentUsername.toLowerCase();
+      const cls = isSelf ? 'mention mention-self' : 'mention';
+      return `<span class="${cls}">@${username}</span>`;
+    });
+  }
+
+  isMessageHighlight(msg: any): boolean {
+    const currentUserId = this.auth.getCurrentUser()?.id;
+    if (!currentUserId) return false;
+    if (msg.replyToMessage?.user_id === currentUserId) return true;
+    const currentUsername = this.auth.getCurrentUser()?.username;
+    if (!currentUsername) return false;
+    const mentionRegex = new RegExp(`@${currentUsername}\\b`, 'i');
+    return mentionRegex.test(msg.content);
   }
 
   openImage(url: string): void {

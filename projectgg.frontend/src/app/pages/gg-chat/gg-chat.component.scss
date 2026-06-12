@@ -1797,6 +1797,19 @@
   font-weight: 700;
 }
 
+.mention-self {
+  background: rgba(var(--color-primary-rgb, 0, 255, 136), 0.15);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.msg-highlight {
+  background: rgba(var(--color-primary-rgb, 0, 255, 136), 0.06);
+  border-left: 2px solid var(--color-primary);
+  padding-left: 6px;
+  margin-left: -8px;
+}
+
 .gg-user-avatar {
   position: relative;
 }

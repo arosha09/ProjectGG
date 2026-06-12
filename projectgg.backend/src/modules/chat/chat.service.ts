@@ -1089,6 +1089,16 @@ export class ChatService {
     return { ...data, avatar: this.resolveAvatar(data.avatar, data.gender) };
   }
 
+  async findUsersByUsernames(usernames: string[]): Promise<{ id: string; username: string }[]> {
+    if (usernames.length === 0) return [];
+    const { data, error } = await this.db()
+      .from('users')
+      .select('id, username')
+      .in('username', usernames);
+    if (error) return [];
+    return data ?? [];
+  }
+
   async findBotById(
     id: string,
   ): Promise<{ id: string; username: string } | null> {

@@ -264,6 +264,7 @@
                 [class.msg-web]="msg.source === 'web'"
                 [class.msg-voice]="msg.channel_type === 'voice'"
                 [class.msg-bot]="msg.username === 'APEX'"
+                [class.msg-highlight]="isMessageHighlight(msg)"
                 (contextmenu)="openContextMenu($event, msg)"
               >
                 @if (msg.username !== 'System') {

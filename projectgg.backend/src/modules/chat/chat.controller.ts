@@ -1062,6 +1062,34 @@ export class ChatController {
 
     this.chatGateway.broadcastMessage(msg);
     this.aiService.handleMessage(msg);
+
+    // Create mention notifications
+    const mentionRegex = /@(\w+)/g;
+    let match: RegExpExecArray | null;
+    const mentionedUsernames = new Set<string>();
+    while ((match = mentionRegex.exec(body.content)) !== null) {
+      const uname = match[1];
+      if (uname.toLowerCase() !== username.toLowerCase()) {
+        mentionedUsernames.add(uname);
+      }
+    }
+    if (mentionedUsernames.size > 0) {
+      const mentionedUsers = await this.chatService.findUsersByUsernames(
+        Array.from(mentionedUsernames),
+      );
+      for (const mu of mentionedUsers) {
+        if (mu.id !== userIdStr) {
+          this.chatGateway.createNotification(
+            mu.id,
+            'mention',
+            `${username} mentioned you`,
+            body.content.slice(0, 200),
+            { channelId: body.channel_id, messageId: msg.id },
+          );
+        }
+      }
+    }
+
     return msg;
   }
 
