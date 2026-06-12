@@ -45,6 +45,7 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
   expandedYoutubeTracks: Track[] = [];
   loadingYoutubePreview = false;
   showJamPanel = false;
+  needsInteraction = false;
 
   readonly platformDefs = [
     { id: 'youtube', name: 'YouTube', slug: 'youtube', active: true },
@@ -100,6 +101,7 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     this.music.playlistsObs$.pipe(takeUntil(this.destroy$)).subscribe(p => { this.playlists = p; this.cdr.markForCheck(); });
     this.music.youtubePlaylistsObs$.pipe(takeUntil(this.destroy$)).subscribe(p => { this.youtubePlaylists = p; this.cdr.markForCheck(); });
     this.music.loadingYoutubePlaylistsObs$.pipe(takeUntil(this.destroy$)).subscribe(l => { this.loadingYoutubePlaylists = l; this.cdr.markForCheck(); });
+    this.music.needsInteractionObs$.pipe(takeUntil(this.destroy$)).subscribe(n => { this.needsInteraction = n; this.cdr.markForCheck(); });
   }
 
   ngOnDestroy(): void {
@@ -125,6 +127,18 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
 
   togglePlay(): void {
     this.music.togglePlay();
+  }
+
+  resolveInteraction(): void {
+    this.music.resolveInteraction();
+  }
+
+  getThumb(url: string | null | undefined, videoId?: string): string | null {
+    if (!url) return null;
+    if (url.includes('yt3.googleusercontent.com') && videoId) {
+      return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    }
+    return url;
   }
 
   seek(event: MouseEvent): void {

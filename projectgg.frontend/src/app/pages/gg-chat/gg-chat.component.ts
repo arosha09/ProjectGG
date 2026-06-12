@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, ElementRef, NO_ERRORS_SCHEMA, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, ElementRef, NO_ERRORS_SCHEMA, effect, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,6 +21,7 @@ import { UserStatusService, UserStatus } from '../../services/user-status.servic
 import { UsersService } from '../../services/users.service';
 import { XpService } from '../../services/xp.service';
 import { MemberListComponent } from './member-list/member-list.component';
+import { MemberHoverCardComponent } from '../../components/member-hover-card/member-hover-card.component';
 import { ServerListComponent } from './server-list/server-list.component';
 import { ChannelListComponent } from './channel-list/channel-list.component';
 import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
@@ -33,7 +34,7 @@ import { SoundService } from '../../services/sound.service';
   selector: 'app-gg-chat',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, MemberHoverCardComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent],
   schemas: [NO_ERRORS_SCHEMA],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
@@ -52,6 +53,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   // Servers
   servers: GgServer[] = [];
   selectedServer: GgServer | null = null;
+  serverProfileCache: Map<string, { avatar_url: string | null; banner_url: string | null }> = new Map();
   serverLoading = false;
   showCreateServer = false;
   newServerName = '';
@@ -62,12 +64,14 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   // Channels
   channels: GgChannel[] = [];
+  categories: any[] = [];
   selectedChannel: GgChannel | null = null;
   channelLoading = false;
   showCreateChannel = false;
   newChannelName = '';
   newChannelType: 'text' | 'voice' = 'text';
   newChannelPrivate = false;
+  newChannelCategory = '';
 
   // Channel settings
   showChannelSettings = false;
@@ -125,6 +129,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   // Members
   members: GgServerMember[] = [];
   membersLoading = false;
+  serverRoles: any[] = [];
 
   // Voice
   voiceConnected = false;
@@ -140,6 +145,11 @@ export class GgChatComponent implements OnInit, OnDestroy {
   private mutedFeedbackSuppressedUntil = 0;
   private mutedWarningTimer: any = null;
   voiceConnecting = false;
+  showSoundboard = false;
+  soundboardPlaying = false;
+  soundboardSounds: { id: number; name: string; file_url: string }[] = [];
+  soundboardUploading = false;
+  newSoundboardName = '';
   voiceMembers: { userId: string; muted: boolean; deafened: boolean }[] = [];
   allVoiceChannels: { channelId: string; users: { userId: string; muted: boolean; deafened: boolean; speaking: boolean }[] }[] = [];
   speakingUsers = new Set<string>();
@@ -202,6 +212,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   // Context menu
   contextMenu: { x: number; y: number; msg: ChatMessage } | null = null;
   voiceContextMenu: { x: number; y: number; vm: any } | null = null;
+  memberPanelContextMenu: { x: number; y: number; member: any } | null = null;
 
   // Emoji picker popup (reactions)
   emojiPickerMsg: ChatMessage | null = null;
@@ -501,9 +512,26 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.messages = [];
     this.selectedDm = null;
     this.dmMessages = [];
+    this.serverProfileCache.clear();
     this.persistView();
     this.loadChannels(server.id);
     this.loadMembers(server.id);
+    this.chatService.getServerRoles(server.id).subscribe({
+      next: (roles) => { this.serverRoles = roles ?? []; this.cdr.markForCheck(); },
+      error: () => { this.serverRoles = []; },
+    });
+    this.chatService.getServerProfiles(server.id).subscribe({
+      next: (profiles) => {
+        this.serverProfileCache.clear();
+        for (const p of profiles) {
+          if (p.avatar_url || p.banner_url) {
+            this.serverProfileCache.set(String(p.user_id), { avatar_url: p.avatar_url, banner_url: p.banner_url });
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {},
+    });
   }
 
   // Open the create/join server UI
@@ -584,6 +612,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.chatService.getChannels(serverId).subscribe({
       next: (data) => {
         this.channels = data;
+        this.chatService.getCategories(serverId).subscribe({
+          next: (cats) => { this.categories = cats; this.cdr.markForCheck(); },
+        });
         this.channelLoading = false;
         if (this.pendingChannelId) {
           const match = data.find(c => String(c.id) === this.pendingChannelId);
@@ -633,6 +664,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.newChannelName = '';
     this.newChannelType = 'text';
     this.newChannelPrivate = false;
+    this.newChannelCategory = '';
     this.cdr.markForCheck();
   }
 
@@ -640,7 +672,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
     const name = this.newChannelName.trim();
     if (!name || !this.selectedServer) return;
     const allowedRoles = this.newChannelPrivate ? ['admin', 'moderator', 'member'] : undefined;
-    this.chatService.createChannel(this.selectedServer.id, name, this.newChannelType, allowedRoles).subscribe({
+    const category = this.newChannelCategory.trim() || undefined;
+    this.chatService.createChannel(this.selectedServer.id, name, this.newChannelType, allowedRoles, category).subscribe({
       next: () => {
         this.viewMode = 'server';
         this.cdr.markForCheck();
@@ -661,6 +694,25 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.channelSettingsChannel = channel;
     this.channelSettingsRoles = [...(channel.allowed_roles ?? [])];
     this.showChannelSettings = true;
+  }
+
+  onCategoryUpdate(oldName: string, newName: string): void {
+    if (!this.selectedServer) return;
+    const channelsToUpdate = this.channels.filter(ch => (ch.category ?? '') === oldName);
+    let done = 0;
+    for (const ch of channelsToUpdate) {
+      this.chatService.setChannelCategory(ch.id, newName).subscribe({
+        next: () => {
+          ch.category = newName;
+          done++;
+          if (done === channelsToUpdate.length) this.cdr.markForCheck();
+        },
+        error: () => {
+          done++;
+          if (done === channelsToUpdate.length) this.cdr.markForCheck();
+        },
+      });
+    }
   }
 
   toggleChannelRole(role: string): void {
@@ -949,6 +1001,25 @@ export class GgChatComponent implements OnInit, OnDestroy {
     return (me?.roles?.includes('owner') || me?.roles?.includes('admin')) ?? false;
   }
 
+  canManageChannels(): boolean {
+    if (!this.selectedServer || !this.currentUser) return false;
+    const me = this.members.find(m => String(m.user_id) === String(this.currentUser?.id));
+    if (!me) return false;
+    const roles: string[] = me.roles ?? [];
+    if (roles.includes('owner') || roles.includes('admin')) return true;
+    const builtInPerms: Record<string, string[]> = {
+      admin: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members', 'manage_soundboard', 'control_voice'],
+      moderator: ['manage_messages', 'kick_members', 'manage_soundboard', 'control_voice'],
+      member: [],
+    };
+    for (const r of roles) {
+      if ((builtInPerms[r] ?? []).includes('manage_channels')) return true;
+      const customRole = this.serverRoles.find((sr: any) => sr.name === r);
+      if (customRole && (customRole.permissions ?? []).includes('manage_channels')) return true;
+    }
+    return false;
+  }
+
   canSendInChannel(channelId: number): boolean {
     const channel = this.channels.find(c => c.id === channelId);
     if (!channel || !channel.allowed_roles?.length) return true;
@@ -958,8 +1029,21 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   canKick(): boolean {
     if (!this.selectedServer || !this.currentUser) return false;
-    const me = this.members.find(m => String(m.user_id) === String(this.currentUser.id));
-    return (me?.roles?.includes('owner') || me?.roles?.includes('admin') || me?.roles?.includes('moderator')) ?? false;
+    const me = this.members.find(m => String(m.user_id) === String(this.currentUser?.id));
+    if (!me) return false;
+    const roles: string[] = me.roles ?? [];
+    if (roles.includes('owner') || roles.includes('admin') || roles.includes('moderator')) return true;
+    const builtInPerms: Record<string, string[]> = {
+      admin: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members', 'manage_soundboard', 'control_voice'],
+      moderator: ['manage_messages', 'kick_members', 'manage_soundboard', 'control_voice'],
+      member: [],
+    };
+    for (const r of roles) {
+      if ((builtInPerms[r] ?? []).includes('kick_members')) return true;
+      const customRole = this.serverRoles.find((sr: any) => sr.name === r);
+      if (customRole && (customRole.permissions ?? []).includes('kick_members')) return true;
+    }
+    return false;
   }
 
   isSelf(member: GgServerMember): boolean {
@@ -1538,6 +1622,108 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  toggleSoundboard(): void {
+    this.showSoundboard = !this.showSoundboard;
+    if (this.showSoundboard && this.soundboardSounds.length === 0) {
+      this.loadSoundboardSounds();
+    }
+    this.cdr.markForCheck();
+  }
+
+  loadSoundboardSounds(): void {
+    if (!this.selectedServer) return;
+    this.voiceService.getSoundboardSounds(this.selectedServer.id).subscribe({
+      next: (sounds) => { this.soundboardSounds = sounds; this.cdr.markForCheck(); },
+      error: () => { this.soundboardSounds = []; },
+    });
+  }
+
+  playSoundboardSound(url: string): void {
+    if (this.soundboardPlaying) return;
+    this.soundboardPlaying = true;
+    this.voiceService.playSoundboard(url).finally(() => {
+      this.soundboardPlaying = false;
+      this.cdr.markForCheck();
+    });
+  }
+
+  stopSoundboard(): void {
+    this.voiceService.stopSoundboard();
+    this.soundboardPlaying = false;
+    this.cdr.markForCheck();
+  }
+
+  uploadSoundboardSound(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length || !this.selectedServer) return;
+    const file = input.files[0];
+    const name = this.newSoundboardName.trim() || file.name.replace(/\.[^.]+$/, '');
+    this.soundboardUploading = true;
+    this.voiceService.uploadSoundboardSound(this.selectedServer.id, file, name).subscribe({
+      next: (sound) => {
+        this.soundboardSounds = [...this.soundboardSounds, sound];
+        this.newSoundboardName = '';
+        this.soundboardUploading = false;
+        input.value = '';
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.soundboardUploading = false;
+        this.showCyberAlert('Failed to upload sound');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  deleteSoundboardSound(id: number): void {
+    if (!this.selectedServer) return;
+    this.voiceService.deleteSoundboardSound(this.selectedServer.id, id).subscribe({
+      next: () => {
+        this.soundboardSounds = this.soundboardSounds.filter(s => s.id !== id);
+        this.cdr.markForCheck();
+      },
+      error: () => { this.showCyberAlert('Failed to delete sound'); },
+    });
+  }
+
+  canManageSoundboard(): boolean {
+    if (!this.selectedServer || !this.currentUser) return false;
+    const member = this.members.find(m => String(m.user_id) === String(this.currentUser.id));
+    if (!member) return false;
+    const roles: string[] = member.roles ?? [];
+    if (roles.includes('owner')) return true;
+    const builtInPerms: Record<string, string[]> = {
+      admin: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members', 'manage_soundboard', 'control_voice'],
+      moderator: ['manage_messages', 'kick_members', 'manage_soundboard', 'control_voice'],
+      member: [],
+    };
+    for (const r of roles) {
+      if ((builtInPerms[r] ?? []).includes('manage_soundboard')) return true;
+      const customRole = this.serverRoles.find((sr: any) => sr.name === r);
+      if (customRole && (customRole.permissions ?? []).includes('manage_soundboard')) return true;
+    }
+    return false;
+  }
+
+  canControlVoice(): boolean {
+    if (!this.selectedServer || !this.currentUser) return false;
+    const member = this.members.find(m => String(m.user_id) === String(this.currentUser.id));
+    if (!member) return false;
+    const roles: string[] = member.roles ?? [];
+    if (roles.includes('owner')) return true;
+    const builtInPerms: Record<string, string[]> = {
+      admin: ['manage_channels', 'manage_messages', 'manage_members', 'kick_members', 'manage_soundboard', 'control_voice'],
+      moderator: ['manage_messages', 'kick_members', 'manage_soundboard', 'control_voice'],
+      member: [],
+    };
+    for (const r of roles) {
+      if ((builtInPerms[r] ?? []).includes('control_voice')) return true;
+      const customRole = this.serverRoles.find((sr: any) => sr.name === r);
+      if (customRole && (customRole.permissions ?? []).includes('control_voice')) return true;
+    }
+    return false;
+  }
+
   dismissMicError(): void {
     this.micPermissionError = null;
     this.micDeviceDisconnected = false;
@@ -1842,6 +2028,11 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.loadChannels(this.selectedServer.id);
     });
 
+    this.socket.on('channel-category-updated', (payload: any) => {
+      if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
+      this.loadChannels(this.selectedServer.id);
+    });
+
     this.socket.on('member-joined', (payload: any) => {
       if (!this.selectedServer || payload?.serverId !== this.selectedServer.id) return;
       if (payload?.userId && !this.members.find(m => String(m.user_id) === String(payload.userId))) {
@@ -2025,6 +2216,13 @@ export class GgChatComponent implements OnInit, OnDestroy {
       }
     }
 
+    if (this.memberPanelContextMenu) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.cyber-context-menu')) {
+        this.closeMemberPanelContextMenu();
+      }
+    }
+
     if (this.emojiPickerMsg) {
       const target = event.target as HTMLElement;
       if (!target.closest('.emoji-picker-popup') && !target.closest('.emoji-picker-popup-backdrop')) {
@@ -2100,11 +2298,15 @@ export class GgChatComponent implements OnInit, OnDestroy {
     const member = this.members.find(
       m => m.username === username || m.user_id === username,
     );
-    return member?.avatar_url ?? '';
+    if (member) {
+      const cached = this.serverProfileCache.get(String(member.user_id));
+      if (cached?.avatar_url) return this.fixSupabaseUrl(cached.avatar_url) ?? '';
+    }
+    return this.fixSupabaseUrl(member?.avatar_url) ?? '';
   }
 
   serverAvatar(server: GgServer): string {
-    return server.avatar_url ?? '';
+    return this.fixSupabaseUrl(server.avatar_url) ?? '';
   }
 
   serverInitial(server: GgServer): string {
@@ -2340,11 +2542,59 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   onMemberContextMenu(event: { event: MouseEvent; member: any }): void {
-    const vm = {
-      userId: event.member.user_id,
-      username: event.member.username,
-    };
-    this.openVoiceContextMenu(event.event, vm);
+    if (this.viewMode !== 'server') return;
+    const menuWidth = 220;
+    const x = event.event.clientX - menuWidth - 8;
+    const y = event.event.clientY;
+    this.memberPanelContextMenu = { x, y, member: event.member };
+    this.cdr.markForCheck();
+  }
+
+  closeMemberPanelContextMenu(): void {
+    this.memberPanelContextMenu = null;
+  }
+
+  isMemberInVoice(userId: string): boolean {
+    return this.voiceMembers.some(m => m.userId === userId);
+  }
+
+  disconnectMemberFromVoice(userId: string): void {
+    if (!this.selectedServer) return;
+    this.chatService.kickMember(this.selectedServer.id, userId).subscribe({
+      error: () => { this.showCyberAlert('Failed to disconnect member'); },
+    });
+  }
+
+  onMemberCtxNudge(): void {
+    if (!this.memberPanelContextMenu) return;
+    const m = this.memberPanelContextMenu.member;
+    this.nudgeService.sendNudge(m.user_id, m.username ?? '');
+    this.closeMemberPanelContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  onMemberCtxMute(): void {
+    if (!this.memberPanelContextMenu) return;
+    const userId = this.memberPanelContextMenu.member.user_id;
+    const wasMuted = this.voiceService.isLocalMuted(userId);
+    this.voiceService.setLocalMute(userId, !wasMuted);
+    if (!wasMuted) {
+      this.voiceService.setLocalDeafen(userId, false);
+    }
+    this.closeMemberPanelContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  onMemberCtxDeafen(): void {
+    if (!this.memberPanelContextMenu) return;
+    const userId = this.memberPanelContextMenu.member.user_id;
+    const wasDeafened = this.voiceService.isLocalDeafened(userId);
+    this.voiceService.setLocalDeafen(userId, !wasDeafened);
+    if (!wasDeafened) {
+      this.voiceService.setLocalMute(userId, false);
+    }
+    this.closeMemberPanelContextMenu();
+    this.cdr.markForCheck();
   }
 
   onVoiceContextMute(vm: any): void {
@@ -2392,6 +2642,32 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  setUserVolume(userId: string, volume: number): void {
+    this.voiceService.setUserVolume(userId, volume);
+    this.cdr.markForCheck();
+  }
+
+  kickMemberFromVoice(userId: string): void {
+    if (!this.selectedServer || !this.selectedChannel) return;
+    this.chatService.kickMember(this.selectedServer.id, userId).subscribe({
+      error: () => { this.showCyberAlert('Failed to kick member'); },
+    });
+  }
+
+  kickMemberFromMsg(msg: ChatMessage): void {
+    if (!this.selectedServer || !msg.user_id) return;
+    this.chatService.kickMember(this.selectedServer.id, msg.user_id.toString()).subscribe({
+      error: () => { this.showCyberAlert('Failed to kick member'); },
+    });
+  }
+
+  banMemberFromMsg(msg: ChatMessage): void {
+    if (!this.selectedServer || !msg.user_id) return;
+    this.chatService.banMember(this.selectedServer.id, msg.user_id.toString()).subscribe({
+      error: () => { this.showCyberAlert('Failed to ban member'); },
+    });
+  }
+
   openEmojiPickerFromCtx(event: MouseEvent, msg: ChatMessage): void {
     event.stopPropagation();
     this.emojiPickerMsg = msg;
@@ -2432,10 +2708,107 @@ export class GgChatComponent implements OnInit, OnDestroy {
     if (img) img.src = this.defaultAvatar();
   }
 
+  fixSupabaseUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    if (url.includes('qpdpzookcfrylxnrqkwo.supabase.co')) {
+      return url.replace('qpdpzookcfrylxnrqkwo.supabase.co', 'lgesluubuaikmaigwwxq.supabase.co');
+    }
+    return url;
+  }
+
+  @ViewChild('memberHoverCard') hoverCard!: MemberHoverCardComponent;
+
+  hoverCardAvatar: string | null = null;
+  hoverCardBanner: string | null = null;
+  hoverCardStatus = 'offline';
+  hoverCardIsFriend = false;
+  hoverCardIsSelf = false;
+
+  onMsgAvatarHover(event: MouseEvent, msg: ChatMessage): void {
+    this.hoverCardIsSelf = msg.user_id != null && String(msg.user_id) === String(this.currentUser?.id);
+    this.hoverCardIsFriend = msg.user_id != null && this.friends.some(f => f.other_id === String(msg.user_id));
+    this.hoverCardStatus = this.memberStatus(String(msg.user_id ?? ''));
+    this.hoverCardAvatar = msg.avatar_url || null;
+    this.hoverCardBanner = null;
+    this.hoverCard?.show(event, msg);
+    if (this.selectedServer && msg.user_id) {
+      this.chatService.getServerProfile(this.selectedServer.id, String(msg.user_id)).subscribe({
+        next: (p) => {
+          if (p) {
+            this.hoverCardAvatar = p.avatar_url || this.hoverCardAvatar;
+            this.hoverCardBanner = p.banner_url || null;
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {},
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
+  onMsgAvatarLeave(): void {
+    this.hoverCard?.hide();
+  }
+
+  onListMemberHover(event: { event: MouseEvent; member: GgServerMember }): void {
+    const m = event.member;
+    this.hoverCardIsSelf = this.isSelf(m);
+    this.hoverCardIsFriend = this.friends.some(f => f.other_id === String(m.user_id));
+    this.hoverCardStatus = this.memberStatus(m.user_id);
+    this.hoverCardAvatar = this.resolveAvatar(m, 'avatar_url');
+    this.hoverCardBanner = null;
+    this.hoverCard?.show(event.event, m, 'panel');
+    if (this.selectedServer) {
+      this.chatService.getServerProfile(this.selectedServer.id, String(m.user_id)).subscribe({
+        next: (p) => {
+          if (p) {
+            this.hoverCardAvatar = p.avatar_url || this.hoverCardAvatar;
+            this.hoverCardBanner = p.banner_url || null;
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {},
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
+  onListMemberLeave(): void {
+    this.hoverCard?.hide();
+  }
+
+  onHoverCardAddFriend(member: any): void {
+    const username = member?.username;
+    if (!username) return;
+    this.chatService.sendFriendRequest(username).subscribe({
+      next: () => { this.showCyberAlert('Friend request sent!'); this.loadFriends(); },
+      error: () => { this.showCyberAlert('Failed to send friend request'); },
+    });
+    this.hoverCard?.hide();
+  }
+
+  onHoverCardOpenProfile(member: any): void {
+    this.openProfile({ id: member.user_id, username: member.username, avatar_url: member.avatar_url });
+    this.hoverCard?.hide();
+  }
+
+  onHoverCardOpenTrade(member: any): void {
+    this.openInlineTrading(String(member.user_id), member.username ?? '', member.avatar_url);
+    this.hoverCard?.hide();
+  }
+
+  onHoverCardOpenGift(member: any): void {
+    this.openInlineGift(String(member.user_id), member.username ?? '', member.avatar_url);
+    this.hoverCard?.hide();
+  }
+
   resolveAvatar(user: any, ...keys: string[]): string {
     if (!user) return this.defaultAvatar();
+    const userId = String(user.user_id ?? user.id ?? '');
+    const cached = this.serverProfileCache.get(userId);
+    if (cached?.avatar_url) return this.fixSupabaseUrl(cached.avatar_url) || this.defaultAvatar();
     for (const key of keys) {
-      if (user[key]) return user[key];
+      if (user[key]) return this.fixSupabaseUrl(user[key]) || this.defaultAvatar();
     }
     const gender = user.gender?.toLowerCase();
     if (gender === 'male') return '/assets/avatars/male.webp';

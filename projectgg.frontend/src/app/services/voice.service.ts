@@ -1,4 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { io, Socket } from 'socket.io-client';
 import {
   Room, RoomEvent, Track, Participant, RemoteTrackPublication,
@@ -70,6 +71,11 @@ export class VoiceService implements OnDestroy {
   // Network quality
   private lastQualityStats: VoiceQualityStats | null = null;
 
+  // Soundboard
+  private soundboardTrack: any = null;
+  private soundboardSource: AudioBufferSourceNode | null = null;
+  private mutedSoundboardUsers = new Set<string>();
+
   // Callbacks
   onMemberJoined: ((userId: string, channelId: string, muted: boolean, deafened: boolean) => void) | null = null;
   onMemberLeft: ((userId: string, channelId: string) => void) | null = null;
@@ -90,6 +96,7 @@ export class VoiceService implements OnDestroy {
 
   constructor(
     private readonly auth: AuthService,
+    private readonly http: HttpClient,
     private readonly notification: StatusNotificationService,
     private readonly sound: SoundService,
     readonly theme: ThemeService,
@@ -190,6 +197,46 @@ export class VoiceService implements OnDestroy {
 
     const { token, wsUrl } = await resp.json();
 
+    // ── AudioContext + Output chain FIRST (before room.connect so       ──
+    //    TrackSubscribed handlers can route audio through the graph)      ──
+    this.audioContext = new AudioContext({
+      sampleRate: 48000,
+      latencyHint: 'interactive',
+    });
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+
+    // Highpass: remove rumble below 80 Hz
+    this.highpassNode = this.audioContext.createBiquadFilter();
+    this.highpassNode.type = 'highpass';
+    this.highpassNode.frequency.setValueAtTime(80, this.audioContext.currentTime);
+    this.highpassNode.Q.setValueAtTime(0.707, this.audioContext.currentTime);
+
+    // Lowpass: smooth harsh highs above 8 kHz
+    this.lowpassNode = this.audioContext.createBiquadFilter();
+    this.lowpassNode.type = 'lowpass';
+    this.lowpassNode.frequency.setValueAtTime(8000, this.audioContext.currentTime);
+    this.lowpassNode.Q.setValueAtTime(0.707, this.audioContext.currentTime);
+
+    // Limiter: gentle brickwall to prevent clipping
+    this.limiterNode = this.audioContext.createDynamicsCompressor();
+    this.limiterNode.threshold.setValueAtTime(-3, this.audioContext.currentTime);
+    this.limiterNode.knee.setValueAtTime(3, this.audioContext.currentTime);
+    this.limiterNode.ratio.setValueAtTime(12, this.audioContext.currentTime);
+    this.limiterNode.attack.setValueAtTime(0.001, this.audioContext.currentTime);
+    this.limiterNode.release.setValueAtTime(0.05, this.audioContext.currentTime);
+
+    // Output gain (for deafen)
+    this.outputGainNode = this.audioContext.createGain();
+    this.outputGainNode.gain.value = 1;
+
+    // Connect: highpass → lowpass → limiter → outputGain → destination
+    this.highpassNode.connect(this.lowpassNode);
+    this.lowpassNode.connect(this.limiterNode);
+    this.limiterNode.connect(this.outputGainNode);
+    this.outputGainNode.connect(this.audioContext.destination);
+
     // ── Room Configuration (Discord-level quality) ──────────────────────
     this.room = new Room({
       adaptiveStream: true,
@@ -228,15 +275,6 @@ export class VoiceService implements OnDestroy {
         googTypingNoiseDetection: true,
       } as any,
     });
-
-    // ── AudioContext (48 kHz for Opus native rate) ─────────────────────
-    this.audioContext = new AudioContext({
-      sampleRate: 48000,
-      latencyHint: 'interactive',   // Lowest possible latency
-    });
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
 
     const micSource = this.audioContext.createMediaStreamSource(this.micStream);
 
@@ -277,37 +315,6 @@ export class VoiceService implements OnDestroy {
     await this.room.localParticipant.publishTrack(processedTrack, {
       source: Track.Source.Microphone,
     });
-
-    // ── Output processing chain (Discord-like mastering) ────────────────
-    // Highpass: remove rumble below 80 Hz
-    this.highpassNode = this.audioContext.createBiquadFilter();
-    this.highpassNode.type = 'highpass';
-    this.highpassNode.frequency.setValueAtTime(80, this.audioContext.currentTime);
-    this.highpassNode.Q.setValueAtTime(0.707, this.audioContext.currentTime);
-
-    // Lowpass: smooth harsh highs above 8 kHz (warm voice sound)
-    this.lowpassNode = this.audioContext.createBiquadFilter();
-    this.lowpassNode.type = 'lowpass';
-    this.lowpassNode.frequency.setValueAtTime(8000, this.audioContext.currentTime);
-    this.lowpassNode.Q.setValueAtTime(0.707, this.audioContext.currentTime);
-
-    // Limiter: gentle brickwall to prevent clipping
-    this.limiterNode = this.audioContext.createDynamicsCompressor();
-    this.limiterNode.threshold.setValueAtTime(-3, this.audioContext.currentTime);
-    this.limiterNode.knee.setValueAtTime(3, this.audioContext.currentTime);
-    this.limiterNode.ratio.setValueAtTime(12, this.audioContext.currentTime);
-    this.limiterNode.attack.setValueAtTime(0.001, this.audioContext.currentTime);
-    this.limiterNode.release.setValueAtTime(0.05, this.audioContext.currentTime);
-
-    // Output gain (for deafen)
-    this.outputGainNode = this.audioContext.createGain();
-    this.outputGainNode.gain.value = 1;
-
-    // Connect: source → highpass → lowpass → limiter → outputGain → destination
-    this.highpassNode.connect(this.lowpassNode);
-    this.lowpassNode.connect(this.limiterNode);
-    this.limiterNode.connect(this.outputGainNode);
-    this.outputGainNode.connect(this.audioContext.destination);
 
     // ── Network quality monitoring ──────────────────────────────────────
     this.startQualityMonitoring();
@@ -782,6 +789,14 @@ export class VoiceService implements OnDestroy {
       this.outputGainNode.gain.cancelScheduledValues(t);
       this.outputGainNode.gain.setValueAtTime(0, t);
     }
+    // Belt-and-suspenders: also silence audio elements directly in case
+    // any bypass the Web Audio graph (e.g. createMediaElementSource failed)
+    this.remoteAudioElements.forEach(el => { el.volume = 0; });
+    // Also set gain=0 on every per-user gain node (bypass outputGainNode entirely)
+    this.remoteGainNodes.forEach((gain) => {
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(0, t);
+    });
     this.socket?.emit('deafen');
     this.sound.play('voice_deafen');
   }
@@ -799,8 +814,105 @@ export class VoiceService implements OnDestroy {
       this.micGainNode.gain.cancelScheduledValues(t);
       this.micGainNode.gain.setValueAtTime(1, t);
     }
+    // Restore remote audio element volumes
+    this.remoteAudioElements.forEach((el, userId) => {
+      const savedVol = this.userVolumes.get(userId) ?? 1;
+      el.volume = Math.min(1, Math.max(0, savedVol));
+    });
+    this.remoteGainNodes.forEach((gain, userId) => {
+      const savedVol = this.userVolumes.get(userId) ?? 1;
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(savedVol, t);
+    });
     this.socket?.emit('undeafen');
     this.sound.play('voice_undeafen');
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  Soundboard
+  // ════════════════════════════════════════════════════════════════════════
+
+  async playSoundboard(url: string): Promise<void> {
+    if (!this.room || !this.audioContext || !this.isConnected) return;
+    this.stopSoundboard();
+
+    try {
+      const resp = await fetch(url);
+      const arrayBuffer = await resp.arrayBuffer();
+      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      this.soundboardSource = source;
+
+      const destination = this.audioContext.createMediaStreamDestination();
+      source.connect(destination);
+      if (this.outputGainNode) source.connect(this.outputGainNode);
+
+      const track = destination.stream.getAudioTracks()[0];
+      this.soundboardTrack = track;
+
+      await this.room.localParticipant.publishTrack(track, {
+        source: Track.Source.Microphone,
+      });
+
+      source.start();
+
+      source.onended = () => {
+        this.stopSoundboard();
+      };
+    } catch (err) {
+      this.stopSoundboard();
+    }
+  }
+
+  stopSoundboard(): void {
+    if (this.soundboardSource) {
+      try { this.soundboardSource.stop(); } catch {}
+      this.soundboardSource = null;
+    }
+    if (this.soundboardTrack && this.room) {
+      this.soundboardTrack.stop();
+      this.room.localParticipant.unpublishTrack(this.soundboardTrack);
+      this.soundboardTrack = null;
+    }
+  }
+
+  get isSoundboardPlaying(): boolean {
+    return this.soundboardTrack !== null;
+  }
+
+  setSoundboardMuted(userId: string, muted: boolean): void {
+    if (muted) {
+      this.mutedSoundboardUsers.add(userId);
+    } else {
+      this.mutedSoundboardUsers.delete(userId);
+    }
+  }
+
+  isSoundboardMutedFor(userId: string): boolean {
+    return this.mutedSoundboardUsers.has(userId);
+  }
+
+  getSoundboardSounds(serverId: number) {
+    return this.http.get<{ id: number; name: string; file_url: string }[]>(
+      `${environment.apiUrl}/voice/soundboard/${serverId}`
+    );
+  }
+
+  uploadSoundboardSound(serverId: number, file: File, name: string) {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('name', name);
+    return this.http.post<{ id: number; name: string; file_url: string }>(
+      `${environment.apiUrl}/voice/soundboard/${serverId}`, fd
+    );
+  }
+
+  deleteSoundboardSound(serverId: number, id: number) {
+    return this.http.delete<{ success: boolean }>(
+      `${environment.apiUrl}/voice/soundboard/${serverId}/${id}`
+    );
   }
 
   // ════════════════════════════════════════════════════════════════════════

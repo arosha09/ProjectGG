@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { GgChannel, GgServer, DmConversation, FriendUser, GgServerMember } from '../../../services/chat.service';
+import { ChatService } from '../../../services/chat.service';
 import { CyberSelectComponent, CyberSelectOption } from '../../../components/cyber-select/cyber-select.component';
 import { CyberDropdownComponent, DropdownItem } from '../../../components/cyber-dropdown/cyber-dropdown.component';
 import { VoiceNudgeService } from '../../../services/voice-nudge.service';
@@ -13,7 +15,7 @@ import { VoiceService } from '../../../services/voice.service';
   selector: 'app-channel-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, FormsModule, RouterModule, CyberSelectComponent, CyberDropdownComponent],
+  imports: [CommonModule, MatIconModule, FormsModule, RouterModule, DragDropModule, CyberSelectComponent, CyberDropdownComponent],
   host: { style: 'display: contents' },
   template: `
     <aside class="gg-channels">
@@ -57,9 +59,16 @@ import { VoiceService } from '../../../services/voice.service';
               </div>
               <div class="gg-profile-menu-divider"></div>
               <div class="gg-profile-menu-section">
-                <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
-                  <mat-icon svgIcon="person"></mat-icon> Profile
-                </a>
+                @if (isServerView) {
+                  <a class="gg-profile-menu-item" [routerLink]="serverProfileLink" [queryParams]="{tab: 'profile'}" (click)="profileMenuOpen = false">
+                    <mat-icon svgIcon="person"></mat-icon> Server Profile
+                  </a>
+                }
+                @if (!isServerView) {
+                  <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
+                    <mat-icon svgIcon="person"></mat-icon> Profile
+                  </a>
+                }
                 <a class="gg-profile-menu-item" routerLink="/settings" (click)="profileMenuOpen = false">
                   <mat-icon svgIcon="settings"></mat-icon> Settings
                 </a>
@@ -109,7 +118,7 @@ import { VoiceService } from '../../../services/voice.service';
             </button>
             @if (voiceConnected) {
               <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
-                <mat-icon svgIcon="settings_voice"></mat-icon>
+                <mat-icon svgIcon="settings"></mat-icon>
               </button>
               <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
                 <mat-icon svgIcon="phone_off"></mat-icon>
@@ -207,9 +216,16 @@ import { VoiceService } from '../../../services/voice.service';
               </div>
               <div class="gg-profile-menu-divider"></div>
               <div class="gg-profile-menu-section">
-                <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
-                  <mat-icon svgIcon="person"></mat-icon> Profile
-                </a>
+                @if (isServerView) {
+                  <a class="gg-profile-menu-item" [routerLink]="serverProfileLink" [queryParams]="{tab: 'profile'}" (click)="profileMenuOpen = false">
+                    <mat-icon svgIcon="person"></mat-icon> Server Profile
+                  </a>
+                }
+                @if (!isServerView) {
+                  <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
+                    <mat-icon svgIcon="person"></mat-icon> Profile
+                  </a>
+                }
                 <a class="gg-profile-menu-item" routerLink="/settings" (click)="profileMenuOpen = false">
                   <mat-icon svgIcon="settings"></mat-icon> Settings
                 </a>
@@ -259,7 +275,7 @@ import { VoiceService } from '../../../services/voice.service';
             </button>
             @if (voiceConnected) {
               <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
-                <mat-icon svgIcon="settings_voice"></mat-icon>
+                <mat-icon svgIcon="settings"></mat-icon>
               </button>
               <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
                 <mat-icon svgIcon="phone_off"></mat-icon>
@@ -293,48 +309,129 @@ import { VoiceService } from '../../../services/voice.service';
               }
             </div>
           } @else {
-              @for (ch of channels; track ch.id) {
-              <div class="gg-channel-wrap">
-                <div
-                  class="gg-channel"
-                  [class.active]="selectedChannel?.id === ch.id"
-                  (click)="selectChannel.emit(ch)"
-                >
-                  <mat-icon class="gg-ch-icon" [svgIcon]="isChannelPrivate(ch) ? 'lock' : channelIcon(ch.type)"></mat-icon>
-                  <span class="gg-ch-name">{{ ch.name }}</span>
-                  @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
-                    <span class="gg-ch-voice-count">{{ voiceChannelUsers(chId(ch)).length }}</span>
-                  }
-                  <button class="gg-ch-settings" (click)="openChannelSettings.emit(ch); $event.stopPropagation()" title="Channel Settings">
-                    <mat-icon svgIcon="settings"></mat-icon>
-                  </button>
-                  <button class="gg-ch-delete" (click)="deleteChannel.emit(ch); $event.stopPropagation()" title="Delete">
-                    <mat-icon svgIcon="close"></mat-icon>
-                  </button>
-                </div>
-                @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
-                  <div class="gg-voice-under-users">
-                    @for (vu of voiceChannelUsers(chId(ch)); track vu.userId) {
-                      <div class="gg-voice-under-user" [style.--user-accent]="getUserThemeColor(vu.userId)" [class.speaking]="voiceMemberSpeaking(vu.userId)" [class.nudged]="nudgeService.isRecentlyNudged(vu.userId)" (contextmenu)="voiceContextMenuRequest.emit({ event: $event, vm: vu })">
-                        <div class="gg-voice-under-avatar">
-                          @if (voiceMemberAvatar(vu.userId)) {
-                            <img loading="lazy" decoding="async" [src]="voiceMemberAvatar(vu.userId)!" alt="" />
+              @if (canManageChannels) {
+                <div cdkDropList [id]="'sidebar-categories'" [cdkDropListData]="categoryOrder"
+                  (cdkDropListDropped)="onCategoryDrop($event)">
+                  @for (cat of channelCategories; track cat.name || 'default') {
+                    @if (cat.name) {
+                      <div cdkDrag [cdkDragData]="cat" class="gg-category-wrap">
+                        <div class="gg-category-header-row">
+                          <div class="gg-cat-drag-handle" cdkDragHandle>
+                            <mat-icon svgIcon="drag_indicator"></mat-icon>
+                          </div>
+                          @if (editingCategoryOriginal === cat.name) {
+                            <input class="gg-category-input" type="text"
+                              [value]="editingCategoryName"
+                              (input)="editingCategoryName = $any($event.target).value"
+                              (keydown.enter)="saveCategoryEdit()"
+                              (keydown.escape)="cancelCategoryEdit()"
+                              (blur)="saveCategoryEdit()" />
                           } @else {
-                            <span>{{ voiceMemberName(vu.userId)[0] }}</span>
+                            <span class="gg-category-header" (dblclick)="startCategoryEdit(cat.name)">{{ cat.name }}</span>
                           }
                         </div>
-                        <span class="gg-voice-under-name">{{ voiceMemberName(vu.userId) }}</span>
-                        @if (vu.muted) {
-                          <mat-icon class="gg-voice-under-status muted" svgIcon="mic_off"></mat-icon>
-                        }
-                        @if (vu.deafened) {
-                          <mat-icon class="gg-voice-under-status deafened" svgIcon="headset_off"></mat-icon>
-                        }
+                        <div cdkDropList [id]="'sidebar-cat-' + cat.name"
+                          [cdkDropListData]="cat.channels"
+                          [cdkDropListConnectedTo]="sidebarDropListIds"
+                          (cdkDropListDropped)="onSidebarChannelDrop($event, cat.name)">
+                          @for (ch of cat.channels; track ch.id) {
+                            <div class="gg-channel-wrap" cdkDrag>
+                              <div
+                                class="gg-channel"
+                                [class.active]="selectedChannel?.id === ch.id"
+                                (click)="selectChannel.emit(ch)"
+                              >
+                                <mat-icon class="gg-ch-icon" [svgIcon]="isChannelPrivate(ch) ? 'lock' : channelIcon(ch.type)"></mat-icon>
+                                <span class="gg-ch-name">{{ ch.name }}</span>
+                                @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
+                                  <span class="gg-ch-voice-count">{{ voiceChannelUsers(chId(ch)).length }}</span>
+                                }
+                                <button class="gg-ch-settings" (click)="openChannelSettings.emit(ch); $event.stopPropagation()" title="Channel Settings">
+                                  <mat-icon svgIcon="settings"></mat-icon>
+                                </button>
+                                <button class="gg-ch-delete" (click)="deleteChannel.emit(ch); $event.stopPropagation()" title="Delete">
+                                  <mat-icon svgIcon="close"></mat-icon>
+                                </button>
+                              </div>
+                              @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
+                                <div class="gg-voice-under-users">
+                                  @for (vu of voiceChannelUsers(chId(ch)); track vu.userId) {
+                                    <div class="gg-voice-under-user" [style.--user-accent]="getUserThemeColor(vu.userId)" [class.speaking]="voiceMemberSpeaking(vu.userId)" [class.nudged]="nudgeService.isRecentlyNudged(vu.userId)" (contextmenu)="voiceContextMenuRequest.emit({ event: $event, vm: vu })">
+                                      <div class="gg-voice-under-avatar">
+                                        @if (voiceMemberAvatar(vu.userId)) {
+                                          <img loading="lazy" decoding="async" [src]="voiceMemberAvatar(vu.userId)!" alt="" />
+                                        } @else {
+                                          <span>{{ voiceMemberName(vu.userId)[0] }}</span>
+                                        }
+                                      </div>
+                                      <span class="gg-voice-under-name">{{ voiceMemberName(vu.userId) }}</span>
+                                      @if (vu.muted) {
+                                        <mat-icon class="gg-voice-under-status muted" svgIcon="mic_off"></mat-icon>
+                                      }
+                                      @if (vu.deafened) {
+                                        <mat-icon class="gg-voice-under-status deafened" svgIcon="headset_off"></mat-icon>
+                                      }
+                                    </div>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          }
+                        </div>
+                        <div *cdkDragPlaceholder class="gg-cat-placeholder"></div>
                       </div>
                     }
-                  </div>
+                  }
+                </div>
+              } @else {
+                @for (cat of channelCategories; track cat.name || 'default') {
+                  @if (cat.name) {
+                    <div class="gg-category-header gg-category-standalone">{{ cat.name }}</div>
+                  }
+                  @for (ch of cat.channels; track ch.id) {
+                    <div class="gg-channel-wrap">
+                      <div
+                        class="gg-channel"
+                        [class.active]="selectedChannel?.id === ch.id"
+                        (click)="selectChannel.emit(ch)"
+                      >
+                        <mat-icon class="gg-ch-icon" [svgIcon]="isChannelPrivate(ch) ? 'lock' : channelIcon(ch.type)"></mat-icon>
+                        <span class="gg-ch-name">{{ ch.name }}</span>
+                        @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
+                          <span class="gg-ch-voice-count">{{ voiceChannelUsers(chId(ch)).length }}</span>
+                        }
+                        <button class="gg-ch-settings" (click)="openChannelSettings.emit(ch); $event.stopPropagation()" title="Channel Settings">
+                          <mat-icon svgIcon="settings"></mat-icon>
+                        </button>
+                        <button class="gg-ch-delete" (click)="deleteChannel.emit(ch); $event.stopPropagation()" title="Delete">
+                          <mat-icon svgIcon="close"></mat-icon>
+                        </button>
+                      </div>
+                      @if (ch.type === 'voice' && voiceChannelUsers(chId(ch)).length > 0) {
+                        <div class="gg-voice-under-users">
+                          @for (vu of voiceChannelUsers(chId(ch)); track vu.userId) {
+                            <div class="gg-voice-under-user" [style.--user-accent]="getUserThemeColor(vu.userId)" [class.speaking]="voiceMemberSpeaking(vu.userId)" [class.nudged]="nudgeService.isRecentlyNudged(vu.userId)" (contextmenu)="voiceContextMenuRequest.emit({ event: $event, vm: vu })">
+                              <div class="gg-voice-under-avatar">
+                                @if (voiceMemberAvatar(vu.userId)) {
+                                  <img loading="lazy" decoding="async" [src]="voiceMemberAvatar(vu.userId)!" alt="" />
+                                } @else {
+                                  <span>{{ voiceMemberName(vu.userId)[0] }}</span>
+                                }
+                              </div>
+                              <span class="gg-voice-under-name">{{ voiceMemberName(vu.userId) }}</span>
+                              @if (vu.muted) {
+                                <mat-icon class="gg-voice-under-status muted" svgIcon="mic_off"></mat-icon>
+                              }
+                              @if (vu.deafened) {
+                                <mat-icon class="gg-voice-under-status deafened" svgIcon="headset_off"></mat-icon>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
                 }
-              </div>
               }
           }
 
@@ -378,9 +475,16 @@ import { VoiceService } from '../../../services/voice.service';
               </div>
               <div class="gg-profile-menu-divider"></div>
               <div class="gg-profile-menu-section">
-                <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
-                  <mat-icon svgIcon="person"></mat-icon> Profile
-                </a>
+                @if (isServerView) {
+                  <a class="gg-profile-menu-item" [routerLink]="serverProfileLink" [queryParams]="{tab: 'profile'}" (click)="profileMenuOpen = false">
+                    <mat-icon svgIcon="person"></mat-icon> Server Profile
+                  </a>
+                }
+                @if (!isServerView) {
+                  <a class="gg-profile-menu-item" routerLink="/profile" (click)="profileMenuOpen = false">
+                    <mat-icon svgIcon="person"></mat-icon> Profile
+                  </a>
+                }
                 <a class="gg-profile-menu-item" routerLink="/settings" (click)="profileMenuOpen = false">
                   <mat-icon svgIcon="settings"></mat-icon> Settings
                 </a>
@@ -431,7 +535,7 @@ import { VoiceService } from '../../../services/voice.service';
             </button>
             @if (voiceConnected) {
               <button type="button" class="gg-voice-control-btn" [class.active]="showDevicePicker" (click)="toggleDevicePicker.emit()" title="Audio Settings">
-                <mat-icon svgIcon="settings_voice"></mat-icon>
+                <mat-icon svgIcon="settings"></mat-icon>
               </button>
               <button type="button" class="gg-voice-control-btn gg-voice-disconnect-btn" (click)="leaveVoice.emit()" title="Disconnect">
                 <mat-icon svgIcon="phone_off"></mat-icon>
@@ -516,10 +620,26 @@ export class ChannelListComponent {
   @Output() serverDropdownOpenChange = new EventEmitter<boolean>();
   @Output() openChannelSettings = new EventEmitter<GgChannel>();
   @Output() voiceContextMenuRequest = new EventEmitter<{ event: MouseEvent; vm: any }>();
+  @Output() updateCategory = new EventEmitter<{ oldName: string; newName: string }>();
+
+  @Input() categories: { id: number; name: string; sort_order: number }[] = [];
+  @Input() canManageChannels = false;
+
+  editingCategoryName: string | null = null;
+  editingCategoryOriginal: string | null = null;
+
+  get isServerView(): boolean {
+    return this.viewMode === 'server' && !!this.selectedServer;
+  }
+
+  get serverProfileLink(): any[] {
+    return this.selectedServer ? ['/gg-chat/server', this.selectedServer.id, 'settings'] : [];
+  }
 
   constructor(
     public readonly nudgeService: VoiceNudgeService,
     private readonly voiceService: VoiceService,
+    private readonly chatService: ChatService,
   ) {}
 
   readonly statusOptions = [
@@ -625,6 +745,82 @@ export class ChannelListComponent {
     return this.memberStatuses[otherUserId] ?? 'invisible';
   }
 
+  get channelCategories(): { name: string; channels: GgChannel[] }[] {
+    const catOrder = new Map<string, number>();
+    for (const c of this.categories) catOrder.set(c.name, c.sort_order ?? 0);
+
+    const cats = new Map<string, GgChannel[]>();
+    for (const ch of this.channels) {
+      const cat = (ch as any).category || '';
+      if (!cat) continue;
+      if (!cats.has(cat)) cats.set(cat, []);
+      cats.get(cat)!.push(ch);
+    }
+    const result: { name: string; channels: GgChannel[] }[] = [];
+    for (const [name, channels] of cats) {
+      if (channels.length > 0) result.push({ name, channels });
+    }
+    result.sort((a, b) => (catOrder.get(a.name) ?? 0) - (catOrder.get(b.name) ?? 0));
+    return result;
+  }
+
+  startCategoryEdit(name: string): void {
+    this.editingCategoryOriginal = name;
+    this.editingCategoryName = name;
+  }
+
+  saveCategoryEdit(): void {
+    const oldName = this.editingCategoryOriginal;
+    const newName = (this.editingCategoryName ?? '').trim();
+    if (oldName !== null && newName && newName !== oldName) {
+      this.updateCategory.emit({ oldName, newName });
+    }
+    this.editingCategoryOriginal = null;
+    this.editingCategoryName = null;
+  }
+
+  cancelCategoryEdit(): void {
+    this.editingCategoryOriginal = null;
+    this.editingCategoryName = null;
+  }
+
+  // Category reorder in sidebar
+  get categoryOrder(): { id: number; name: string; sort_order: number }[] {
+    return [...this.categories].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }
+
+  onCategoryDrop(event: CdkDragDrop<any[]>): void {
+    moveItemInArray(this.categories, event.previousIndex, event.currentIndex);
+    const orderedIds = this.categories.map(c => c.id);
+    this.chatService.reorderCategories(this.selectedServer?.id ?? 0, orderedIds).subscribe();
+  }
+
+  // Channel reorder within / between categories in sidebar
+  get sidebarUncategorizedChannels(): GgChannel[] {
+    return this.channels.filter(ch => !(ch as any).category);
+  }
+
+  getSidebarCategoryChannels(catName: string): GgChannel[] {
+    return this.channels.filter(ch => (ch as any).category === catName);
+  }
+
+  get sidebarDropListIds(): string[] {
+    const ids = ['sidebar-uncategorized'];
+    for (const cat of this.categories) ids.push('sidebar-cat-' + cat.name);
+    return ids;
+  }
+
+  onSidebarChannelDrop(event: CdkDragDrop<any[]>, targetCategory: string): void {
+    if (event.previousContainer === event.container) {
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+    } else {
+      const ch = event.previousContainer.data[event.previousIndex];
+      transferArrayItem(event.previousContainer.data, event.container.data, event.previousIndex, event.currentIndex);
+      (ch as any).category = targetCategory;
+      this.chatService.moveChannelToCategory(ch.id, targetCategory).subscribe();
+    }
+  }
+
   statusColor(statusId?: string): string {
     const colors: Record<string, string> = {
       online: '#00ff88', away: '#ffd700', dnd: '#ff5f6d', invisible: '#888',
@@ -651,7 +847,12 @@ export class ChannelListComponent {
   resolveAvatar(user: any, ...keys: string[]): string {
     if (!user) return this.genderAvatar(this.currentUser?.gender);
     for (const key of keys) {
-      if (user[key]) return user[key];
+      if (user[key]) {
+        const url = user[key].includes('qpdpzookcfrylxnrqkwo.supabase.co')
+          ? user[key].replace('qpdpzookcfrylxnrqkwo.supabase.co', 'lgesluubuaikmaigwwxq.supabase.co')
+          : user[key];
+        return url;
+      }
     }
     return this.genderAvatar(user.gender);
   }

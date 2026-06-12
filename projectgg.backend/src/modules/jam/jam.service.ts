@@ -20,6 +20,20 @@ export class JamService {
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: any) {}
 
+  async getDisplayName(userId: string): Promise<string> {
+    try {
+      const { data } = await this.supabase
+        .schema('projectgg')
+        .from('users')
+        .select('username')
+        .eq('id', userId)
+        .single();
+      return data?.username || userId;
+    } catch {
+      return userId;
+    }
+  }
+
   private generateCode(): string {
     return randomBytes(4).toString('hex').toUpperCase().slice(0, 8);
   }
@@ -236,6 +250,30 @@ export class JamService {
     session.queue.splice(position, 1);
     session.queue.forEach((item, i) => (item.position = i));
     return session;
+  }
+
+  play_from_queue(
+    userId: string,
+    position: number,
+  ): { session: JamSession; track: JamTrack } | null {
+    const session = this.get_user_session(userId);
+    if (!session) return null;
+    if (position < 0 || position >= session.queue.length) return null;
+
+    const item = session.queue.splice(position, 1)[0];
+    session.queue.forEach((q, i) => (q.position = i));
+
+    session.currentTrack = {
+      videoId: item.videoId,
+      title: item.title,
+      artist: item.artist,
+      thumbnail: item.thumbnail,
+    };
+    session.currentTime = 0;
+    session.isPlaying = true;
+    session.lastUpdated = Date.now();
+
+    return { session, track: session.currentTrack };
   }
 
   next_track(

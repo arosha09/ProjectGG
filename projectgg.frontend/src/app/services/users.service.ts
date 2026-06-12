@@ -134,4 +134,14 @@ export class UsersService {
       this.currentUserSubject.next(user);
     }
   }
+
+  uploadBanner(file: File): Observable<{ url: string }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ url: string }>(`${this.apiUrl}/users/profile/banner`, fd);
+  }
+
+  deleteBanner(): Observable<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(`${this.apiUrl}/users/profile/banner`);
+  }
 }

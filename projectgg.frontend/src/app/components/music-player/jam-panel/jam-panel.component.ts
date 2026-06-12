@@ -141,6 +141,9 @@ import { Track } from '../../../services/music-player.service';
                     <span class="jam-queue-artist">{{ item.artist }}</span>
                   </div>
                   @if (canControl) {
+                    <button class="jam-queue-play" (click)="playFromQueue(i)" type="button" title="Play">
+                      <mat-icon svgIcon="play_arrow"></mat-icon>
+                    </button>
                     <button class="jam-queue-remove" (click)="removeFromQueue(i)" type="button">
                       <mat-icon svgIcon="close"></mat-icon>
                     </button>
@@ -206,7 +209,7 @@ export class JamPanelComponent implements OnInit, OnDestroy {
   };
 
   get isHost(): boolean {
-    const user = JSON.parse(localStorage.getItem('gg_user') || '{}');
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
     return this.session?.hostUserId === user.id;
   }
 
@@ -221,10 +224,12 @@ export class JamPanelComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
 
-    this.jamService.connect_socket();
-    this.jamService.request_sync();
-
     this.jamService.get_current().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res) => {
+        if (res.session) {
+          this.jamService.connect_socket();
+        }
+      },
       error: () => {},
     });
   }
@@ -241,6 +246,7 @@ export class JamPanelComponent implements OnInit, OnDestroy {
         this.session = res.session;
         this.loading = false;
         this.cdr.markForCheck();
+        this.ensureSocketJoined();
       },
       error: () => {
         this.loading = false;
@@ -258,12 +264,22 @@ export class JamPanelComponent implements OnInit, OnDestroy {
         this.joinCode = '';
         this.loading = false;
         this.cdr.markForCheck();
+        this.ensureSocketJoined();
       },
       error: () => {
         this.loading = false;
         this.cdr.markForCheck();
       },
     });
+  }
+
+  private ensureSocketJoined(): void {
+    if (this.jamService.isConnected) {
+      this.jamService.joinRoom();
+    } else {
+      this.jamService.disconnect_socket();
+      this.jamService.connect_socket();
+    }
   }
 
   leaveJam(): void {
@@ -283,6 +299,10 @@ export class JamPanelComponent implements OnInit, OnDestroy {
 
   removeFromQueue(position: number): void {
     this.jamService.remove_from_queue(position);
+  }
+
+  playFromQueue(position: number): void {
+    this.jamService.play_from_queue(position);
   }
 
   updateSetting(key: string, value: boolean): void {

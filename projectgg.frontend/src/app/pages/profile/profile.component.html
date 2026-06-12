@@ -1,22 +1,17 @@
 <section class="profile-shell">
   <main class="container profile-main">
     @if (loading) {
-      <div class="sk-hero">
-        <div class="sk-hero-inner">
-          <div class="sk-circle"></div>
+      <mat-card class="profile-hero sk-hero-card">
+        <div class="sk-hero-banner"></div>
+        <div class="sk-hero-info">
+          <div class="sk-hero-avatar"></div>
           <div class="sk-hero-text">
             <div class="sk-line w-20"></div>
             <div class="sk-line w-60"></div>
             <div class="sk-line w-40"></div>
           </div>
         </div>
-        <div class="sk-meta-row">
-          <div class="sk-block"></div>
-          <div class="sk-block"></div>
-          <div class="sk-block"></div>
-        </div>
-        <div class="sk-btn w-30"></div>
-      </div>
+      </mat-card>
 
       <div class="profile-grid">
         <div class="sk-card">
@@ -53,40 +48,56 @@
       }
 
       <mat-card class="profile-hero">
-        <div class="hero-left">
-          <div class="hero-avatar-row">
-            <div class="hero-avatar-frame" (click)="openAvatarModal()">
-              <div class="hero-avatar-wrap">
+        <!-- Full-width banner -->
+        <button type="button" class="hero-banner" [style.background]="currentUser?.banner_url ? 'url(' + currentUser.banner_url + ') center/cover no-repeat' : (userGradient || getUserGradient())" (click)="bannerFileInput.click()">
+          <div class="hero-banner-overlay">
+            <mat-icon class="edit-icon" svgIcon="edit"></mat-icon>
+          </div>
+          @if (currentUser?.banner_url) {
+            <span class="hero-banner-remove" title="Remove Banner" (click)="onRemoveBanner(); $event.stopPropagation()">
+              <mat-icon svgIcon="delete"></mat-icon>
+            </span>
+          }
+        </button>
+        <input #bannerFileInput type="file" accept="image/*" hidden (change)="onBannerUpload($event)" />
+
+        <!-- Avatar overlapping banner -->
+        <div class="hero-info-row">
+          <button type="button" class="hero-avatar-frame" (click)="openAvatarModal()">
+            <div class="hero-avatar-wrap">
+              @if (avatarLoading) {
                 <div class="hero-av-sk"></div>
-                @if (avatarDisplay) {
-                  <img loading="lazy" decoding="async" class="hero-avatar-img"
-                    [src]="avatarDisplay"
-                    (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')"
-                    (load)="onAvatarLoad($event)"
-                    alt="Avatar"
-                  />
-                }
-                <div class="hero-avatar-overlay">
-                  <mat-icon class="edit-icon" svgIcon="edit"></mat-icon>
-                </div>
+              }
+              @if (avatarDisplay) {
+                <img loading="lazy" decoding="async" class="hero-avatar-img"
+                  [src]="avatarDisplay"
+                  (error)="onAvatarError($event); avatarLoading = false; $event.target.previousElementSibling?.classList?.add('sk-err')"
+                  (load)="onAvatarLoad($event)"
+                  alt="Avatar"
+                />
+              }
+              <div class="hero-avatar-overlay">
+                <mat-icon class="edit-icon" svgIcon="edit"></mat-icon>
               </div>
-              <span class="gender-indicator">{{ genderLabel }}</span>
             </div>
-            <div class="hero-text-col">
-              <p class="eyebrow">Player Profile</p>
-              <h1 [attr.data-text]="currentUser?.name || currentUser?.username || 'Legend'">
-                {{ currentUser?.name || currentUser?.username || 'Legend' }}
-              </h1>
-              <p class="lede">Neon collection status: Active. Continue your journey.</p>
-            </div>
+          </button>
+
+          <div class="hero-text-col">
+            <p class="eyebrow">Player Profile</p>
+            <h1 [attr.data-text]="currentUser?.name || currentUser?.username || 'Legend'">
+              {{ currentUser?.name || currentUser?.username || 'Legend' }}
+            </h1>
+            <p class="lede">Neon collection status: Active. Continue your journey.</p>
+          </div>
+
+          <div class="hero-actions">
+            <app-daily-claim
+              [canClaim]="canClaim"
+              [loading]="claimLoading"
+              (claim)="onClaimDaily()"
+            />
           </div>
         </div>
-
-        <app-daily-claim
-          [canClaim]="canClaim"
-          [loading]="claimLoading"
-          (claim)="onClaimDaily()"
-        />
       </mat-card>
 
       @if (isDev) {
@@ -230,7 +241,20 @@
               </button>
             }
           </div>
-          @if (avatarCategories.length) {
+          @if (systemAvatarsLoading) {
+            <div class="modal-system-section">
+              <div class="modal-system-head">
+                <h4>System Avatars</h4>
+              </div>
+              <div class="modal-avatars-grid">
+                @for (_ of [1,2,3,4,5,6,7,8]; track _) {
+                  <div class="sys-av-wrap">
+                    <div class="sys-av-sk"></div>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else if (avatarCategories.length) {
             <div class="modal-system-section">
               <div class="modal-system-head">
                 <h4>System Avatars</h4>
@@ -250,7 +274,7 @@
                 @for (av of activeSystemAvatars; track av.url) {
                   <div class="sys-av-wrap">
                     <div class="sys-av-sk"></div>
-                    <img loading="lazy" decoding="async" class="system-avatar-opt"
+                    <img decoding="async" class="system-avatar-opt"
                       style="cursor: pointer"
                       [src]="av.url"
                       [class.selected]="currentUser?.avatar === av.url"

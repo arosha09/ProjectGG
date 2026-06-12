@@ -230,6 +230,35 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  @SubscribeMessage('jam:play-from-queue')
+  handlePlayFromQueue(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { position: number },
+  ): void {
+    const userId = client.data.userId;
+    const session = this.jamService.get_user_session(userId);
+    if (!session) return;
+
+    if (!this.jamService.can_add_songs(userId, session)) {
+      client.emit('jam:control-denied', { action: 'play-from-queue' });
+      return;
+    }
+
+    const result = this.jamService.play_from_queue(userId, data.position);
+    if (!result) return;
+
+    this.server.to(`jam:${result.session.id}`).emit('jam:track-changed', {
+      track: result.track,
+      currentTime: 0,
+      isPlaying: true,
+      triggeredBy: userId,
+    });
+
+    this.server.to(`jam:${result.session.id}`).emit('jam:queue-updated', {
+      queue: result.session.queue,
+    });
+  }
+
   @SubscribeMessage('jam:update-settings')
   handleUpdateSettings(
     @ConnectedSocket() client: Socket,
@@ -250,6 +279,16 @@ export class JamGateway implements OnGatewayConnection, OnGatewayDisconnect {
       settings,
       sessionId: session.id,
     });
+  }
+
+  @SubscribeMessage('jam:join-room')
+  handleJoinRoom(@ConnectedSocket() client: Socket): void {
+    const userId = client.data.userId;
+    const session = this.jamService.get_user_session(userId);
+    if (session) {
+      client.join(`jam:${session.id}`);
+      client.emit('jam:state', this.jamService.to_state(session));
+    }
   }
 
   broadcast_to_jam(sessionId: string, event: string, data: any): void {

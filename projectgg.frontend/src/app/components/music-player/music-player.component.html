@@ -6,7 +6,7 @@
       <div class="cyber-now-playing">
         <div class="cyber-art-container">
           @if (track?.thumbnail) {
-            <img loading="lazy" decoding="async" [src]="track!.thumbnail" alt="Album art" class="cyber-album-art" />
+            <img loading="lazy" decoding="async" [src]="getThumb(track!.thumbnail, track!.videoId)" alt="Album art" class="cyber-album-art" />
             <div class="cyber-art-glow"></div>
           } @else {
             <div class="cyber-album-art cyber-art-placeholder">
@@ -86,7 +86,7 @@
               @for (item of searchResults; track item.videoId) {
                 <button class="cyber-result-item" (click)="selectTrack(item)" type="button">
                   @if (item.thumbnail) {
-                    <div class="cyber-thumb-clip cyber-result-thumb"><img [src]="item.thumbnail" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                    <div class="cyber-thumb-clip cyber-result-thumb"><img [src]="getThumb(item.thumbnail, item.videoId)" alt="" class="cyber-thumb-img" loading="lazy" /></div>
                   } @else {
                     <div class="cyber-result-thumb cyber-result-thumb-empty">
                       <mat-icon svgIcon="music_note"></mat-icon>
@@ -117,7 +117,7 @@
               @for (qTrack of queue; track qTrack.videoId; let i = $index) {
                 <div class="cyber-queue-item" [class.active]="i === queueIndex" (click)="skipTo(i)">
                   @if (qTrack.thumbnail) {
-                    <div class="cyber-thumb-clip cyber-queue-thumb"><img loading="lazy" decoding="async" [src]="qTrack.thumbnail" alt="" class="cyber-thumb-img" /></div>
+                    <div class="cyber-thumb-clip cyber-queue-thumb"><img loading="lazy" decoding="async" [src]="getThumb(qTrack.thumbnail, qTrack.videoId)" alt="" class="cyber-thumb-img" /></div>
                   } @else {
                     <div class="cyber-queue-thumb cyber-queue-thumb-empty">
                       <mat-icon svgIcon="music_note"></mat-icon>
@@ -209,7 +209,7 @@
                           <div class="cyber-playlist-track-row">
                             <button class="cyber-playlist-track" (click)="playPlaylistTrack(trk)" type="button">
                               @if (trk.thumbnail) {
-                                <div class="cyber-thumb-clip cyber-pl-track-thumb"><img [src]="trk.thumbnail" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                                <div class="cyber-thumb-clip cyber-pl-track-thumb"><img [src]="getThumb(trk.thumbnail, trk.video_id)" alt="" class="cyber-thumb-img" loading="lazy" /></div>
                               } @else {
                                 <div class="cyber-pl-track-thumb cyber-pl-track-thumb-empty">
                                   <mat-icon svgIcon="music_note"></mat-icon>
@@ -219,7 +219,7 @@
                                 <span class="cyber-playlist-track-name">{{ trk.title }}</span>
                                 <span class="cyber-playlist-track-artist">{{ trk.artist }}</span>
                               </div>
-                              <mat-icon svgIcon="play_circle" class="cyber-pl-track-play"></mat-icon>
+                              <mat-icon svgIcon="play_circle" class="cyber-pl-play"></mat-icon>
                             </button>
                             <button class="cyber-pl-add-btn" (click)="addSavedPlaylistTrackToQueue(trk); $event.stopPropagation()" type="button" title="Add to queue">
                               <mat-icon svgIcon="add"></mat-icon>
@@ -279,7 +279,7 @@
                             <div class="cyber-playlist-track-row">
                               <button class="cyber-playlist-track" (click)="selectTrack(trk)" type="button">
                                 @if (trk.thumbnail) {
-                                  <div class="cyber-thumb-clip cyber-pl-track-thumb"><img [src]="trk.thumbnail" alt="" class="cyber-thumb-img" loading="lazy" /></div>
+                                <div class="cyber-thumb-clip cyber-pl-track-thumb"><img [src]="getThumb(trk.thumbnail, trk.videoId)" alt="" class="cyber-thumb-img" loading="lazy" /></div>
                                 } @else {
                                   <div class="cyber-pl-track-thumb cyber-pl-track-thumb-empty">
                                     <mat-icon svgIcon="music_note"></mat-icon>
@@ -330,6 +330,15 @@
         </div>
       </div>
 
+    </div>
+  </div>
+}
+
+@if (needsInteraction) {
+  <div class="jam-interaction-overlay" (click)="resolveInteraction()">
+    <div class="jam-interaction-card">
+      <mat-icon svgIcon="headphones" class="jam-interaction-icon"></mat-icon>
+      <span class="jam-interaction-text">Click to start listening</span>
     </div>
   </div>
 }

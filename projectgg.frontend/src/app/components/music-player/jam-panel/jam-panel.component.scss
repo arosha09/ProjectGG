@@ -386,6 +386,31 @@
   white-space: nowrap;
 }
 
+.jam-queue-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    color: var(--accent-color);
+  }
+}
+
 .jam-queue-remove {
   display: flex;
   align-items: center;
@@ -411,6 +436,7 @@
   }
 }
 
+.jam-queue-item:hover .jam-queue-play,
 .jam-queue-item:hover .jam-queue-remove {
   opacity: 1;
 }

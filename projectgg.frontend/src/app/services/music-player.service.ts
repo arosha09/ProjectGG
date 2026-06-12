@@ -63,9 +63,11 @@ export class MusicPlayerService implements OnDestroy {
   private readonly repeat$ = new BehaviorSubject<'off' | 'all' | 'one'>('off');
   private readonly volume$ = new BehaviorSubject<number>(0.8);
   private readonly frequencyData$ = new BehaviorSubject<number[]>(new Array(30).fill(0));
+  private readonly needsInteraction$ = new BehaviorSubject<boolean>(false);
 
   private player: any = null;
   private apiLoaded = false;
+  private hasUserGesture = false;
   private playerReady = false;
   private progressInterval: ReturnType<typeof setInterval> | null = null;
   private progressRaf: number | null = null;
@@ -92,6 +94,7 @@ export class MusicPlayerService implements OnDestroy {
   readonly repeatObs$ = this.repeat$.asObservable();
   readonly volumeObs$ = this.volume$.asObservable();
   readonly freqData$ = this.frequencyData$.asObservable();
+  readonly needsInteractionObs$ = this.needsInteraction$.asObservable();
 
   constructor(
     private readonly http: HttpClient,
@@ -114,6 +117,20 @@ export class MusicPlayerService implements OnDestroy {
     this.jamService.session$.pipe(takeUntil(this.destroy$)).subscribe((session) => {
       this.applyJamState(session);
     });
+
+    if (typeof window !== 'undefined') {
+      setInterval(() => {
+        if (this.jamService.sessionValue && this.jamService.isConnected) {
+          this.jamService.request_sync();
+        }
+      }, 5000);
+    }
+
+    if (typeof document !== 'undefined') {
+      ['click', 'keydown', 'touchstart'].forEach(evt => {
+        document.addEventListener(evt, () => { this.hasUserGesture = true; }, { once: true, capture: true });
+      });
+    }
   }
 
   loadPlaylists(): void {
@@ -257,12 +274,18 @@ export class MusicPlayerService implements OnDestroy {
 
   private doSearch(query: string): void {
     this.isSearching$.next(true);
-    this.http.get<Track[]>(`${this.apiUrl}/platform/youtube/search`, {
+    this.http.get<any[]>(`${this.apiUrl}/youtube-music/search`, {
       params: { q: query },
     }).subscribe({
       next: (results) => {
-        this.searchResults$.next(results);
-        this.showResults$.next(results.length > 0);
+        const tracks: Track[] = results.map(r => ({
+          videoId: r.videoId || r.id || '',
+          title: r.title || '',
+          artist: r.artists || r.artist || '',
+          thumbnail: r.thumbnail || null,
+        }));
+        this.searchResults$.next(tracks);
+        this.showResults$.next(tracks.length > 0);
         this.isSearching$.next(false);
       },
       error: () => {
@@ -305,15 +328,15 @@ export class MusicPlayerService implements OnDestroy {
     if (!container) {
       container = document.createElement('div');
       container.id = 'cyber-music-yt-player';
-      container.style.cssText = 'position:fixed;width:0;height:0;visibility:hidden;pointer-events:none;z-index:-1';
+      container.style.cssText = 'position:fixed;bottom:8px;left:8px;width:1px;height:1px;opacity:0.01;z-index:-1;pointer-events:none';
       document.body.appendChild(container);
     }
 
     this.player = new (window as any).YT.Player(container, {
-      height: '0',
-      width: '0',
+      height: '1',
+      width: '1',
       videoId,
-      playerVars: { autoplay: 1, modestbranding: 1, rel: 0, controls: 0 },
+      playerVars: { autoplay: 1, modestbranding: 1, rel: 0, controls: 0, disablekb: 1 },
       events: {
         onReady: () => {
           this.ngZone.run(() => {
@@ -360,15 +383,19 @@ export class MusicPlayerService implements OnDestroy {
 
   togglePlay(): void {
     if (!this.player || !this.currentTrack$.value) return;
-    const isHost = this.isJamHost();
+    const session = this.jamService.sessionValue;
 
-    if (isHost && !this.applyingJamState) {
-      const session = this.jamService.sessionValue;
-      const ct = this.currentTime$.value;
-      if (session?.isPlaying) {
-        this.jamService.pause(ct);
-      } else {
-        this.jamService.play(ct);
+    if (session) {
+      const isHost = this.isJamHost();
+      const canControl = isHost || session.settings.anyoneCanPlayPause;
+      if (!canControl) return;
+      if (!this.applyingJamState) {
+        const ct = this.currentTime$.value;
+        if (session.isPlaying) {
+          this.jamService.pause(ct);
+        } else {
+          this.jamService.play(ct);
+        }
       }
       return;
     }
@@ -385,13 +412,26 @@ export class MusicPlayerService implements OnDestroy {
   seek(ratio: number): void {
     if (!this.player || !this.duration$.value) return;
     const time = ratio * this.duration$.value;
-    if (this.isJamHost() && !this.applyingJamState) {
+    const session = this.jamService.sessionValue;
+    if (session) {
+      const isHost = this.isJamHost();
+      const canControl = isHost || session.settings.anyoneCanPlayPause;
+      if (!canControl || this.applyingJamState) return;
       this.jamService.seek(time);
     }
     this.player.seekTo(time, true);
   }
 
   next(): void {
+    const session = this.jamService.sessionValue;
+    if (session) {
+      const isHost = this.isJamHost();
+      const canSkip = isHost || session.settings.anyoneCanSkip;
+      if (!canSkip) return;
+      this.jamService.skip_next();
+      return;
+    }
+
     const queue = this.queue$.value;
     if (!queue.length) return;
 
@@ -414,6 +454,15 @@ export class MusicPlayerService implements OnDestroy {
   }
 
   previous(): void {
+    const session = this.jamService.sessionValue;
+    if (session) {
+      const isHost = this.isJamHost();
+      const canSkip = isHost || session.settings.anyoneCanSkip;
+      if (!canSkip) return;
+      this.jamService.skip_prev();
+      return;
+    }
+
     const queue = this.queue$.value;
     if (!queue.length) return;
 
@@ -466,6 +515,15 @@ export class MusicPlayerService implements OnDestroy {
     }
   }
 
+  resolveInteraction(): void {
+    this.hasUserGesture = true;
+    this.needsInteraction$.next(false);
+    const session = this.jamService.sessionValue;
+    if (session && session.isPlaying && this.player) {
+      try { this.player.playVideo(); } catch {}
+    }
+  }
+
   toggleExpanded(): void {
     this.expanded$.next(!this.expanded$.value);
   }
@@ -494,16 +552,32 @@ export class MusicPlayerService implements OnDestroy {
 
   private isJamHost(): boolean {
     const session = this.jamService.sessionValue;
-    if (!session) return false;
-    const user = JSON.parse(localStorage.getItem('gg_user') || '{}');
-    return !!user.id && session.hostUserId === user.id;
+    if (!session) {
+      console.log('[JamHost] No session');
+      return false;
+    }
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const hostMatch = !!user.id && session.hostUserId === user.id;
+    console.log('[JamHost] hostUserId:', session.hostUserId, 'userId:', user.id, 'match:', hostMatch);
+    return hostMatch;
   }
 
   private syncTrackToJamIfHost(track: Track): void {
-    if (this.applyingJamState) return;
+    console.log('[JamSync] syncTrackToJamIfHost called, applyingJamState:', this.applyingJamState);
+    if (this.applyingJamState) {
+      console.log('[JamSync] Skipped — applyingJamState is true');
+      return;
+    }
     const session = this.jamService.sessionValue;
-    if (!session) return;
-    if (!this.isJamHost()) return;
+    if (!session) {
+      console.log('[JamSync] Skipped — no session');
+      return;
+    }
+    if (!this.isJamHost()) {
+      console.log('[JamSync] Skipped — not host');
+      return;
+    }
+    console.log('[JamSync] Sending track to jam:', track.title);
     this.jamService.set_track({
       videoId: track.videoId,
       title: track.title,
@@ -513,13 +587,21 @@ export class MusicPlayerService implements OnDestroy {
   }
 
   private applyJamState(session: JamState | null): void {
-    if (!session || !session.currentTrack) return;
-    if (!this.apiLoaded) return;
+    if (!session || !session.currentTrack) {
+      console.log('[JamApply] No session or no track');
+      return;
+    }
+    if (!this.apiLoaded) {
+      console.log('[JamApply] YouTube API not loaded yet');
+      return;
+    }
 
+    console.log('[JamApply] Applying state, track:', session.currentTrack.title, 'playing:', session.isPlaying, 'applyingJamState:', this.applyingJamState);
     this.applyingJamState = true;
     try {
       const localTrack = this.currentTrack$.value;
       const trackChanged = !localTrack || localTrack.videoId !== session.currentTrack.videoId;
+      console.log('[JamApply] trackChanged:', trackChanged, 'localVideoId:', localTrack?.videoId, 'remoteVideoId:', session.currentTrack.videoId);
 
       if (trackChanged) {
         this.currentTrack$.next({
@@ -531,21 +613,31 @@ export class MusicPlayerService implements OnDestroy {
         this.showResults$.next(false);
         try {
           if (this.player) {
+            console.log('[JamApply] Loading video into existing player:', session.currentTrack.videoId);
             this.player.loadVideoById(session.currentTrack.videoId);
           } else {
+            console.log('[JamApply] Creating new player for:', session.currentTrack.videoId);
             this.createPlayer(session.currentTrack.videoId);
           }
-        } catch {}
+        } catch (e) { console.error('[JamApply] Error loading video:', e); }
       }
 
       if (session.isPlaying && !this.isPlaying$.value) {
-        try { this.player?.playVideo(); } catch {}
+        if (this.hasUserGesture) {
+          console.log('[JamApply] Playing video');
+          try { this.player?.playVideo(); } catch (e) { console.error('[JamApply] playVideo error:', e); }
+        } else {
+          console.log('[JamApply] No user gesture, showing interaction overlay');
+          this.needsInteraction$.next(true);
+        }
       } else if (!session.isPlaying && this.isPlaying$.value) {
+        console.log('[JamApply] Pausing video');
         try { this.player?.pauseVideo(); } catch {}
       }
 
       const drift = Math.abs(this.currentTime$.value - session.currentTime);
-      if (drift > 2 && this.player && this.duration$.value > 0) {
+      if (drift > 0.5 && this.player && this.duration$.value > 0) {
+        console.log('[JamApply] Correcting drift:', drift.toFixed(2), 's');
         try { this.player.seekTo(session.currentTime, true); } catch {}
       }
     } finally {

@@ -109,7 +109,7 @@ export const routes: Routes = [
   },
   {
     path: 'gg-chat/server/:id/settings',
-    loadComponent: () => import('./pages/server-settings/server-settings.component').then(m => m.ServerSettingsComponent),
+    loadComponent: () => import('./pages/gg-chat/server-settings/server-settings.component').then(m => m.ServerSettingsComponent),
     canActivate: [AuthGuard]
   },
   {

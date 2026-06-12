@@ -24,7 +24,7 @@ export class JamController {
 
   @Post('create')
   @UseGuards(JwtAuthGuard)
-  create(
+  async create(
     @Req() req: any,
     @Body() body: { persistent?: boolean; settings?: Partial<JamSettings> },
   ) {
@@ -34,9 +34,10 @@ export class JamController {
       this.jamService.leave_session(userId);
     }
 
+    const displayName = await this.jamService.getDisplayName(userId);
     const session = this.jamService.create_session(
       userId,
-      req.user.email ?? userId,
+      displayName,
       body.persistent,
     );
     if (body.settings) {
@@ -47,9 +48,9 @@ export class JamController {
 
   @Post('join/:code')
   @UseGuards(JwtAuthGuard)
-  join(@Req() req: any, @Param('code') code: string) {
+  async join(@Req() req: any, @Param('code') code: string) {
     const userId = req.user.id;
-    const displayName = req.user.email ?? userId;
+    const displayName = await this.jamService.getDisplayName(userId);
     const session = this.jamService.join_session(
       code.toUpperCase(),
       userId,
@@ -116,6 +117,13 @@ export class JamController {
         'Not host or not in session',
         HttpStatus.FORBIDDEN,
       );
+    }
+    const session = this.jamService.get_user_session(req.user.id);
+    if (session) {
+      this.jamGateway.broadcast_to_jam(session.id, 'jam:settings-changed', {
+        settings,
+        sessionId: session.id,
+      });
     }
     return { settings };
   }

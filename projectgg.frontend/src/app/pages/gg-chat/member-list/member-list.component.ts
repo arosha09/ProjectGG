@@ -26,8 +26,8 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
             }
           } @else {
             @for (member of members; track member.user_id) {
-              <div class="gg-member" (contextmenu)="onMemberContextMenu($event, member)">
-                <div class="gg-member-avatar">
+              <div class="gg-member">
+                <div class="gg-member-avatar" (mouseenter)="onMemberHover($event, member)" (mouseleave)="onMemberLeave()" (contextmenu)="$event.preventDefault(); $event.stopPropagation()">
                   <div class="gg-avatar-sk"></div>
                   <img loading="lazy" decoding="async" [src]="resolveAvatar(member, 'avatar_url')" alt="" class="gg-member-img" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
                   <span class="gg-user-status-dot"
@@ -37,7 +37,7 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
                     [class.invisible]="memberStatus(member.user_id) === 'invisible'"
                   ></span>
                 </div>
-                <div class="gg-member-info">
+                <div class="gg-member-info" (contextmenu)="onMemberContextMenu($event, member)">
                   <span class="gg-member-name">{{ member.username ?? member.user_id }}</span>
                   <div class="gg-member-role-row">
                     @if (member.roles.includes('owner')) {
@@ -54,12 +54,6 @@ import { GgServer, GgServerMember } from '../../../services/chat.service';
                       } @else {
                         <span class="gg-member-role gg-role-moderator">Mod</span>
                       }
-                    }
-                    @if (!isSelf(member) && canKick() && !member.roles.includes('owner')) {
-                      <button class="gg-member-kick" (click)="confirmKick.emit(member)" title="Kick">X</button>
-                      <button class="gg-member-ban" (click)="confirmBan.emit(member)" title="Ban">
-                        <mat-icon svgIcon="block"></mat-icon>
-                      </button>
                     }
                   </div>
                 </div>
@@ -84,15 +78,27 @@ export class MemberListComponent {
   @Input() memberStatus!: (userId: string) => string;
   @Input() resolveAvatar!: (user: any, ...keys: string[]) => string;
   @Input() onAvatarError!: (event: Event) => void;
+  @Input() voiceMembers: { userId: string }[] = [];
   
   @Output() changeRole = new EventEmitter<{member: GgServerMember, role: string}>();
   @Output() confirmKick = new EventEmitter<GgServerMember>();
   @Output() confirmBan = new EventEmitter<GgServerMember>();
   @Output() memberContextMenu = new EventEmitter<{event: MouseEvent; member: GgServerMember}>();
+  @Output() memberHover = new EventEmitter<{event: MouseEvent; member: GgServerMember}>();
+  @Output() memberLeave = new EventEmitter<void>();
 
   onMemberContextMenu(event: MouseEvent, member: GgServerMember): void {
     event.preventDefault();
+    if (this.isSelf?.(member)) return;
     this.memberContextMenu.emit({ event, member });
+  }
+
+  onMemberHover(event: MouseEvent, member: GgServerMember): void {
+    this.memberHover.emit({ event, member });
+  }
+
+  onMemberLeave(): void {
+    this.memberLeave.emit();
   }
 }
 

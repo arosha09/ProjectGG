@@ -124,13 +124,14 @@ export class ChatGateway
   @SubscribeMessage('status-change')
   async handleStatusChange(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { status?: string },
+    @MessageBody() payload: { status?: string; explicit?: boolean },
   ): Promise<void> {
     const userId = (client.data.userId ??
       client.handshake.query.userId) as string;
     const status = this.normalizeStatus(payload?.status);
     if (!userId || !status) return;
-    await this.persistStatus(userId, status);
+    const explicit = payload?.explicit === true;
+    await this.persistStatus(userId, status, explicit);
     this.heartbeatByUser.set(userId, Date.now());
     this.broadcastUserStatus(userId, status, status);
   }
@@ -174,7 +175,7 @@ export class ChatGateway
           data: data ?? null,
         });
       if (!error) {
-        this.realtime.emitToUser(userId, 'notification', {
+        this.sendToUser(userId, 'notification', {
           type,
           title,
           body: body ?? '',
@@ -215,13 +216,16 @@ export class ChatGateway
   private async persistStatus(
     userId: string,
     status: UserStatus,
+    explicit = false,
   ): Promise<void> {
-    const visibleStatus = status;
-    const preferredStatus = status;
+    const update: Record<string, string> = { status };
+    if (explicit) {
+      update.sys_status = status;
+    }
     const { error } = await this.supabase
       .schema('projectgg')
       .from('users')
-      .update({ status: visibleStatus, sys_status: preferredStatus })
+      .update(update)
       .eq('id', userId);
     if (error) {
       throw error;

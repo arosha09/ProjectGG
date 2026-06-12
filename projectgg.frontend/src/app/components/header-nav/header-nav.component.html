@@ -95,8 +95,10 @@
 
     <div class="profile-trigger" (click)="profileToggle.emit()">
       <div class="header-av-sk-wrap">
-        <div class="header-nav-sk"></div>
-        <img loading="lazy" decoding="async" class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+        @if (avatarLoading()) {
+          <div class="header-nav-sk"></div>
+        }
+        <img loading="lazy" decoding="async" class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" (load)="handleAvatarLoad()" />
       </div>
       <span class="user-name">{{ userName() }}</span>
       @if (isAdmin()) {
@@ -140,9 +142,9 @@
             (click)="notifCategory = cat.id"
           >
             <mat-icon [svgIcon]="cat.icon"></mat-icon>
-            <span>{{ cat.label }}</span>
+            <span class="notif-tab-label">{{ cat.label }}</span>
             @if (getCategoryUnreadCount(cat.id) > 0) {
-              <span class="notif-tab-badge">{{ getCategoryUnreadCount(cat.id) }}</span>
+              <span class="notif-tab-badge">{{ getCategoryUnreadCount(cat.id) >= 10 ? '10+' : getCategoryUnreadCount(cat.id) }}</span>
             }
           </button>
         }
@@ -192,8 +194,10 @@
   @if (userName()) {
     <div class="profile-trigger" (click)="profileToggle.emit(); mobileMenuOpen = false">
       <div class="header-av-sk-wrap">
-        <div class="header-nav-sk"></div>
-        <img loading="lazy" decoding="async" class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError(); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+        @if (avatarLoading()) {
+          <div class="header-nav-sk"></div>
+        }
+        <img loading="lazy" decoding="async" class="user-avatar" [src]="displayAvatar()" alt="Avatar" (error)="handleAvatarError()" (load)="handleAvatarLoad()" />
       </div>
       <span class="user-name">{{ userName() }}</span>
       <span class="trigger-arrow">▼</span>

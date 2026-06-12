@@ -37,6 +37,7 @@ export interface GgChannel {
   position: number;
   created_at: string;
   allowed_roles?: string[];
+  category?: string;
 }
 
 export interface GgServerMember {
@@ -54,7 +55,9 @@ export type Permission =
   | 'manage_channels'
   | 'manage_messages'
   | 'manage_members'
-  | 'kick_members';
+  | 'kick_members'
+  | 'manage_soundboard'
+  | 'control_voice';
 
 const ROLE_HIERARCHY: Record<string, number> = {
   owner: 100,
@@ -70,14 +73,18 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'manage_messages',
     'manage_members',
     'kick_members',
+    'manage_soundboard',
+    'control_voice',
   ],
   admin: [
     'manage_channels',
     'manage_messages',
     'manage_members',
     'kick_members',
+    'manage_soundboard',
+    'control_voice',
   ],
-  moderator: ['manage_messages', 'kick_members'],
+  moderator: ['manage_messages', 'kick_members', 'manage_soundboard', 'control_voice'],
   member: [],
 };
 
@@ -168,8 +175,8 @@ export class ChatService {
     attachmentUrl?: string,
     source: string = 'web',
   ): Promise<ChatMessage> {
-    const trimmed = content.trim();
-    if (!trimmed) throw new BadRequestException('Message cannot be empty');
+    const trimmed = content?.trim() ?? '';
+    if (!trimmed && !attachmentUrl) throw new BadRequestException('Message cannot be empty');
     if (trimmed.length > 500)
       throw new BadRequestException('Message too long (max 500)');
     const { data, error } = await this.db()
@@ -346,6 +353,7 @@ export class ChatService {
               'manage_messages',
               'manage_members',
               'kick_members',
+              'manage_soundboard',
             ],
           },
           {
@@ -356,12 +364,13 @@ export class ChatService {
               'manage_messages',
               'manage_members',
               'kick_members',
+              'manage_soundboard',
             ],
           },
           {
             name: 'moderator',
             color: '#00f0ff',
-            permissions: ['manage_messages', 'kick_members'],
+            permissions: ['manage_messages', 'kick_members', 'manage_soundboard'],
           },
           { name: 'member', color: '#888888', permissions: [] },
         ];
@@ -487,6 +496,7 @@ export class ChatService {
     type: 'text' | 'voice',
     userId: string,
     allowedRoles?: string[],
+    category?: string,
   ): Promise<GgChannel> {
     await this.requirePermission(serverId, userId, 'manage_channels');
     const { data: channels } = await this.db()
@@ -496,9 +506,11 @@ export class ChatService {
       .order('position', { ascending: false })
       .limit(1);
     const nextPos = ((channels ?? [])[0]?.position ?? -1) + 1;
+    const insertData: any = { server_id: serverId, name, type, position: nextPos };
+    if (category?.trim()) insertData.category = category.trim();
     const { data, error } = await this.db()
       .from('gg_channels')
-      .insert({ server_id: serverId, name, type, position: nextPos })
+      .insert(insertData)
       .select()
       .single();
     if (error) throw error;
@@ -528,6 +540,157 @@ export class ChatService {
         .from('gg_channel_allowed_roles')
         .insert(roles.map((r) => ({ channel_id: channelId, role: r })));
       if (error) throw error;
+    }
+  }
+
+  // ── CATEGORIES ──
+
+  async getCategories(serverId: number): Promise<any[]> {
+    // Auto-sync: find channels with category text but no matching category row
+    const { data: channels } = await this.db()
+      .from('gg_channels')
+      .select('category')
+      .eq('server_id', serverId);
+    const categoryNames = new Set<string>();
+    for (const ch of channels ?? []) {
+      if (ch.category?.trim()) categoryNames.add(ch.category.trim());
+    }
+
+    const { data } = await this.db()
+      .from('gg_channel_categories')
+      .select('*')
+      .eq('server_id', serverId)
+      .order('sort_order', { ascending: true });
+    const existingNames = new Set((data ?? []).map((c: any) => c.name));
+    const cats = data ?? [];
+
+    // Create missing category rows
+    let maxOrder = cats.length > 0 ? Math.max(...cats.map((c: any) => c.sort_order ?? 0)) : -1;
+    for (const name of categoryNames) {
+      if (!existingNames.has(name)) {
+        maxOrder++;
+        const { data: created } = await this.db()
+          .from('gg_channel_categories')
+          .insert({ server_id: serverId, name, sort_order: maxOrder })
+          .select()
+          .single();
+        if (created) {
+          created.allowed_roles = [];
+          cats.push(created);
+        }
+      }
+    }
+
+    for (const cat of cats) {
+      const { data: roleRows } = await this.db()
+        .from('gg_category_allowed_roles')
+        .select('role')
+        .eq('category_id', cat.id);
+      cat.allowed_roles = (roleRows ?? []).map((r: any) => r.role);
+    }
+    return cats;
+  }
+
+  async createCategory(serverId: number, name: string, userId: string): Promise<any> {
+    await this.requirePermission(serverId, userId, 'manage_channels');
+    const { data: cats } = await this.db()
+      .from('gg_channel_categories')
+      .select('sort_order')
+      .eq('server_id', serverId)
+      .order('sort_order', { ascending: false })
+      .limit(1);
+    const nextOrder = ((cats ?? [])[0]?.sort_order ?? -1) + 1;
+    const { data, error } = await this.db()
+      .from('gg_channel_categories')
+      .insert({ server_id: serverId, name: name.trim(), sort_order: nextOrder })
+      .select()
+      .single();
+    if (error) throw error;
+    return { ...data, allowed_roles: [] };
+  }
+
+  async updateCategory(categoryId: number, fields: { name?: string; sort_order?: number }, userId: string): Promise<void> {
+    const { data: cat } = await this.db()
+      .from('gg_channel_categories')
+      .select('server_id')
+      .eq('id', categoryId)
+      .single();
+    if (!cat) throw new BadRequestException('Category not found');
+    await this.requirePermission(cat.server_id, userId, 'manage_channels');
+    const update: any = {};
+    if (fields.name !== undefined) update.name = fields.name.trim();
+    if (fields.sort_order !== undefined) update.sort_order = fields.sort_order;
+    if (Object.keys(update).length > 0) {
+      await this.db().from('gg_channel_categories').update(update).eq('id', categoryId);
+    }
+  }
+
+  async deleteCategory(categoryId: number, userId: string): Promise<void> {
+    const { data: cat } = await this.db()
+      .from('gg_channel_categories')
+      .select('server_id')
+      .eq('id', categoryId)
+      .single();
+    if (!cat) throw new BadRequestException('Category not found');
+    await this.requirePermission(cat.server_id, userId, 'manage_channels');
+    await this.db().from('gg_category_allowed_roles').delete().eq('category_id', categoryId);
+    await this.db().from('gg_channels').update({ category: '' }).eq('category_id', categoryId);
+    await this.db().from('gg_channel_categories').delete().eq('id', categoryId);
+  }
+
+  async setCategoryRoles(categoryId: number, roles: string[]): Promise<void> {
+    await this.db()
+      .from('gg_category_allowed_roles')
+      .delete()
+      .eq('category_id', categoryId);
+    if (roles.length > 0) {
+      const { error } = await this.db()
+        .from('gg_category_allowed_roles')
+        .insert(roles.map((r) => ({ category_id: categoryId, role: r })));
+      if (error) throw error;
+    }
+  }
+
+  async reorderCategories(serverId: number, orderedIds: number[]): Promise<void> {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await this.db()
+        .from('gg_channel_categories')
+        .update({ sort_order: i })
+        .eq('id', orderedIds[i])
+        .eq('server_id', serverId);
+    }
+  }
+
+  async moveChannelToCategory(channelId: number, categoryName: string, userId: string): Promise<void> {
+    const { data: ch } = await this.db()
+      .from('gg_channels')
+      .select('server_id')
+      .eq('id', channelId)
+      .single();
+    if (!ch) throw new BadRequestException('Channel not found');
+    await this.requirePermission(ch.server_id, userId, 'manage_channels');
+    const update: any = { category: categoryName };
+    if (categoryName) {
+      const { data: cat } = await this.db()
+        .from('gg_channel_categories')
+        .select('id')
+        .eq('server_id', ch.server_id)
+        .eq('name', categoryName)
+        .single();
+      if (cat) update.category_id = cat.id;
+      else update.category_id = null;
+    } else {
+      update.category_id = null;
+    }
+    await this.db().from('gg_channels').update(update).eq('id', channelId);
+  }
+
+  async reorderChannels(orderedIds: number[]): Promise<void> {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await this.db()
+        .from('gg_channels')
+        .update({ position: i })
+        .eq('id', orderedIds[i]);
     }
   }
 
@@ -644,6 +807,27 @@ export class ChatService {
     );
   }
 
+  async hasPermissionWithCustomRoles(
+    serverId: number,
+    roles: string[] | null,
+    permission: Permission,
+  ): Promise<boolean> {
+    if (!roles || roles.length === 0) return false;
+    if (this.hasPermission(roles, permission)) return true;
+
+    const customRoles = roles.filter((r) => !ROLE_PERMISSIONS[r]);
+    if (customRoles.length === 0) return false;
+
+    const { data } = await this.db()
+      .from('gg_server_roles')
+      .select('name, permissions')
+      .eq('server_id', serverId)
+      .in('name', customRoles);
+
+    if (!data) return false;
+    return data.some((r: any) => (r.permissions ?? []).includes(permission));
+  }
+
   async requirePermission(
     serverId: number,
     userId: string,
@@ -656,7 +840,7 @@ export class ChatService {
       .eq('user_id', userId)
       .single();
     if (!data) throw new BadRequestException('Not a member of this server');
-    if (!this.hasPermission(data.roles, permission)) {
+    if (!(await this.hasPermissionWithCustomRoles(serverId, data.roles, permission))) {
       throw new BadRequestException(`Missing permission: ${permission}`);
     }
   }
@@ -668,9 +852,15 @@ export class ChatService {
     requesterId: string,
   ): Promise<void> {
     await this.requirePermission(serverId, requesterId, 'manage_members');
-    if (newRoles.some((r) => !['admin', 'moderator', 'member'].includes(r))) {
+    const builtInRoles = ['admin', 'moderator', 'member'];
+    const { data: customRoles } = await this.db()
+      .from('gg_server_roles')
+      .select('name')
+      .eq('server_id', serverId);
+    const allowedRoleNames = [...builtInRoles, ...(customRoles?.map((r: any) => r.name) ?? [])];
+    if (newRoles.some((r) => !allowedRoleNames.includes(r))) {
       throw new BadRequestException(
-        'Invalid role. Allowed: admin, moderator, member',
+        'Invalid role',
       );
     }
     const requesterRoles = await this.getMemberRoles(serverId, requesterId);
@@ -1192,8 +1382,8 @@ export class ChatService {
     const avatarUrl = user?.avatar ?? null;
     const channelId = `dm_${conversationId}`;
 
-    const trimmed = content.trim();
-    if (!trimmed) throw new BadRequestException('Message cannot be empty');
+    const trimmed = content?.trim() ?? '';
+    if (!trimmed && !attachmentUrl) throw new BadRequestException('Message cannot be empty');
     if (trimmed.length > 500)
       throw new BadRequestException('Message too long (max 500)');
 

@@ -230,7 +230,7 @@ export class CardCollectionService {
           body,
           data: { tradeId, fromUserId: proposerId, parentTradeId },
         });
-      this.realtime.emitToUser(receiverId, 'notification', {
+      this.chatGateway.sendToUser(receiverId, 'notification', {
         type: isCounter ? 'trade_counter' : 'trade_offer',
         title,
         body,
@@ -347,7 +347,7 @@ export class CardCollectionService {
           body: `${accepter?.username ?? 'Someone'} accepted your trade.`,
           data: { tradeId },
         });
-      this.realtime.emitToUser(otherUserId, 'notification', {
+      this.chatGateway.sendToUser(otherUserId, 'notification', {
         type: 'trade_accepted',
         title: 'Trade Accepted',
         body: `${accepter?.username ?? 'Someone'} accepted your trade.`,

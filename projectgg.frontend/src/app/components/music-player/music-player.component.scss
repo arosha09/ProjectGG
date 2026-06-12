@@ -1388,3 +1388,47 @@
     opacity: 1;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   JAM — Click to Start Listening Overlay
+   ═══════════════════════════════════════════════════ */
+
+.jam-interaction-overlay {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  cursor: pointer;
+  animation: jamPulse 2s ease-in-out infinite;
+}
+
+.jam-interaction-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: rgba(10, 8, 0, 0.92);
+  border: 1px solid var(--neon-gold, #c9aa5c);
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(201, 170, 92, 0.2);
+}
+
+.jam-interaction-icon {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+  color: var(--neon-gold, #c9aa5c);
+}
+
+.jam-interaction-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neon-gold, #c9aa5c);
+  white-space: nowrap;
+}
+
+@keyframes jamPulse {
+  0%, 100% { opacity: 0.8; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.03); }
+}

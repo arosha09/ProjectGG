@@ -305,15 +305,15 @@ interface TradeFriend {
           [class.active]="!activeTier"
           (click)="filterTier(null)"
         >
-          All
+          ALL
         </button>
         <button
-          class="filter-btn filter-favorites"
+          class="filter-btn filter-fav-toggle"
           [class.active]="showFavoritesOnly"
           (click)="toggleFavoritesFilter()"
+          [title]="showFavoritesOnly ? 'Show all cards' : 'Show favorites only'"
         >
-          <mat-icon svgIcon="star"></mat-icon>
-          Favorites
+          <mat-icon [svgIcon]="showFavoritesOnly ? 'star' : 'star_border'"></mat-icon>
         </button>
         @for (tier of tiers; track tier) {
           <button
@@ -322,7 +322,7 @@ interface TradeFriend {
             [ngClass]="'tier-' + tier"
             (click)="filterTier(tier)"
           >
-            {{ tier }}
+            {{ tier.toUpperCase() }}
           </button>
         }
         <div class="sort-dropdown-wrap">
@@ -1165,22 +1165,55 @@ interface TradeFriend {
         text-transform: capitalize;
         transition: all 0.2s ease;
         font-size: 12px;
+        font-family: inherit;
+        font-weight: 600;
       }
 
-      .filter-btn.filter-favorites {
+      .filter-btn.filter-fav-toggle {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        background: rgba(255, 215, 0, 0.06);
+        color: rgba(255, 215, 0, 0.5);
+        flex-shrink: 0;
       }
 
-      .filter-btn.filter-favorites mat-icon {
-        width: 16px;
-        height: 16px;
-        font-size: 16px;
-        line-height: 16px;
+      .filter-btn.filter-fav-toggle mat-icon {
+        width: 18px;
+        height: 18px;
+        font-size: 18px;
+        line-height: 18px;
+        transition: transform 0.2s ease, color 0.2s;
+      }
+
+      .filter-btn.filter-fav-toggle:hover {
+        border-color: rgba(255, 215, 0, 0.6);
+        background: rgba(255, 215, 0, 0.12);
+        color: #ffd700;
+      }
+
+      .filter-btn.filter-fav-toggle.active {
+        border-color: #ffd700;
+        background: rgba(255, 215, 0, 0.2);
+        color: #ffd700;
+        box-shadow: 0 0 14px rgba(255, 215, 0, 0.3);
+      }
+
+      .filter-btn.filter-fav-toggle.active mat-icon {
+        transform: scale(1.1);
       }
 
       /* "All" button — plain, no tier color */
+      .filter-btn.filter-all {
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+
       .filter-btn.filter-all:hover,
       .filter-btn.filter-all.active {
         background: rgba(255, 45, 111, 0.16);
@@ -1196,6 +1229,8 @@ interface TradeFriend {
         background: rgba(140, 150, 168, 0.08);
         border-color: rgba(140, 150, 168, 0.35);
         color: #8c96a8;
+        font-family: inherit;
+        font-weight: 600;
       }
       .filter-btn.tier-common:hover,
       .filter-btn.tier-common.active {
@@ -1212,6 +1247,8 @@ interface TradeFriend {
         color: #00e676;
         box-shadow: 0 0 10px rgba(0, 230, 118, 0.12);
         animation: glow-uncommon 2s ease-in-out infinite;
+        font-family: inherit;
+        font-weight: 600;
       }
       .filter-btn.tier-uncommon:hover,
       .filter-btn.tier-uncommon.active {
@@ -1237,6 +1274,8 @@ interface TradeFriend {
         color: #5fb6ff;
         box-shadow: 0 0 10px rgba(95, 182, 255, 0.12);
         animation: glow-rare 2s ease-in-out infinite;
+        font-family: inherit;
+        font-weight: 600;
       }
       .filter-btn.tier-rare:hover,
       .filter-btn.tier-rare.active {
@@ -1262,6 +1301,8 @@ interface TradeFriend {
         color: #aa44ff;
         box-shadow: 0 0 10px rgba(170, 68, 255, 0.12);
         animation: glow-epic 2s ease-in-out infinite;
+        font-family: inherit;
+        font-weight: 600;
       }
       .filter-btn.tier-epic:hover,
       .filter-btn.tier-epic.active {
@@ -1287,6 +1328,8 @@ interface TradeFriend {
         color: #ffd700;
         box-shadow: 0 0 18px rgba(255, 215, 0, 0.22);
         animation: glow-legendary 2s ease-in-out infinite;
+        font-family: inherit;
+        font-weight: 600;
       }
       .filter-btn.tier-legendary:hover,
       .filter-btn.tier-legendary.active {

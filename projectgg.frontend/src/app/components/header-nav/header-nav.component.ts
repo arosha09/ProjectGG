@@ -50,6 +50,7 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
   readonly tradeOpened = output<{ tradeId: number; otherUserId: string; otherUsername: string; otherAvatar: string | null }>();
 
   readonly displayAvatar = signal<string | null>(null);
+  avatarLoading = signal(false);
 
   notifications: AppNotification[] = [];
   unreadCount = 0;
@@ -84,7 +85,9 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
     private readonly sound: SoundService,
   ) {
     effect(() => {
-      this.displayAvatar.set(this.avatarUrl() ?? '/assets/avatars/unknown.webp');
+      const url = this.avatarUrl();
+      this.displayAvatar.set(url ?? '/assets/avatars/unknown.webp');
+      if (url) this.avatarLoading.set(true);
     });
   }
 
@@ -279,6 +282,11 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   handleAvatarError(): void {
     this.displayAvatar.set('/assets/avatars/unknown.webp');
+    this.avatarLoading.set(false);
+  }
+
+  handleAvatarLoad(): void {
+    this.avatarLoading.set(false);
   }
 
   onStatusChange(status: string): void {

@@ -52,7 +52,7 @@ async function bootstrap(): Promise<void> {
   app.use(express.json({ limit: '5mb' }));
 
   app.use(
-    helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }),
+    helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false, crossOriginEmbedderPolicy: false }),
   );
 
   const httpAdapter = app.getHttpAdapter?.();
@@ -61,9 +61,24 @@ async function bootstrap(): Promise<void> {
     underlying.disable('etag');
   }
 
-  const frontendUrl = process.env.FRONTEND_URL;
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'https://8lwh15wm-4200.asse.devtunnels.ms',
+    'https://8lwh15wm-4200.asse.devtunnels.ms',
+    'https://projectgg-frontend.vercel.app',
+    'http://localhost:4200',
+    'http://localhost:3000',
+    'https://8lwh15wm-3000.asse.devtunnels.ms',
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: frontendUrl ?? true,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

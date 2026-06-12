@@ -42,6 +42,7 @@ export interface GgChannel {
   position: number;
   created_at: string;
   allowed_roles?: string[];
+  category?: string;
 }
 
 export interface GgServerMember {
@@ -181,8 +182,8 @@ export class ChatService {
     return this.http.get<GgChannel[]>(`${this.apiUrl}/gg/servers/${serverId}/channels`);
   }
 
-  createChannel(serverId: number, name: string, type: 'text' | 'voice', allowed_roles?: string[]): Observable<GgChannel> {
-    return this.http.post<GgChannel>(`${this.apiUrl}/gg/servers/${serverId}/channels`, { name, type, allowed_roles });
+  createChannel(serverId: number, name: string, type: 'text' | 'voice', allowed_roles?: string[], category?: string): Observable<GgChannel> {
+    return this.http.post<GgChannel>(`${this.apiUrl}/gg/servers/${serverId}/channels`, { name, type, allowed_roles, category });
   }
 
   deleteChannel(id: number): Observable<any> {
@@ -195,6 +196,76 @@ export class ChatService {
 
   setChannelRoles(channelId: number, roles: string[]): Observable<any> {
     return this.http.patch(`${this.apiUrl}/gg/channels/${channelId}/roles`, { roles });
+  }
+
+  setChannelCategory(channelId: number, category: string): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/gg/channels/${channelId}/category`, { category });
+  }
+
+  // ===== CATEGORIES =====
+  getCategories(serverId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/gg/servers/${serverId}/categories`);
+  }
+
+  createCategory(serverId: number, name: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/gg/servers/${serverId}/categories`, { name });
+  }
+
+  updateCategory(categoryId: number, data: { name?: string; sort_order?: number }): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/gg/categories/${categoryId}`, data);
+  }
+
+  deleteCategory(categoryId: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/gg/categories/${categoryId}`);
+  }
+
+  setCategoryRoles(categoryId: number, roles: string[]): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/gg/categories/${categoryId}/roles`, { roles });
+  }
+
+  reorderCategories(serverId: number, orderedIds: number[]): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/gg/servers/${serverId}/categories/reorder`, { orderedIds });
+  }
+
+  moveChannelToCategory(channelId: number, category: string): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/gg/channels/${channelId}/move`, { category });
+  }
+
+  reorderChannels(serverId: number, orderedIds: number[]): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/gg/servers/${serverId}/channels/reorder`, { orderedIds });
+  }
+
+  // ===== GG SERVER PROFILES =====
+  getServerProfile(serverId: number, userId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/gg/servers/${serverId}/profile/${userId}`);
+  }
+
+  getServerProfiles(serverId: number): Observable<{ user_id: string; avatar_url: string | null; banner_url: string | null }[]> {
+    return this.http.get<{ user_id: string; avatar_url: string | null; banner_url: string | null }[]>(`${this.apiUrl}/gg/servers/${serverId}/profiles`);
+  }
+
+  updateServerProfile(serverId: number, data: { avatar_url?: string; banner_url?: string }): Observable<any> {
+    return this.http.put(`${this.apiUrl}/gg/servers/${serverId}/profile`, data);
+  }
+
+  uploadServerProfileAvatar(serverId: number, file: File): Observable<{ url: string }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ url: string }>(`${this.apiUrl}/gg/servers/${serverId}/profile/avatar`, fd);
+  }
+
+  uploadServerProfileBanner(serverId: number, file: File): Observable<{ url: string }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ url: string }>(`${this.apiUrl}/gg/servers/${serverId}/profile/banner`, fd);
+  }
+
+  deleteServerProfileAvatar(serverId: number): Observable<any> {
+    return this.updateServerProfile(serverId, { avatar_url: '' });
+  }
+
+  deleteServerProfileBanner(serverId: number): Observable<any> {
+    return this.updateServerProfile(serverId, { banner_url: '' });
   }
 
   // ===== GG CHAT MEMBERS =====
@@ -279,9 +350,9 @@ export class ChatService {
     return this.http.patch(`${this.apiUrl}/gg/servers/${serverId}/roles/${roleName}`, data);
   }
 
-  emitStatus(status: string): void {
+  emitStatus(status: string, explicit = false): void {
     if (this.socket) {
-      this.socket.emit('status-change', { status });
+      this.socket.emit('status-change', { status, explicit });
     }
   }
 

@@ -24,6 +24,8 @@ import {
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { AuthRepository } from 'src/auth/auth.repository';
 import { UsersService } from 'src/services/users.service';
+import { Inject } from '@nestjs/common';
+import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 import {
   UpdateProfileDto,
   ProfileDto,
@@ -39,6 +41,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly authRepo: AuthRepository,
+    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
   ) {}
 
   @Get('get-user-details')
@@ -281,5 +284,45 @@ export class UsersController {
       allow_incoming_nudges: updated?.allow_incoming_nudges ?? true,
       disabled_notification_kinds: updated?.disabled_notification_kinds ?? [],
     };
+  }
+
+  // ── User Banner ─────────────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('profile/banner')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadBanner(
+    @Req() req: any,
+    @UploadedFile() file: any,
+  ): Promise<{ url: string }> {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.mimetype)) throw new BadRequestException('Invalid image format');
+
+    const userId = req.user.id;
+    const ext = file.originalname.split('.').pop() || 'jpg';
+    const filename = `banner_${userId}_${Date.now()}.${ext}`;
+
+    const { error } = await this.supabase.storage
+      .from('user_files')
+      .upload(filename, file.buffer, { contentType: file.mimetype });
+    if (error) throw new BadRequestException(error.message);
+
+    const { data: signedData } = await this.supabase.storage
+      .from('user_files')
+      .createSignedUrl(filename, 315360000);
+
+    const url = signedData?.signedUrl ?? '';
+    await this.usersService.updateProfile(userId, { banner_url: url } as any);
+    return { url };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('profile/banner')
+  async deleteBanner(@Req() req: any): Promise<{ success: boolean }> {
+    await this.usersService.updateProfile(req.user.id, { banner_url: null } as any);
+    return { success: true };
   }
 }

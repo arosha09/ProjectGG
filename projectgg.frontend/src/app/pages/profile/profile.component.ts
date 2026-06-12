@@ -50,12 +50,16 @@ export class ProfileComponent implements OnInit, OnDestroy {
   // Favorites showcase
   favoriteGames: any[] = [];
   favoriteGamesLoading = false;
+  extractedAvatarColors: string[] = [];
+  userGradient: string = '';
   collectionStats: any = null;
 
   avatarCategories: { category: string; avatars: { filename: string; url: string; path: string }[] }[] = [];
   selectedCategory = '';
   categoryDropdownOpen = false;
   avatarUploading = false;
+  avatarLoading = false;
+  avatarImgReady = false;
   avatarModalOpen = false;
   private systemAvatarsLoaded = false;
 
@@ -157,7 +161,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
   // ── Avatar ─────────────────────────────────────────────────────────────────
 
   get avatarDisplay(): string | null {
-    if (this.currentUser?.avatar) return this.currentUser.avatar;
+    if (this.currentUser?.avatar) {
+      if (!this.avatarImgReady) this.avatarLoading = true;
+      return this.currentUser.avatar;
+    }
+    this.avatarLoading = false;
     const gender = this.currentUser?.gender?.toLowerCase();
     if (gender == null) return null;
     if (gender === 'prefer not to say') return '/assets/avatars/unknown.webp';
@@ -185,10 +193,16 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const sk = img.previousElementSibling as HTMLElement | null;
     sk?.classList?.add('sk-hidden');
     img.classList.add('is-loaded');
+    this.avatarImgReady = true;
+    this.avatarLoading = false;
+    if (!this.userGradient) this.extractColorsFromAvatar();
   }
 
   onSystemAvatarLoad(event: Event): void {
-    this.onAvatarLoad(event);
+    const img = event.target as HTMLImageElement;
+    const sk = img.previousElementSibling as HTMLElement | null;
+    sk?.classList?.add('sk-hidden');
+    img.classList.add('is-loaded');
   }
 
   openAvatarModal(): void {
@@ -196,15 +210,22 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.loadSystemAvatars();
   }
 
+  systemAvatarsLoading = false;
+
   private loadSystemAvatars(): void {
+    this.systemAvatarsLoading = true;
     this.http.get<{ category: string; avatars: { filename: string; url: string; path: string }[] }[]>(`${this.apiUrl}/users/avatar/system?t=${Date.now()}`).subscribe({
       next: (categories) => {
         this.avatarCategories = categories;
         this.selectedCategory = categories[0]?.category ?? '';
         this.systemAvatarsLoaded = true;
+        this.systemAvatarsLoading = false;
         this.cdr.markForCheck();
       },
-      error: () => {},
+      error: () => {
+        this.systemAvatarsLoading = false;
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -237,7 +258,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.avatarModalOpen = false;
         this.currentUser = { ...this.currentUser, avatar: res.url };
         this.usersService.updateCurrentUser(this.currentUser);
+        this.extractedAvatarColors = [];
+        this.userGradient = '';
+        this.avatarImgReady = false;
         this.cdr.markForCheck();
+        setTimeout(() => this.extractColorsFromAvatar(), 200);
       },
       error: () => { this.avatarUploading = false; },
     });
@@ -249,7 +274,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.avatarModalOpen = false;
         this.currentUser = { ...this.currentUser, avatar: res.url };
         this.usersService.updateCurrentUser(this.currentUser);
+        this.extractedAvatarColors = [];
+        this.userGradient = '';
+        this.avatarImgReady = false;
         this.cdr.markForCheck();
+        setTimeout(() => this.extractColorsFromAvatar(), 200);
       },
       error: () => {},
     });
@@ -264,6 +293,117 @@ export class ProfileComponent implements OnInit, OnDestroy {
       },
       error: () => {},
     });
+  }
+
+  onBannerUpload(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) return;
+    this.usersService.uploadBanner(input.files[0]).subscribe({
+      next: (res) => {
+        this.currentUser = { ...this.currentUser, banner_url: res.url };
+        this.usersService.updateCurrentUser(this.currentUser);
+        input.value = '';
+        this.cdr.markForCheck();
+      },
+      error: () => { input.value = ''; },
+    });
+  }
+
+  onRemoveBanner(): void {
+    this.usersService.deleteBanner().subscribe({
+      next: () => {
+        this.currentUser = { ...this.currentUser, banner_url: null };
+        this.usersService.updateCurrentUser(this.currentUser);
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  fixSupabaseUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    return url.replace(/qpdpzookcfrylxnrqkwo\.supabase\.co/g, 'lgesluubuaikmaigwwxq.supabase.co');
+  }
+
+  getUserGradient(): string {
+    if (this.userGradient) return this.userGradient;
+    const name = this.currentUser?.username ?? 'user';
+    const gradients = [
+      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+      'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+      'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+      'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+      'linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)',
+      'linear-gradient(135deg, #00c6fb 0%, #005bea 100%)',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    return gradients[Math.abs(hash) % gradients.length];
+  }
+
+  private updateUserGradient(): void {
+    if (this.extractedAvatarColors.length >= 2) {
+      this.userGradient = `linear-gradient(135deg, ${this.extractedAvatarColors[0]}, ${this.extractedAvatarColors[1]})`;
+    }
+  }
+
+  extractColorsFromAvatar(): void {
+    const url = this.avatarDisplay;
+    if (!url) return;
+    if (url.includes('/assets/avatars/')) {
+      const gender = this.currentUser?.gender?.toLowerCase();
+      if (gender === 'male') {
+        this.extractedAvatarColors = ['#1a1a1a', '#e0e0e0'];
+      } else if (gender === 'female') {
+        this.extractedAvatarColors = ['#1a1a1a', '#e0e0e0'];
+      } else {
+        this.extractedAvatarColors = ['#606060', '#b0b0b0'];
+      }
+      this.updateUserGradient();
+      this.cdr.detectChanges();
+      return;
+    }
+    const img = new Image();
+    if (url.startsWith('http')) img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const w = 32, h = 32;
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        const buckets: Record<string, number> = {};
+        for (let i = 0; i < data.length; i += 16) {
+          const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+          if (a < 128) continue;
+          const brightness = (r + g + b) / 3;
+          if (brightness > 230 || brightness < 25) continue;
+          const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+          if (saturation < 15) continue;
+          const rr = Math.round(r / 32) * 32;
+          const gg = Math.round(g / 32) * 32;
+          const bb = Math.round(b / 32) * 32;
+          const key = `${rr},${gg},${bb}`;
+          buckets[key] = (buckets[key] || 0) + 1;
+        }
+        const sorted = Object.entries(buckets).sort((a, b) => b[1] - a[1]);
+        if (sorted.length < 2) return;
+        const toHex = (c: number) => c.toString(16).padStart(2, '0');
+        const toColor = (key: string) => {
+          const [r, g, b] = key.split(',').map(Number);
+          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        };
+        this.extractedAvatarColors = [toColor(sorted[0][0]), toColor(sorted[1][0])];
+        this.updateUserGradient();
+        this.cdr.detectChanges();
+      } catch {}
+    };
+    img.src = url;
   }
 
   // ── Rank / XP ──────────────────────────────────────────────────────────────
@@ -316,6 +456,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.loadRankData();
         this.loadFavoriteGames();
         this.cdr.markForCheck();
+        setTimeout(() => this.extractColorsFromAvatar(), 200);
       },
       error: (err) => {
         this.profileError = err.status === 401 ? 'Session expired. Please log in again.' : 'Failed to load profile data.';

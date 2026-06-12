@@ -20,6 +20,8 @@
       [servers]="servers"
       [serverLoading]="serverLoading"
       [channels]="channels"
+      [categories]="categories"
+      [canManageChannels]="canManageChannels()"
       [selectedChannel]="selectedChannel"
       [channelLoading]="channelLoading"
       [dmConversations]="dmConversations"
@@ -66,6 +68,7 @@
       (onNoiseSuppressionChange)="toggleNoiseSuppression($event)"
       (openChannelSettings)="openChannelSettings($event)"
       (voiceContextMenuRequest)="openVoiceContextMenu($event.event, $event.vm)"
+      (updateCategory)="onCategoryUpdate($event.oldName, $event.newName)"
     ></app-channel-list>
 
     <!-- MAIN PANEL -->
@@ -138,7 +141,7 @@
           } @else {
             @for (msg of dmMessages; track msg.id) {
               <div class="gg-msg" (contextmenu)="openContextMenu($event, msg)">
-                <div class="gg-msg-avatar">
+                <div class="gg-msg-avatar" (mouseenter)="onMsgAvatarHover($event, msg)" (mouseleave)="onMsgAvatarLeave()" (contextmenu)="$event.preventDefault(); $event.stopPropagation()">
                   <img loading="lazy" decoding="async" [src]="msg.avatar_url || defaultAvatar()" alt="" class="gg-msg-avatar-img" (error)="onAvatarError($event)" />
                 </div>
                 <div class="gg-msg-body">
@@ -199,13 +202,15 @@
             @if (uploadingFile) {
               <span class="uploading-indicator">Uploading...</span>
             }
-            @if (pendingAttachmentUrl) {
-              <span class="gg-attachment-badge" (click)="removeAttachment()">
-                <mat-icon svgIcon="attachment"></mat-icon> 1 file
-                <mat-icon class="gg-attachment-remove" svgIcon="close"></mat-icon>
-              </span>
-            }
           </div>
+          @if (pendingAttachmentUrl) {
+            <div class="gg-pending-attachment">
+              <img [src]="pendingAttachmentUrl" alt="Attachment preview" class="gg-pending-attachment-img" />
+              <button class="gg-pending-attachment-remove" (click)="removeAttachment()">
+                <mat-icon svgIcon="close"></mat-icon>
+              </button>
+            </div>
+          }
           @if (showGifPicker) {
             <div class="gif-picker">
               <input class="gif-search" [(ngModel)]="gifSearchQuery" (input)="searchGifs()" placeholder="Search GIFs..." />
@@ -262,7 +267,7 @@
                 (contextmenu)="openContextMenu($event, msg)"
               >
                 @if (msg.username !== 'System') {
-                  <div class="msg-avatar-col">
+                  <div class="msg-avatar-col" (mouseenter)="onMsgAvatarHover($event, msg)" (mouseleave)="onMsgAvatarLeave()" (contextmenu)="$event.preventDefault(); $event.stopPropagation()">
                     <div class="msg-avatar-wrapper">
                       <div class="gg-avatar-sk"></div>
                       <img loading="lazy" decoding="async" class="msg-avatar" [src]="avatarForUsername(msg.username) || msg.avatar_url || (msg.username === 'APEX' ? 'assets/ai/avatars/apex-avatar.webp' : '')" alt="" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="$event.target.previousElementSibling?.classList?.add('sk-hidden')" />
@@ -357,6 +362,14 @@
                 <span class="uploading-indicator">Uploading...</span>
               }
                 </div>
+            @if (pendingAttachmentUrl) {
+              <div class="gg-pending-attachment">
+                <img [src]="pendingAttachmentUrl" alt="Attachment preview" class="gg-pending-attachment-img" />
+                <button class="gg-pending-attachment-remove" (click)="removeAttachment()">
+                  <mat-icon svgIcon="close"></mat-icon>
+                </button>
+              </div>
+            }
             @if (showMentionAutocomplete) {
               <div class="mention-autocomplete">
                 @for (m of filteredMentions; track m.id) {
@@ -468,6 +481,47 @@
               } @else {
                 <div class="gg-voice-empty">No one is here yet</div>
               }
+
+              <!-- Soundboard -->
+              <div class="gg-voice-soundboard">
+                <button class="gg-soundboard-toggle" (click)="toggleSoundboard()" [class.active]="showSoundboard" title="Soundboard">
+                  <mat-icon svgIcon="graphic_eq"></mat-icon>
+                  <span>Soundboard</span>
+                  @if (soundboardPlaying) {
+                    <button class="gg-soundboard-stop" (click)="stopSoundboard(); $event.stopPropagation()" title="Stop">
+                      <mat-icon svgIcon="stop"></mat-icon>
+                    </button>
+                  }
+                </button>
+                @if (showSoundboard) {
+                   <div class="gg-soundboard-grid">
+                    @for (sound of soundboardSounds; track sound.id) {
+                      <div class="gg-soundboard-item">
+                        <button class="gg-soundboard-btn" (click)="playSoundboardSound(sound.file_url)" [disabled]="soundboardPlaying" [title]="sound.name">
+                          <span>{{ sound.name }}</span>
+                        </button>
+                        @if (canManageSoundboard()) {
+                          <button class="gg-soundboard-delete" (click)="deleteSoundboardSound(sound.id)" title="Delete sound">
+                            <mat-icon svgIcon="close"></mat-icon>
+                          </button>
+                        }
+                      </div>
+                    }
+                    @if (soundboardSounds.length === 0) {
+                      <div class="gg-soundboard-empty">No sounds yet</div>
+                    }
+                  </div>
+                  @if (canManageSoundboard()) {
+                    <div class="gg-soundboard-admin">
+                      <input class="gg-soundboard-name-input" [(ngModel)]="newSoundboardName" placeholder="Sound name" maxlength="30" />
+                      <label class="gg-soundboard-upload-btn" [class.uploading]="soundboardUploading">
+                        <mat-icon svgIcon="upload"></mat-icon>
+                        <input type="file" accept="audio/*" (change)="uploadSoundboardSound($event)" hidden [disabled]="soundboardUploading" />
+                      </label>
+                    </div>
+                  }
+                }
+              </div>
             </div>
           }
         </div>
@@ -644,6 +698,15 @@
                   <input type="checkbox" [(ngModel)]="newChannelPrivate" />
                   <mat-icon svgIcon="lock"></mat-icon> Private
                 </label>
+              </div>
+
+              <div class="gg-cs-field">
+                <label class="gg-cs-label">CATEGORY (optional)</label>
+                <input
+                  class="gg-modal-input"
+                  [(ngModel)]="newChannelCategory"
+                  placeholder="e.g. Information, Voice Channels"
+                />
               </div>
 
               <div class="gg-cs-actions">
@@ -913,10 +976,13 @@
         [memberStatus]="memberStatus.bind(this)"
         [resolveAvatar]="resolveAvatar.bind(this)"
         [onAvatarError]="onAvatarError.bind(this)"
+        [voiceMembers]="voiceMembers"
         (changeRole)="changeRole($event.member, $event.role)"
         (confirmKick)="confirmKick($event)"
         (confirmBan)="confirmBan($event)"
         (memberContextMenu)="onMemberContextMenu($event)"
+        (memberHover)="onListMemberHover($event)"
+        (memberLeave)="onListMemberLeave()"
       ></app-member-list>
     }
   </div>
@@ -985,31 +1051,20 @@
       [showCancel]="confirmData.showCancel"
       (confirm)="executeConfirm()"
       (cancel)="cancelConfirm()"
-    ></app-cyber-confirm>
+></app-cyber-confirm>
   }
-
-  @if (contextMenu) {
-    <div class="cyber-context-menu" [style.left]="contextMenu.x + 'px'" [style.top]="contextMenu.y + 'px'">
-      <button class="cyber-ctx-item" (click)="copyMessageText(contextMenu.msg); closeContextMenu()">
-        <mat-icon svgIcon="content_copy"></mat-icon> Copy Text
-      </button>
-      <button class="cyber-ctx-item" (click)="startReply(contextMenu.msg); closeContextMenu()">
-        <mat-icon svgIcon="reply"></mat-icon> Reply
-      </button>
-      <button class="cyber-ctx-item" (click)="openEmojiPickerFromCtx($event, contextMenu.msg)">
-        <mat-icon svgIcon="mood"></mat-icon> Reactions
-      </button>
-      @if (contextMenu.msg.username === currentUser?.username) {
-        <div class="cyber-ctx-divider"></div>
-        <button class="cyber-ctx-item" (click)="startEdit(contextMenu.msg); closeContextMenu()">
-          <mat-icon svgIcon="edit"></mat-icon> Edit
-        </button>
-        <button class="cyber-ctx-item cyber-ctx-danger" (click)="deleteMessage(contextMenu.msg); closeContextMenu()">
-          <mat-icon svgIcon="delete"></mat-icon> Delete
-        </button>
-      }
-    </div>
-  }
+  <app-member-hover-card
+    #memberHoverCard
+    [avatarUrl]="hoverCardAvatar"
+    [bannerUrl]="hoverCardBanner"
+    [status]="hoverCardStatus"
+    [isFriend]="hoverCardIsFriend"
+    [isSelf]="hoverCardIsSelf"
+    (addFriend)="onHoverCardAddFriend($event)"
+    (openProfile)="onHoverCardOpenProfile($event)"
+    (openTrade)="onHoverCardOpenTrade($event)"
+    (openGift)="onHoverCardOpenGift($event)"
+  ></app-member-hover-card>
 
   @if (voiceContextMenu) {
     <div class="cyber-context-menu" [style.left]="voiceContextMenu.x + 'px'" [style.top]="voiceContextMenu.y + 'px'">
@@ -1035,7 +1090,7 @@
         </button>
         <div class="cyber-ctx-divider"></div>
         <div class="cyber-ctx-volume">
-          <div class="cyber-ctx-volume-header">
+          <div class="cyber-ctx-volume-header" (click)="setUserVolume(voiceContextMenu.vm.userId, 0); $event.stopPropagation()">
             <mat-icon svgIcon="volume_up"></mat-icon>
             <span>Volume</span>
             <span class="cyber-ctx-volume-val">{{ getUserVolume(voiceContextMenu.vm.userId) * 100 | number:'1.0-0' }}%</span>
@@ -1056,6 +1111,71 @@
             </button>
           }
         </div>
+        <div class="cyber-ctx-divider"></div>
+        <button class="cyber-ctx-item" (click)="kickMemberFromVoice(voiceContextMenu.vm.userId); closeVoiceContextMenu()">
+          <mat-icon svgIcon="logout"></mat-icon> Kick from Voice
+        </button>
+      }
+    </div>
+  }
+
+  @if (memberPanelContextMenu) {
+    <div class="cyber-context-menu" [style.left]="memberPanelContextMenu.x + 'px'" [style.top]="memberPanelContextMenu.y + 'px'">
+      @if (!isSelf(memberPanelContextMenu.member)) {
+        <button class="cyber-ctx-item cyber-ctx-nudge" (click)="onMemberCtxNudge(); closeMemberPanelContextMenu()">
+          <mat-icon svgIcon="notifications_active"></mat-icon> Nudge
+        </button>
+        @if (isMemberInVoice(memberPanelContextMenu.member.user_id) && canControlVoice()) {
+          <div class="cyber-ctx-divider"></div>
+          <button class="cyber-ctx-item" (click)="onMemberCtxMute(); closeMemberPanelContextMenu()">
+            <mat-icon svgIcon="mic_off"></mat-icon> {{ localMuted(memberPanelContextMenu.member.user_id) ? 'Unmute' : 'Mute' }}
+          </button>
+          <button class="cyber-ctx-item" (click)="onMemberCtxDeafen(); closeMemberPanelContextMenu()">
+            <mat-icon svgIcon="headset_off"></mat-icon> {{ localDeafened(memberPanelContextMenu.member.user_id) ? 'Undeafen' : 'Deafen' }}
+          </button>
+          <div class="cyber-ctx-divider"></div>
+          <button class="cyber-ctx-item cyber-ctx-danger" (click)="disconnectMemberFromVoice(memberPanelContextMenu.member.user_id); closeMemberPanelContextMenu()">
+            <mat-icon svgIcon="logout"></mat-icon> Disconnect from Voice
+          </button>
+        }
+        @if (canKick() && !memberPanelContextMenu.member.roles?.includes('owner')) {
+          <div class="cyber-ctx-divider"></div>
+          <button class="cyber-ctx-item" (click)="confirmKick(memberPanelContextMenu.member); closeMemberPanelContextMenu()">
+            <mat-icon svgIcon="person_remove"></mat-icon> Kick
+          </button>
+          <button class="cyber-ctx-item cyber-ctx-danger" (click)="confirmBan(memberPanelContextMenu.member); closeMemberPanelContextMenu()">
+            <mat-icon svgIcon="block"></mat-icon> Ban
+          </button>
+        }
+      }
+    </div>
+  }
+
+  @if (contextMenu) {
+    <div class="cyber-context-menu" [style.left]="contextMenu.x + 'px'" [style.top]="contextMenu.y + 'px'">
+      <button class="cyber-ctx-item" (click)="copyMessageText(contextMenu.msg); closeContextMenu()">
+        <mat-icon svgIcon="content_copy"></mat-icon> Copy Message
+      </button>
+      <button class="cyber-ctx-item" (click)="openEmojiPickerFromCtx($event, contextMenu.msg)">
+        <mat-icon svgIcon="mood"></mat-icon> Reactions
+      </button>
+      @if (contextMenu.msg.username === currentUser?.username) {
+        <div class="cyber-ctx-divider"></div>
+        <button class="cyber-ctx-item" (click)="startEdit(contextMenu.msg); closeContextMenu()">
+          <mat-icon svgIcon="edit"></mat-icon> Edit
+        </button>
+        <button class="cyber-ctx-item cyber-ctx-danger" (click)="deleteMessage(contextMenu.msg); closeContextMenu()">
+          <mat-icon svgIcon="delete"></mat-icon> Delete
+        </button>
+      }
+      @if (viewMode === 'server' && selectedServer && contextMenu.msg.user_id && contextMenu.msg.user_id !== currentUser?.id) {
+        <div class="cyber-ctx-divider"></div>
+        <button class="cyber-ctx-item" (click)="kickMemberFromMsg(contextMenu.msg); closeContextMenu()">
+          <mat-icon svgIcon="logout"></mat-icon> Kick
+        </button>
+        <button class="cyber-ctx-item" (click)="banMemberFromMsg(contextMenu.msg); closeContextMenu()">
+          <mat-icon svgIcon="block"></mat-icon> Ban
+        </button>
       }
     </div>
   }

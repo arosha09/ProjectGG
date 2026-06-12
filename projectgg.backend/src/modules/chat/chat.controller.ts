@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
@@ -639,7 +640,7 @@ export class ChatController {
     @Req() req: any,
     @Param('serverId') serverId: string,
     @Body()
-    body: { name: string; type: 'text' | 'voice'; allowed_roles?: string[] },
+    body: { name: string; type: 'text' | 'voice'; allowed_roles?: string[]; category?: string },
   ) {
     const channel = await this.chatService.createChannel(
       Number(serverId),
@@ -647,6 +648,7 @@ export class ChatController {
       body.type ?? 'text',
       req.user.id,
       body.allowed_roles,
+      body.category,
     );
     await this.notifyServerMembers(
       Number(serverId),
@@ -711,6 +713,137 @@ export class ChatController {
       serverId: ch.server_id,
       roles: body.roles,
     });
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/channels/:id/category')
+  async setChannelCategory(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { category: string },
+  ) {
+    const channelId = Number(id);
+    const { data: ch } = await this.supabase
+      .schema('projectgg')
+      .from('gg_channels')
+      .select('server_id')
+      .eq('id', channelId)
+      .single();
+    if (!ch) throw new BadRequestException('Channel not found');
+    await this.chatService.requirePermission(
+      ch.server_id,
+      req.user.id,
+      'manage_channels',
+    );
+    await this.supabase
+      .schema('projectgg')
+      .from('gg_channels')
+      .update({ category: body.category })
+      .eq('id', channelId);
+    await this.notifyServerMembers(ch.server_id, 'channel-category-updated', {
+      channelId,
+      serverId: ch.server_id,
+      category: body.category,
+    });
+    return { success: true };
+  }
+
+  // ── CATEGORIES ──
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/servers/:serverId/categories')
+  async getCategories(@Param('serverId') serverId: string) {
+    return this.chatService.getCategories(Number(serverId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/categories')
+  async createCategory(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Body() body: { name: string },
+  ) {
+    return this.chatService.createCategory(Number(serverId), body.name, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/categories/:id')
+  async updateCategory(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { name?: string; sort_order?: number },
+  ) {
+    await this.chatService.updateCategory(Number(id), body, req.user.id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('gg/categories/:id')
+  async deleteCategory(@Req() req: any, @Param('id') id: string) {
+    await this.chatService.deleteCategory(Number(id), req.user.id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/categories/:id/roles')
+  async setCategoryRoles(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { roles: string[] },
+  ) {
+    const categoryId = Number(id);
+    const { data: cat } = await this.supabase
+      .schema('projectgg')
+      .from('gg_channel_categories')
+      .select('server_id')
+      .eq('id', categoryId)
+      .single();
+    if (!cat) throw new BadRequestException('Category not found');
+    await this.chatService.requirePermission(cat.server_id, req.user.id, 'manage_channels');
+    await this.chatService.setCategoryRoles(categoryId, body.roles);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/servers/:serverId/categories/reorder')
+  async reorderCategories(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Body() body: { orderedIds: number[] },
+  ) {
+    await this.chatService.reorderCategories(Number(serverId), body.orderedIds);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/channels/:id/move')
+  async moveChannelToCategory(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { category: string },
+  ) {
+    await this.chatService.moveChannelToCategory(Number(id), body.category, req.user.id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Patch('gg/servers/:serverId/channels/reorder')
+  async reorderChannels(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Body() body: { orderedIds: number[] },
+  ) {
+    await this.chatService.reorderChannels(body.orderedIds);
     return { success: true };
   }
 
@@ -1302,5 +1435,137 @@ export class ChatController {
   async deleteNotification(@Req() req: any, @Param('id') id: string) {
     await this.chatService.deleteNotification(req.user.id, Number(id));
     return { success: true };
+  }
+
+  // ── Per-Server Profile ──────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('gg/servers/:serverId/profile/:userId')
+  async getServerProfile(
+    @Param('serverId') serverId: string,
+    @Param('userId') userId: string,
+  ) {
+    const { data } = await this.supabase
+      .schema('projectgg')
+      .from('gg_server_profiles')
+      .select('*')
+      .eq('server_id', Number(serverId))
+      .eq('user_id', userId)
+      .single();
+    return data ?? { avatar_url: null, banner_url: null };
+  }
+
+  @Get('gg/servers/:serverId/profiles')
+  async getServerProfiles(@Param('serverId') serverId: string) {
+    const { data } = await this.supabase
+      .schema('projectgg')
+      .from('gg_server_profiles')
+      .select('user_id, avatar_url, banner_url')
+      .eq('server_id', Number(serverId));
+    return data ?? [];
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Put('gg/servers/:serverId/profile')
+  @UseInterceptors(FileInterceptor('file'))
+  async updateServerProfile(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @Body() body: { avatar_url?: string; banner_url?: string },
+  ) {
+    const numId = Number(serverId);
+    const userId = req.user.id;
+    const updates: any = { user_id: userId, server_id: numId };
+    if (body.avatar_url !== undefined) updates.avatar_url = body.avatar_url;
+    if (body.banner_url !== undefined) updates.banner_url = body.banner_url;
+
+    const { data: existing } = await this.supabase
+      .schema('projectgg')
+      .from('gg_server_profiles')
+      .select('id')
+      .eq('server_id', numId)
+      .eq('user_id', userId)
+      .single();
+
+    if (existing) {
+      const { data } = await this.supabase
+        .schema('projectgg')
+        .from('gg_server_profiles')
+        .update(updates)
+        .eq('id', existing.id)
+        .select()
+        .single();
+      return data;
+    } else {
+      const { data } = await this.supabase
+        .schema('projectgg')
+        .from('gg_server_profiles')
+        .insert(updates)
+        .select()
+        .single();
+      return data;
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/profile/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadServerProfileAvatar(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.mimetype)) throw new BadRequestException('Invalid image format');
+
+    const ext = file.originalname.split('.').pop() || 'jpg';
+    const filename = `server_profile_${serverId}_${req.user.id}_${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await this.supabase.storage
+      .from('chat_uploads')
+      .upload(filename, file.buffer, { contentType: file.mimetype });
+    if (uploadError) throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+
+    const { data: signedData } = await this.supabase.storage
+      .from('chat_uploads')
+      .createSignedUrl(filename, 315360000);
+
+    const signedUrl = signedData?.signedUrl ?? '';
+    await this.updateServerProfile(req as any, serverId, { avatar_url: signedUrl });
+    return { url: signedUrl };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('gg/servers/:serverId/profile/banner')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadServerProfileBanner(
+    @Req() req: any,
+    @Param('serverId') serverId: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.mimetype)) throw new BadRequestException('Invalid image format');
+
+    const ext = file.originalname.split('.').pop() || 'jpg';
+    const filename = `server_banner_${serverId}_${req.user.id}_${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await this.supabase.storage
+      .from('chat_uploads')
+      .upload(filename, file.buffer, { contentType: file.mimetype });
+    if (uploadError) throw new HttpException(uploadError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+
+    const { data: signedData } = await this.supabase.storage
+      .from('chat_uploads')
+      .createSignedUrl(filename, 315360000);
+
+    const signedUrl = signedData?.signedUrl ?? '';
+    await this.updateServerProfile(req as any, serverId, { banner_url: signedUrl });
+    return { url: signedUrl };
   }
 }

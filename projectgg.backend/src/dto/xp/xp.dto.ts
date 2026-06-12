@@ -27,13 +27,13 @@ export class UserRankDto {
 
   @ApiProperty({
     example:
-      'https://qpdpzookcfrylxnrqkwo.supabase.co/storage/v1/object/public/system_files/ranks/GOLD_III.png',
+      'https://lgesluubuaikmaigwwxq.supabase.co/storage/v1/object/public/system_files/ranks/GOLD_III.png',
   })
   rank_image_url: string;
 
   @ApiPropertyOptional({
     example:
-      'https://qpdpzookcfrylxnrqkwo.supabase.co/storage/v1/object/public/system_files/ranks/GOLD_IV.png',
+      'https://lgesluubuaikmaigwwxq.supabase.co/storage/v1/object/public/system_files/ranks/GOLD_IV.png',
   })
   next_rank_image_url?: string;
 }

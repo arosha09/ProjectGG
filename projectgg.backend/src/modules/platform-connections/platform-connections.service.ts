@@ -693,6 +693,7 @@ export class PlatformConnectionsService {
 
     const tokenData: any = await tokenRes.json();
     const accessToken = tokenData.access_token;
+    const expiresAt = new Date(Date.now() + (tokenData.expires_in ?? 3600) * 1000).toISOString();
 
     // Fetch YouTube channel info
     let channelRes: Response;
@@ -742,6 +743,7 @@ export class PlatformConnectionsService {
           access_token: accessToken,
           refresh_token: tokenData.refresh_token ?? null,
           connected_at: new Date().toISOString(),
+          expires_at: expiresAt,
         },
         { onConflict: 'user_id,platform' },
       )
@@ -1145,20 +1147,33 @@ export class PlatformConnectionsService {
         .eq('platform', 'youtube_music')
         .single();
 
-      if (!conn?.access_token) return null;
+      if (!conn?.access_token) {
+        console.warn(`[YT] No access_token in DB for user ${userId}`);
+        return null;
+      }
 
       let token = conn.access_token;
       const refreshTokenValue = conn.refresh_token;
 
-      // Test if token works
-      const testRes = await fetch(
-        'https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      // Proactively refresh if token expires within 5 minutes
+      const expiresAt = conn.expires_at ? new Date(conn.expires_at).getTime() : 0;
+      const fiveMinFromNow = Date.now() + 5 * 60 * 1000;
+      const needsRefresh = expiresAt > 0 && expiresAt < fiveMinFromNow;
 
-      if (testRes.ok) return token;
+      if (!needsRefresh) {
+        // Test if token works
+        const testRes = await fetch(
+          'https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
 
-      // Token expired — try refresh
+        if (testRes.ok) return token;
+        console.warn(`[YT] Token expired for user ${userId} (test returned ${testRes.status}), attempting refresh...`);
+      } else {
+        console.log(`[YT] Token expiring soon for user ${userId}, proactively refreshing...`);
+      }
+
+      // Token expired or expiring — try refresh
       if (refreshTokenValue && this.googleClientId && this.googleClientSecret) {
         const body = new URLSearchParams({
           grant_type: 'refresh_token',
@@ -1176,26 +1191,39 @@ export class PlatformConnectionsService {
         if (refreshRes.ok) {
           const refreshData: any = await refreshRes.json();
           token = refreshData.access_token;
+          const newExpiresAt = new Date(Date.now() + (refreshData.expires_in ?? 3600) * 1000).toISOString();
 
           const db2 = await this.pc();
           await db2
-            .update({ access_token: token })
+            .update({ access_token: token, expires_at: newExpiresAt })
             .eq('user_id', userId)
             .eq('platform', 'youtube_music');
 
+          console.log(`[YT] Token refreshed successfully for user ${userId}`);
           return token;
+        } else {
+          const refreshErr = await refreshRes.text();
+          console.error(`[YT] Token refresh failed for user ${userId} (${refreshRes.status}):`, refreshErr);
         }
+      } else {
+        if (!refreshTokenValue) console.warn(`[YT] No refresh_token for user ${userId}`);
+        if (!this.googleClientId) console.warn(`[YT] GOOGLE_CLIENT_ID not configured`);
+        if (!this.googleClientSecret) console.warn(`[YT] GOOGLE_CLIENT_SECRET not configured`);
       }
 
       return null;
-    } catch {
+    } catch (err) {
+      console.error(`[YT] getYoutubeAccessToken error for user ${userId}:`, err);
       return null;
     }
   }
 
   async getYoutubePlaylists(userId: string): Promise<any[]> {
     const token = await this.getYoutubeAccessToken(userId);
-    if (!token) return [];
+    if (!token) {
+      console.warn(`[YT] No valid token for user ${userId} — playlists skipped`);
+      return [];
+    }
 
     try {
       const url = new URL('https://www.googleapis.com/youtube/v3/playlists');
@@ -1207,7 +1235,11 @@ export class PlatformConnectionsService {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) return [];
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`[YT] Playlists API error ${res.status}:`, errBody);
+        return [];
+      }
       const data: any = await res.json();
 
       return (data?.items ?? []).map((item: any) => ({
@@ -1223,7 +1255,7 @@ export class PlatformConnectionsService {
         channelTitle: item.snippet?.channelTitle ?? '',
       }));
     } catch (err) {
-      console.error('YouTube playlists fetch error:', err);
+      console.error('[YT] YouTube playlists fetch error:', err);
       return [];
     }
   }

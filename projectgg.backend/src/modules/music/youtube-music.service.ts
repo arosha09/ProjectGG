@@ -66,7 +66,6 @@ export class YouTubeMusicService {
       try {
         this.yt = await Innertube.create({
           cache: new UniversalCache(false),
-          generate_session_locally: true,
         });
         this.logger.log('YouTube Music client initialized');
       } catch (err) {
@@ -78,15 +77,37 @@ export class YouTubeMusicService {
     return this.yt!;
   }
 
+  private extractFromContents(results: any, itemType?: string): any[] {
+    const items: any[] = [];
+    for (const section of results.contents ?? []) {
+      if (section.contents) {
+        for (const item of section.contents) {
+          if (item.type === 'MusicResponsiveListItem' && (!itemType || item.item_type === itemType)) {
+            items.push(item);
+          }
+        }
+      }
+      if (section.type === 'MusicResponsiveListItem' && (!itemType || section.item_type === itemType)) {
+        items.push(section);
+      }
+    }
+    return items;
+  }
+
+  private getLargeThumbnail(item: any): string | undefined {
+    const videoId = item.id;
+    if (!videoId) return undefined;
+    return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  }
+
   async searchMusic(query: string, limit = 10): Promise<YTMusicSearchResult[]> {
     const yt = await this.ensureInitialized();
     try {
       const results = await yt.music.search(query, { type: 'song' });
-      const songs = results.songs;
-      if (!songs) return [];
+      const allItems = this.extractFromContents(results, 'song');
 
       const items: YTMusicSearchResult[] = [];
-      for (const item of songs.contents.slice(0, limit)) {
+      for (const item of allItems.slice(0, limit)) {
         const title = item.title ?? '';
         if (this.isNonMusic(title)) continue;
 
@@ -96,7 +117,7 @@ export class YouTubeMusicService {
           artists: item.artists?.map((a: any) => a.name).join(', ') ?? '',
           album: item.album?.name ?? undefined,
           duration: item.duration?.text ?? undefined,
-          thumbnail: item.thumbnails?.[0]?.url ?? undefined,
+          thumbnail: this.getLargeThumbnail(item),
           videoId: item.id ?? undefined,
           type: 'song',
         });
@@ -113,49 +134,117 @@ export class YouTubeMusicService {
     try {
       const results = await yt.music.search(query);
       const items: YTMusicSearchResult[] = [];
+      const allItems = this.extractFromContents(results);
 
-      // Songs
-      const songs = results.songs;
-      if (songs) {
-        for (const s of songs.contents.slice(0, limit)) {
-          const title = s.title ?? '';
-          if (this.isNonMusic(title)) continue;
-          items.push({
-            id: s.id ?? '',
-            title,
-            artists: s.artists?.map((a: any) => a.name).join(', ') ?? '',
-            album: s.album?.name ?? undefined,
-            duration: s.duration?.text ?? undefined,
-            thumbnail: s.thumbnails?.[0]?.url ?? undefined,
-            videoId: s.id ?? undefined,
-            type: 'song',
-          });
-        }
+      const songs = allItems.filter(i => i.item_type === 'song');
+      for (const s of songs.slice(0, limit)) {
+        const title = s.title ?? '';
+        if (this.isNonMusic(title)) continue;
+        items.push({
+          id: s.id ?? '',
+          title,
+          artists: s.artists?.map((a: any) => a.name).join(', ') ?? '',
+          album: s.album?.name ?? undefined,
+          duration: s.duration?.text ?? undefined,
+          thumbnail: this.getLargeThumbnail(s),
+          videoId: s.id ?? undefined,
+          type: 'song',
+        });
       }
 
-      // Videos (fill remaining slots)
       if (items.length < limit) {
-        const videos = results.videos;
-        if (videos) {
-          for (const v of videos.contents.slice(0, limit - items.length)) {
-            const title = v.title ?? '';
-            if (this.isNonMusic(title)) continue;
-            items.push({
-              id: v.id ?? '',
-              title,
-              artists: v.artists?.map((a: any) => a.name).join(', ') ?? '',
-              duration: v.duration?.text ?? undefined,
-              thumbnail: v.thumbnails?.[0]?.url ?? undefined,
-              videoId: v.id ?? undefined,
-              type: 'video',
-            });
-          }
+        const videos = allItems.filter(i => i.item_type === 'video');
+        for (const v of videos.slice(0, limit - items.length)) {
+          const title = v.title ?? '';
+          if (this.isNonMusic(title)) continue;
+          items.push({
+            id: v.id ?? '',
+            title,
+            artists: v.artists?.map((a: any) => a.name).join(', ') ?? '',
+            duration: v.duration?.text ?? undefined,
+            thumbnail: this.getLargeThumbnail(v),
+            videoId: v.id ?? undefined,
+            type: 'video',
+          });
         }
       }
 
       return items.slice(0, limit);
     } catch (err) {
       this.logger.error(`Music search failed for "${query}"`, err);
+      return [];
+    }
+  }
+
+  async getArtistTracks(
+    artistName: string,
+    limit = 10,
+  ): Promise<YTMusicSearchResult[]> {
+    const yt = await this.ensureInitialized();
+    try {
+      const results = await yt.music.search(artistName, { type: 'artist' });
+      const artists = this.extractFromContents(results, 'artist');
+      const artist = artists[0] as any;
+      if (!artist) return [];
+
+      const artistDetail = await yt.music.getArtist(artist.id);
+      const sections = (artistDetail as any).sections ?? [];
+      let songs: any[] = [];
+      for (const sec of sections) {
+        if (sec.contents) {
+          for (const item of sec.contents) {
+            if (item.type === 'MusicResponsiveListItem' && item.item_type === 'song') {
+              songs.push(item);
+            }
+          }
+        }
+      }
+
+      return songs.slice(0, limit).map((s: any) => ({
+        id: s.id ?? '',
+        title: s.title ?? '',
+        artists: artistName,
+        duration: s.duration?.text ?? undefined,
+        thumbnail: this.getLargeThumbnail(s),
+        videoId: s.id ?? undefined,
+        type: 'song' as const,
+      }));
+    } catch (err) {
+      this.logger.error(
+        `Failed to fetch artist tracks for "${artistName}"`,
+        err,
+      );
+      return [];
+    }
+  }
+
+  async getRelatedTracks(
+    videoId: string,
+    limit = 10,
+  ): Promise<YTMusicSearchResult[]> {
+    const yt = await this.ensureInitialized();
+    try {
+      const related = await yt.music.getRelated(videoId);
+      const allItems = this.extractFromContents(related);
+      const items: YTMusicSearchResult[] = [];
+
+      for (const r of allItems.slice(0, limit)) {
+        const title = r.title ?? '';
+        if (this.isNonMusic(title)) continue;
+
+        items.push({
+          id: r.id ?? '',
+          title,
+          artists: r.artists?.map((a: any) => a.name).join(', ') ?? '',
+          thumbnail: this.getLargeThumbnail(r),
+          videoId: r.id ?? undefined,
+          type: 'song',
+        });
+      }
+
+      return items;
+    } catch (err) {
+      this.logger.error(`Failed to fetch related tracks for ${videoId}`, err);
       return [];
     }
   }
@@ -181,7 +270,7 @@ export class YouTubeMusicService {
             (track as any).artists?.map((a: any) => a.name).join(', ') ?? '',
           album: (track as any).album?.name ?? undefined,
           duration: (track as any).duration?.text ?? undefined,
-          thumbnail: (track as any).thumbnails?.[0]?.url ?? undefined,
+          thumbnail: this.getLargeThumbnail(track),
           videoId: (track as any).id ?? undefined,
         });
       }
@@ -208,7 +297,7 @@ export class YouTubeMusicService {
             playlists.push({
               id: item.id ?? '',
               title,
-              thumbnail: item.thumbnails?.[0]?.url ?? undefined,
+              thumbnail: this.getLargeThumbnail(item),
               count: item.item_count ?? undefined,
               isOwned: true,
             });
@@ -219,70 +308,6 @@ export class YouTubeMusicService {
       return playlists;
     } catch (err) {
       this.logger.error('Failed to fetch user playlists', err);
-      return [];
-    }
-  }
-
-  async getArtistTracks(
-    artistName: string,
-    limit = 10,
-  ): Promise<YTMusicSearchResult[]> {
-    const yt = await this.ensureInitialized();
-    try {
-      const results = await yt.music.search(artistName, { type: 'artist' });
-      const artist = results.artists?.contents[0] as any;
-      if (!artist) return [];
-
-      const artistId = artist.id;
-      const artistDetail = await yt.music.getArtist(artistId);
-      const songs = (artistDetail as any).songs ?? [];
-
-      return songs.slice(0, limit).map((s: any) => ({
-        id: s.id ?? '',
-        title: s.title ?? '',
-        artists: artistName,
-        duration: s.duration?.text ?? undefined,
-        thumbnail: s.thumbnails?.[0]?.url ?? undefined,
-        videoId: s.id ?? undefined,
-        type: 'song' as const,
-      }));
-    } catch (err) {
-      this.logger.error(
-        `Failed to fetch artist tracks for "${artistName}"`,
-        err,
-      );
-      return [];
-    }
-  }
-
-  async getRelatedTracks(
-    videoId: string,
-    limit = 10,
-  ): Promise<YTMusicSearchResult[]> {
-    const yt = await this.ensureInitialized();
-    try {
-      const related = await yt.music.getRelated(videoId);
-      const items: YTMusicSearchResult[] = [];
-
-      if ('contents' in related) {
-        for (const r of (related as any).contents?.slice(0, limit) ?? []) {
-          const title = r.title ?? '';
-          if (this.isNonMusic(title)) continue;
-
-          items.push({
-            id: r.id ?? '',
-            title,
-            artists: r.artists?.map((a: any) => a.name).join(', ') ?? '',
-            thumbnail: r.thumbnails?.[0]?.url ?? undefined,
-            videoId: r.id ?? undefined,
-            type: 'song',
-          });
-        }
-      }
-
-      return items;
-    } catch (err) {
-      this.logger.error(`Failed to fetch related tracks for ${videoId}`, err);
       return [];
     }
   }

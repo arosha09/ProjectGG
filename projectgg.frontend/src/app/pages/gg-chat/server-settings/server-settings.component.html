@@ -1,0 +1,530 @@
+<div class="ss-shell">
+  <div class="ss-layout">
+    <nav class="ss-nav">
+      <div class="ss-nav-head">
+        <button class="ss-back" (click)="goBack()">
+          <mat-icon svgIcon="arrow_back"></mat-icon>
+          <span>Back to Chat</span>
+        </button>
+        <h1 class="ss-nav-title">Server Settings</h1>
+      </div>
+      <div class="ss-nav-items">
+        <button class="ss-nav-item" [class.active]="tab === 'overview'" (click)="tab = 'overview'">
+          <mat-icon svgIcon="settings"></mat-icon> Overview
+        </button>
+        <button class="ss-nav-item" [class.active]="tab === 'profile'" (click)="tab = 'profile'; loadServerProfile()">
+          <mat-icon svgIcon="person"></mat-icon> Server Profile
+        </button>
+        <button class="ss-nav-item" [class.active]="tab === 'roles'" (click)="tab = 'roles'">
+          <mat-icon svgIcon="admin_panel_settings"></mat-icon> Roles
+        </button>
+        <button class="ss-nav-item" [class.active]="tab === 'members'" (click)="tab = 'members'">
+          <mat-icon svgIcon="people"></mat-icon> Members
+        </button>
+        <button class="ss-nav-item" [class.active]="tab === 'channels'" (click)="tab = 'channels'">
+          <mat-icon svgIcon="tag"></mat-icon> Channels
+        </button>
+      </div>
+    </nav>
+
+    <main class="ss-content">
+      @if (loading) {
+        <div class="gg-skeleton-list">
+          @for (_ of [1,2,3]; track _) {
+            <div class="gg-sk-setting">
+              <div class="gg-sk-line gg-sk-w80"></div>
+              <div class="gg-sk-line gg-sk-w40"></div>
+            </div>
+          }
+        </div>
+      } @else {
+
+        <!-- OVERVIEW -->
+        @if (tab === 'overview') {
+          <section class="ss-section">
+            <!-- Discord-style banner + icon card -->
+            <div class="ss-server-card">
+              <!-- Banner area -->
+              <div class="ss-banner-zone" (mouseenter)="bannerHover = true" (mouseleave)="bannerHover = false">
+                @if (bannerPreview || server?.banner_url) {
+                  @if (!bannerLoaded) {
+                    <div class="ss-img-skeleton ss-banner-skeleton"></div>
+                  }
+                  <img class="ss-banner-img" [class.ss-img-hidden]="!bannerLoaded" [src]="bannerPreview || server!.banner_url" alt="" (load)="bannerLoaded = true" />
+                } @else {
+                  <div class="ss-banner-placeholder">
+                    <mat-icon svgIcon="image"></mat-icon>
+                  </div>
+                }
+                @if (isOwner) {
+                  <label class="ss-edit-overlay" [class.visible]="bannerHover" title="Change Banner">
+                    <mat-icon svgIcon="edit"></mat-icon>
+                    <input type="file" accept="image/*" hidden (change)="onBannerSelected($event)" />
+                  </label>
+                  @if (server?.banner_url) {
+                    <button class="ss-remove-overlay" [class.visible]="bannerHover" title="Remove Banner" (click)="removeBanner(); $event.stopPropagation()">
+                      <mat-icon svgIcon="delete"></mat-icon>
+                    </button>
+                  }
+                }
+                <!-- Glitch scanline accent -->
+                <div class="ss-banner-scanlines"></div>
+              </div>
+
+              <!-- Icon overlapping banner -->
+              <div class="ss-icon-anchor">
+                <div class="ss-icon-ring">
+                  @if (avatarPreview || server?.avatar_url) {
+                    @if (!iconLoaded) {
+                      <div class="ss-img-skeleton ss-icon-skeleton"></div>
+                    }
+                    <img class="ss-icon-img" [class.ss-img-hidden]="!iconLoaded" [src]="avatarPreview || server!.avatar_url" alt="" (load)="iconLoaded = true" />
+                  } @else {
+                    <div class="ss-icon-initial">{{ server?.name?.charAt(0) || '?' }}</div>
+                  }
+                  @if (isOwner) {
+                    <label class="ss-icon-edit" (mouseenter)="iconHover = true" (mouseleave)="iconHover = false">
+                      <mat-icon svgIcon="edit"></mat-icon>
+                      <input type="file" accept="image/*" hidden (change)="onAvatarSelected($event)" />
+                    </label>
+                  }
+                  <!-- Orbiting glow ring -->
+                  <div class="ss-icon-glow"></div>
+                </div>
+              </div>
+
+              <!-- Server info below icon -->
+              <div class="ss-card-body">
+                @if (editingServer) {
+                  <div class="ss-name-edit-row">
+                    <input class="ss-input" [(ngModel)]="editServerName" placeholder="Server name" (keyup.enter)="saveServerName()" />
+                    <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="saveServerName()">Save</button>
+                    <button class="ss-btn ss-btn-sm" (click)="editingServer = false; editServerName = server?.name || ''">Cancel</button>
+                  </div>
+                } @else {
+                  <div class="ss-name-row">
+                    <span class="ss-server-name">{{ server?.name || 'Server' }}</span>
+                    @if (isOwner) {
+                      <button class="ss-name-edit-btn" (click)="editingServer = true" title="Edit Name">
+                        <mat-icon svgIcon="edit"></mat-icon>
+                      </button>
+                    }
+                  </div>
+                }
+
+                <div class="ss-card-stats">
+                  <div class="ss-card-stat">
+                    <span class="ss-card-stat-num">{{ members.length }}</span>
+                    <span class="ss-card-stat-label">Members</span>
+                  </div>
+                  <div class="ss-card-divider"></div>
+                  <div class="ss-card-stat">
+                    <span class="ss-card-stat-num">{{ channels.length }}</span>
+                    <span class="ss-card-stat-label">Channels</span>
+                  </div>
+                  <div class="ss-card-divider"></div>
+                  <div class="ss-card-stat">
+                    <span class="ss-card-stat-num">{{ roles.length }}</span>
+                    <span class="ss-card-stat-label">Roles</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          @if (isOwner) {
+            <section class="ss-section ss-danger-zone">
+              <h2 class="ss-section-title ss-danger-title">Danger Zone</h2>
+              <div class="ss-danger-card">
+                <div class="ss-danger-info">
+                  <span class="ss-danger-label">Delete this server</span>
+                  <span class="ss-danger-desc">Once you delete a server, there is no going back. All channels, messages, and data will be permanently removed.</span>
+                </div>
+                <button class="ss-btn ss-btn-danger" (click)="confirmDeleteServer()">
+                  <mat-icon svgIcon="delete"></mat-icon>
+                  Delete Server
+                </button>
+              </div>
+            </section>
+          }
+        }
+
+        <!-- PROFILE -->
+        @if (tab === 'profile') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Server Profile</h2>
+            <p class="ss-muted">Customize how you appear in this server. These settings only apply here.</p>
+
+            <!-- Banner -->
+            <div class="ss-label">Banner</div>
+            <div class="ss-profile-banner-preview"
+              [style.backgroundImage]="serverProfile?.banner_url ? 'url(' + serverProfile.banner_url + ')' : 'none'"
+              [style.backgroundColor]="serverProfile?.banner_url ? 'transparent' : 'var(--bg-panel)'">
+              @if (!serverProfile?.banner_url) {
+                <mat-icon svgIcon="image"></mat-icon>
+              }
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:24px;">
+              <label class="ss-btn ss-btn-sm">
+                <mat-icon svgIcon="upload"></mat-icon> Upload Banner
+                <input type="file" accept="image/*" hidden (change)="onServerProfileBannerSelect($event)" />
+              </label>
+              @if (serverProfile?.banner_url) {
+                <button class="ss-btn ss-btn-sm ss-btn-danger" (click)="removeServerProfileBanner()">
+                  <mat-icon svgIcon="delete"></mat-icon> Remove
+                </button>
+              }
+            </div>
+
+            <!-- Avatar -->
+            <div class="ss-label">Avatar</div>
+            <div class="ss-profile-avatar-preview">
+              @if (serverProfile?.avatar_url) {
+                <img [src]="serverProfile.avatar_url" alt="Server avatar" />
+              } @else {
+                <mat-icon svgIcon="person"></mat-icon>
+              }
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <label class="ss-btn ss-btn-sm">
+                <mat-icon svgIcon="upload"></mat-icon> Upload Avatar
+                <input type="file" accept="image/*" hidden (change)="onServerProfileAvatarSelect($event)" />
+              </label>
+              @if (serverProfile?.avatar_url) {
+                <button class="ss-btn ss-btn-sm ss-btn-danger" (click)="removeServerProfileAvatar()">
+                  <mat-icon svgIcon="delete"></mat-icon> Remove
+                </button>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- ROLES -->
+        @if (tab === 'roles') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Server Roles</h2>
+            <p class="ss-muted">Create roles to organize your members and control permissions.</p>
+
+            <div class="ss-role-create">
+              <input class="ss-input ss-input-sm" [(ngModel)]="newRoleName" placeholder="New role name..." (keyup.enter)="createRole()" />
+              <input type="color" class="ss-color-picker" [(ngModel)]="newRoleColor" />
+              <button class="ss-btn ss-btn-primary" (click)="createRole()" [disabled]="!newRoleName.trim()">Create</button>
+            </div>
+
+            <div class="ss-member-search" style="margin-top: 8px;">
+              <mat-icon svgIcon="search" class="ss-member-search-icon"></mat-icon>
+              <input type="text" class="ss-member-search-input" [(ngModel)]="roleSearch" placeholder="Search roles..." />
+            </div>
+
+            <div class="ss-role-list">
+              @for (role of filteredRoles(roleSearch); track role.name) {
+                <div class="ss-role-card">
+                  @if (editingRole === role) {
+                    <div class="ss-role-edit">
+                      <div class="ss-role-edit-head">
+                        <input class="ss-input ss-input-sm" [(ngModel)]="editRoleName" placeholder="Role name" />
+                        <input type="color" class="ss-color-picker" [(ngModel)]="editRoleColor" />
+                        <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="saveEditRole()">Save</button>
+                        <button class="ss-btn ss-btn-sm" (click)="cancelEditRole()">Cancel</button>
+                      </div>
+                      <div class="ss-member-search" style="margin: 8px 0;">
+                        <mat-icon svgIcon="search" class="ss-member-search-icon"></mat-icon>
+                        <input type="text" class="ss-member-search-input" [(ngModel)]="permissionSearch" placeholder="Search permissions..." />
+                      </div>
+                      <div class="ss-permissions-grid">
+                        @for (perm of filteredPermissions(permissionSearch); track perm.id) {
+                          <label class="ss-perm-toggle" [class.active]="hasPermission(perm.id, editRolePermissions)">
+                            <input type="checkbox" [checked]="hasPermission(perm.id, editRolePermissions)" (change)="togglePermission(perm.id, editRolePermissions)" />
+                            <span class="ss-perm-label">{{ perm.label }}</span>
+                            <span class="ss-perm-desc">{{ perm.desc }}</span>
+                          </label>
+                        }
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="ss-role-row">
+                      <span class="ss-role-dot" [style.background]="role.color || 'var(--color-primary)'"></span>
+                      <span class="ss-role-name">{{ role.name }}</span>
+                      <span class="ss-role-perm-count">{{ (role.permissions ?? []).length }} permissions</span>
+                      <div class="ss-role-actions">
+                        <button class="ss-btn ss-btn-sm" (click)="startEditRole(role)" title="Edit">
+                          <mat-icon svgIcon="edit"></mat-icon>
+                        </button>
+                        @if (role.name !== 'owner') {
+                          <button class="ss-btn ss-btn-danger ss-btn-sm" (click)="deleteRole(role.name)" title="Delete">
+                            <mat-icon svgIcon="delete"></mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                    @if (editingRole !== role) {
+                      <div class="ss-role-perms-preview">
+                        @for (perm of role.permissions ?? []; track perm) {
+                          <span class="ss-perm-tag">{{ perm }}</span>
+                        }
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- MEMBERS -->
+        @if (tab === 'members') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Members — {{ filteredMembers().length }}</h2>
+            <div class="ss-member-search">
+              <mat-icon svgIcon="search" class="ss-member-search-icon"></mat-icon>
+              <input type="text" class="ss-member-search-input" [(ngModel)]="memberSearch" (ngModelChange)="onSearchChange()" placeholder="Search members..." />
+            </div>
+            <div class="ss-member-list">
+              @for (member of filteredMembers(); track member.user_id) {
+                <div class="ss-member-card" (mouseenter)="onMemberHover($event, member)" (mouseleave)="onMemberLeave()">
+                  <div class="ss-member-left">
+                    <div class="ss-member-avatar">
+                      @if (member.avatar_url) {
+                        <img loading="lazy" decoding="async" [src]="member.avatar_url" alt="" />
+                      } @else {
+                        <span>{{ getUsername(member.user_id)[0] }}</span>
+                      }
+                    </div>
+                    <div class="ss-member-info">
+                      <span class="ss-member-name">{{ getUsername(member.user_id) }}</span>
+                      <div class="ss-member-roles">
+                        @for (r of $any(member).roles ?? []; track r) {
+                          <span class="ss-role-tag" [style.--tag-color]="getRoleColor(r)">{{ r }}</span>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  @if (isOwner && !$any(member).roles?.includes('owner')) {
+                    <div class="ss-member-actions">
+                      <button class="ss-btn-icon" (click)="toggleRoleDropdown($event, member.user_id)" [class.active]="roleDropdownOpen === member.user_id" title="Edit roles">
+                        <mat-icon svgIcon="edit"></mat-icon>
+                      </button>
+                      <button class="ss-btn ss-btn-danger ss-btn-sm" (click)="kickMember(member)">Kick</button>
+                    </div>
+                  }
+                </div>
+                @if (roleDropdownOpen === member.user_id) {
+                  <div class="ss-member-role-editor" (click)="$event.stopPropagation()">
+                    <div class="ss-member-role-editor-head">
+                      <span class="ss-member-role-editor-title">Edit Roles — {{ getUsername(member.user_id) }}</span>
+                      <button class="ss-btn-icon" (click)="closeRoleEditor()" title="Close">
+                        <mat-icon svgIcon="close"></mat-icon>
+                      </button>
+                    </div>
+                    <div class="ss-member-role-search">
+                      <mat-icon svgIcon="search" class="ss-member-search-icon"></mat-icon>
+                      <input type="text" class="ss-member-search-input" [(ngModel)]="memberRoleSearch" placeholder="Search roles..." />
+                    </div>
+                    <div class="ss-permissions-grid" [class.disabled]="isRoleSaving(member.user_id)">
+                      @for (role of filteredRoles(memberRoleSearch); track role.name) {
+                        @if (role.name !== 'owner') {
+                          <label class="ss-perm-toggle" [class.active]="hasRole(member, role.name)" [class.disabled]="isRoleSaving(member.user_id)">
+                            <input type="checkbox" [checked]="hasRole(member, role.name)" (change)="assignRole(member, role.name)" [disabled]="isRoleSaving(member.user_id)" />
+                            <span class="ss-perm-label" [style.color]="role.color || 'var(--color-primary)'">{{ role.name }}</span>
+                            <span class="ss-perm-desc">{{ (role.permissions ?? []).length }} permissions</span>
+                          </label>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+              }
+              @if (filteredMembers().length === 0) {
+                <div class="ss-member-empty">No members found</div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- CHANNELS -->
+        @if (tab === 'channels') {
+          <section class="ss-section">
+            <h2 class="ss-section-title">Channels — {{ channels.length }}</h2>
+
+            <!-- Search -->
+            <div class="ss-ch-search-row">
+              <input class="ss-input ss-ch-search" type="text" placeholder="Search channels..." [(ngModel)]="channelSearch" />
+            </div>
+
+            <!-- Add category -->
+            <div class="ss-ch-add-cat-row">
+              <input class="ss-input" type="text" placeholder="New category name..." [(ngModel)]="newCategoryName"
+                (keydown.enter)="addCategory()" />
+              <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="addCategory()" [disabled]="!newCategoryName.trim()">
+                <mat-icon svgIcon="add"></mat-icon> Add Category
+              </button>
+            </div>
+
+            <!-- Uncategorized channels -->
+            <div class="ss-ch-section"
+              cdkDropList
+              [cdkDropListData]="uncategorizedChannels"
+              [cdkDropListConnectedTo]="dropListIds"
+              (cdkDropListDropped)="onChannelDrop($event, '')"
+              [id]="'uncategorized'">
+              <div class="ss-ch-section-header">
+                <span class="ss-ch-section-title">Uncategorized</span>
+                <span class="ss-ch-section-count">{{ uncategorizedChannels.length }}</span>
+              </div>
+              @for (ch of uncategorizedChannels; track ch.id) {
+                <div class="ss-channel-card" cdkDrag>
+                  <mat-icon class="ss-ch-drag-handle" svgIcon="drag_indicator"></mat-icon>
+                  <mat-icon class="ss-ch-icon" [svgIcon]="ch.type === 'voice' ? 'volume_up' : 'tag'"></mat-icon>
+                  <span class="ss-ch-name">{{ ch.name }}</span>
+                  <span class="ss-ch-type-badge">{{ ch.type }}</span>
+                  @if (($any(ch).allowed_roles ?? []).length > 0) {
+                    <span class="ss-ch-roles-badge">{{ $any(ch).allowed_roles.length }} role(s)</span>
+                  }
+                  <button class="ss-btn-icon" (click)="startEditChannelRoles(ch)" title="Edit">
+                    <mat-icon svgIcon="edit"></mat-icon>
+                  </button>
+                </div>
+              }
+              @if (uncategorizedChannels.length === 0) {
+                <div class="ss-ch-empty">No uncategorized channels</div>
+              }
+            </div>
+
+            <!-- Categories (reorderable) -->
+            <div class="ss-ch-categories-wrap"
+              cdkDropList
+              [cdkDropListData]="categories"
+              (cdkDropListDropped)="onCategoryDrop($event)"
+              id="categories-list">
+              @for (cat of categories; track cat.id) {
+                <div class="ss-ch-section ss-ch-category-section" cdkDrag [cdkDragData]="cat">
+                  <div class="ss-ch-section-header">
+                    <mat-icon class="ss-ch-drag-handle" cdkDragHandle svgIcon="drag_indicator"></mat-icon>
+                    @if (editingCategoryId === cat.id) {
+                      <input class="ss-input ss-ch-cat-name-input" type="text" [(ngModel)]="editCategoryName"
+                        (keydown.enter)="saveCategoryEdit(cat)" (keydown.escape)="cancelCategoryEdit()"
+                        (blur)="saveCategoryEdit(cat)" autofocus />
+                    } @else {
+                      <span class="ss-ch-section-title ss-ch-cat-name" (dblclick)="startEditCategory(cat)">
+                        {{ cat.name }}
+                      </span>
+                    }
+                    <span class="ss-ch-section-count">{{ getCategoryChannels(cat.name).length }}</span>
+                    <div class="ss-ch-section-actions">
+                      @if (editingCategoryRoles?.catId === cat.id) {
+                        <span class="ss-ch-active-label">Editing roles</span>
+                      }
+                      <button class="ss-btn-icon" (click)="startEditCategoryRoles(cat)" title="Roles">
+                        <mat-icon svgIcon="admin_panel_settings"></mat-icon>
+                      </button>
+                      <button class="ss-btn-icon ss-btn-danger-icon" (click)="deleteCategory(cat)" title="Delete category">
+                        <mat-icon svgIcon="delete"></mat-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Category roles editor -->
+                  @if (editingCategoryRoles?.catId === cat.id) {
+                    <div class="ss-ch-cat-roles-editor">
+                      <span class="ss-muted-sm">Visible to roles:</span>
+                      <div class="ss-ch-role-toggles">
+                        @for (role of filteredCategoryRoles(); track role.name) {
+                          <label class="ss-ch-role-tag" [class.active]="hasCategoryRole(role.name)"
+                            [style.--tag-color]="role.color || 'var(--color-primary)'">
+                            <input type="checkbox" [checked]="hasCategoryRole(role.name)"
+                              (change)="toggleCategoryRole(role.name)" />
+                            {{ role.name }}
+                          </label>
+                        }
+                      </div>
+                      <div class="ss-ch-role-actions">
+                        <button class="ss-btn ss-btn-sm" (click)="cancelCategoryRoles()">Cancel</button>
+                        <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="saveCategoryRoles(cat)">Save</button>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Channels in category (draggable between categories) -->
+                  <div class="ss-ch-inner-drop"
+                    cdkDropList
+                    [cdkDropListData]="getCategoryChannels(cat.name)"
+                    [cdkDropListConnectedTo]="dropListIds"
+                    (cdkDropListDropped)="onChannelDrop($event, cat.name)"
+                    [id]="'cat-' + cat.id">
+                    @for (ch of getCategoryChannels(cat.name); track ch.id) {
+                      <div class="ss-channel-card" cdkDrag>
+                        <mat-icon class="ss-ch-drag-handle" svgIcon="drag_indicator"></mat-icon>
+                        <mat-icon class="ss-ch-icon" [svgIcon]="ch.type === 'voice' ? 'volume_up' : 'tag'"></mat-icon>
+                        <span class="ss-ch-name">{{ ch.name }}</span>
+                        <span class="ss-ch-type-badge">{{ ch.type }}</span>
+                        @if (($any(ch).allowed_roles ?? []).length > 0) {
+                          <span class="ss-ch-roles-badge">{{ $any(ch).allowed_roles.length }} role(s)</span>
+                        }
+                        <button class="ss-btn-icon" (click)="startEditChannelRoles(ch)" title="Edit">
+                          <mat-icon svgIcon="edit"></mat-icon>
+                        </button>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Category drag preview -->
+                  <div *cdkDragPlaceholder class="ss-ch-cat-placeholder"></div>
+                </div>
+              }
+            </div>
+
+            <!-- Channel roles editor (inline) -->
+            @if (editingChannelRoles) {
+              <div class="ss-ch-inline-editor">
+                <div class="ss-ch-inline-editor-header">
+                  <mat-icon [svgIcon]="$any(editingChannelRoles).ch.type === 'voice' ? 'volume_up' : 'tag'"></mat-icon>
+                  <span>{{ $any(editingChannelRoles).ch.name }}</span>
+                  <button class="ss-btn-icon ss-btn-danger-icon" (click)="cancelEditChannelRoles()">
+                    <mat-icon svgIcon="close"></mat-icon>
+                  </button>
+                </div>
+                <span class="ss-muted-sm">Allowed roles:</span>
+                <div class="ss-ch-role-toggles">
+                  @for (role of roles; track role.name) {
+                    @if (role.name !== 'owner') {
+                      <label class="ss-ch-role-tag" [class.active]="$any(editingChannelRoles).roles.includes(role.name)"
+                        [style.--tag-color]="role.color || 'var(--color-primary)'">
+                        <input type="checkbox"
+                          [checked]="$any(editingChannelRoles).roles.includes(role.name)"
+                          (change)="toggleChannelRole(role.name)" />
+                        {{ role.name }}
+                      </label>
+                    }
+                  }
+                </div>
+                <div class="ss-ch-role-actions">
+                  <button class="ss-btn ss-btn-sm" (click)="cancelEditChannelRoles()">Cancel</button>
+                  <button class="ss-btn ss-btn-primary ss-btn-sm" (click)="saveChannelRoles()">Save</button>
+                </div>
+              </div>
+            }
+          </section>
+        }
+
+      }
+    </main>
+  </div>
+
+  @if (confirmData) {
+    <app-cyber-confirm
+      [message]="confirmData.message"
+      [confirmLabel]="confirmData.confirmLabel"
+      [cancelLabel]="confirmData.cancelLabel"
+      [showCancel]="confirmData.showCancel"
+      (confirm)="executeConfirm()"
+      (cancel)="dismissConfirm()"
+    ></app-cyber-confirm>
+  }
+  <app-member-hover-card
+    #hoverCard
+    [avatarUrl]="hoverCardAvatar"
+    [bannerUrl]="hoverCardBanner"
+    [isSelf]="false"
+  ></app-member-hover-card>
+</div>
+

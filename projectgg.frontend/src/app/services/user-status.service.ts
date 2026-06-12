@@ -19,6 +19,7 @@ export class UserStatusService {
   private socketListenersAttached = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private visibilityHandler: (() => void) | null = null;
+  private statusBeforeHidden: UserStatus | null = null;
 
   private readonly HEARTBEAT_VISIBLE_MS = 15_000;
   private readonly HEARTBEAT_HIDDEN_MS = 30_000;
@@ -85,7 +86,7 @@ export class UserStatusService {
     this.explicitStatus$.next(status);
     this.visibleStatus$.next(this.resolveVisible(status, true));
     try { localStorage.setItem(this.storageKey, status); } catch {}
-    this.chatService.emitStatus(status);
+    this.chatService.emitStatus(status, true);
   }
 
   setConnectionState(connected: boolean): void {
@@ -158,16 +159,27 @@ export class UserStatusService {
     }
   }
 
+  private onHidden(): void {
+    this.restartHeartbeat(this.HEARTBEAT_HIDDEN_MS);
+    // Go invisible when tab is hidden (but stay in voice)
+    this.statusBeforeHidden = this.explicitStatus$.value;
+    this.visibleStatus$.next('invisible');
+    this.chatService.emitStatus('invisible');
+  }
+
   private onVisible(): void {
     const socket = this.chatService.connect();
     if (socket.connected) {
       socket.emit('heartbeat');
     }
     this.restartHeartbeat(this.HEARTBEAT_VISIBLE_MS);
-  }
-
-  private onHidden(): void {
-    this.restartHeartbeat(this.HEARTBEAT_HIDDEN_MS);
+    // Restore status when tab becomes visible again
+    if (this.statusBeforeHidden) {
+      const restored = this.statusBeforeHidden;
+      this.statusBeforeHidden = null;
+      this.visibleStatus$.next(restored);
+      this.chatService.emitStatus(restored, true);
+    }
   }
 
   private startHeartbeat(): void {
