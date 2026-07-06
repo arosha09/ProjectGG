@@ -240,11 +240,11 @@ export class ChatService {
     return this.http.get(`${this.apiUrl}/gg/servers/${serverId}/profile/${userId}`);
   }
 
-  getServerProfiles(serverId: number): Observable<{ user_id: string; avatar_url: string | null; banner_url: string | null; about?: string | null; show_connections?: boolean; show_about?: boolean }[]> {
-    return this.http.get<{ user_id: string; avatar_url: string | null; banner_url: string | null; about?: string | null; show_connections?: boolean; show_about?: boolean }[]>(`${this.apiUrl}/gg/servers/${serverId}/profiles`);
+  getServerProfiles(serverId: number): Observable<{ user_id: string; avatar_url: string | null; banner_url: string | null; about?: string | null; show_connections?: boolean; show_about?: boolean; show_favorites?: boolean; show_rank?: boolean; show_connection_platforms?: Record<string, boolean> }[]> {
+    return this.http.get<{ user_id: string; avatar_url: string | null; banner_url: string | null; about?: string | null; show_connections?: boolean; show_about?: boolean; show_favorites?: boolean; show_rank?: boolean; show_connection_platforms?: Record<string, boolean> }[]>(`${this.apiUrl}/gg/servers/${serverId}/profiles`);
   }
 
-  updateServerProfile(serverId: number, data: { avatar_url?: string; banner_url?: string; about?: string; show_connections?: boolean; show_about?: boolean }): Observable<any> {
+  updateServerProfile(serverId: number, data: { avatar_url?: string; banner_url?: string; about?: string; show_connections?: boolean; show_about?: boolean; show_favorites?: boolean; show_rank?: boolean; show_connection_platforms?: Record<string, boolean> }): Observable<any> {
     return this.http.put(`${this.apiUrl}/gg/servers/${serverId}/profile`, data);
   }
 

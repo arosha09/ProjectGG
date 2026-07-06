@@ -1303,7 +1303,7 @@ export class ChatController {
         },
       );
       if (notif) {
-        this.chatGateway.sendToUser(targetUser.id, 'notification', notif);
+        this.chatGateway.emitNotificationToUser(targetUser.id, notif);
       }
     }
     this.chatGateway.sendToUser(req.user.id, 'friend-request-sent', {
@@ -1340,7 +1340,7 @@ export class ChatController {
         { friendId: req.user.id, friendUsername: accepter?.username },
       );
       if (notif) {
-        this.chatGateway.sendToUser(reqData.user_id, 'notification', notif);
+        this.chatGateway.emitNotificationToUser(reqData.user_id, notif);
       }
     }
     this.chatGateway.sendToUser(req.user.id, 'friend-accepted', {
@@ -1565,6 +1565,7 @@ export class ChatController {
   @Delete('gg/notifications')
   async clearAllNotifications(@Req() req: any) {
     await this.chatService.clearAllNotifications(req.user.id);
+    this.chatGateway.clearAllNotifications(req.user.id);
     return { success: true };
   }
 
@@ -1573,6 +1574,7 @@ export class ChatController {
   @Delete('gg/notifications/:id')
   async deleteNotification(@Req() req: any, @Param('id') id: string) {
     await this.chatService.deleteNotification(req.user.id, Number(id));
+    this.chatGateway.deleteNotification(req.user.id, Number(id));
     return { success: true };
   }
 
@@ -1592,7 +1594,7 @@ export class ChatController {
       .eq('server_id', Number(serverId))
       .eq('user_id', userId)
       .single();
-    return data ?? { avatar_url: null, banner_url: null, about: null, show_connections: true, show_about: true };
+    return data ?? { avatar_url: null, banner_url: null, about: null, show_connections: true, show_about: true, show_favorites: true, show_rank: true, show_connection_platforms: {} };
   }
 
   @Get('gg/servers/:serverId/profiles')
@@ -1600,7 +1602,7 @@ export class ChatController {
     const { data } = await this.supabase
       .schema('projectgg')
       .from('gg_server_profiles')
-      .select('user_id, avatar_url, banner_url, about, show_connections, show_about')
+      .select('user_id, avatar_url, banner_url, about, show_connections, show_about, show_favorites, show_rank, show_connection_platforms')
       .eq('server_id', Number(serverId));
     return data ?? [];
   }
@@ -1612,7 +1614,7 @@ export class ChatController {
   async updateServerProfile(
     @Req() req: any,
     @Param('serverId') serverId: string,
-    @Body() body: { avatar_url?: string; banner_url?: string; about?: string; show_connections?: boolean; show_about?: boolean },
+    @Body() body: { avatar_url?: string; banner_url?: string; about?: string; show_connections?: boolean; show_about?: boolean; show_favorites?: boolean; show_rank?: boolean; show_connection_platforms?: Record<string, boolean> },
   ) {
     const numId = Number(serverId);
     const userId = req.user.id;
@@ -1622,6 +1624,9 @@ export class ChatController {
     if (body.about !== undefined) updates.about = body.about;
     if (body.show_connections !== undefined) updates.show_connections = body.show_connections;
     if (body.show_about !== undefined) updates.show_about = body.show_about;
+    if (body.show_favorites !== undefined) updates.show_favorites = body.show_favorites;
+    if (body.show_rank !== undefined) updates.show_rank = body.show_rank;
+    if (body.show_connection_platforms !== undefined) updates.show_connection_platforms = body.show_connection_platforms;
 
     const { data: existing } = await this.supabase
       .schema('projectgg')

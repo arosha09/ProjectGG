@@ -22,6 +22,7 @@ import { UsersService } from '../../services/users.service';
 import { XpService } from '../../services/xp.service';
 import { MemberListComponent } from './member-list/member-list.component';
 import { MemberHoverCardComponent } from '../../components/member-hover-card/member-hover-card.component';
+import { ServerProfileEditorComponent } from '../../components/server-profile-editor/server-profile-editor.component';
 import { ServerListComponent } from './server-list/server-list.component';
 import { ChannelListComponent } from './channel-list/channel-list.component';
 import { CyberConfirmComponent } from '../../components/cyber-confirm/cyber-confirm.component';
@@ -29,12 +30,15 @@ import { GgCardTradingViewComponent } from '../../components/gg-card-trading-vie
 import { CyberEmojiPickerComponent } from '../../components/cyber-emoji-picker/cyber-emoji-picker.component';
 import { VoiceNudgeService } from '../../services/voice-nudge.service';
 import { SoundService } from '../../services/sound.service';
+import { CallService } from '../../services/call.service';
+import { CyberCallComponent } from '../../components/cyber-call/cyber-call.component';
+import { ScreenShareService, ScreenShareQuality } from '../../services/screen-share.service';
 
 @Component({
   selector: 'app-gg-chat',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, MemberHoverCardComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, RouterModule, CyberDropdownComponent, CyberConfirmComponent, GgChatFriendsComponent, MemberListComponent, MemberHoverCardComponent, ServerProfileEditorComponent, ServerListComponent, ChannelListComponent, GgCardTradingViewComponent, CyberEmojiPickerComponent, CyberCallComponent],
   schemas: [NO_ERRORS_SCHEMA],
   templateUrl: './gg-chat.component.html',
   styleUrls: ['./gg-chat.component.scss'],
@@ -100,6 +104,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
   showScrollToBottom = false;
   chatFooterInfo: string | null = null;
   private chatFooterInfoTimer: any = null;
+  isCallOngoing = false;
+  callExpanded = false;
   typingUsers: Map<string, { username: string; timer: any }> = new Map();
   private myTypingTimer: any = null;
   showCommandAutocomplete = false;
@@ -183,6 +189,18 @@ export class GgChatComponent implements OnInit, OnDestroy {
   selectedOutputId: string = 'default';
   showDevicePicker = false;
 
+  // Screen share state
+  isScreenSharing = false;
+  remoteScreenSharer: { userId: string; quality: ScreenShareQuality; hasAudio: boolean; element: HTMLVideoElement; audioElement: HTMLAudioElement | null } | null = null;
+  screenSharePanelCollapsed = false;
+  showScreenShareQualityMenu = false;
+  screenSharePendingAudio = false;
+  screenShareShareAudio = false;
+  screenShareQuality: ScreenShareQuality = '720p';
+  screenShareError: string | null = null;
+  @ViewChild('screenShareContainer', { static: false }) screenShareContainer?: ElementRef<HTMLDivElement>;
+  @ViewChild('screenShareSelfView', { static: false }) screenShareSelfView?: ElementRef<HTMLDivElement>;
+
   // DM
   dmConversations: DmConversation[] = [];
   dmLoading = true;
@@ -212,6 +230,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
   profileMenuOpen = false;
   dmOptionsOpen = false;
   profileUser: any = null;
+  profileServerId: number | null = null;
+  profileServerProfile: any = null;
+  serverProfileEditorOpen = false;
   profileFavorites: any[] = [];
   profileFavoritesLoading = false;
   rankImgLoaded = false;
@@ -272,9 +293,11 @@ export class GgChatComponent implements OnInit, OnDestroy {
     private readonly userStatus: UserStatusService,
     private readonly usersService: UsersService,
     private readonly xpService: XpService,
-  private readonly nudgeService: VoiceNudgeService,
-  private readonly soundService: SoundService,
-) {
+    private readonly nudgeService: VoiceNudgeService,
+    private readonly soundService: SoundService,
+    private readonly callService: CallService,
+    private readonly screenShare: ScreenShareService,
+  ) {
     // Sync theme color to voice channel when it changes
     effect(() => {
       const _theme = this.theme.currentTheme();
@@ -290,6 +313,25 @@ export class GgChatComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.currentUser = this.auth.getCurrentUser();
     this.soundService.init();
+    this.callService.init();
+    this.callService.activeCall$.subscribe(call => {
+      this.isCallOngoing = !!call;
+      this.cdr.markForCheck();
+      if (call && call.channelId && call.guildId) {
+        this.voiceService.joinChannel(call.guildId, call.channelId);
+      }
+    });
+    this.callService.outgoingCall$.subscribe(call => {
+      if (call) this.isCallOngoing = true;
+      else this.isCallOngoing = !!this.callService.currentActiveCall;
+      this.cdr.markForCheck();
+    });
+    this.callService.navigateToDm$.subscribe(userId => {
+      const conv = this.dmConversations.find(c => c.otherUserId === userId);
+      if (conv) {
+        this.selectDm(conv);
+      }
+    });
     this.noiseSuppressionEnabled = this.voiceService.isNoiseSuppressionEnabled();
     if (!this.auth.isAuthenticated()) {
       this.router.navigate(['/login']);
@@ -577,7 +619,8 @@ export class GgChatComponent implements OnInit, OnDestroy {
           this.servers = [...this.servers, server];
         }
         this.creatingServer = false;
-        this.viewMode = 'server';
+        // Auto-redirect to the new server's general channel
+        this.selectServer(server);
         this.cdr.markForCheck();
         if (this.newServerAvatarFile) {
           this.chatService.uploadServerAvatar(server.id, this.newServerAvatarFile).subscribe({
@@ -880,8 +923,14 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   onInputKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      this.sendMessage();
+      // Do not send when an autocomplete is active — Enter selects the highlighted item
+      if (this.showCommandAutocomplete || this.showMentionAutocomplete) {
+        // Let the autocomplete handlers below process Enter
+      } else {
+        event.preventDefault();
+        this.sendMessage();
+        return;
+      }
     }
     if (event.key === 'Escape') {
       this.cancelReply();
@@ -953,16 +1002,39 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
     // Mention autocomplete
     if (!this.showCommandAutocomplete) {
-      const atMatch = textBefore.match(/@(\w*)$/);
-      if (atMatch) {
-        const query = atMatch[1].toLowerCase();
-        this.filteredMentions = this.members.filter(m =>
-          (m.username ?? '').toLowerCase().includes(query)
-        ).slice(0, 8);
-        this.showMentionAutocomplete = this.filteredMentions.length > 0;
+      const rolePrefixMatch = textBefore.match(/@role\s+(\w*)$/i);
+      if (rolePrefixMatch) {
+        // Typing after "@role " — show matching roles
+        this.populateRoleMentionList(rolePrefixMatch[1]);
         this.mentionIndex = 0;
       } else {
-        this.showMentionAutocomplete = false;
+        const atMatch = textBefore.match(/@(\w*)$/);
+        if (atMatch) {
+          const query = atMatch[1].toLowerCase();
+          const results: any[] = [];
+          // 1) @everyone — always first when query is empty or starts with 'e'
+          if (this.selectedServer && (!query || 'everyone'.startsWith(query) || 'everyone'.includes(query))) {
+            results.push({ __mention: 'everyone', username: 'everyone', display: '@everyone', color: '#ff5555' });
+          }
+          // 2) @role prefix option — when query is empty or starts with 'r'
+          if (this.selectedServer && (!query || 'role'.startsWith(query) || 'role'.includes(query))) {
+            results.push({ __mention: 'role-prefix', username: 'role', display: '@role', color: '#58a6ff' });
+          }
+          // 3) @username — match server members, sorted alphabetically
+          const memberResults: any[] = [];
+          for (const m of this.members) {
+            if (!query || (m.username ?? '').toLowerCase().includes(query)) {
+              memberResults.push(m);
+            }
+          }
+          memberResults.sort((a, b) => (a.username ?? '').toLowerCase().localeCompare((b.username ?? '').toLowerCase()));
+          results.push(...memberResults);
+          this.filteredMentions = results.slice(0, 8);
+          this.showMentionAutocomplete = this.filteredMentions.length > 0;
+          this.mentionIndex = 0;
+        } else {
+          this.showMentionAutocomplete = false;
+        }
       }
     }
 
@@ -992,6 +1064,29 @@ export class GgChatComponent implements OnInit, OnDestroy {
     const cursorPos = textarea?.selectionStart ?? this.messageText.length;
     const textBefore = this.messageText.slice(0, cursorPos);
     const textAfter = this.messageText.slice(cursorPos);
+    // @role prefix: insert "@role " and immediately show the role list
+    if (member.__mention === 'role-prefix') {
+      const atIndex = textBefore.lastIndexOf('@');
+      this.messageText = textBefore.slice(0, atIndex) + '@role ' + textAfter;
+      this.showMentionAutocomplete = false;
+      // Directly populate the role list so it shows immediately
+      this.populateRoleMentionList('');
+      this.mentionIndex = 0;
+      this.cdr.markForCheck();
+      setTimeout(() => textarea?.focus(), 0);
+      return;
+    }
+    // Role picked from the @role sub-search — resolve to direct "@<rolename> " mention
+    if (member.__mention === 'role') {
+      const rolePrefixIdx = textBefore.toLowerCase().lastIndexOf('@role');
+      if (rolePrefixIdx >= 0) {
+        this.messageText = textBefore.slice(0, rolePrefixIdx) + '@' + member.username + ' ' + textAfter;
+        this.showMentionAutocomplete = false;
+        this.cdr.markForCheck();
+        setTimeout(() => textarea?.focus(), 0);
+        return;
+      }
+    }
     const atIndex = textBefore.lastIndexOf('@');
     this.messageText = textBefore.slice(0, atIndex) + '@' + member.username + ' ' + textAfter;
     this.showMentionAutocomplete = false;
@@ -1024,6 +1119,21 @@ export class GgChatComponent implements OnInit, OnDestroy {
       }
       return `<span class="mention">@${tag}</span>`;
     });
+  }
+
+  private populateRoleMentionList(query: string): void {
+    const q = query.toLowerCase();
+    const results: any[] = [];
+    if (this.selectedServer) {
+      for (const r of this.serverRoles) {
+        if (!q || (r.name ?? '').toLowerCase().includes(q)) {
+          results.push({ __mention: 'role', username: r.name, display: '@' + r.name, color: r.color || '#58a6ff' });
+        }
+      }
+      results.sort((a, b) => (a.username || '').toLowerCase().localeCompare((b.username || '').toLowerCase()));
+    }
+    this.filteredMentions = results.slice(0, 8);
+    this.showMentionAutocomplete = this.filteredMentions.length > 0;
   }
 
   private isRoleMention(roleName: string): boolean {
@@ -1376,7 +1486,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
         const active = invites.find((i: any) => !i.revoked);
         this.activeInvite = active ?? null;
         if (active) {
-          this.inviteLinkUrl = `${window.location.origin}/invite/${active.code}`;
+          this.inviteLinkUrl = `${window.location.origin}/invite/${active.code.toUpperCase()}`;
         }
         this.inviteLoading = false;
         this.cdr.markForCheck();
@@ -1394,7 +1504,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.chatService.generateInvite(this.selectedServer.id).subscribe({
       next: (invite) => {
         this.activeInvite = invite;
-        this.inviteLinkUrl = `${window.location.origin}/invite/${invite.code}`;
+        this.inviteLinkUrl = `${window.location.origin}/invite/${invite.code.toUpperCase()}`;
         this.copied = false;
         this.inviteLoading = false;
         this.cdr.markForCheck();
@@ -1437,16 +1547,27 @@ export class GgChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  copyInviteCode(): void {
+    if (!this.activeInvite?.code) return;
+    navigator.clipboard.writeText(this.activeInvite.code).then(() => {
+      this.copied = true;
+      this.cdr.markForCheck();
+      setTimeout(() => { this.copied = false; this.cdr.markForCheck(); }, 2000);
+    });
+  }
+
   joinServerViaInvite(): void {
-    const code = this.joinCode.trim();
+    const code = this.joinCode.trim().toUpperCase();
     if (!code || this.joinLoading) return;
     this.joinLoading = true;
     this.joinError = '';
     this.chatService.joinViaInvite(code).subscribe({
-      next: (res) => {
+      next: (serverId: number) => {
         this.joinLoading = false;
         this.showJoinServer = false;
         this.joinCode = '';
+        // Auto-redirect to the joined server's general channel
+        this.pendingServerId = String(serverId);
         this.loadServers();
         this.cdr.markForCheck();
       },
@@ -1531,10 +1652,33 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   private async joinVoice(channel: GgChannel): Promise<void> {
     this.voiceConnecting = true;
+    this.micPermissionError = null;
+    this.micDeviceDisconnected = false;
     this.voiceMembers = [];
     this.speakingUsers = new Set();
     this.cdr.markForCheck();
     try {
+      // Pre-validate audio devices before attempting to connect
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputDevices = devices.filter(d => d.kind === 'audioinput');
+      const outputDevices = devices.filter(d => d.kind === 'audiooutput');
+
+      if (inputDevices.length === 0) {
+        this.voiceConnecting = false;
+        this.micDeviceDisconnected = true;
+        this.micPermissionError = 'No microphone detected. Please connect an audio input device.';
+        this.cdr.markForCheck();
+        return;
+      }
+
+      if (outputDevices.length === 0) {
+        this.voiceConnecting = false;
+        this.micDeviceDisconnected = true;
+        this.micPermissionError = 'No speaker or audio output device detected. Please connect an output device.';
+        this.cdr.markForCheck();
+        return;
+      }
+
       const currentUserId = this.auth.getCurrentUser()?.id;
       this.voiceMembers = currentUserId ? [{ userId: currentUserId, muted: this.voiceMuted, deafened: this.voiceDeafened }] : [];
 
@@ -1545,15 +1689,27 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.voiceGuildId = String((channel as any).server_id ?? '');
       this.voiceConnected = true;
       await this.voiceService.joinChannel(guildId, String(channel.id));
+      this.wireScreenShare();
       this.voiceConnected = true;
       if (this.voiceMuted) this.voiceService.mute();
       if (this.voiceDeafened) this.voiceService.deafen();
       this.syncLocalVoiceMemberState(this.voiceMuted, this.voiceDeafened);
       this.startDeviceMonitoring();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Voice join failed:', e);
       this.voiceConnected = false;
       this.voiceChannelId = null;
+
+      if (e?.name === 'NotAllowedError') {
+        this.micPermissionError = 'Microphone access was denied. Please allow microphone access in your browser settings and try again.';
+        this.micDeviceDisconnected = false;
+      } else if (e?.name === 'NotFoundError' || e?.name === 'NotReadableError') {
+        this.micPermissionError = 'Could not access your microphone or speaker. Please check your audio devices and try again.';
+        this.micDeviceDisconnected = true;
+      } else if (e?.message && (e.message.includes('microphone') || e.message.includes('audio'))) {
+        this.micPermissionError = e.message;
+        this.micDeviceDisconnected = false;
+      }
     }
     this.voiceConnecting = false;
     this.cdr.markForCheck();
@@ -1779,6 +1935,9 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.voiceService.onUserSoundboardStart = null;
     this.voiceService.onUserSoundboardStop = null;
     this.soundboardUsers = new Set();
+    this.screenShare.detachRoom();
+    this.isScreenSharing = false;
+    this.remoteScreenSharer = null;
   }
 
   private showMutedWarningForDuration(): void {
@@ -1788,6 +1947,150 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.showMutedWarning = false;
       this.cdr.markForCheck();
     }, 2500);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  Screen Share
+  // ════════════════════════════════════════════════════════════════════════
+
+  private wireScreenShare(): void {
+    const room = this.voiceService.livekitRoom;
+    const socket = this.voiceService.voiceSocket;
+    if (!room || !socket) return;
+
+    const userId = this.auth.getCurrentUser()?.id ?? '';
+    this.screenShare.attachRoom(room, socket, userId, this.screenShareContainer?.nativeElement ?? document.body);
+
+    this.screenShare.remoteShares$.subscribe((share) => {
+      this.remoteScreenSharer = {
+        userId: share.userId,
+        quality: share.quality,
+        hasAudio: share.hasAudio,
+        element: share.element,
+        audioElement: share.audioElement,
+      };
+      this.cdr.markForCheck();
+      setTimeout(() => this.mountRemoteScreenShare(), 0);
+    });
+
+    this.screenShare.remoteShareEnded$.subscribe((userId) => {
+      if (this.remoteScreenSharer?.userId === userId) {
+        this.remoteScreenSharer = null;
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.screenShare.error$.subscribe((msg) => {
+      this.screenShareError = msg;
+      this.cdr.markForCheck();
+      setTimeout(() => {
+        this.screenShareError = null;
+        this.cdr.markForCheck();
+      }, 4000);
+    });
+
+    if (this.socket) {
+      this.socket.on('user-screen-share-start', (data: { userId: string; quality: ScreenShareQuality; hasAudio: boolean }) => {
+        if (data.userId === this.auth.getCurrentUser()?.id) return;
+      });
+      this.socket.on('user-screen-share-stop', (data: { userId: string }) => {
+        if (this.remoteScreenSharer?.userId === data.userId) {
+          this.remoteScreenSharer = null;
+          this.cdr.markForCheck();
+        }
+      });
+    }
+  }
+
+  private mountRemoteScreenShare(): void {
+    if (!this.remoteScreenSharer || !this.screenShareContainer) return;
+    const host = this.screenShareContainer.nativeElement;
+    host.innerHTML = '';
+    host.appendChild(this.remoteScreenSharer.element);
+    if (this.remoteScreenSharer.audioElement) {
+      this.remoteScreenSharer.audioElement.style.display = 'none';
+      document.body.appendChild(this.remoteScreenSharer.audioElement);
+    }
+  }
+
+  openScreenShareConfirm(): void {
+    this.screenSharePendingAudio = this.screenShareShareAudio;
+    this.showScreenShareQualityMenu = false;
+    const msg = this.screenShareShareAudio
+      ? `Start streaming at ${this.screenShareQuality}? Others in the channel will see your stream and hear the shared audio.`
+      : `Start streaming at ${this.screenShareQuality}? Others in the channel will see your stream. You can stop at any time.`;
+    this.showCyberConfirm(msg, () => this.confirmStartScreenShare(), 'START', 'Cancel');
+  }
+
+  cancelScreenShare(): void {
+    this.cdr.markForCheck();
+  }
+
+  toggleScreenShareQualityMenu(): void {
+    this.showScreenShareQualityMenu = !this.showScreenShareQualityMenu;
+    this.cdr.markForCheck();
+  }
+
+  setScreenShareQuality(quality: ScreenShareQuality): void {
+    this.screenShareQuality = quality;
+    this.screenShare.setQuality(quality);
+    this.cdr.markForCheck();
+  }
+
+  async confirmStartScreenShare(): Promise<void> {
+    const shareAudio = this.screenSharePendingAudio;
+    const color = this.theme.customColor() ?? '#00ff88';
+    this.screenShare.rememberThemeColor(this.voiceService.getUserThemeColor(this.auth.getCurrentUser()?.id ?? '') || color);
+    try {
+      await this.screenShare.start({
+        quality: this.screenShareQuality,
+        shareAudio,
+      });
+      this.isScreenSharing = this.screenShare.isActivelySharing();
+      if (this.isScreenSharing) {
+        this.mountSelfScreenShareView();
+      }
+      this.cdr.markForCheck();
+    } catch (e: any) {
+      this.screenShareError = e?.message ?? 'Failed to start screen share';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async stopScreenShare(): Promise<void> {
+    this.unmountSelfScreenShareView();
+    await this.screenShare.stop();
+    this.isScreenSharing = false;
+    this.cdr.markForCheck();
+  }
+
+  private mountSelfScreenShareView(): void {
+    const container = this.screenShareSelfView?.nativeElement;
+    if (!container) return;
+    const stream = this.screenShare.getCurrentStream();
+    if (!stream) return;
+    container.innerHTML = '';
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true;
+    video.style.width = '100%';
+    video.style.height = '100%';
+    video.style.objectFit = 'contain';
+    video.style.borderRadius = '4px';
+    video.style.background = '#000';
+    container.appendChild(video);
+  }
+
+  private unmountSelfScreenShareView(): void {
+    const container = this.screenShareSelfView?.nativeElement;
+    if (container) container.innerHTML = '';
+  }
+
+  toggleScreenSharePanel(): void {
+    this.screenSharePanelCollapsed = !this.screenSharePanelCollapsed;
+    this.cdr.markForCheck();
   }
 
   private triggerMutedFeedback(): void {
@@ -2168,6 +2471,21 @@ export class GgChatComponent implements OnInit, OnDestroy {
       this.nudgeService.handleIncomingNudge(data.fromUserId, data.fromUsername);
     });
 
+    this.socket.on('voice-invite-received', (data: { fromUserId: string; fromUsername: string; fromAvatar: string | null; guildId: string; channelId: string }) => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const notif = new Notification(`${data.fromUsername} invited you to voice`, {
+        body: 'Click to join',
+        icon: data.fromAvatar ?? undefined,
+        tag: `voice-invite-${data.fromUserId}`,
+        requireInteraction: true,
+      });
+      notif.onclick = () => {
+        window.focus();
+        notif.close();
+        this.voiceService.joinChannel(data.guildId, data.channelId);
+      };
+    });
+
     this.socket.on('user-status', (payload: any) => {
       const userId = String(payload?.userId ?? payload?.user_id ?? '');
       const isSelf = userId && this.currentUser?.id && String(userId) === String(this.currentUser.id);
@@ -2193,23 +2511,60 @@ export class GgChatComponent implements OnInit, OnDestroy {
     });
 
     this.socket.on('message', (msg: ChatMessage) => {
-      if (this.viewMode === 'server' && this.selectedChannel && msg.channel_id === String(this.selectedChannel.id)) {
+      const isInView = this.viewMode === 'server' && this.selectedChannel && msg.channel_id === String(this.selectedChannel.id);
+      if (isInView) {
         if (!this.messages.some(m => m.id === msg.id)) {
           this.messages = [...this.messages, msg];
         }
         this.cdr.markForCheck();
         this.scrollToBottom(true);
+      } else if (String(msg.user_id) !== String(this.currentUser?.id)) {
+        this.soundService.play('notification_msg');
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const title = msg.guild_name ? `#${msg.channel_name} — ${msg.guild_name}` : `#${msg.channel_name}`;
+          const notif = new Notification(title, {
+            body: `${msg.username}: ${msg.content}`,
+            icon: msg.avatar_url ?? undefined,
+            tag: `msg-${msg.channel_id}`,
+          });
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+            const ch = this.channels.find(c => String(c.id) === msg.channel_id);
+            if (ch) {
+              const srv = this.servers.find(s => s.id === ch.server_id);
+              if (srv) this.selectServer(srv);
+              setTimeout(() => this.selectChannel(ch), 100);
+            }
+          };
+        }
       }
     });
 
     this.socket.on('dm-message', (msg: ChatMessage) => {
       const convId = msg.channel_id?.startsWith('dm_') ? Number(msg.channel_id.replace('dm_', '')) : null;
-      if (this.viewMode === 'dm' && this.selectedDm && convId === this.selectedDm.id) {
+      const isInView = this.viewMode === 'dm' && this.selectedDm && convId === this.selectedDm.id;
+      if (isInView) {
         if (!this.dmMessages.some(m => m.id === msg.id)) {
           this.dmMessages = [...this.dmMessages, msg];
         }
         this.cdr.markForCheck();
         this.scrollToBottom(true);
+      } else if (String(msg.user_id) !== String(this.currentUser?.id)) {
+        this.soundService.play('notification_msg');
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const notif = new Notification(`${msg.username}`, {
+            body: msg.content,
+            icon: msg.avatar_url ?? undefined,
+            tag: `dm-${convId}`,
+          });
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+            const conv = this.dmConversations.find(c => c.id === convId);
+            if (conv) this.selectDm(conv);
+          };
+        }
       }
       const conv = this.dmConversations.find(c => c.id === convId);
       if (conv) {
@@ -2280,6 +2635,20 @@ export class GgChatComponent implements OnInit, OnDestroy {
       } else {
         this.loadNotifications();
       }
+    });
+
+    this.socket.on('notification-deleted', (data: { id: number }) => {
+      if (data?.id) {
+        this.notifications = this.notifications.filter(n => n.id !== data.id);
+        this.unreadCount = this.notifications.filter(x => !x.read).length;
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.socket.on('notifications-cleared', () => {
+      this.notifications = [];
+      this.unreadCount = 0;
+      this.cdr.markForCheck();
     });
 
     this.socket.on('server-created', (server: any) => {
@@ -2654,7 +3023,17 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   toggleDmVoice(): void {
-    // DM voice call placeholder — wire to VoiceService as needed
+    if (!this.selectedDm) return;
+    const peerId = this.selectedDm.otherUserId;
+    const peerName = this.selectedDm.otherUsername;
+    const outgoing = this.callService.currentOutgoingCall;
+    const active = this.callService.currentActiveCall;
+    const targetId = outgoing?.callId || active?.callId;
+    if (targetId) {
+      this.callService.end(targetId);
+    } else {
+      this.callService.initiate(peerId, peerName);
+    }
   }
 
   showUserProfile(conv: DmConversation | null): void {
@@ -2858,6 +3237,11 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onVoiceContextCall(vm: any): void {
+    this.callService.initiate(vm.userId, vm.username ?? '');
+    this.closeVoiceContextMenu();
+  }
+
   onMemberContextMenu(event: { event: MouseEvent; member: any }): void {
     if (this.viewMode !== 'server') return;
     const menuWidth = 220;
@@ -2890,6 +3274,20 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onMemberCtxCall(): void {
+    if (!this.memberPanelContextMenu) return;
+    const m = this.memberPanelContextMenu.member;
+    this.callService.initiate(String(m.user_id), m.username ?? '');
+    this.closeMemberPanelContextMenu();
+  }
+
+  onMemberCtxInviteToVoice(): void {
+    if (!this.memberPanelContextMenu) return;
+    const m = this.memberPanelContextMenu.member;
+    this.voiceService.sendVoiceInvite(String(m.user_id));
+    this.closeMemberPanelContextMenu();
+  }
+
   onMemberCtxMute(): void {
     if (!this.memberPanelContextMenu) return;
     const userId = this.memberPanelContextMenu.member.user_id;
@@ -2907,21 +3305,49 @@ export class GgChatComponent implements OnInit, OnDestroy {
     const userId = this.memberPanelContextMenu.member.user_id;
     const wasDeafened = this.voiceService.isLocalDeafened(userId);
     this.voiceService.setLocalDeafen(userId, !wasDeafened);
-    if (!wasDeafened) {
-      this.voiceService.setLocalMute(userId, false);
-    }
     this.closeMemberPanelContextMenu();
     this.cdr.markForCheck();
   }
 
   onVoiceContextMute(vm: any): void {
     const userId = vm.userId;
+    if (userId !== this.currentUser?.id && !this.canControlVoice()) {
+      this.closeVoiceContextMenu();
+      return;
+    }
     const wasMuted = this.voiceService.isLocalMuted(userId);
     this.voiceService.setLocalMute(userId, !wasMuted);
     if (!wasMuted) {
       this.voiceService.setLocalDeafen(userId, false);
     }
     this.closeVoiceContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  onVoiceContextDeafen(vm: any): void {
+    const userId = vm.userId;
+    if (userId !== this.currentUser?.id && !this.canControlVoice()) {
+      this.closeVoiceContextMenu();
+      return;
+    }
+    const wasDeafened = this.voiceService.isLocalDeafened(userId);
+    this.voiceService.setLocalDeafen(userId, !wasDeafened);
+    this.closeVoiceContextMenu();
+    this.cdr.markForCheck();
+  }
+
+  isSoundboardMutedFor(userId: string): boolean {
+    return this.voiceService.isSoundboardMutedFor(userId);
+  }
+
+  onToggleSoundboardMute(userId: string): void {
+    const isMuted = this.voiceService.isSoundboardMutedFor(userId);
+    this.voiceService.setSoundboardMuted(userId, !isMuted);
+    if (isMuted) {
+      this.voiceService.applySoundboardMuteForUser(userId);
+    } else {
+      this.voiceService.unapplySoundboardMuteForUser(userId);
+    }
     this.cdr.markForCheck();
   }
 
@@ -3029,6 +3455,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   hoverCardStatus = 'offline';
   hoverCardIsFriend = false;
   hoverCardIsSelf = false;
+  hoverCardLoading = false;
 
   onMsgAvatarHover(event: MouseEvent, msg: ChatMessage): void {
     this.hoverCardIsSelf = msg.user_id != null && String(msg.user_id) === String(this.currentUser?.id);
@@ -3036,18 +3463,43 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.hoverCardStatus = this.memberStatus(String(msg.user_id ?? ''));
     this.hoverCardAvatar = this.avatarForUsername(msg.username) || msg.avatar_url || null;
     this.hoverCardBanner = null;
+    this.hoverCardLoading = true;
     this.hoverCard?.show(event, msg);
     if (this.selectedServer && msg.user_id) {
-      this.chatService.getServerProfile(this.selectedServer.id, String(msg.user_id)).subscribe({
+      const uid = String(msg.user_id);
+      this.chatService.getServerProfile(this.selectedServer.id, uid).subscribe({
         next: (p) => {
           if (p) {
             this.hoverCardAvatar = p.avatar_url || this.hoverCardAvatar;
             this.hoverCardBanner = p.banner_url || null;
           }
-          this.cdr.markForCheck();
+          if (!this.hoverCardBanner) {
+            this.chatService.getUserById(uid).subscribe({
+              next: (u) => {
+                this.hoverCardBanner = u?.banner_url || null;
+                this.hoverCardLoading = false;
+                this.cdr.markForCheck();
+              },
+              error: () => { this.hoverCardLoading = false; this.cdr.markForCheck(); },
+            });
+          } else {
+            this.hoverCardLoading = false;
+            this.cdr.markForCheck();
+          }
         },
-        error: () => {},
+        error: () => {
+          this.chatService.getUserById(uid).subscribe({
+            next: (u) => {
+              this.hoverCardBanner = u?.banner_url || null;
+              this.hoverCardLoading = false;
+              this.cdr.markForCheck();
+            },
+            error: () => { this.hoverCardLoading = false; this.cdr.markForCheck(); },
+          });
+        },
       });
+    } else {
+      this.hoverCardLoading = false;
     }
     this.cdr.markForCheck();
   }
@@ -3063,18 +3515,43 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.hoverCardStatus = this.memberStatus(m.user_id);
     this.hoverCardAvatar = this.resolveAvatar(m, 'avatar_url');
     this.hoverCardBanner = null;
+    this.hoverCardLoading = true;
     this.hoverCard?.show(event.event, m, 'panel');
     if (this.selectedServer) {
-      this.chatService.getServerProfile(this.selectedServer.id, String(m.user_id)).subscribe({
+      const uid = String(m.user_id);
+      this.chatService.getServerProfile(this.selectedServer.id, uid).subscribe({
         next: (p) => {
           if (p) {
             this.hoverCardAvatar = p.avatar_url || this.hoverCardAvatar;
             this.hoverCardBanner = p.banner_url || null;
           }
-          this.cdr.markForCheck();
+          if (!this.hoverCardBanner) {
+            this.chatService.getUserById(uid).subscribe({
+              next: (u) => {
+                this.hoverCardBanner = u?.banner_url || null;
+                this.hoverCardLoading = false;
+                this.cdr.markForCheck();
+              },
+              error: () => { this.hoverCardLoading = false; this.cdr.markForCheck(); },
+            });
+          } else {
+            this.hoverCardLoading = false;
+            this.cdr.markForCheck();
+          }
         },
-        error: () => {},
+        error: () => {
+          this.chatService.getUserById(uid).subscribe({
+            next: (u) => {
+              this.hoverCardBanner = u?.banner_url || null;
+              this.hoverCardLoading = false;
+              this.cdr.markForCheck();
+            },
+            error: () => { this.hoverCardLoading = false; this.cdr.markForCheck(); },
+          });
+        },
       });
+    } else {
+      this.hoverCardLoading = false;
     }
     this.cdr.markForCheck();
   }
@@ -3094,7 +3571,7 @@ export class GgChatComponent implements OnInit, OnDestroy {
   }
 
   onHoverCardOpenProfile(member: any): void {
-    this.openProfile({ id: member.user_id, username: member.username, avatar_url: member.avatar_url });
+    this.openProfile({ id: member.user_id, username: member.username, avatar_url: member.avatar_url }, this.selectedServer?.id ?? undefined);
     this.hoverCard?.hide();
   }
 
@@ -3105,6 +3582,19 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   onHoverCardOpenGift(member: any): void {
     this.openInlineGift(String(member.user_id), member.username ?? '', member.avatar_url);
+    this.hoverCard?.hide();
+  }
+
+  onHoverCardOpenCall(member: any): void {
+    const peerId = String(member.user_id);
+    const peerName = member.username ?? '';
+    this.callService.initiate(peerId, peerName);
+    this.hoverCard?.hide();
+  }
+
+  onHoverCardInviteToVoice(member: any): void {
+    const peerId = String(member.user_id);
+    this.voiceService.sendVoiceInvite(peerId);
     this.hoverCard?.hide();
   }
 
@@ -3169,8 +3659,10 @@ export class GgChatComponent implements OnInit, OnDestroy {
 
   // ===== PROFILE VIEW =====
 
-  openProfile(user: any): void {
+  openProfile(user: any, serverId?: number): void {
     this.profileUser = user;
+    this.profileServerId = serverId ?? null;
+    this.profileServerProfile = null;
     this.rankImgLoaded = false;
     this.avatarImgLoaded = false;
     this.profileFavorites = [];
@@ -3181,6 +3673,34 @@ export class GgChatComponent implements OnInit, OnDestroy {
     this.persistView();
     const userId = String(user?.otherUserId ?? user?.id ?? '');
     if (userId) {
+      // When in a server context, load the server-scoped profile first
+      if (serverId) {
+        this.chatService.getServerProfile(serverId, userId).subscribe({
+          next: (sp) => {
+            this.profileServerProfile = sp;
+            // Apply server-scoped about only if explicitly set; otherwise keep main profile value
+            if (sp?.show_about === false) {
+              this.profileUser = { ...this.profileUser, about: null };
+            } else if (sp?.about) {
+              this.profileUser = { ...this.profileUser, about: sp.about };
+            }
+            // Server-scoped avatar/banner override only if set; otherwise fall back to main profile
+            if (sp?.avatar_url) {
+              this.profileUser = { ...this.profileUser, avatar_url: sp.avatar_url };
+            }
+            if (sp?.banner_url) {
+              this.profileUser = { ...this.profileUser, banner_url: sp.banner_url };
+            }
+            // Filter rank based on show_rank
+            if (sp?.show_rank === false) {
+              this.profileUser = { ...this.profileUser, rank: null };
+            }
+            this.cdr.markForCheck();
+          },
+          error: () => { this.profileServerProfile = null; },
+        });
+      }
+
       // fetch full user details (display name, platforms, etc.)
       this.usersService.getUserDetails(userId).subscribe({
         next: (details) => {
@@ -3204,25 +3724,57 @@ export class GgChatComponent implements OnInit, OnDestroy {
       // fetch connections (try with user_id param; backend may need update)
       this.http.get<any[]>(`${this.apiUrl}/platform/connections?user_id=${userId}`).subscribe({
         next: (conns) => {
-          this.profileConnections = conns ?? [];
-          this.profileAccounts = (this.profileConnections ?? []).filter(c => (c.type || 'accounts') === 'accounts');
-          this.profileMusic = (this.profileConnections ?? []).filter(c => (c.type || '') === 'music');
+          // Filter connections based on server-scoped visibility
+          let allConns = conns ?? [];
+          const sp = this.profileServerProfile;
+          if (sp && sp.show_connections === false) {
+            allConns = [];
+          } else if (sp && sp.show_connection_platforms) {
+            const platformMap: Record<string, boolean> = sp.show_connection_platforms;
+            allConns = allConns.filter(c => platformMap[c.platform] !== false);
+          }
+          this.profileConnections = allConns;
+          this.profileAccounts = allConns.filter(c => (c.type || 'accounts') === 'accounts');
+          this.profileMusic = allConns.filter(c => (c.type || '') === 'music');
           this.cdr.markForCheck();
         },
         error: () => { this.profileConnections = []; this.profileAccounts = []; this.profileMusic = []; },
       });
 
-      this.loadProfileFavorites(userId);
+      // Only load favorites if server-scoped show_favorites is not false
+      const sp = this.profileServerProfile;
+      if (!sp || sp.show_favorites !== false) {
+        this.loadProfileFavorites(userId);
+      }
     }
   }
 
   closeProfile(): void {
     this.profileUser = null;
+    this.profileServerId = null;
+    this.profileServerProfile = null;
     this.profileFavorites = [];
     this.profileFavoritesError = '';
     this.profileFavoritesLoading = false;
     this.profileConnections = [];
     this.viewMode = this.selectedServer ? 'server' : 'dm';
+  }
+
+  isOwnProfile(): boolean {
+    const currentUserId = this.auth.getCurrentUser()?.id;
+    const profileId = this.profileUser?.id ?? this.profileUser?.otherUserId;
+    return currentUserId != null && String(currentUserId) === String(profileId);
+  }
+
+  openServerSettingsFromProfile(): void {
+    if (!this.profileServerId) return;
+    this.serverProfileEditorOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeServerProfileEditor(): void {
+    this.serverProfileEditorOpen = false;
+    this.cdr.markForCheck();
   }
 
   private loadProfileFavorites(userId: string): void {
@@ -3247,6 +3799,15 @@ export class GgChatComponent implements OnInit, OnDestroy {
   profileStatus(): string {
     if (!this.profileUser) return 'invisible';
     return this.memberStatuses[this.profileUser.id ?? this.profileUser.otherUserId] ?? 'invisible';
+  }
+
+  rankProgressPercent(): number {
+    const rank = this.profileUser?.rank;
+    if (!rank || rank.xp_to_next == null) return 0;
+    const total = Number(rank.total_xp) || 0;
+    const next = Number(rank.xp_to_next) || 0;
+    if (next <= 0) return 100;
+    return Math.min(100, Math.max(0, (total / next) * 100));
   }
 
   handleFriendsDm(userId: string | any): void {

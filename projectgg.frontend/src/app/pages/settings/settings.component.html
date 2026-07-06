@@ -75,6 +75,7 @@
                   [type]="profileMessageType"
                   [message]="profileMessage"
                   [dismissible]="false"
+                  (dismiss)="profileMessage = ''"
                 />
               }
               <div class="field">
@@ -153,6 +154,7 @@
                         [type]="verifyMessageType"
                         [message]="verifyMessage"
                         [dismissible]="false"
+                        (dismiss)="verifyMessage = ''"
                       />
                     }
                   } @else {
@@ -177,6 +179,7 @@
                         [type]="verifyMessageType"
                         [message]="verifyMessage"
                         [dismissible]="false"
+                        (dismiss)="verifyMessage = ''"
                       />
                     }
                   }
@@ -262,6 +265,7 @@
                   [type]="appearanceMessageType"
                   [message]="appearanceMessage"
                   [dismissible]="false"
+                  (dismiss)="appearanceMessage = ''"
                 />
               }
               <div class="appearance-section">
@@ -667,6 +671,65 @@
                     <span class="toggle-switch"></span>
                     <span class="toggle-text">Mute soundboard sounds</span>
                   </label>
+                </div>
+
+                <div class="sound-ringer-section">
+                  <h4 class="sound-group-title">Call Sounds</h4>
+                  <p class="section-desc">Choose ringer sounds for calls</p>
+
+                  <div class="sound-ringer-row">
+                    <div class="sound-ringer-picker">
+                      <label class="field-label">Incoming Ringer</label>
+                      <div class="sound-selector-wrapper">
+                        <button
+                          class="cyber-btn"
+                          type="button"
+                          (click)="ringerDropdownOpen = !ringerDropdownOpen"
+                        >
+                          {{ currentRingerLabel }}
+                          <mat-icon svgIcon="arrow_drop_down"></mat-icon>
+                        </button>
+                        <app-cyber-dropdown
+                          [items]="ringerItems"
+                          [isOpen]="ringerDropdownOpen"
+                        ></app-cyber-dropdown>
+                      </div>
+                      <div class="sound-ringer-actions">
+                        <button class="sound-preview-btn" type="button" (click)="previewRinger()" title="Preview">
+                          <mat-icon svgIcon="play_arrow"></mat-icon>
+                        </button>
+                        <button class="sound-preview-btn" type="button" (click)="stopPreview()" title="Stop">
+                          <mat-icon svgIcon="stop"></mat-icon>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="sound-ringer-picker">
+                      <label class="field-label">Outgoing Tone</label>
+                      <div class="sound-selector-wrapper">
+                        <button
+                          class="cyber-btn"
+                          type="button"
+                          (click)="outgoingDropdownOpen = !outgoingDropdownOpen"
+                        >
+                          {{ currentOutgoingLabel }}
+                          <mat-icon svgIcon="arrow_drop_down"></mat-icon>
+                        </button>
+                        <app-cyber-dropdown
+                          [items]="outgoingItems"
+                          [isOpen]="outgoingDropdownOpen"
+                        ></app-cyber-dropdown>
+                      </div>
+                      <div class="sound-ringer-actions">
+                        <button class="sound-preview-btn" type="button" (click)="previewOutgoing()" title="Preview">
+                          <mat-icon svgIcon="play_arrow"></mat-icon>
+                        </button>
+                        <button class="sound-preview-btn" type="button" (click)="stopPreview()" title="Stop">
+                          <mat-icon svgIcon="stop"></mat-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

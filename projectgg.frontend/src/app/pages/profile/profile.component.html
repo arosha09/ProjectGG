@@ -107,6 +107,41 @@
       }
 
       <div class="profile-grid">
+        <mat-card class="info-card about-card">
+          <div class="info-head">
+            <mat-icon svgIcon="info"></mat-icon>
+            <h3>About</h3>
+            @if (!editingAbout) {
+              <button class="info-edit-btn" (click)="startEditAbout()" title="Edit about">
+                <mat-icon svgIcon="edit"></mat-icon>
+              </button>
+            }
+          </div>
+          <div class="info-body">
+            @if (editingAbout) {
+              <textarea
+                class="about-textarea"
+                [(ngModel)]="aboutDraft"
+                (blur)="saveAbout()"
+                (keydown.escape)="cancelEditAbout()"
+                placeholder="Tell people about yourself..."
+                rows="3"
+                maxlength="500"
+                autofocus></textarea>
+              <div class="about-meta">
+                <span class="about-hint">Press Esc to cancel</span>
+                <span class="about-count">{{ aboutDraft.length || 0 }}/500</span>
+              </div>
+            } @else {
+              @if (currentUser?.about) {
+                <p class="about-text">{{ currentUser.about }}</p>
+              } @else {
+                <p class="about-text about-empty">No about yet. Click the edit icon to add one.</p>
+              }
+            }
+          </div>
+        </mat-card>
+
         <mat-card class="info-card">
           <div class="info-head">
             <mat-icon svgIcon="badge"></mat-icon>
@@ -141,16 +176,20 @@
               </div>
             }
             @for (p of platforms; track p.id) {
-              <div class="platform-badge-row">
-                <img loading="lazy" decoding="async" class="platform-badge-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
-                <div class="platform-badge-info">
-                  <span class="platform-badge-name">{{ p.name }}</span>
-                  @if (getConnection(p.id); as conn) {
-                    <span class="platform-badge-user">{{ conn.platform_username || conn.platform_user_id || 'Connected' }}</span>
-                  } @else {
-                    <span class="platform-badge-user not-linked">Not linked</span>
-                  }
+              @if (getConnection(p.id)) {
+                <div class="platform-badge-row">
+                  <img loading="lazy" decoding="async" class="platform-badge-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
+                  <div class="platform-badge-info">
+                    <span class="platform-badge-name">{{ p.name }}</span>
+                    <span class="platform-badge-user">{{ getConnection(p.id)!.platform_username || getConnection(p.id)!.platform_user_id || 'Connected' }}</span>
+                  </div>
                 </div>
+              }
+            }
+            @if (connections.length === 0 && !connectionsError) {
+              <div class="platform-badge-row">
+                <mat-icon svgIcon="link_off"></mat-icon>
+                <span class="platform-badge-user not-linked">No connected accounts yet</span>
               </div>
             }
           </div>

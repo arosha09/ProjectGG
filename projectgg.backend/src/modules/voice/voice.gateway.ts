@@ -31,6 +31,9 @@ interface UserVoiceState {
   deafened: boolean;
   speaking: boolean;
   themeColor: string;
+  screenSharing?: boolean;
+  screenShareAudio?: boolean;
+  screenShareQuality?: string;
 }
 
 @WebSocketGateway({
@@ -86,6 +89,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         deafened: state.deafened,
         speaking: state.speaking,
         themeColor: state.themeColor,
+        screenSharing: state.screenSharing ?? false,
+        screenShareAudio: state.screenShareAudio ?? false,
+        screenShareQuality: state.screenShareQuality ?? null,
       });
     }
     return Array.from(channelMap.entries()).map(
@@ -103,6 +109,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     info: VoiceClient,
     socket?: Socket,
   ): void {
+    const state = this.userState.get(info.userId);
+    const wasSharing = state?.screenSharing ?? false;
     this.clients.delete(socketId);
     this.userState.delete(info.userId);
     this.activeSoundboardUsers.delete(info.userId);
@@ -121,6 +129,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           sound: 'voice_leave',
           userId: info.userId,
         });
+        if (wasSharing) {
+          emitter.emit('user-screen-share-stop', { userId: info.userId });
+        }
       }
     }
     this.broadcastVoiceState();
@@ -173,14 +184,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const state = this.userState.get(m.userId) ?? {
             muted: false,
             deafened: false,
-            speaking: false,
             themeColor: '#00ff88',
+            screenSharing: false,
           };
           return {
             userId: m.userId,
             muted: state.muted,
             deafened: state.deafened,
             themeColor: state.themeColor,
+            screenSharing: state.screenSharing ?? false,
           };
         }),
       });
@@ -333,8 +345,55 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  @SubscribeMessage('screen-share-start')
+  handleScreenShareStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { quality: string; hasAudio: boolean },
+  ): void {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) {
+      state.screenSharing = true;
+      state.screenShareAudio = data.hasAudio;
+      state.screenShareQuality = data.quality;
+    }
+    this.server.to(info.channelId).emit('user-screen-share-start', {
+      userId: info.userId,
+      quality: data.quality,
+      hasAudio: data.hasAudio,
+    });
+    this.broadcastVoiceState();
+  }
+
+  @SubscribeMessage('screen-share-stop')
+  handleScreenShareStop(@ConnectedSocket() client: Socket): void {
+    const info = this.clients.get(client.id);
+    if (!info) return;
+    const state = this.userState.get(info.userId);
+    if (state) {
+      state.screenSharing = false;
+      state.screenShareAudio = false;
+      state.screenShareQuality = undefined;
+    }
+    this.server.to(info.channelId).emit('user-screen-share-stop', {
+      userId: info.userId,
+    });
+    this.broadcastVoiceState();
+  }
+
   emitToUser(userId: string, event: string, data: any): void {
     this.server.to(`user:${userId}`).emit(event, data);
+  }
+
+  isInVoiceChannel(userId: string): boolean {
+    return Array.from(this.clients.values()).some((c) => c.userId === userId);
+  }
+
+  getUserVoiceChannel(userId: string): { guildId: string; channelId: string } | null {
+    const client = Array.from(this.clients.values()).find((c) => c.userId === userId);
+    if (!client) return null;
+    return { guildId: client.guildId, channelId: client.channelId };
   }
 
   isInSameChannel(senderId: string, recipientId: string): boolean {
@@ -392,12 +451,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     userId: string;
     muted: boolean;
     deafened: boolean;
+    screenSharing: boolean;
   }[] {
     return Array.from(this.clients.values()).map((c) => {
       const state = this.userState.get(c.userId) ?? {
         muted: false,
         deafened: false,
         speaking: false,
+        screenSharing: false,
       };
       return {
         channelId: c.channelId,
@@ -405,6 +466,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId: c.userId,
         muted: state.muted,
         deafened: state.deafened,
+        screenSharing: state.screenSharing ?? false,
       };
     });
   }

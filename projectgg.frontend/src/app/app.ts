@@ -69,6 +69,10 @@ export class App implements OnInit, OnDestroy {
     this.sound.init();
     this.userStatus.initialize();
     this.taskTracker.initialize();
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
     effect(() => {
       const message = this.statusNotification.message();
       const type = this.statusNotification.type();

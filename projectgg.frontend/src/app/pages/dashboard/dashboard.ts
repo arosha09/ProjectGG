@@ -686,7 +686,7 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get allowCollection(): boolean {
-    return !!this.currentUser;
+    return this.isAdmin;
   }
 
   getDefaultAvatar(gender?: string): string {

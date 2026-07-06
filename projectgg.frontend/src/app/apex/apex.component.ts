@@ -12,7 +12,7 @@ import { TtsSettingsService } from '../services/tts-settings.service';
 import { VoiceTrainingComponent } from './voice-training/voice-training.component';
 import { ApexAvatarComponent } from './apex-avatar/apex-avatar.component';
 import { CyberSelectComponent, CyberSelectOption } from '../components/cyber-select/cyber-select.component';
-import { Subscription } from 'rxjs';
+import { Subscription, takeUntil, Subject } from 'rxjs';
 import { WakeWordState } from './wake-word.service';
 
 interface ChatMessage {
@@ -44,6 +44,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   @ViewChild('chatInput') chatInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('chatBody') chatBodyRef?: ElementRef<HTMLDivElement>;
 
+  private readonly destroy$ = new Subject<void>();
   isPanelOpen = false;
   isExpandedManually = false;
 
@@ -72,8 +73,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   }
 
   set showFloatingAvatar(value: boolean) {
-    this._showFloatingAvatar = value;
-    try { localStorage.setItem('apex_floating_avatar', JSON.stringify(value)); } catch {}
+    this.apexService.toggleFloatingAvatar();
     this.cdr.markForCheck();
   }
 
@@ -155,23 +155,14 @@ export class ApexChatComponent implements OnInit, OnDestroy {
     this.generateDailySuggestions();
     this.cleanupOldSessions();
 
-    try {
-      const saved = localStorage.getItem('apex_floating_avatar');
-      if (saved !== null) this._showFloatingAvatar = JSON.parse(saved);
-    } catch {}
+    this.apexService.panelToggle$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.togglePanel();
+    });
 
-    try {
-      const savedMode = localStorage.getItem('apex_voice_mode') as 'push-to-talk' | 'always-listening' | 'wake-word' | null;
-      if (savedMode && ['push-to-talk', 'always-listening', 'wake-word'].includes(savedMode)) {
-        this.apexService.setVoiceMode(savedMode);
-        this.voiceMode = savedMode;
-      }
-    } catch {}
-
-    try {
-      const saved = localStorage.getItem('apex_show_wake_transcript');
-      if (saved !== null) this.showWakeTranscript = JSON.parse(saved);
-    } catch {}
+    this.apexService.showFloatingAvatar$.pipe(takeUntil(this.destroy$)).subscribe(val => {
+      this._showFloatingAvatar = val;
+      this.cdr.markForCheck();
+    });
 
     this.voicesSub = this.kokoroTtsService.voices$.subscribe(options => {
       this.kokoroVoiceOptions = options;
@@ -255,6 +246,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
 
   togglePanel(): void {
     this.isPanelOpen = !this.isPanelOpen;
+    this.apexService.setPanelOpen(this.isPanelOpen);
     if (!this.isPanelOpen) {
       this.isExpandedManually = false;
     } else {

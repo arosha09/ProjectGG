@@ -20,50 +20,16 @@ export interface ApexVoiceState {
 export class ApexService {
   private synthesis = window.speechSynthesis;
 
-  private stateSubject = new Subject<ApexVoiceState>();
-  public state$ = this.stateSubject.asObservable();
-  private wakeWordSubject = new Subject<void>();
-  public wakeWordDetected$ = this.wakeWordSubject.asObservable();
-  private liveTranscriptSubject = new BehaviorSubject<string>('');
-  public liveTranscript$ = this.liveTranscriptSubject.asObservable();
-
-  private speakingSubject = new BehaviorSubject<boolean>(false);
-  public speaking$ = this.speakingSubject.asObservable();
-
-  private listeningSubject = new BehaviorSubject<boolean>(false);
-  public listening$ = this.listeningSubject.asObservable();
-
-  private thinkingSubject = new BehaviorSubject<boolean>(false);
-  public thinking$ = this.thinkingSubject.asObservable();
-
-  private transcriptionCompleteSubject = new Subject<string>();
-  public transcriptionComplete$ = this.transcriptionCompleteSubject.asObservable();
-
-  private wakeWordStateSubject = new BehaviorSubject<WakeWordState>('idle');
-  public wakeWordState$ = this.wakeWordStateSubject.asObservable();
-
-  private wakeCommandSub?: Subscription;
-
-  private state: ApexVoiceState = {
-    isRecording: false,
-    isListening: false,
-    transcribedText: '',
-    voiceOutputEnabled: true,
-    selectedVoice: null,
-    speechRate: 1.0,
-    voiceMode: 'push-to-talk',
-    wakeWordDetected: false,
-  };
-
-  private mediaRecorder: MediaRecorder | null = null;
-  private audioChunks: Blob[] = [];
-  private micStream: MediaStream | null = null;
-
   constructor(
     private http: HttpClient,
-    private voiceAnalysis: ApexVoiceService,
-    private wakeWordService: WakeWordService,
+    private apexVoice: ApexVoiceService,
+    private wakeWordService: WakeWordService
   ) {
+    try {
+      const saved = localStorage.getItem('apex_floating_avatar');
+      if (saved !== null) this.showFloatingAvatarSubject.next(JSON.parse(saved));
+    } catch {}
+
     // Forward wake word state to observable
     this.wakeWordService.state$.subscribe(state => {
       this.wakeWordStateSubject.next(state);
@@ -87,7 +53,69 @@ export class ApexService {
     });
   }
 
-setKokoroVoice(voice: string): void {
+  private stateSubject = new Subject<ApexVoiceState>();
+  public state$ = this.stateSubject.asObservable();
+  private wakeWordSubject = new Subject<void>();
+  public wakeWordDetected$ = this.wakeWordSubject.asObservable();
+  private liveTranscriptSubject = new BehaviorSubject<string>('');
+  public liveTranscript$ = this.liveTranscriptSubject.asObservable();
+
+  private speakingSubject = new BehaviorSubject<boolean>(false);
+  public speaking$ = this.speakingSubject.asObservable();
+
+  private listeningSubject = new BehaviorSubject<boolean>(false);
+  public listening$ = this.listeningSubject.asObservable();
+
+  private thinkingSubject = new BehaviorSubject<boolean>(false);
+  public thinking$ = this.thinkingSubject.asObservable();
+
+  private transcriptionCompleteSubject = new Subject<string>();
+  public transcriptionComplete$ = this.transcriptionCompleteSubject.asObservable();
+
+  private panelToggleSubject = new Subject<void>();
+  public panelToggle$ = this.panelToggleSubject.asObservable();
+
+  private isPanelOpenSubject = new BehaviorSubject<boolean>(false);
+  public isPanelOpen$ = this.isPanelOpenSubject.asObservable();
+
+  togglePanel(): void {
+    this.panelToggleSubject.next();
+  }
+
+  setPanelOpen(isOpen: boolean): void {
+    this.isPanelOpenSubject.next(isOpen);
+  }
+
+  private wakeWordStateSubject = new BehaviorSubject<WakeWordState>('idle');
+  public wakeWordState$ = this.wakeWordStateSubject.asObservable();
+
+  private showFloatingAvatarSubject = new BehaviorSubject<boolean>(true);
+  public showFloatingAvatar$ = this.showFloatingAvatarSubject.asObservable();
+
+  toggleFloatingAvatar(): void {
+    const newValue = !this.showFloatingAvatarSubject.value;
+    this.showFloatingAvatarSubject.next(newValue);
+    try { localStorage.setItem('apex_floating_avatar', JSON.stringify(newValue)); } catch {}
+  }
+
+  private wakeCommandSub?: Subscription;
+
+  private state: ApexVoiceState = {
+    isRecording: false,
+    isListening: false,
+    transcribedText: '',
+    voiceOutputEnabled: true,
+    selectedVoice: null,
+    speechRate: 1.0,
+    voiceMode: 'push-to-talk',
+    wakeWordDetected: false,
+  };
+
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private micStream: MediaStream | null = null;
+
+  setKokoroVoice(voice: string): void {
     try {
       localStorage.setItem('apex_kokoro_voice', voice);
     } catch {}

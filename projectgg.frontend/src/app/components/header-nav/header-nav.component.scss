@@ -13,7 +13,7 @@
   min-height: 44px;
   box-shadow: 0 0 20px rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.1);
 
-  > .brand { flex: 0 0 auto; justify-content: flex-start; }
+  > .brand-group { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
   > .mini-player { position: absolute; left: 50%; transform: translateX(-50%); flex: 0 0 auto; justify-content: center; }
   > .dash-actions { flex: 1; justify-content: flex-end; }
 }
@@ -58,6 +58,49 @@
   height: 20px;
   filter: drop-shadow(0 0 12px var(--color-primary));
   animation: neon-flicker 3s infinite;
+}
+
+.apex-toggle-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 2px solid rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.2);
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: 'Share Tech Mono', monospace;
+
+  .apex-pill-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+  }
+
+  &:hover {
+    border-color: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.5);
+    color: var(--text-primary);
+    background: rgba(var(--color-primary-r), var(--color-primary-g), var(--color-primary-b), 0.08);
+
+    .apex-pill-icon { opacity: 1; }
+  }
+
+  &.active {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.1);
+    box-shadow: 0 0 12px rgba(var(--color-accent-r), var(--color-accent-g), var(--color-accent-b), 0.2);
+
+    .apex-pill-icon { opacity: 1; }
+  }
 }
 
 .nav-discord-btn {

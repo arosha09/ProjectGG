@@ -3,94 +3,101 @@
   <div class="cyber-player-expanded">
     <div class="cyber-player-expanded-inner" (click)="$event.stopPropagation()">
 
-      <div class="cyber-now-track">
-        <div class="cyber-art-container">
-          @if (track?.thumbnail) {
-            <img loading="lazy" decoding="async" [src]="getThumb(track!.thumbnail, track!.videoId)" alt="Album art" class="cyber-album-art" />
-            <div class="cyber-art-glow"></div>
-          } @else {
-            <div class="cyber-album-art cyber-art-placeholder">
-              <mat-icon svgIcon="music_note"></mat-icon>
-            </div>
-          }
-        </div>
-
-        <div class="cyber-track-info">
-          <span class="cyber-track-title">{{ track?.title || 'No track selected' }}</span>
-        </div>
-
-        <div class="cyber-progress-section">
-          <div class="cyber-progress-bar" (click)="seek($event)">
-            <div class="cyber-progress-fill" [style.width.%]="progress"></div>
-            <div class="cyber-progress-thumb" [style.left.%]="progress"></div>
+      <div class="cyber-now-track" [class.browsing]="isBrowsing">
+        <div class="cyber-now-row">
+          <div class="cyber-art-container">
+            @if (track?.thumbnail) {
+              <img loading="lazy" decoding="async" [src]="getThumb(track!.thumbnail, track!.videoId)" alt="Album art" class="cyber-album-art" />
+              <div class="cyber-art-glow"></div>
+            } @else {
+              <div class="cyber-album-art cyber-art-placeholder">
+                <mat-icon svgIcon="music_note"></mat-icon>
+              </div>
+            }
           </div>
-          <div class="cyber-progress-time">
-            <span>{{ formatTime(currentTime) }}</span>
-            <span>{{ formatTime(duration) }}</span>
-          </div>
-        </div>
 
-        <div class="cyber-controls">
-          <div class="cyber-controls-side">
-            <div class="cyber-volume-wrap" (mouseenter)="showVolumeSlider = true" (mouseleave)="showVolumeSlider = false">
-              <button class="cyber-ctrl-btn" (click)="toggleMute()" type="button" title="Volume">
-                @if (volume === 0) {
-                  <mat-icon svgIcon="volume_off"></mat-icon>
-                } @else if (volume < 0.5) {
-                  <mat-icon svgIcon="volume_down"></mat-icon>
-                } @else {
-                  <mat-icon svgIcon="volume_up"></mat-icon>
-                }
-              </button>
-              @if (showVolumeSlider) {
-                <div class="cyber-volume-slider-wrap">
-                  <div class="cyber-volume-slider" (mousedown)="onVolumeBarMouseDown($event)">
-                    <div class="cyber-volume-fill" [style.height.%]="volume * 100"></div>
-                    <div class="cyber-volume-knob" [style.bottom.%]="volume * 100"></div>
-                  </div>
-                  <span class="cyber-volume-label">{{ (volume * 100) | number:'1.0-0' }}%</span>
-                </div>
+          <div class="cyber-now-details">
+            <div class="cyber-track-info">
+              <span class="cyber-track-title">{{ track?.title || 'No track selected' }}</span>
+              @if (track?.artist) {
+                <span class="cyber-track-artist">{{ track!.artist }}</span>
               }
             </div>
-          </div>
-          <button class="cyber-ctrl-btn" [class.active]="shuffle" (click)="music.toggleShuffle()" type="button" title="Shuffle">
-            <mat-icon svgIcon="shuffle"></mat-icon>
-          </button>
-          <button class="cyber-ctrl-btn" (click)="previous()" type="button" title="Previous">
-            <mat-icon svgIcon="skip_previous"></mat-icon>
-          </button>
-          <button class="cyber-play-btn" (click)="togglePlay()" type="button">
-            <mat-icon [svgIcon]="isPlaying ? 'pause' : 'play_arrow'"></mat-icon>
-          </button>
-          <button class="cyber-ctrl-btn" (click)="next()" type="button" title="Next">
-            <mat-icon svgIcon="skip_next"></mat-icon>
-          </button>
-          <button class="cyber-ctrl-btn" [class.active]="repeat !== 'off'" (click)="music.cycleRepeat()" type="button" title="Repeat">
-            @if (repeat === 'one') {
-              <mat-icon svgIcon="repeat_one"></mat-icon>
-            } @else {
-              <mat-icon svgIcon="repeat"></mat-icon>
-            }
-          </button>
-          <div class="cyber-controls-side">
-            <div class="cyber-playlist-add-wrap" (mouseenter)="showPlaylistPicker = true" (mouseleave)="showPlaylistPicker = false">
-              <button class="cyber-ctrl-btn" [disabled]="!track" type="button" title="Add to playlist">
-                <mat-icon svgIcon="playlist_add"></mat-icon>
-              </button>
-              @if (showPlaylistPicker && track) {
-                <div class="cyber-playlist-picker">
-                  <div class="cyber-playlist-picker-title">Add to playlist</div>
-                  @if (playlists.length > 0) {
-                    @for (pl of playlists; track pl.name) {
-                      <button class="cyber-playlist-picker-item" (click)="addTrackToSavedPlaylist(pl)" type="button">
-                        <span>{{ pl.name }}</span>
-                      </button>
+
+            <div class="cyber-progress-section">
+              <div class="cyber-progress-bar" (click)="seek($event)">
+                <div class="cyber-progress-fill" [style.width.%]="progress"></div>
+                <div class="cyber-progress-thumb" [style.left.%]="progress"></div>
+              </div>
+              <div class="cyber-progress-time">
+                <span>{{ formatTime(currentTime) }}</span>
+                <span>{{ formatTime(duration) }}</span>
+              </div>
+            </div>
+
+            <div class="cyber-controls">
+              <div class="cyber-controls-side">
+                <div class="cyber-volume-wrap" (mouseenter)="showVolumeSlider = true" (mouseleave)="showVolumeSlider = false">
+                  <button class="cyber-ctrl-btn" (click)="toggleMute()" type="button" title="Volume">
+                    @if (volume === 0) {
+                      <mat-icon svgIcon="volume_off"></mat-icon>
+                    } @else if (volume < 0.5) {
+                      <mat-icon svgIcon="volume_down"></mat-icon>
+                    } @else {
+                      <mat-icon svgIcon="volume_up"></mat-icon>
                     }
-                  } @else {
-                    <div class="cyber-playlist-picker-empty">No saved playlists</div>
+                  </button>
+                  @if (showVolumeSlider) {
+                    <div class="cyber-volume-slider-wrap">
+                      <div class="cyber-volume-slider" (mousedown)="onVolumeBarMouseDown($event)">
+                        <div class="cyber-volume-fill" [style.height.%]="volume * 100"></div>
+                        <div class="cyber-volume-knob" [style.bottom.%]="volume * 100"></div>
+                      </div>
+                      <span class="cyber-volume-label">{{ (volume * 100) | number:'1.0-0' }}%</span>
+                    </div>
                   }
                 </div>
-              }
+              </div>
+              <button class="cyber-ctrl-btn" [class.active]="shuffle" (click)="music.toggleShuffle()" type="button" title="Shuffle">
+                <mat-icon svgIcon="shuffle"></mat-icon>
+              </button>
+              <button class="cyber-ctrl-btn" (click)="previous()" type="button" title="Previous">
+                <mat-icon svgIcon="skip_previous"></mat-icon>
+              </button>
+              <button class="cyber-play-btn" (click)="togglePlay()" type="button">
+                <mat-icon [svgIcon]="isPlaying ? 'pause' : 'play_arrow'"></mat-icon>
+              </button>
+              <button class="cyber-ctrl-btn" (click)="next()" type="button" title="Next">
+                <mat-icon svgIcon="skip_next"></mat-icon>
+              </button>
+              <button class="cyber-ctrl-btn" [class.active]="repeat !== 'off'" (click)="music.cycleRepeat()" type="button" title="Repeat">
+                @if (repeat === 'one') {
+                  <mat-icon svgIcon="repeat_one"></mat-icon>
+                } @else {
+                  <mat-icon svgIcon="repeat"></mat-icon>
+                }
+              </button>
+              <div class="cyber-controls-side">
+                <div class="cyber-playlist-add-wrap" (mouseenter)="showPlaylistPicker = true" (mouseleave)="showPlaylistPicker = false">
+                  <button class="cyber-ctrl-btn" [disabled]="!track" type="button" title="Add to playlist">
+                    <mat-icon svgIcon="playlist_add"></mat-icon>
+                  </button>
+                  @if (showPlaylistPicker && track) {
+                    <div class="cyber-playlist-picker">
+                      <div class="cyber-playlist-picker-title">Add to playlist</div>
+                      @if (playlists.length > 0) {
+                        @for (pl of playlists; track pl.name) {
+                          <button class="cyber-playlist-picker-item" (click)="addTrackToSavedPlaylist(pl)" type="button">
+                            <span>{{ pl.name }}</span>
+                          </button>
+                        }
+                      } @else {
+                        <div class="cyber-playlist-picker-empty">No saved playlists</div>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
             </div>
           </div>
         </div>

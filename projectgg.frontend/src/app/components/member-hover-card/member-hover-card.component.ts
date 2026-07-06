@@ -12,80 +12,103 @@ import { GgServerMember } from '../../services/chat.service';
     @if (visible && member) {
       <div class="mhc-card" [style.left.px]="x" [style.top.px]="y" (mouseenter)="onEnter()" (mouseleave)="onLeave()">
         <!-- Banner -->
-        <div class="mhc-banner" [style.background-image]="bannerUrl ? 'url(' + bannerUrl + ')' : ''" [style.background]="!bannerUrl ? getGradient() : ''">
-        </div>
+        @if (loading) {
+          <div class="mhc-banner sk-banner"></div>
+        } @else {
+          <div class="mhc-banner" [style.background-image]="bannerUrl ? 'url(' + bannerUrl + ')' : ''" [style.background]="!bannerUrl ? getGradient() : ''">
+          </div>
+        }
 
         <!-- Avatar overlapping banner -->
         <div class="mhc-avatar-wrap">
-          <div class="mhc-avatar">
-            @if (avatarUrl) {
+          <div class="mhc-avatar" [class.sk-avatar]="loading">
+            @if (loading) {
+              <div class="sk-pulse"></div>
+            } @else if (avatarUrl) {
               <img [src]="avatarUrl" alt="" />
             } @else {
               <span>{{ (member.username ?? member.user_id)[0] }}</span>
             }
           </div>
-          <span class="mhc-status-dot"
-            [class.online]="status === 'online'"
-            [class.away]="status === 'away'"
-            [class.dnd]="status === 'dnd'"
-            [class.invisible]="status === 'invisible'"
-          ></span>
+          @if (!loading) {
+            <span class="mhc-status-dot"
+              [class.online]="status === 'online'"
+              [class.away]="status === 'away'"
+              [class.dnd]="status === 'dnd'"
+              [class.invisible]="status === 'invisible'"
+            ></span>
+          }
         </div>
 
         <!-- Body -->
         <div class="mhc-body">
           <div class="mhc-header">
-            <span class="mhc-username">{{ member.username ?? member.user_id }}</span>
-            @if (member.roles?.length) {
-              <div class="mhc-roles">
-                @for (r of member.roles; track r) {
-                  <span class="mhc-role-tag" [class.mhc-role-owner]="r === 'owner'" [class.mhc-role-admin]="r === 'admin'" [class.mhc-role-mod]="r === 'moderator'">{{ r }}</span>
-                }
-              </div>
+            @if (loading) {
+              <div class="sk-text sk-text-sm"></div>
+            } @else {
+              <span class="mhc-username">{{ member.username ?? member.user_id }}</span>
+              @if (member.roles?.length) {
+                <div class="mhc-roles">
+                  @for (r of member.roles; track r) {
+                    <span class="mhc-role-tag" [class.mhc-role-owner]="r === 'owner'" [class.mhc-role-admin]="r === 'admin'" [class.mhc-role-mod]="r === 'moderator'">{{ r }}</span>
+                  }
+                </div>
+              }
             }
           </div>
 
-          @if (about) {
+          @if (!loading && about) {
             <div class="mhc-about">{{ about }}</div>
-          }
-
-          @if (connections && connections.length > 0) {
-            <div class="mhc-connections">
-              @for (conn of connections; track conn.platform) {
-                <span class="mhc-conn-badge" [title]="conn.platform_username || conn.platform">
-                  <img [src]="getPlatformLogo(conn.platform)" [alt]="conn.platform" class="mhc-conn-logo" />
-                  <span class="mhc-conn-name">{{ conn.platform_username || conn.platform }}</span>
-                </span>
-              }
-            </div>
           }
 
           <div class="mhc-divider"></div>
 
           <!-- Action buttons -->
-          <div class="mhc-actions">
-            @if (isSelf) {
-              <span class="mhc-self-label">This is you</span>
-            } @else if (isFriend) {
-              <button class="mhc-action-btn mhc-action-primary" (click)="openProfile.emit(member)">
-                <mat-icon svgIcon="person"></mat-icon> View Profile
-              </button>
-              <button class="mhc-action-btn" (click)="openTrade.emit(member)">
-                <mat-icon svgIcon="swap_horiz"></mat-icon> Trade
-              </button>
-              <button class="mhc-action-btn" (click)="openGift.emit(member)">
-                <mat-icon svgIcon="card_giftcard"></mat-icon> Gift
-              </button>
-            } @else {
-              <button class="mhc-action-btn mhc-action-primary" (click)="addFriend.emit(member)">
-                <mat-icon svgIcon="person_add"></mat-icon> Add Friend
-              </button>
-              <button class="mhc-action-btn" (click)="openProfile.emit(member)">
-                <mat-icon svgIcon="person"></mat-icon> View Profile
-              </button>
-            }
-          </div>
+          @if (loading) {
+            <div class="mhc-actions">
+              <div class="sk-btn"></div>
+              <div class="sk-btn"></div>
+              <div class="sk-btn"></div>
+            </div>
+          } @else {
+            <div class="mhc-actions">
+              @if (isSelf) {
+                <span class="mhc-self-label">This is you</span>
+              } @else if (isFriend) {
+                <button class="mhc-action-btn mhc-action-primary" (click)="openProfile.emit(member)">
+                  <mat-icon svgIcon="person"></mat-icon> View Profile
+                </button>
+                @if (isInVoice) {
+                  <button class="mhc-action-btn mhc-action-primary" (click)="inviteToVoice.emit(member)">
+                    <mat-icon svgIcon="group_add"></mat-icon> Invite to Voice
+                  </button>
+                } @else {
+                  <button class="mhc-action-btn" (click)="openCall.emit(member)">
+                    <mat-icon svgIcon="call"></mat-icon> Call
+                  </button>
+                }
+                <button class="mhc-action-btn" (click)="openTrade.emit(member)">
+                  <mat-icon svgIcon="swap_horiz"></mat-icon> Trade
+                </button>
+                <button class="mhc-action-btn" (click)="openGift.emit(member)">
+                  <mat-icon svgIcon="card_giftcard"></mat-icon> Gift
+                </button>
+              } @else {
+                <button class="mhc-action-btn mhc-action-primary" (click)="addFriend.emit(member)">
+                  <mat-icon svgIcon="person_add"></mat-icon> Add Friend
+                </button>
+                <button class="mhc-action-btn" (click)="openProfile.emit(member)">
+                  <mat-icon svgIcon="person"></mat-icon> View Profile
+                </button>
+              }
+            </div>
+          }
         </div>
+
+        <div class="mhc-corner mhc-corner-tl"></div>
+        <div class="mhc-corner mhc-corner-tr"></div>
+        <div class="mhc-corner mhc-corner-bl"></div>
+        <div class="mhc-corner mhc-corner-br"></div>
       </div>
     }
   `,
@@ -198,35 +221,6 @@ import { GgServerMember } from '../../services/chat.service';
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-    .mhc-connections {
-      margin-top: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .mhc-conn-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 8px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.06);
-      font-size: 11px;
-      color: #b5bac1;
-      max-width: 140px;
-    }
-    .mhc-conn-logo {
-      width: 14px;
-      height: 14px;
-      border-radius: 3px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .mhc-conn-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
     .mhc-actions {
       display: flex;
       flex-direction: column;
@@ -270,6 +264,56 @@ import { GgServerMember } from '../../services/chat.service';
       font-style: italic;
       padding: 4px 0;
     }
+
+    .sk-banner {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      animation: skShimmer 1.5s ease-in-out infinite;
+    }
+
+    .sk-avatar {
+      background: #2a2a2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sk-pulse {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2a2a2e, #3a3a3e, #2a2a2e);
+      animation: skPulse 1.2s ease-in-out infinite;
+    }
+
+    .sk-text {
+      height: 14px;
+      border-radius: 4px;
+      background: #2a2a2e;
+      animation: skShimmer 1.5s ease-in-out infinite;
+    }
+
+    .sk-text-sm {
+      width: 60%;
+      height: 14px;
+    }
+
+    .sk-btn {
+      height: 32px;
+      border-radius: 4px;
+      background: #2a2a2e;
+      flex: 1;
+      animation: skShimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes skShimmer {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.7; }
+    }
+
+    @keyframes skPulse {
+      0%, 100% { transform: scale(0.92); opacity: 0.4; }
+      50% { transform: scale(1); opacity: 0.7; }
+    }
   `],
 })
 export class MemberHoverCardComponent implements OnDestroy {
@@ -288,7 +332,8 @@ export class MemberHoverCardComponent implements OnDestroy {
   @Input() isFriend = false;
   @Input() isSelf = false;
   @Input() about: string | null = null;
-  @Input() connections: Array<{ platform: string; platform_username?: string | null; platform_user_id?: string | null }> | null = null;
+  @Input() isInVoice = false;
+  @Input() loading = false;
 
   private extractedColors: string[] = [];
 
@@ -296,6 +341,8 @@ export class MemberHoverCardComponent implements OnDestroy {
   @Output() openProfile = new EventEmitter<any>();
   @Output() openTrade = new EventEmitter<any>();
   @Output() openGift = new EventEmitter<any>();
+  @Output() openCall = new EventEmitter<any>();
+  @Output() inviteToVoice = new EventEmitter<any>();
 
   visible = false;
   x = 0;
@@ -349,10 +396,6 @@ export class MemberHoverCardComponent implements OnDestroy {
 
   onLeave(): void {
     this.hide();
-  }
-
-  getPlatformLogo(platform: string): string {
-    return `assets/platforms/${platform}.svg`;
   }
 
   getGradient(): string {

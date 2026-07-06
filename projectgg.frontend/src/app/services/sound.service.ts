@@ -18,7 +18,8 @@ export type SoundEvent =
   | 'voice_unmute'
   | 'voice_deafen'
   | 'voice_undeafen'
-  | 'nudge';
+  | 'nudge'
+  | 'call_ringing_outgoing';
 
 export interface SoundSet {
   id: string;
@@ -46,8 +47,25 @@ const SOUND_SETS: SoundSet[] = [
       voice_deafen: 'cyber/voice_deafen.mp3',
       voice_undeafen: 'cyber/voice_undeafen.mp3',
       nudge: 'cyber/nudge.mp3',
+      call_ringing_outgoing: 'cyber/call_outgoing.mp3',
     },
   },
+];
+
+export interface RingerSet {
+  id: string;
+  label: string;
+  file: string;
+}
+
+const RINGER_SETS: RingerSet[] = [
+  { id: 'cyber1', label: 'Cyberpunk-2077', file: 'cyber/call_incoming.mp3' },
+  { id: 'cyber2', label: 'Cyberpunk-Edgerunners', file: 'cyber/call_incoming_pulse.mp3' },
+  { id: 'cyber3', label: 'Cyberpunk-Johnny', file: 'cyber/call_incoming_echo.mp3' },
+];
+
+const OUTGOING_TONES: RingerSet[] = [
+  { id: 'cyber-out', label: 'Cyberpunk', file: 'cyber/call_outgoing.mp3' },
 ];
 
 @Injectable({
@@ -62,8 +80,12 @@ export class SoundService {
   private readonly nudgesKey = 'allowIncomingNudges';
   private readonly silentKey = 'soundSilent';
   private readonly muteSoundboardKey = 'muteSoundboard';
+  private readonly ringerKey = 'selectedRinger';
+  private readonly outgoingKey = 'selectedOutgoing';
 
   private setId: string = 'cyber';
+  private ringerId: string = 'cyber1';
+  private outgoingId: string = 'cyber-out';
   private volume: number = 0.7;
   private muted: boolean = false;
   private silentMode: boolean = false;
@@ -72,6 +94,7 @@ export class SoundService {
   private allowIncomingNudges: boolean = true;
   private muteSoundboard: boolean = false;
   private audioContext: AudioContext | null = null;
+  private currentPreviewSource: AudioBufferSourceNode | null = null;
 
   constructor(
     private http: HttpClient,
@@ -81,6 +104,12 @@ export class SoundService {
   init(): void {
     const savedSet = localStorage.getItem(this.setKey);
     this.setId = savedSet && SOUND_SETS.some((p) => p.id === savedSet) ? savedSet : 'cyber';
+
+    const savedRinger = localStorage.getItem(this.ringerKey);
+    this.ringerId = savedRinger && RINGER_SETS.some((r) => r.id === savedRinger) ? savedRinger : 'cyber1';
+
+    const savedOutgoing = localStorage.getItem(this.outgoingKey);
+    this.outgoingId = savedOutgoing && OUTGOING_TONES.some((r) => r.id === savedOutgoing) ? savedOutgoing : 'cyber-out';
 
     const savedVolume = localStorage.getItem(this.volumeKey);
     this.volume = savedVolume ? parseFloat(savedVolume) : 0.7;
@@ -119,6 +148,10 @@ export class SoundService {
           this.setId = settings.sound_profile;
           localStorage.setItem(this.setKey, this.setId);
         }
+        if (settings?.ringer_profile && RINGER_SETS.some((r) => r.id === settings.ringer_profile)) {
+          this.ringerId = settings.ringer_profile;
+          localStorage.setItem(this.ringerKey, this.ringerId);
+        }
       },
       error: () => {},
     });
@@ -134,6 +167,52 @@ export class SoundService {
 
   get currentSet(): SoundSet {
     return SOUND_SETS.find((p) => p.id === this.setId) ?? SOUND_SETS[0];
+  }
+
+  get ringerSets(): RingerSet[] {
+    return RINGER_SETS;
+  }
+
+  get currentRingerId(): string {
+    return this.ringerId;
+  }
+
+  get currentRingerLabel(): string {
+    return RINGER_SETS.find((r) => r.id === this.ringerId)?.label ?? 'Cyberpunk';
+  }
+
+  selectRinger(id: string): void {
+    if (!RINGER_SETS.some((r) => r.id === id)) return;
+    this.ringerId = id;
+    localStorage.setItem(this.ringerKey, id);
+    const user = this.auth.getCurrentUser();
+    if (user) {
+      this.http.put(`${this.apiUrl}/users/settings`, { ringer_profile: id }).subscribe();
+    }
+  }
+
+  get outgoingTones(): RingerSet[] {
+    return OUTGOING_TONES;
+  }
+
+  get currentOutgoingId(): string {
+    return this.outgoingId;
+  }
+
+  get currentOutgoingLabel(): string {
+    return OUTGOING_TONES.find((r) => r.id === this.outgoingId)?.label ?? 'Cyberpunk';
+  }
+
+  selectOutgoing(id: string): void {
+    if (!OUTGOING_TONES.some((r) => r.id === id)) return;
+    this.outgoingId = id;
+    localStorage.setItem(this.outgoingKey, id);
+  }
+
+  previewOutgoing(): void {
+    const tone = OUTGOING_TONES.find((r) => r.id === this.outgoingId);
+    if (!tone) return;
+    this.playFile(`/assets/sounds/${tone.file}`, true);
   }
 
   get currentVolume(): number {
@@ -264,9 +343,22 @@ export class SoundService {
     this.http.put(`${this.apiUrl}/users/settings`, { allow_incoming_nudges: allow }).subscribe();
   }
 
-  play(event: SoundEvent): void {
+  play(event: SoundEvent | 'hang_up'): void {
     if (this.muted) return;
-    if (this.disabledEvents.has(event)) return;
+    if (event !== 'hang_up' && this.disabledEvents.has(event)) return;
+
+    if (event === 'hang_up') {
+      this.playFile('/assets/sounds/hang_up.mp3');
+      return;
+    }
+
+    if (event === 'call_ringing_outgoing') {
+      const tone = OUTGOING_TONES.find((r) => r.id === this.outgoingId);
+      if (tone) {
+        this.playFile(`/assets/sounds/${tone.file}`);
+      }
+      return;
+    }
 
     const set = this.currentSet;
     const relativePath = set.events[event];
@@ -275,11 +367,25 @@ export class SoundService {
     this.playFile(`/assets/sounds/${relativePath}`);
   }
 
+  playIncomingRinger(): void {
+    if (this.muted) return;
+    const ringer = RINGER_SETS.find((r) => r.id === this.ringerId);
+    if (ringer) {
+      this.playFile(`/assets/sounds/${ringer.file}`);
+    }
+  }
+
   preview(event: SoundEvent): void {
     const set = this.currentSet;
     const relativePath = set.events[event];
     if (!relativePath) return;
     this.playFile(`/assets/sounds/${relativePath}`, true);
+  }
+
+  previewRinger(): void {
+    const ringer = RINGER_SETS.find((r) => r.id === this.ringerId);
+    if (!ringer) return;
+    this.playFile(`/assets/sounds/${ringer.file}`, true);
   }
 
   private async playFile(path: string, force: boolean = false): Promise<void> {
@@ -301,7 +407,23 @@ export class SoundService {
       source.connect(gainNode);
       gainNode.connect(ctx.destination);
       gainNode.gain.value = force ? 1.0 : this.volume;
+      if (force) {
+        this.currentPreviewSource?.stop();
+        this.currentPreviewSource = source;
+        source.onended = () => {
+          if (this.currentPreviewSource === source) this.currentPreviewSource = null;
+        };
+      }
       source.start(0);
-    } catch {}
+    } catch (err) {
+      console.warn('[SoundService] playFile failed:', path, err);
+    }
+  }
+
+  stopAll(): void {
+    if (this.currentPreviewSource) {
+      try { this.currentPreviewSource.stop(); } catch {}
+      this.currentPreviewSource = null;
+    }
   }
 }

@@ -305,6 +305,10 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     return !!this.jamService.sessionValue;
   }
 
+  get isBrowsing(): boolean {
+    return this.showResults || this.searching;
+  }
+
   addTrackToSavedPlaylist(playlist: Playlist): void {
     if (!this.track) return;
     this.music.addTrackToPlaylist(playlist.id, this.track);

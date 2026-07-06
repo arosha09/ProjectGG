@@ -3,9 +3,9 @@
  * Runs on the audio rendering thread — zero main-thread overhead.
  *
  * Features:
- *  - Adaptive noise floor estimation (EMA) — updates even when gate is open
+ *  - Adaptive noise floor estimation (EMA) — only tracks DOWN when closed
  *  - Hysteresis: open at openThresh * noiseFloor, close at closeThresh * noiseFloor
- *  - Smooth gain ramps (attack ~10ms, release ~100ms) — no clicks/pops
+ *  - Smooth gain ramps (attack ~15ms, release ~5ms) — no clicks/pops
  *  - Hangover: keeps gate open briefly after signal drops, prevents choppy cutoffs
  *  - Bypass: pass-through when disabled
  */
@@ -14,21 +14,21 @@ class NoiseGateProcessor extends AudioWorkletProcessor {
     super();
 
     this.noiseFloor = 0.02;
-    this.closedAlpha = 0.95;
-    this.openAlpha = 0.995;
+    this.closedAlpha = 0.98;
+    this.openAlpha = 0.997;
     this.noiseFloorMax = 0.15;
 
-    this.openMultiplier = 1.8;
-    this.closeMultiplier = 1.2;
+    this.openMultiplier = 1.6;
+    this.closeMultiplier = 1.1;
 
-    this.attackCoeff = 0.6;
-    this.releaseCoeff = 0.04;
+    this.attackCoeff = 0.25;
+    this.releaseCoeff = 0.12;
 
     this.currentGain = 0;
     this.targetGain = 0;
     this.isOpen = false;
 
-    this.hangoverFrames = 8;
+    this.hangoverFrames = 35;
     this.hangoverCounter = 0;
 
     this.enabled = true;
@@ -71,8 +71,17 @@ class NoiseGateProcessor extends AudioWorkletProcessor {
     }
     const rms = Math.sqrt(sum / inSamples.length);
 
-    const alpha = this.isOpen ? this.openAlpha : this.closedAlpha;
-    this.noiseFloor = this.noiseFloor * alpha + rms * (1 - alpha);
+    // Only track noise floor DOWNWARD when gate is closed — never let speech raise it
+    if (!this.isOpen) {
+      if (rms < this.noiseFloor) {
+        this.noiseFloor = this.noiseFloor * this.closedAlpha + rms * (1 - this.closedAlpha);
+      }
+    } else {
+      // When open, very slow tracking to gently adjust
+      if (rms < this.noiseFloor * 1.2) {
+        this.noiseFloor = this.noiseFloor * this.openAlpha + rms * (1 - this.openAlpha);
+      }
+    }
     if (this.noiseFloor > this.noiseFloorMax) this.noiseFloor = this.noiseFloorMax;
     if (this.noiseFloor < 0.001) this.noiseFloor = 0.001;
 

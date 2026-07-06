@@ -189,6 +189,11 @@ export class ChatGateway
     this.server?.to(`user:${userId}`).emit(event, data);
   }
 
+  emitNotificationToUser(userId: string, data: any): void {
+    this.server?.to(`user:${userId}`).emit('notification', data);
+    this.realtime.emitToUser(userId, 'notification', data);
+  }
+
   async createNotification(
     userId: string,
     type: string,
@@ -210,7 +215,7 @@ export class ChatGateway
         .select('id, read, created_at')
         .single();
       if (error) return null;
-      this.sendToUser(userId, 'notification', {
+      this.emitNotificationToUser(userId, {
         id: inserted.id,
         type,
         title,
@@ -223,6 +228,14 @@ export class ChatGateway
     } catch {
       return null;
     }
+  }
+
+  deleteNotification(userId: string, notificationId: number): void {
+    this.sendToUser(userId, 'notification-deleted', { id: notificationId });
+  }
+
+  clearAllNotifications(userId: string): void {
+    this.sendToUser(userId, 'notifications-cleared', {});
   }
 
   private subscribeToUserStatusChanges(): void {

@@ -91,6 +91,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
   serverProfileAbout = '';
   serverProfileSaving = false;
   serverConnections: any[] = [];
+  serverProfilePlatforms: Record<string, boolean> = {};
   readonly platforms = [
     { id: 'steam', name: 'Steam' },
     { id: 'discord', name: 'Discord' },
@@ -513,13 +514,17 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
           about: p?.about ?? '',
           show_connections: p?.show_connections ?? true,
           show_about: p?.show_about ?? true,
+          show_favorites: p?.show_favorites ?? true,
+          show_rank: p?.show_rank ?? true,
         };
         this.serverProfileAbout = this.serverProfile.about ?? '';
+        this.serverProfilePlatforms = p?.show_connection_platforms ?? {};
         this.cdr.markForCheck();
       },
       error: () => {
-        this.serverProfile = { avatar_url: null, banner_url: null, about: '', show_connections: true, show_about: true };
+        this.serverProfile = { avatar_url: null, banner_url: null, about: '', show_connections: true, show_about: true, show_favorites: true, show_rank: true };
         this.serverProfileAbout = '';
+        this.serverProfilePlatforms = {};
         this.cdr.markForCheck();
       },
     });
@@ -548,6 +553,27 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
     const next = !this.serverProfile?.show_about;
     this.serverProfile = { ...this.serverProfile, show_about: next };
     this.chatService.updateServerProfile(this.serverId, { show_about: next }).subscribe();
+  }
+
+  toggleServerProfileShowFavorites(): void {
+    const next = !this.serverProfile?.show_favorites;
+    this.serverProfile = { ...this.serverProfile, show_favorites: next };
+    this.chatService.updateServerProfile(this.serverId, { show_favorites: next }).subscribe();
+  }
+
+  toggleServerProfileShowRank(): void {
+    const next = !this.serverProfile?.show_rank;
+    this.serverProfile = { ...this.serverProfile, show_rank: next };
+    this.chatService.updateServerProfile(this.serverId, { show_rank: next }).subscribe();
+  }
+
+  isPlatformVisible(platformId: string): boolean {
+    return this.serverProfilePlatforms[platformId] !== false;
+  }
+
+  togglePlatformVisible(platformId: string): void {
+    this.serverProfilePlatforms = { ...this.serverProfilePlatforms, [platformId]: !this.isPlatformVisible(platformId) };
+    this.chatService.updateServerProfile(this.serverId, { show_connection_platforms: this.serverProfilePlatforms }).subscribe();
   }
 
   getPlatformLogo(id: string): string {

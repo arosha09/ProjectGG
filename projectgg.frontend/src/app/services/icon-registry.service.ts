@@ -38,11 +38,11 @@ export class IconRegistryService extends MatIconRegistry {
     'arrow_back', 'arrow_drop_down', 'arrow_forward', 'assignment',
     'attach_file', 'attachment', 'auto_awesome',
     'badge', 'block', 'bolt', 'bug_report',
-    'calendar_today', 'call', 'call_made', 'call_received', 'cancel',
+    'calendar_today',     'call', 'call_end', 'call_made', 'call_received', 'cancel', 'campaign',
     'card_giftcard', 'casino', 'celebration', 'chat', 'chat_bubble',
     'check', 'check_circle', 'chevron_right', 'close', 'compare_arrows',
     'confirmation_number', 'content_copy', 'create',
-    'delete', 'delete_outline', 'discord', 'dns', 'chat_bubble_outline',
+    'delete', 'delete_outline', 'desktop_windows', 'discord', 'dns', 'chat_bubble_outline',
     'drag_indicator',
     'edit', 'emoji_events', 'error', 'error_outline', 'event', 'expand_less', 'expand_more',
     'flash_on', 'folder', 'forum', 'forward_to_inbox', 'fullscreen', 'fullscreen_exit',
@@ -54,7 +54,7 @@ export class IconRegistryService extends MatIconRegistry {
     'login', 'logout',
     'mail', 'menu', 'memory', 'mic', 'mic_off', 'mood', 'more_horiz',
     'more_vert', 'movie_filter', 'music_note',
-    'notifications', 'notifications_active', 'notifications_off', 'open_in_new', 'outbox',
+    'notifications', 'notifications_active', 'notifications_off', 'open_in_full', 'open_in_new', 'outbox',
     'palette', 'pause', 'people', 'person', 'person_add', 'person_remove',
     'phone_off', 'photo_camera', 'play_arrow', 'play_circle',
     'playlist_add', 'push_pin', 'queue_music',
@@ -62,11 +62,11 @@ export class IconRegistryService extends MatIconRegistry {
     'save', 'schedule', 'science', 'search', 'send', 'settings',
     'settings_voice', 'share', 'shield', 'shopping_cart', 'shuffle',
     'skip_next', 'skip_previous', 'sports_esports', 'speed', 'star', 'star_border', 'star_outline',
-    'stop', 'style', 'swap_horiz', 'sync',
+    'stop', 'stop_screen_share', 'style', 'swap_horiz', 'sync',
     'tag', 'thumb_up', 'timer', 'today',
-    'upload', 'verified', 'videogame_asset', 'visibility', 'volume_down',
+    'upload', 'videocam', 'verified', 'videogame_asset', 'visibility', 'volume_down',
     'volume_off', 'volume_up', 'vpn_key', 'waves',
-    'warning', 'work', 'apex', 'hourglass', 'tune', 'record_voice_over', 'subtitles'
+    'warning', 'work', 'web_asset', 'apex', 'hourglass', 'tune', 'record_voice_over', 'subtitles'
   ];
 
   override getNamedSvgIcon(name: string, namespace: string = ''): Observable<SVGElement> {

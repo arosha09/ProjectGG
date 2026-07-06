@@ -56,6 +56,7 @@ export class VoiceService implements OnDestroy {
 
   // Per-user volume control
   private remoteGainNodes = new Map<string, GainNode>();
+  private userLimiters = new Map<string, DynamicsCompressorNode>();
   private userVolumes = new Map<string, number>(); // userId -> volume (0-2)
 
   // Per-user theme colors (for speaking glow)
@@ -95,6 +96,7 @@ export class VoiceService implements OnDestroy {
   onLocalSpeaking: ((speaking: boolean) => void) | null = null;
   onMicPermissionError: ((error: string) => void) | null = null;
   onVoiceNudge: ((fromUserId: string, fromUsername: string) => void) | null = null;
+  onVoiceInvite: ((data: { fromUserId: string; fromUsername: string; fromAvatar: string | null; guildId: string; channelId: string }) => void) | null = null;
   onDisconnected: (() => void) | null = null;
   onQualityUpdate: ((stats: VoiceQualityStats) => void) | null = null;
   onUserSoundboardStart: ((userId: string, soundName: string) => void) | null = null;
@@ -121,6 +123,32 @@ export class VoiceService implements OnDestroy {
 
   get qualityStats(): VoiceQualityStats | null {
     return this.lastQualityStats;
+  }
+
+  get isInVoice(): boolean {
+    return this.isConnected && this.currentChannel !== null;
+  }
+
+  get currentGuildId(): string | null {
+    return this.currentChannel?.guildId ?? null;
+  }
+
+  get livekitRoom(): Room | null {
+    return this.room;
+  }
+
+  get voiceSocket(): Socket | null {
+    return this.socket;
+  }
+
+  sendVoiceInvite(targetUserId: string): void {
+    if (!this.currentChannel) return;
+    const { guildId, channelId } = this.currentChannel;
+    this.http.post(`${environment.apiUrl}/voice/invite`, {
+      targetUserId,
+      guildId,
+      channelId,
+    }).subscribe();
   }
 
   async joinChannel(guildId: string, channelId: string): Promise<void> {
@@ -303,6 +331,10 @@ export class VoiceService implements OnDestroy {
       });
       this.noiseGateNode.port.postMessage({ type: 'setEnabled', enabled: this._noiseSuppression });
       micSource.connect(this.noiseGateNode);
+      // Disable browser NS when worklet is handling it (avoid double processing)
+      if (this._noiseSuppression) {
+        this.applyBrowserNS(false);
+      }
     } catch {
       this.noiseGateNode = null;
     }
@@ -469,6 +501,8 @@ export class VoiceService implements OnDestroy {
       this.remoteSources.clear();
       this.remoteGainNodes.forEach(g => g.disconnect());
       this.remoteGainNodes.clear();
+      this.userLimiters.forEach(l => l.disconnect());
+      this.userLimiters.clear();
 
       // Reconnect
       await this.connectToLiveKit(this.currentChannel.guildId, this.currentChannel.channelId);
@@ -529,23 +563,36 @@ export class VoiceService implements OnDestroy {
             try {
               const source = this.audioContext.createMediaElementSource(el);
 
-              // Per-user gain node for volume control
+              // Per-user gain node for volume control (supports 0-200% boost)
               const userGain = this.audioContext.createGain();
               const savedVol = this.userVolumes.get(participant.identity) ?? 1;
               userGain.gain.value = savedVol;
 
-              // Chain: source → userGain → highpass → ...
+              // Per-user soft limiter — prevents clipping when boosting past 100%.
+              // Acts as a transparent brickwall: ratio 20:1 with 0.001s attack catches
+              // peaks instantly, while 0.05s release restores dynamics smoothly.
+              // Threshold at -1 dB leaves headroom so the output never distorts.
+              const userLimiter = this.audioContext.createDynamicsCompressor();
+              userLimiter.threshold.setValueAtTime(-1, this.audioContext.currentTime);
+              userLimiter.knee.setValueAtTime(0, this.audioContext.currentTime);
+              userLimiter.ratio.setValueAtTime(20, this.audioContext.currentTime);
+              userLimiter.attack.setValueAtTime(0.001, this.audioContext.currentTime);
+              userLimiter.release.setValueAtTime(0.05, this.audioContext.currentTime);
+
+              // Chain: source → userGain → userLimiter → highpass → ...
               source.connect(userGain);
-              userGain.connect(this.highpassNode);
+              userGain.connect(userLimiter);
+              userLimiter.connect(this.highpassNode);
 
               if (track.sid) {
                 this.remoteSources.set(track.sid, source);
               }
               this.remoteGainNodes.set(participant.identity, userGain);
+              this.userLimiters.set(participant.identity, userLimiter);
               this.remoteAudioElements.set(participant.identity, el);
-              // Set the element's own volume as a fallback (capped to 0..1).
-              // This is the actual audible output of the media element.
-              el.volume = Math.min(1, Math.max(0, savedVol));
+              // The <audio> element's own volume stays clamped to 0-1 — the Web Audio
+              // gain + limiter handle the 0-200% range above this point.
+              el.volume = 1.0;
 
               // Apply soundboard mute if this user is actively playing soundboard
               if (this.activeSoundboardUsers.has(participant.identity)) {
@@ -570,6 +617,7 @@ export class VoiceService implements OnDestroy {
             if (stored === el) {
               this.remoteAudioElements.delete(uid);
               this.remoteGainNodes.delete(uid);
+              this.userLimiters.delete(uid);
               break;
             }
           }
@@ -581,6 +629,11 @@ export class VoiceService implements OnDestroy {
         if (gain) {
           gain.disconnect();
           this.remoteGainNodes.delete(participant.identity);
+        }
+        const limiter = this.userLimiters.get(participant.identity);
+        if (limiter) {
+          limiter.disconnect();
+          this.userLimiters.delete(participant.identity);
         }
       })
       .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
@@ -673,6 +726,10 @@ export class VoiceService implements OnDestroy {
       this.onVoiceNudge?.(data.fromUserId, data.fromUsername);
     });
 
+    this.socket.on('voice-invite-received', (data: { fromUserId: string; fromUsername: string; fromAvatar: string | null; guildId: string; channelId: string }) => {
+      this.onVoiceInvite?.(data);
+    });
+
     this.socket.on('user-soundboard-start', (data: { userId: string; soundName: string }) => {
       this.activeSoundboardUsers.add(data.userId);
       this.onUserSoundboardStart?.(data.userId, data.soundName);
@@ -744,9 +801,11 @@ export class VoiceService implements OnDestroy {
     this.remoteSources.forEach(s => s.disconnect());
     this.remoteSources.clear();
 
-    // Clean up per-user gain nodes
+    // Clean up per-user gain nodes and limiters
     this.remoteGainNodes.forEach(g => g.disconnect());
     this.remoteGainNodes.clear();
+    this.userLimiters.forEach(l => l.disconnect());
+    this.userLimiters.clear();
     this.remoteAudioElements.clear();
 
     // Clean up soundboard state
@@ -929,8 +988,23 @@ export class VoiceService implements OnDestroy {
     return this.mutedSoundboardUsers.has(userId);
   }
 
-  private applySoundboardMuteForUser(userId: string): void {
-    if (!this.sound.isMuteSoundboard) return;
+applySoundboardMuteForUser(userId: string): void {
+    if (this.isSoundboardMutedFor(userId)) {
+      this.doMuteUser(userId);
+    } else {
+      this.doUnmuteUser(userId);
+    }
+  }
+
+  unapplySoundboardMuteForUser(userId: string): void {
+    if (this.isSoundboardMutedFor(userId)) {
+      this.doMuteUser(userId);
+    } else {
+      this.doUnmuteUser(userId);
+    }
+  }
+
+  private doMuteUser(userId: string): void {
     const gain = this.remoteGainNodes.get(userId);
     if (gain) {
       gain.gain.setValueAtTime(0, this.audioContext?.currentTime ?? 0);
@@ -941,24 +1015,25 @@ export class VoiceService implements OnDestroy {
     }
   }
 
-  private unapplySoundboardMuteForUser(userId: string): void {
+  private doUnmuteUser(userId: string): void {
+    const savedVol = this.userVolumes.get(userId) ?? 1;
     const gain = this.remoteGainNodes.get(userId);
     if (gain) {
-      const savedVol = this.userVolumes.get(userId) ?? 1;
       gain.gain.setValueAtTime(savedVol, this.audioContext?.currentTime ?? 0);
     }
     const el = this.remoteAudioElements.get(userId);
     if (el) {
-      const savedVol = this.userVolumes.get(userId) ?? 1;
       el.volume = Math.min(1, Math.max(0, savedVol));
     }
   }
 
   refreshSoundboardMuteAll(): void {
-    for (const userId of this.activeSoundboardUsers) {
-      if (this.sound.isMuteSoundboard) {
+    if (this.sound.isMuteSoundboard) {
+      for (const userId of this.activeSoundboardUsers) {
         this.applySoundboardMuteForUser(userId);
-      } else {
+      }
+    } else {
+      for (const userId of this.activeSoundboardUsers) {
         this.unapplySoundboardMuteForUser(userId);
       }
     }
@@ -1114,16 +1189,29 @@ export class VoiceService implements OnDestroy {
 
   /**
    * Toggle the in-line noise gate. When connected, this mutates the gate
-   * worklet immediately. The preference is persisted to localStorage.
+   * worklet immediately. Also toggles browser-level noiseSuppression via
+   * applyConstraints to avoid double processing. Preference persisted to localStorage.
    */
   setNoiseSuppression(enabled: boolean): void {
     this._noiseSuppression = enabled;
     if (this.noiseGateNode) {
       this.noiseGateNode.port.postMessage({ type: 'setEnabled', enabled });
     }
+    // Disable browser-level NS when worklet is handling it (avoid double processing)
+    this.applyBrowserNS(!enabled);
     try {
       localStorage.setItem(NS_STORAGE_KEY, JSON.stringify(enabled));
     } catch {}
+  }
+
+  private applyBrowserNS(enabled: boolean): void {
+    const track = this.micStream?.getAudioTracks()[0];
+    if (!track) return;
+    track.applyConstraints({
+      noiseSuppression: enabled,
+      echoCancellation: true,
+      autoGainControl: true,
+    }).catch(() => {});
   }
 
   private loadNoiseSuppressionPreference(): void {

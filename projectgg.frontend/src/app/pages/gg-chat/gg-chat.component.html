@@ -72,7 +72,9 @@
     ></app-channel-list>
 
     <!-- MAIN PANEL -->
-    <main class="gg-main">
+    <main class="gg-main" [class.call-expanded-active]="callExpanded">
+      <app-cyber-call (expandedChange)="callExpanded = $event"></app-cyber-call>
+      @if (!callExpanded) {
       <!-- MUTED/DEAFENED CYBER ALERT (non-voice views) -->
       @if (mutedFeedbackAlert) {
         <div class="gg-muted-feedback-alert" [class.deafened]="mutedFeedbackIsDeafened">
@@ -102,8 +104,8 @@
             </span>
           </div>
           <div class="gg-dm-header-actions">
-            <button class="gg-dm-header-btn" (click)="toggleDmVoice()" title="Voice Call">
-              <mat-icon svgIcon="call"></mat-icon>
+            <button class="gg-dm-header-btn" [class.call-active]="isCallOngoing" (click)="toggleDmVoice()" [title]="isCallOngoing ? 'End Call' : 'Voice Call'">
+              <mat-icon [svgIcon]="isCallOngoing ? 'call_end' : 'call'"></mat-icon>
             </button>
             <button class="gg-dm-header-btn" (click)="showUserProfile(selectedDm)" title="View Profile">
               <mat-icon svgIcon="person"></mat-icon>
@@ -408,10 +410,23 @@
             }
             @if (showMentionAutocomplete) {
               <div class="mention-autocomplete">
-                @for (m of filteredMentions; track m.id) {
-                  <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index">
-                    <img loading="lazy" decoding="async" [src]="m.avatar || defaultAvatar()" class="mention-avatar" (error)="onAvatarError($event)" />
-                    <span class="mention-name">{{ m.username }}</span>
+                @for (m of filteredMentions; track $index) {
+                  <div class="mention-item" (click)="insertMention(m)" [class.active]="mentionIndex === $index" [class.mention-item-special]="m.__mention">
+                    @if (m.__mention === 'everyone') {
+                      <mat-icon svgIcon="campaign" class="mention-special-icon"></mat-icon>
+                    } @else if (m.__mention === 'role-prefix') {
+                      <mat-icon svgIcon="shield" class="mention-special-icon"></mat-icon>
+                    } @else if (m.__mention === 'role') {
+                      <mat-icon svgIcon="shield" class="mention-special-icon" [style.color]="m.color"></mat-icon>
+                    } @else {
+                      <img loading="lazy" decoding="async" [src]="m.avatar || defaultAvatar()" class="mention-avatar" (error)="onAvatarError($event)" />
+                    }
+                    <div class="mention-item-text">
+                      <span class="mention-name" [class.mention-name-special]="m.__mention" [style.color]="m.color">{{ m.display || m.username }}</span>
+                      @if (m.__mention === 'role-prefix') {
+                        <span class="mention-hint">Select to pick a role</span>
+                      }
+                    </div>
                   </div>
                 }
               </div>
@@ -523,8 +538,95 @@
                 <div class="gg-voice-empty">No one is here yet</div>
               }
 
+              <!-- Screen share: remote viewer -->
+              @if (remoteScreenSharer && !screenSharePanelCollapsed) {
+                <div class="gg-screen-share-viewer">
+                  <div class="gg-screen-share-header">
+                    <mat-icon svgIcon="desktop_windows"></mat-icon>
+                    <span class="gg-screen-share-user">{{ voiceMemberName(remoteScreenSharer.userId) }} is sharing</span>
+                    <span class="gg-screen-share-quality">{{ remoteScreenSharer.quality }}</span>
+                    <button class="gg-screen-share-collapse" (click)="toggleScreenSharePanel()" title="Minimize">
+                      <mat-icon svgIcon="remove"></mat-icon>
+                    </button>
+                  </div>
+                  <div class="gg-screen-share-video" #screenShareContainer></div>
+                  @if (remoteScreenSharer.audioElement) {
+                    <div class="gg-screen-share-audio-indicator">
+                      <mat-icon svgIcon="volume_up"></mat-icon> Audio shared
+                    </div>
+                  }
+                </div>
+              }
+              @if (remoteScreenSharer && screenSharePanelCollapsed) {
+                <div class="gg-screen-share-mini" (click)="toggleScreenSharePanel()">
+                  <mat-icon svgIcon="desktop_windows"></mat-icon>
+                  <span>{{ voiceMemberName(remoteScreenSharer.userId) }} is sharing</span>
+                  <button class="gg-screen-share-expand" title="Show">
+                    <mat-icon svgIcon="open_in_full"></mat-icon>
+                  </button>
+                </div>
+              }
+
+              <!-- Screen share: local controls -->
+              <div class="gg-screen-share-controls">
+                @if (!isScreenSharing) {
+                  <button class="gg-screen-share-start" (click)="toggleScreenShareQualityMenu()" [disabled]="!!remoteScreenSharer">
+                    <mat-icon svgIcon="videocam"></mat-icon>
+                    <span>Start Stream</span>
+                    <mat-icon class="gg-screen-share-caret" svgIcon="arrow_drop_down"></mat-icon>
+                  </button>
+                  @if (showScreenShareQualityMenu) {
+                    <div class="gg-screen-share-menu" (click)="$event.stopPropagation()">
+                      <div class="gg-screen-share-menu-section">
+                        <div class="gg-screen-share-menu-label">Quality</div>
+                        <button class="gg-screen-share-quality-btn" [class.active]="screenShareQuality === '480p'" (click)="setScreenShareQuality('480p')">
+                          <span class="gg-screen-share-quality-name">480p</span>
+                          <span class="gg-screen-share-quality-data">~0.6 Mbps</span>
+                        </button>
+                        <button class="gg-screen-share-quality-btn" [class.active]="screenShareQuality === '720p'" (click)="setScreenShareQuality('720p')">
+                          <span class="gg-screen-share-quality-name">720p</span>
+                          <span class="gg-screen-share-quality-data">~1.5 Mbps</span>
+                        </button>
+                        <button class="gg-screen-share-quality-btn" [class.active]="screenShareQuality === '1080p'" (click)="setScreenShareQuality('1080p')">
+                          <span class="gg-screen-share-quality-name">1080p</span>
+                          <span class="gg-screen-share-quality-data">~3 Mbps</span>
+                        </button>
+                      </div>
+                      <div class="gg-screen-share-menu-divider"></div>
+                      <div class="gg-screen-share-audio-toggle">
+                        <span class="gg-screen-share-audio-label">
+                          <mat-icon svgIcon="music_note"></mat-icon>
+                          Share audio
+                        </span>
+                        <button class="gg-toggle-switch" [class.active]="screenShareShareAudio" (click)="screenShareShareAudio = !screenShareShareAudio" type="button">
+                          <span class="gg-toggle-knob"></span>
+                        </button>
+                      </div>
+                      <button class="gg-screen-share-launch-btn" (click)="openScreenShareConfirm()">
+                        <mat-icon svgIcon="videocam"></mat-icon> Start stream
+                      </button>
+                    </div>
+                  }
+                } @else {
+                  <div class="gg-screen-share-self-view" #screenShareSelfView></div>
+                  <button class="gg-screen-share-stop" (click)="stopScreenShare()">
+                    <mat-icon svgIcon="stop_screen_share"></mat-icon>
+                    <span>Stop Stream</span>
+                  </button>
+                  <span class="gg-screen-share-active-badge">
+                    <span class="gg-screen-share-pulse"></span>
+                    Live · {{ screenShareQuality }}
+                  </span>
+                }
+                @if (screenShareError) {
+                  <div class="gg-screen-share-error">
+                    <mat-icon svgIcon="error"></mat-icon> {{ screenShareError }}
+                  </div>
+                }
+              </div>
+
               <!-- Soundboard -->
-              <div class="gg-voice-soundboard">
+              <div class="gg-voice-soundboard" [class.gg-hidden]="showScreenShareQualityMenu">
                 <button class="gg-soundboard-toggle" (click)="toggleSoundboard()" [class.active]="showSoundboard" title="Soundboard">
                   <mat-icon svgIcon="graphic_eq"></mat-icon>
                   <span>Soundboard</span>
@@ -763,35 +865,68 @@
       <!-- PROFILE VIEW -->
       @if (viewMode === 'profile' && profileUser) {
         <div class="gg-profile-panel">
-          <div class="gg-profile-head">
-            <div class="gg-profile-avatar">
-              <div class="gg-avatar-sk gg-avatar-sk-lg"></div>
-              <img loading="lazy" decoding="async" [src]="resolveAvatar(profileUser, 'avatar', 'avatar_url', 'otherAvatar')" alt="" class="gg-profile-avatar-img" [class.gg-avatar-img-hidden]="!avatarImgLoaded" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="avatarImgLoaded = true; $event.target.previousElementSibling?.classList?.add('sk-hidden')" />
-              <span class="gg-user-status-dot"
-                [class.online]="profileStatus() === 'online'"
-                [class.away]="profileStatus() === 'away'"
-                [class.dnd]="profileStatus() === 'dnd'"
-                [class.invisible]="profileStatus() === 'invisible'"
-              ></span>
+          <div class="gg-profile-hero">
+            <div class="gg-profile-banner"
+              [style.background]="profileUser?.banner_url ? 'url(' + profileUser.banner_url + ') center/cover no-repeat' : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'">
+              @if (profileServerId) {
+                <span class="gg-profile-banner-badge">
+                  <mat-icon svgIcon="shield"></mat-icon>
+                  Server profile
+                </span>
+              }
+              <div class="gg-profile-banner-actions">
+                @if (profileServerId && isOwnProfile()) {
+                  <button class="gg-profile-banner-action gg-profile-action-edit" (click)="openServerSettingsFromProfile()" title="Edit server profile">
+                    <mat-icon svgIcon="edit"></mat-icon>
+                  </button>
+                }
+                <button class="gg-profile-banner-action" (click)="closeProfile()" title="Close">
+                  <mat-icon svgIcon="close"></mat-icon>
+                </button>
+              </div>
             </div>
-            <div class="gg-profile-info">
-              <h2 class="gg-profile-name">{{ profileUser.otherUsername || profileUser.username }}</h2>
-              <span class="gg-profile-status">{{ profileStatus() }}</span>
+
+            <div class="gg-profile-hero-content">
+              <div class="gg-profile-avatar-wrap">
+                <div class="gg-avatar-sk gg-avatar-sk-lg"></div>
+                <img loading="lazy" decoding="async" [src]="resolveAvatar(profileUser, 'avatar', 'avatar_url', 'otherAvatar')" alt="" class="gg-profile-avatar-img" [class.gg-avatar-img-hidden]="!avatarImgLoaded" (error)="onAvatarError($event); $event.target.previousElementSibling?.classList?.add('sk-err')" (load)="avatarImgLoaded = true; $event.target.previousElementSibling?.classList?.add('sk-hidden')" />
+                <span class="gg-user-status-dot"
+                  [class.online]="profileStatus() === 'online'"
+                  [class.away]="profileStatus() === 'away'"
+                  [class.dnd]="profileStatus() === 'dnd'"
+                  [class.invisible]="profileStatus() === 'invisible'"
+                ></span>
+              </div>
+              <div class="gg-profile-hero-text">
+                <h2 class="gg-profile-name">{{ profileUser.name || profileUser.otherUsername || profileUser.username }}</h2>
+                @if (profileUser.name && (profileUser.otherUsername || profileUser.username) && profileUser.name !== (profileUser.otherUsername || profileUser.username)) {
+                  <span class="gg-profile-handle">&#64;{{ profileUser.otherUsername || profileUser.username }}</span>
+                }
+                <span class="gg-profile-status">
+                  <span class="gg-profile-status-dot" [class.online]="profileStatus() === 'online'" [class.away]="profileStatus() === 'away'" [class.dnd]="profileStatus() === 'dnd'" [class.invisible]="profileStatus() === 'invisible'"></span>
+                  {{ profileStatus() }}
+                </span>
+              </div>
             </div>
-            <button class="gg-dm-header-btn" (click)="closeProfile()" title="Close">
-              <mat-icon svgIcon="close"></mat-icon>
-            </button>
           </div>
+
           <div class="gg-profile-body">
             @if (profileUser?.about) {
-              <div class="gg-profile-section">
-                <span class="gg-profile-label">About</span>
+              <section class="gg-profile-section">
+                <div class="gg-profile-section-head">
+                  <mat-icon svgIcon="info"></mat-icon>
+                  <span>About</span>
+                </div>
                 <p class="gg-profile-about">{{ profileUser.about }}</p>
-              </div>
+              </section>
             }
+
             @if (profileUser.rank) {
-              <div class="gg-profile-section">
-                <span class="gg-profile-label">Rank</span>
+              <section class="gg-profile-section">
+                <div class="gg-profile-section-head">
+                  <mat-icon svgIcon="military_tech"></mat-icon>
+                  <span>Rank</span>
+                </div>
                 <div class="gg-profile-rank-display">
                   @if (profileUser.rank.rank_image_url) {
                     <div class="gg-profile-rank-img-wrap">
@@ -806,14 +941,20 @@
                   <div class="gg-profile-rank-info">
                     <span class="gg-profile-rank-name">{{ profileUser.rank.rank_name }}</span>
                     @if (profileUser.rank.xp_to_next !== undefined) {
-                      <span class="gg-profile-rank-progress">{{ profileUser.rank.total_xp | number }} XP / {{ profileUser.rank.xp_to_next | number }}</span>
+                      <span class="gg-profile-rank-progress">{{ profileUser.rank.total_xp | number }} / {{ profileUser.rank.xp_to_next | number }} XP</span>
+                      <div class="gg-profile-rank-bar">
+                        <div class="gg-profile-rank-bar-fill" [style.width.%]="rankProgressPercent()"></div>
+                      </div>
                     }
                   </div>
                 </div>
-              </div>
+              </section>
             } @else {
-              <div class="gg-profile-section">
-                <span class="gg-profile-label">Rank</span>
+              <section class="gg-profile-section">
+                <div class="gg-profile-section-head">
+                  <mat-icon svgIcon="military_tech"></mat-icon>
+                  <span>Rank</span>
+                </div>
                 <div class="gg-profile-rank-display">
                   <div class="gg-profile-rank-img gg-rank-skeleton"></div>
                   <div class="gg-profile-rank-info">
@@ -821,11 +962,15 @@
                     <span class="gg-rank-text-skeleton gg-rank-text-skeleton-sm"></span>
                   </div>
                 </div>
-              </div>
+              </section>
             }
+
             @if (profileAccounts && profileAccounts.length > 0) {
-              <div class="gg-profile-section">
-                <span class="gg-profile-label">Connected Accounts</span>
+              <section class="gg-profile-section">
+                <div class="gg-profile-section-head">
+                  <mat-icon svgIcon="link"></mat-icon>
+                  <span>Connected Accounts</span>
+                </div>
                 <div class="gg-profile-connections-grid">
                   @for (conn of profileAccounts; track conn.id) {
                     <div class="gg-profile-connection-item">
@@ -837,12 +982,15 @@
                     </div>
                   }
                 </div>
-              </div>
+              </section>
             }
 
             @if (profileMusic && profileMusic.length > 0) {
-              <div class="gg-profile-section">
-                <span class="gg-profile-label">Connected Music Accounts</span>
+              <section class="gg-profile-section">
+                <div class="gg-profile-section-head">
+                  <mat-icon svgIcon="music_note"></mat-icon>
+                  <span>Connected Music Accounts</span>
+                </div>
                 <div class="gg-profile-connections-grid">
                   @for (conn of profileMusic; track conn.id) {
                     <div class="gg-profile-connection-item">
@@ -854,60 +1002,57 @@
                     </div>
                   }
                 </div>
-              </div>
+              </section>
             }
-            <div class="gg-profile-section gg-profile-favorites">
-              <div class="gg-profile-fav-head">
-                <span class="gg-profile-label">Favorites</span>
-                <span class="gg-profile-fav-count">{{ profileFavorites.length }}/10</span>
-              </div>
 
-              @if (profileFavoritesLoading) {
-                <div class="gg-profile-fav-loading">
-                  <span class="gg-profile-fav-skeleton"></span>
-                  <span class="gg-profile-fav-skeleton"></span>
-                  <span class="gg-profile-fav-skeleton"></span>
+            @if (profileFavorites.length > 0 || profileFavoritesLoading) {
+              <section class="gg-profile-section">
+                <div class="gg-profile-section-head">
+                  <mat-icon svgIcon="style"></mat-icon>
+                  <span>Showcase</span>
                 </div>
-              } @else if (profileFavoritesError) {
-                <div class="gg-profile-fav-error">
-                  <mat-icon svgIcon="error_outline"></mat-icon>
-                  <span>{{ profileFavoritesError }}</span>
-                </div>
-              } @else if (profileFavorites.length > 0) {
-                <div class="gg-profile-fav-grid">
-                  @for (card of profileFavorites; track card.game_code) {
-                    <div class="gg-owned-card" [ngClass]="'tier-' + card.card_tier">
-                      <div class="gg-owned-media">
-                        <div class="gg-tier-badge" [ngClass]="'tier-' + card.card_tier">
-                          {{ card.card_tier }}
-                        </div>
-                        @if (card.cover_url) {
-                          <img loading="lazy" decoding="async" class="gg-cover-image"
-                            [src]="card.cover_url"
-                            [alt]="card.game_name"
-                            (error)="onAvatarError($event)"
-                          />
-                        }
-                        <div class="gg-cover-overlay"></div>
-                        <div class="gg-owned-content">
-                          <div class="gg-game-top">
-                            <h3>{{ card.game_name }}</h3>
-                            @if (card.rating) {
-                              <span class="gg-rating-badge">{{ card.rating }}</span>
-                            }
+                @if (profileFavoritesLoading) {
+                  <div class="gg-profile-fav-loading">
+                    <span class="gg-profile-fav-skeleton"></span>
+                    <span class="gg-profile-fav-skeleton"></span>
+                    <span class="gg-profile-fav-skeleton"></span>
+                  </div>
+                } @else if (profileFavoritesError) {
+                  <div class="gg-profile-fav-error">
+                    <mat-icon svgIcon="error_outline"></mat-icon>
+                    <span>{{ profileFavoritesError }}</span>
+                  </div>
+                } @else {
+                  <div class="gg-profile-fav-grid">
+                    @for (card of profileFavorites; track card.game_code) {
+                      <div class="gg-owned-card" [ngClass]="'tier-' + card.card_tier">
+                        <div class="gg-owned-media">
+                          <div class="gg-tier-badge" [ngClass]="'tier-' + card.card_tier">
+                            {{ card.card_tier }}
+                          </div>
+                          @if (card.cover_url) {
+                            <img loading="lazy" decoding="async" class="gg-cover-image"
+                              [src]="card.cover_url"
+                              [alt]="card.game_name"
+                              (error)="onAvatarError($event)"
+                            />
+                          }
+                          <div class="gg-cover-overlay"></div>
+                          <div class="gg-owned-content">
+                            <div class="gg-game-top">
+                              <h3>{{ card.game_name }}</h3>
+                              @if (card.rating) {
+                                <span class="gg-rating-badge">{{ card.rating }}</span>
+                              }
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="gg-profile-fav-empty">
-                  <mat-icon svgIcon="star_outline"></mat-icon>
-                  <span>No favourite cards yet</span>
-                </div>
-              }
-            </div>
+                    }
+                  </div>
+                }
+              </section>
+            }
           </div>
         </div>
       }
@@ -1008,7 +1153,8 @@
           </div>
         }
       }
-    </main>
+      }
+      </main>
 
     <!-- MEMBER LIST (server only) -->
     @if (viewMode === 'server') {
@@ -1071,7 +1217,7 @@
                 <div class="cyber-invite-code-section">
                   <label class="cyber-invite-label">Invite Code</label>
                   <div class="cyber-invite-code-row">
-                    <span class="cyber-invite-code-text">{{ activeInvite.code }}</span>
+                    <span class="cyber-invite-code-text">{{ activeInvite.code?.toUpperCase() }}</span>
                     <button class="cyber-invite-copy-btn" (click)="copyInviteCode()" title="Copy Code">
                       <mat-icon svgIcon="content_copy"></mat-icon>
                     </button>
@@ -1117,11 +1263,24 @@
     [status]="hoverCardStatus"
     [isFriend]="hoverCardIsFriend"
     [isSelf]="hoverCardIsSelf"
+    [isInVoice]="voiceConnected"
+    [loading]="hoverCardLoading"
     (addFriend)="onHoverCardAddFriend($event)"
     (openProfile)="onHoverCardOpenProfile($event)"
     (openTrade)="onHoverCardOpenTrade($event)"
     (openGift)="onHoverCardOpenGift($event)"
+    (openCall)="onHoverCardOpenCall($event)"
+    (inviteToVoice)="onHoverCardInviteToVoice($event)"
   ></app-member-hover-card>
+
+  @if (serverProfileEditorOpen && profileServerId) {
+    <app-server-profile-editor
+      [visible]="serverProfileEditorOpen"
+      [serverId]="profileServerId"
+      [serverName]="selectedServer?.name ?? 'Server'"
+      (close)="closeServerProfileEditor()"
+    ></app-server-profile-editor>
+  }
 
   @if (voiceContextMenu) {
     <div class="cyber-context-menu" [style.left]="voiceContextMenu.x + 'px'" [style.top]="voiceContextMenu.y + 'px'">
@@ -1129,12 +1288,25 @@
         <button class="cyber-ctx-item cyber-ctx-nudge" (click)="onVoiceContextNudge(voiceContextMenu.vm); closeVoiceContextMenu()">
           <mat-icon svgIcon="notifications_active"></mat-icon> Nudge
         </button>
+        <button class="cyber-ctx-item" (click)="onVoiceContextCall(voiceContextMenu.vm); closeVoiceContextMenu()">
+          <mat-icon svgIcon="call"></mat-icon> Call
+        </button>
         <div class="cyber-ctx-divider"></div>
-      }
-      <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
-        <mat-icon svgIcon="mic_off"></mat-icon> {{ (voiceContextMenu.vm.userId === currentUser?.id ? voiceMuted : localMuted(voiceContextMenu.vm.userId)) ? 'Unmute' : 'Mute' }}
-      </button>
-      @if (voiceContextMenu.vm.userId !== currentUser?.id) {
+        <!-- Mute / Unmute Toggle -->
+        @if (voiceContextMenu.vm.userId !== currentUser?.id && canControlVoice()) {
+          <button class="cyber-ctx-item" (click)="onVoiceContextMute(voiceContextMenu.vm); closeVoiceContextMenu()">
+            <mat-icon [svgIcon]="localMuted(voiceContextMenu.vm.userId) ? 'mic' : 'mic_off'"></mat-icon>
+            {{ localMuted(voiceContextMenu.vm.userId) ? 'Unmute' : 'Mute' }}
+          </button>
+          <!-- Deafen / Undeafen Toggle -->
+          <button class="cyber-ctx-item" (click)="onVoiceContextDeafen(voiceContextMenu.vm); closeVoiceContextMenu()">
+            <mat-icon [svgIcon]="localDeafened(voiceContextMenu.vm.userId) ? 'headset' : 'headset_off'"></mat-icon>
+            {{ localDeafened(voiceContextMenu.vm.userId) ? 'Undeafen' : 'Deafen' }}
+          </button>
+        }
+        <button class="cyber-ctx-item" (click)="onToggleSoundboardMute(voiceContextMenu.vm.userId); closeVoiceContextMenu()">
+          <mat-icon svgIcon="graphic_eq"></mat-icon> {{ isSoundboardMutedFor(voiceContextMenu.vm.userId) ? 'Unmute Soundboard' : 'Mute Soundboard' }}
+        </button>
         <div class="cyber-ctx-divider"></div>
         <div class="cyber-ctx-volume">
           <div class="cyber-ctx-volume-header" (click)="setUserVolume(voiceContextMenu.vm.userId, 0); $event.stopPropagation()">
@@ -1160,7 +1332,7 @@
         </div>
         <div class="cyber-ctx-divider"></div>
         <button class="cyber-ctx-item" (click)="kickMemberFromVoice(voiceContextMenu.vm.userId); closeVoiceContextMenu()">
-          <mat-icon svgIcon="logout"></mat-icon> Kick from Voice
+          <mat-icon svgIcon="logout"></mat-icon> Disconnect
         </button>
       }
     </div>
@@ -1172,13 +1344,26 @@
         <button class="cyber-ctx-item cyber-ctx-nudge" (click)="onMemberCtxNudge(); closeMemberPanelContextMenu()">
           <mat-icon svgIcon="notifications_active"></mat-icon> Nudge
         </button>
+        @if (voiceConnected) {
+          <button class="cyber-ctx-item" (click)="onMemberCtxInviteToVoice(); closeMemberPanelContextMenu()">
+            <mat-icon svgIcon="group_add"></mat-icon> Invite to Voice
+          </button>
+        } @else {
+          <button class="cyber-ctx-item" (click)="onMemberCtxCall(); closeMemberPanelContextMenu()">
+            <mat-icon svgIcon="call"></mat-icon> Call
+          </button>
+        }
         @if (isMemberInVoice(memberPanelContextMenu.member.user_id) && canControlVoice()) {
           <div class="cyber-ctx-divider"></div>
+          <!-- Mute / Unmute Toggle -->
           <button class="cyber-ctx-item" (click)="onMemberCtxMute(); closeMemberPanelContextMenu()">
-            <mat-icon svgIcon="mic_off"></mat-icon> {{ localMuted(memberPanelContextMenu.member.user_id) ? 'Unmute' : 'Mute' }}
+            <mat-icon [svgIcon]="localMuted(memberPanelContextMenu.member.user_id) ? 'mic' : 'mic_off'"></mat-icon>
+            {{ localMuted(memberPanelContextMenu.member.user_id) ? 'Unmute' : 'Mute' }}
           </button>
+          <!-- Deafen / Undeafen Toggle -->
           <button class="cyber-ctx-item" (click)="onMemberCtxDeafen(); closeMemberPanelContextMenu()">
-            <mat-icon svgIcon="headset_off"></mat-icon> {{ localDeafened(memberPanelContextMenu.member.user_id) ? 'Undeafen' : 'Deafen' }}
+            <mat-icon [svgIcon]="localDeafened(memberPanelContextMenu.member.user_id) ? 'headset' : 'headset_off'"></mat-icon>
+            {{ localDeafened(memberPanelContextMenu.member.user_id) ? 'Undeafen' : 'Deafen' }}
           </button>
           <div class="cyber-ctx-divider"></div>
           <button class="cyber-ctx-item cyber-ctx-danger" (click)="disconnectMemberFromVoice(memberPanelContextMenu.member.user_id); closeMemberPanelContextMenu()">
@@ -1240,9 +1425,10 @@
           <mat-icon svgIcon="close"></mat-icon>
         </button>
       </div>
-      <app-cyber-emoji-picker (emojiSelect)="onEmojiPickerSelect($event)"></app-cyber-emoji-picker>
+<app-cyber-emoji-picker (emojiSelect)="onEmojiPickerSelect($event)"></app-cyber-emoji-picker>
     </div>
   }
 
-  </section>
+</section>
+
 

@@ -1729,3 +1729,22 @@
 .ssp-toggle.on .ssp-toggle-knob {
   transform: translateX(16px);
 }
+
+.ssp-toggle.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.ssp-toggle-sm {
+  width: 28px;
+  height: 16px;
+}
+
+.ssp-toggle-sm .ssp-toggle-knob {
+  width: 12px;
+  height: 12px;
+}
+
+.ssp-toggle-sm.on .ssp-toggle-knob {
+  transform: translateX(12px);
+}

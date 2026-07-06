@@ -19,12 +19,14 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { VoiceGateway } from './voice.gateway';
 import { AccessToken } from 'livekit-server-sdk';
+import { TrackSource } from '@livekit/protocol';
 import { ConfigService } from '@nestjs/config';
 import { extname } from 'path';
 import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import { Inject } from '@nestjs/common';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
+import { ChatGateway } from '../chat/chat.gateway';
 import { ChatService } from '../chat/chat.service';
 
 @ApiTags('Voice')
@@ -35,6 +37,7 @@ export class VoiceController {
     private readonly config: ConfigService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
     private readonly chatService: ChatService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -77,6 +80,12 @@ export class VoiceController {
       canPublish: true,
       canSubscribe: true,
       canPublishData: true,
+      canPublishSources: [
+        TrackSource.CAMERA,
+        TrackSource.MICROPHONE,
+        TrackSource.SCREEN_SHARE,
+        TrackSource.SCREEN_SHARE_AUDIO,
+      ],
     });
 
     return {
@@ -121,6 +130,49 @@ export class VoiceController {
       recipientUserId,
     );
     return { success: result.success, message: result.reason };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('invite')
+  async sendVoiceInvite(
+    @Req() req: any,
+    @Body() body: { targetUserId: string; guildId: string; channelId: string },
+  ): Promise<{ success: boolean; message?: string }> {
+    const senderId = req.user.id;
+    const { targetUserId, guildId, channelId } = body;
+
+    if (!targetUserId || !guildId || !channelId) {
+      throw new BadRequestException('targetUserId, guildId, and channelId are required');
+    }
+
+    if (senderId === targetUserId) {
+      throw new BadRequestException('Cannot invite yourself');
+    }
+
+    const senderChannel = this.voiceGateway.getUserVoiceChannel(senderId);
+    if (!senderChannel) {
+      throw new BadRequestException('You must be in a voice channel to send invites');
+    }
+
+    const sender = await this.supabase
+      .schema('projectgg')
+      .from('users')
+      .select('username, avatar_url')
+      .eq('id', senderId)
+      .single();
+
+    const senderName = sender?.data?.username ?? 'Someone';
+
+    this.chatGateway.sendToUser(targetUserId, 'voice-invite-received', {
+      fromUserId: senderId,
+      fromUsername: senderName,
+      fromAvatar: sender?.data?.avatar_url ?? null,
+      guildId: senderChannel.guildId,
+      channelId: senderChannel.channelId,
+    });
+
+    return { success: true };
   }
 
   // ════════════════════════════════════════════════════════════════════════

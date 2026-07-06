@@ -215,7 +215,7 @@
                   maxlength="500"></textarea>
                 <div class="ssp-about-meta">
                   <span class="ssp-about-hint">Visible in your server profile preview</span>
-                  <span class="ssp-about-count">{{ serverProfileAbout?.length || 0 }}/500</span>
+                  <span class="ssp-about-count">{{ serverProfileAbout.length || 0 }}/500</span>
                 </div>
               </div>
             </div>
@@ -230,7 +230,7 @@
                 </label>
               </div>
               <div class="ssp-card-body">
-                <p class="ssp-muted-inline">Platforms linked to your main account. Toggle to show or hide in this server.</p>
+                <p class="ssp-muted-inline">Platforms linked to your main account. Toggle each one to show or hide in this server.</p>
                 @for (p of platforms; track p.id) {
                   <div class="ssp-platform-row">
                     <img class="ssp-platform-logo" [src]="getPlatformLogo(p.id)" alt="{{ p.name }}" />
@@ -242,8 +242,39 @@
                         <span class="ssp-platform-user not-linked">Not linked</span>
                       }
                     </div>
+                    <label class="ssp-toggle ssp-toggle-sm" [class.on]="isPlatformVisible(p.id)" [class.disabled]="!serverProfile?.show_connections" (click)="togglePlatformVisible(p.id)">
+                      <span class="ssp-toggle-knob"></span>
+                    </label>
                   </div>
                 }
+              </div>
+            </div>
+
+            <!-- Showcase (Favourite Cards) -->
+            <div class="ssp-card">
+              <div class="ssp-card-head">
+                <mat-icon svgIcon="style"></mat-icon>
+                <h3>Showcase</h3>
+                <label class="ssp-toggle" [class.on]="serverProfile?.show_favorites" (click)="toggleServerProfileShowFavorites()">
+                  <span class="ssp-toggle-knob"></span>
+                </label>
+              </div>
+              <div class="ssp-card-body">
+                <p class="ssp-muted-inline">Display your favorite card collection on your server profile.</p>
+              </div>
+            </div>
+
+            <!-- Rank -->
+            <div class="ssp-card">
+              <div class="ssp-card-head">
+                <mat-icon svgIcon="military_tech"></mat-icon>
+                <h3>Rank</h3>
+                <label class="ssp-toggle" [class.on]="serverProfile?.show_rank" (click)="toggleServerProfileShowRank()">
+                  <span class="ssp-toggle-knob"></span>
+                </label>
+              </div>
+              <div class="ssp-card-body">
+                <p class="ssp-muted-inline">Show your rank and XP progress on your server profile.</p>
               </div>
             </div>
           </section>

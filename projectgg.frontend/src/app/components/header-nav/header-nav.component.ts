@@ -8,6 +8,7 @@ import { ChatService, AppNotification } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
 import { MusicPlayerService, Track } from '../../services/music-player.service';
 import { SoundService } from '../../services/sound.service';
+import { ApexService } from '../../apex/apex.service';
 import { Socket } from 'socket.io-client';
 
 @Component({
@@ -51,6 +52,43 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   readonly displayAvatar = signal<string | null>(null);
   avatarLoading = signal(false);
+  apexAvatarVisible = signal(true);
+  isApexOpen = false;
+  isFloatingAvatarVisible = true;
+
+  constructor(
+    private readonly router: Router,
+    private readonly activatedRoute: ActivatedRoute,
+    private readonly chatService: ChatService,
+    private readonly auth: AuthService,
+    public readonly musicService: MusicPlayerService,
+    private readonly apexService: ApexService,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly sound: SoundService,
+  ) {
+    // 1. Sync Apex Panel state
+    this.apexService.isPanelOpen$.pipe(takeUntil(this.destroy$)).subscribe(open => {
+      this.isApexOpen = open;
+      this.cdr.markForCheck();
+    });
+
+    // 2. Sync Floating Avatar state
+    this.apexService.showFloatingAvatar$.pipe(takeUntil(this.destroy$)).subscribe(val => {
+      this.isFloatingAvatarVisible = val;
+      this.cdr.markForCheck();
+    });
+
+    // 3. Avatar display effect
+    effect(() => {
+      const url = this.avatarUrl();
+      this.displayAvatar.set(url ?? '/assets/avatars/unknown.webp');
+      if (url) this.avatarLoading.set(true);
+    });
+  }
+
+  toggleApexAvatar(): void {
+    this.apexService.toggleFloatingAvatar();
+  }
 
   notifications: AppNotification[] = [];
   unreadCount = 0;
@@ -75,23 +113,12 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
     { label: 'LOGOUT', icon: 'logout', action: () => this.logout.emit() },
   ];
 
-  constructor(
-    private readonly router: Router,
-    private readonly activatedRoute: ActivatedRoute,
-    private readonly chatService: ChatService,
-    private readonly auth: AuthService,
-    public readonly musicService: MusicPlayerService,
-    private readonly cdr: ChangeDetectorRef,
-    private readonly sound: SoundService,
-  ) {
-    effect(() => {
-      const url = this.avatarUrl();
-      this.displayAvatar.set(url ?? '/assets/avatars/unknown.webp');
-      if (url) this.avatarLoading.set(true);
-    });
-  }
-
   ngOnInit(): void {
+    try {
+      const saved = localStorage.getItem('apex_floating_avatar');
+      if (saved !== null) this.apexAvatarVisible.set(JSON.parse(saved));
+    } catch {}
+
     this.musicService.track$.pipe(takeUntil(this.destroy$)).subscribe(t => {
       this.titleScrolling = false;
       this.musicTrack = t;
@@ -182,6 +209,18 @@ export class HeaderNavComponent implements OnInit, OnDestroy, AfterViewChecked {
     try {
       this.socket = this.chatService.connect();
       this.socket.on('notification', this._notifHandler);
+      this.socket.on('notification-deleted', (data: { id: number }) => {
+        if (data?.id) {
+          this.notifications = this.notifications.filter(n => n.id !== data.id);
+          this.unreadCount = this.notifications.filter(n => !n.read).length;
+          this.cdr.markForCheck();
+        }
+      });
+      this.socket.on('notifications-cleared', () => {
+        this.notifications = [];
+        this.unreadCount = 0;
+        this.cdr.markForCheck();
+      });
     } catch {}
   }
 

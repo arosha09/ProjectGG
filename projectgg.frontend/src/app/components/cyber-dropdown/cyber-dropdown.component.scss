@@ -16,14 +16,15 @@
   max-width: 360px;
   margin: var(--dropdown-margin, 0);
   background: linear-gradient(135deg, rgba(10, 16, 32, 0.95) 0%, rgba(8, 14, 26, 0.95) 100%);
-  border: 2px solid var(--border-color, rgba(0, 240, 255, 0.3));
+  border: 2px solid var(--border-color, rgba(255, 255, 255, 0.3));
   border-radius: 2px;
-  box-shadow: 0 0 30px rgba(0, 240, 255, 0.15), inset 0 0 20px rgba(0, 240, 255, 0.02);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
   z-index: 5000;
   padding: 8px 0;
   animation: menuIn 0.2s ease-out;
   pointer-events: auto;
   isolation: isolate;
+  overflow: hidden;
 }
 
 @keyframes menuIn {
@@ -48,7 +49,7 @@
   width: 100%;
   padding: 10px 12px;
   border: none;
-  background: rgba(0, 240, 255, 0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(230, 255, 240, 0.85);
   font-size: 12px;
   font-weight: 700;
@@ -62,7 +63,7 @@
   margin: 4px 8px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border: 2px solid rgba(0, 240, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.2);
 
   .status-dot {
     width: 10px;
@@ -90,16 +91,15 @@
 
   &:hover {
     border-color: var(--accent-color);
-    background: rgba(0, 240, 255, 0.12);
+    background: rgba(255, 255, 255, 0.12);
     color: var(--accent-color);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.15), inset 0 0 8px rgba(0, 240, 255, 0.05);
   }
 }
 
 .status-submenu {
   background: rgba(5, 10, 20, 0.8);
-  border-top: 1px solid rgba(0, 240, 255, 0.1);
-  border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin: 0 8px;
   padding: 4px 0;
   animation: slideDown 0.2s ease-out;
@@ -132,19 +132,18 @@
       flex-shrink: 0;
     }
 
-    &:hover {
-      background: rgba(0, 240, 255, 0.08);
-      color: var(--accent-color);
-      border-left: 2px solid var(--accent-color);
-      padding-left: 10px;
-    }
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--accent-color);
+    border-bottom: 2px solid var(--accent-color);
+    padding-bottom: 6px;
+  }
 
     &.active {
-      background: rgba(0, 240, 255, 0.15);
+      background: rgba(255, 255, 255, 0.15);
       color: var(--accent-color);
       border-left: 3px solid var(--accent-color);
       padding-left: 9px;
-      box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.1);
     }
   }
 }
@@ -162,7 +161,7 @@
 
 .dropdown-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
   margin: 0;
 }
 
@@ -199,6 +198,7 @@
   width: 100%;
   padding: 10px 12px;
   border: none;
+  border-bottom: 2px solid transparent;
   background: transparent;
   color: rgba(230, 255, 240, 0.75);
   font-size: 12px;
@@ -213,9 +213,10 @@
   margin: 4px 8px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  pointer-events: auto;
-  position: relative;
-  z-index: 1;
+
+  &::after {
+    display: none !important;
+  }
 
   mat-icon {
     font-size: 16px;
@@ -225,14 +226,15 @@
   }
 
   &:hover {
-    border: 2px solid var(--accent-color);
-    background: rgba(0, 240, 255, 0.08);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--accent-color);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+    border-bottom-color: var(--accent-color);
+    text-shadow: none !important;
+    filter: none !important;
   }
 
   &:active {
-    background: rgba(0, 240, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
   }
 }
 
@@ -269,6 +271,7 @@
   width: 100%;
   padding: 10px 12px;
   border: none;
+  border-bottom: 2px solid transparent;
   background: transparent;
   color: rgba(230, 255, 240, 0.75);
   font-size: 12px;
@@ -284,6 +287,10 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
 
+  &::after {
+    display: none !important;
+  }
+
   mat-icon {
     font-size: 16px;
     width: 16px;
@@ -292,14 +299,15 @@
   }
 
   &:hover {
-    border: 2px solid var(--accent-color);
-    background: rgba(0, 240, 255, 0.08);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--accent-color);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+    border-bottom-color: var(--accent-color);
+    text-shadow: none !important;
+    filter: none !important;
   }
 
   &:active {
-    background: rgba(0, 240, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
   }
 }
 

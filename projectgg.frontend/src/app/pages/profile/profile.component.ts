@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, ChangeDetectorRef, ChangeDetectionStrategy, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,7 +26,7 @@ import { ChatService } from '../../services/chat.service';
   selector: 'app-profile',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, RankDisplayComponent, DailyClaimComponent, RouterLink, CyberDropdownComponent],
+  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, RankDisplayComponent, DailyClaimComponent, RouterLink, CyberDropdownComponent],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss'],
 })
@@ -62,6 +63,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
   avatarImgReady = false;
   avatarModalOpen = false;
   private systemAvatarsLoaded = false;
+
+  // About
+  editingAbout = false;
+  aboutDraft = '';
 
   // Platform connections
   platforms = [
@@ -442,6 +447,40 @@ export class ProfileComponent implements OnInit, OnDestroy {
       next:  () => { this.canClaim = false; this.claimLoading = false; this.loadRankData(); },
       error: () => { this.claimLoading = false; },
     });
+  }
+
+  // ── About ──────────────────────────────────────────────────────────────────
+
+  startEditAbout(): void {
+    this.aboutDraft = this.currentUser?.about ?? '';
+    this.editingAbout = true;
+  }
+
+  saveAbout(): void {
+    if (!this.editingAbout) return;
+    const value = (this.aboutDraft ?? '').trim();
+    this.editingAbout = false;
+    if (value === (this.currentUser?.about ?? '')) {
+      this.cdr.markForCheck();
+      return;
+    }
+    this.http.patch<any>(`${this.apiUrl}/profile`, { about: value }).subscribe({
+      next: (updated) => {
+        this.currentUser = { ...this.currentUser, ...updated, about: value };
+        this.usersService.updateCurrentUser(this.currentUser);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.editingAbout = true;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  cancelEditAbout(): void {
+    this.editingAbout = false;
+    this.aboutDraft = '';
+    this.cdr.markForCheck();
   }
 
   // ── Profile / connections ──────────────────────────────────────────────────

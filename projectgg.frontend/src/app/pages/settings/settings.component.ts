@@ -84,7 +84,9 @@ export class SettingsComponent implements OnInit, AfterViewInit, OnDestroy {
     this._previewCursorType = type;
     this.applyPreviewCursor();
   }
-  soundDropdownOpen = false;
+soundDropdownOpen = false;
+  ringerDropdownOpen = false;
+  outgoingDropdownOpen = false;
 
   get cursorSets(): CursorSet[] {
     return this.cursor.cursorSets;
@@ -842,6 +844,52 @@ export class SettingsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sound.setMuteSoundboard(!this.soundMuteSoundboard);
     this.voiceService.refreshSoundboardMuteAll();
     this.cdr.markForCheck();
+  }
+
+  get currentRingerLabel(): string {
+    return this.sound.currentRingerLabel;
+  }
+
+  get ringerItems(): DropdownItem[] {
+    return this.sound.ringerSets.map((r) => ({
+      label: r.label,
+      action: () => this.onRingerSelect(r.id),
+    }));
+  }
+
+  get outgoingItems(): DropdownItem[] {
+    return this.sound.outgoingTones.map((r) => ({
+      label: r.label,
+      action: () => this.onOutgoingSelect(r.id),
+    }));
+  }
+
+  get currentOutgoingLabel(): string {
+    return this.sound.currentOutgoingLabel;
+  }
+
+  onRingerSelect(ringerId: string): void {
+    this.sound.selectRinger(ringerId);
+    this.ringerDropdownOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onOutgoingSelect(outgoingId: string): void {
+    this.sound.selectOutgoing(outgoingId);
+    this.outgoingDropdownOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  previewRinger(): void {
+    this.sound.previewRinger();
+  }
+
+  previewOutgoing(): void {
+    this.sound.previewOutgoing();
+  }
+
+  stopPreview(): void {
+    this.sound.stopAll();
   }
 
   showCyberConfirm(message: string, action: () => void, confirmLabel = 'Confirm', cancelLabel = 'Cancel'): void {

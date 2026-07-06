@@ -20,6 +20,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { ImageProxyModule } from './modules/image-proxy/image-proxy.module';
 import { B2AuthModule } from './modules/b2-auth/b2-auth.module';
 import { TtsModule } from './modules/tts/tts.module';
+import { CallModule } from './modules/call/call.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -47,6 +48,7 @@ import { TtsModule } from './modules/tts/tts.module';
     ImageProxyModule,
     B2AuthModule,
     TtsModule,
+    CallModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

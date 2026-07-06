@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, OnChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, OnChanges, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -58,6 +58,9 @@ interface TradeFriend {
         <h3>{{ selectedCard.game_name }}</h3>
         <p class="trade-subtitle">{{ selectedCard.card_tier.toUpperCase() }} CARD</p>
       </div>
+      <button type="button" class="detail-panel-close" (click)="closeCardDetails()" title="Close (Esc)" aria-label="Close card details">
+        <mat-icon svgIcon="close"></mat-icon>
+      </button>
     </div>
     <div class="detail-card-layout">
       <mat-card class="owned-card detail-view-card" [ngClass]="'tier-' + selectedCard.card_tier" (click)="openImageView()">
@@ -92,10 +95,9 @@ interface TradeFriend {
       <button type="button" class="image-viewer-close" (click)="closeImageView()">
         <mat-icon svgIcon="close"></mat-icon>
       </button>
-      <img loading="lazy" decoding="async" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" />
+      <img loading="lazy" decoding="async" [src]="selectedCard.cover_url" [alt]="selectedCard.game_name" (error)="onImgError($event)" [ngClass]="'tier-border-' + selectedCard.card_tier" />
       <div class="image-viewer-info">
         <h2>{{ selectedCard.game_name }}</h2>
-        <span class="tier-badge" [ngClass]="'tier-' + selectedCard.card_tier">{{ selectedCard.card_tier }}</span>
       </div>
     </div>
   </div>
@@ -1409,6 +1411,36 @@ interface TradeFriend {
         margin-bottom: 12px;
       }
 
+      .detail-panel-close {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: rgba(241, 247, 255, 0.8);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+
+      .detail-panel-close:hover {
+        background: rgba(255, 23, 68, 0.15);
+        border-color: rgba(255, 23, 68, 0.5);
+        color: #ff97a7;
+        box-shadow: 0 0 12px rgba(255, 23, 68, 0.25);
+        transform: rotate(90deg);
+      }
+
+      .detail-panel-close mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
       .detail-card-layout {
         display: grid;
         grid-template-columns: 160px 1fr;
@@ -1470,8 +1502,7 @@ interface TradeFriend {
 
       .image-viewer-content {
         position: relative;
-        max-width: 90vw;
-        max-height: 90vh;
+        width: min(700px, 85vw);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1479,11 +1510,34 @@ interface TradeFriend {
       }
 
       .image-viewer-content img {
-        max-width: 100%;
-        max-height: 80vh;
+        width: 100%;
+        max-height: 88vh;
         object-fit: contain;
         border-radius: 12px;
         box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+        border: 3px solid transparent;
+        transition: border-color 0.2s;
+      }
+
+      .image-viewer-content img.tier-border-common {
+        border-color: rgba(140, 150, 168, 0.8);
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 24px rgba(140, 150, 168, 0.25);
+      }
+      .image-viewer-content img.tier-border-uncommon {
+        border-color: rgba(0, 230, 118, 0.85);
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 28px rgba(0, 230, 118, 0.35);
+      }
+      .image-viewer-content img.tier-border-rare {
+        border-color: rgba(95, 182, 255, 0.9);
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(95, 182, 255, 0.4);
+      }
+      .image-viewer-content img.tier-border-epic {
+        border-color: rgba(170, 68, 255, 0.9);
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 32px rgba(170, 68, 255, 0.45);
+      }
+      .image-viewer-content img.tier-border-legendary {
+        border-color: rgba(255, 215, 0, 0.95);
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 36px rgba(255, 215, 0, 0.5);
       }
 
       .image-viewer-close {
@@ -1731,6 +1785,21 @@ export class CardCollectionComponent implements OnChanges {
 
   closeImageView(): void {
     this.showImageViewer = false;
+  }
+
+  closeCardDetails(): void {
+    this.selectedCard = null;
+    this.viewMode = 'details';
+    this.showImageViewer = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.showImageViewer) {
+      this.closeImageView();
+    } else if (this.selectedCard) {
+      this.closeCardDetails();
+    }
   }
 
   tiers = ['common', 'uncommon', 'rare', 'epic', 'legendary'];

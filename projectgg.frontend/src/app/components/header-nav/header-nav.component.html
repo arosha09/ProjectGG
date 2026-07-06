@@ -1,8 +1,14 @@
 <header class="dashbar" [class.dashbar-public]="hideDivider">
-  <a class="brand" [routerLink]="hideDivider ? '/home' : '/dashboard'">
-    <img loading="lazy" decoding="async" src="logo.ico" alt="ProjectGG" class="brand-mark" />
-    <span>PROJECT GG</span>
-  </a>
+  <div class="brand-group">
+    <a class="brand" [routerLink]="hideDivider ? '/home' : '/dashboard'">
+      <img loading="lazy" decoding="async" src="logo.ico" alt="ProjectGG" class="brand-mark" />
+      <span>PROJECT GG</span>
+    </a>
+    <button class="apex-toggle-pill" [class.active]="isFloatingAvatarVisible" (click)="toggleApexAvatar()" type="button" title="Toggle APEX Avatar">
+      <img loading="lazy" decoding="async" src="assets/ai/avatars/apex-avatar.webp" alt="APEX" class="apex-pill-icon" onerror="this.style.display='none'" />
+      <span>A.P.E.X.</span>
+    </button>
+  </div>
 
   @if (musicTrack) {
     <div class="mini-player">

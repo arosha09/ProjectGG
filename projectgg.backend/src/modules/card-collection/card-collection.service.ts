@@ -232,7 +232,7 @@ export class CardCollectionService {
         })
         .select('id, read, created_at')
         .single();
-      this.chatGateway.sendToUser(receiverId, 'notification', {
+      this.chatGateway.emitNotificationToUser(receiverId, {
         id: notif?.id,
         type: isCounter ? 'trade_counter' : 'trade_offer',
         title,
@@ -354,7 +354,7 @@ export class CardCollectionService {
         })
         .select('id, read, created_at')
         .single();
-      this.chatGateway.sendToUser(otherUserId, 'notification', {
+      this.chatGateway.emitNotificationToUser(otherUserId, {
         id: notif?.id,
         type: 'trade_accepted',
         title: 'Trade Accepted',

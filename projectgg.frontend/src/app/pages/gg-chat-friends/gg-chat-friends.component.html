@@ -231,7 +231,7 @@
         </div>
 
         @if (friendRequestSuccess) {
-          <app-status-message [message]="friendRequestSuccess" [type]="friendRequestSuccessType"></app-status-message>
+          <app-status-message [message]="friendRequestSuccess" [type]="friendRequestSuccessType" (dismiss)="friendRequestSuccess = ''"></app-status-message>
         }
       </section>
     }

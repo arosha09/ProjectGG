@@ -257,13 +257,25 @@ export class ChatService {
       }
     }
 
+    // Create default category
+    const { data: textCategory } = await this.db()
+      .from('gg_channel_categories')
+      .insert({ server_id: server.id, name: 'TEXT', sort_order: 0 })
+      .select()
+      .single();
+    const { data: voiceCategory } = await this.db()
+      .from('gg_channel_categories')
+      .insert({ server_id: server.id, name: 'VOICE', sort_order: 1 })
+      .select()
+      .single();
+
     // Create default channels
     const { error: ce } = await this.db()
       .from('gg_channels')
       .insert([
-        { server_id: server.id, name: 'general', type: 'text', position: 0 },
-        { server_id: server.id, name: 'off-topic', type: 'text', position: 1 },
-        { server_id: server.id, name: 'voice', type: 'voice', position: 2 },
+        { server_id: server.id, name: 'general', type: 'text', position: 0, category: 'TEXT' },
+        { server_id: server.id, name: 'off-topic', type: 'text', position: 1, category: 'TEXT' },
+        { server_id: server.id, name: 'voice', type: 'voice', position: 2, category: 'VOICE' },
       ]);
     if (ce) {
       // Cleanup server on channel creation failure
@@ -709,11 +721,24 @@ export class ChatService {
   async deleteChannel(channelId: number, userId: string): Promise<void> {
     const { data: ch } = await this.db()
       .from('gg_channels')
-      .select('server_id')
+      .select('server_id, type')
       .eq('id', channelId)
       .single();
     if (!ch) throw new BadRequestException('Channel not found');
     await this.requirePermission(ch.server_id, userId, 'manage_channels');
+
+    // Prevent deleting the last text channel
+    if (ch.type === 'text') {
+      const { data: textChannels } = await this.db()
+        .from('gg_channels')
+        .select('id')
+        .eq('server_id', ch.server_id)
+        .eq('type', 'text');
+      if (textChannels && textChannels.length <= 1) {
+        throw new BadRequestException('Cannot delete the last text channel');
+      }
+    }
+
     const { error } = await this.db()
       .from('gg_channels')
       .delete()
@@ -1044,7 +1069,7 @@ export class ChatService {
     await this.requirePermission(serverId, userId, 'manage_server');
 
     const crypto = require('crypto');
-    const code = crypto.randomBytes(4).toString('hex');
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
 
     // Revoke all previous non-revoked invites for this server
     await this.db()
@@ -1092,7 +1117,7 @@ export class ChatService {
     const { data: invite } = await this.db()
       .from('invite_links')
       .select('*')
-      .eq('code', code)
+      .ilike('code', code.toUpperCase())
       .single();
     if (!invite) throw new BadRequestException('Invalid invite code');
     if (invite.revoked)
@@ -1130,7 +1155,7 @@ export class ChatService {
   async findUserById(id: string): Promise<any> {
     const { data, error } = await this.db()
       .from('users')
-      .select('id, username, avatar, name, gender, status, sys_status')
+      .select('id, username, avatar, name, gender, status, sys_status, banner_url')
       .eq('id', id)
       .single();
     if (error) return null;
