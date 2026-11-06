@@ -21,6 +21,7 @@ import { ImageProxyModule } from './modules/image-proxy/image-proxy.module';
 import { B2AuthModule } from './modules/b2-auth/b2-auth.module';
 import { TtsModule } from './modules/tts/tts.module';
 import { CallModule } from './modules/call/call.module';
+import { PixelGameModule } from './modules/pixel-game/pixel-game.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -49,6 +50,7 @@ import { CallModule } from './modules/call/call.module';
     B2AuthModule,
     TtsModule,
     CallModule,
+    PixelGameModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

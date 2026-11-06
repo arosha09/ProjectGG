@@ -8,7 +8,7 @@
 <div class="apex-panel" *ngIf="isPanelOpen" [class.expanded-mode]="isExpandedManually">
   <div class="apex-sidebar" *ngIf="isExpandedManually">
     <div class="apex-tabs">
-      <button mat-icon-button *ngIf="!showSettings && !showSessionList && !showHelp" (click)="toggleSearch()" matTooltip="Search messages"
+      <button mat-icon-button *ngIf="!showSettings && !showSessionList && !showHelp && !showGame" (click)="toggleSearch()" matTooltip="Search messages"
               [class.active]="showSearch">
         <mat-icon svgIcon="search"></mat-icon>
       </button>
@@ -17,6 +17,9 @@
       </button>
       <button mat-icon-button (click)="toggleSettings()" matTooltip="Settings">
         <mat-icon svgIcon="settings"></mat-icon>
+      </button>
+      <button mat-icon-button (click)="toggleGame()" matTooltip="Pixel Quest" [class.active]="showGame">
+        <mat-icon svgIcon="sports_esports"></mat-icon>
       </button>
       <button mat-icon-button (click)="toggleHelp()" matTooltip="Help" [class.active]="showHelp">
         <mat-icon svgIcon="help_outline"></mat-icon>
@@ -34,7 +37,7 @@
         <button mat-icon-button (click)="toggleExpand()" matTooltip="Expand">
           <mat-icon svgIcon="fullscreen"></mat-icon>
         </button>
-        <button mat-icon-button *ngIf="!showSettings && !showSessionList && !showHelp" (click)="toggleSearch()" matTooltip="Search messages"
+        <button mat-icon-button *ngIf="!showSettings && !showSessionList && !showHelp && !showGame" (click)="toggleSearch()" matTooltip="Search messages"
                 [class.active]="showSearch">
           <mat-icon svgIcon="search"></mat-icon>
         </button>
@@ -43,6 +46,9 @@
         </button>
         <button mat-icon-button (click)="toggleSettings()" matTooltip="Settings">
           <mat-icon svgIcon="settings"></mat-icon>
+        </button>
+        <button mat-icon-button (click)="toggleGame()" matTooltip="Pixel Quest" [class.active]="showGame">
+          <mat-icon svgIcon="sports_esports"></mat-icon>
         </button>
         <button mat-icon-button (click)="toggleHelp()" matTooltip="Help" [class.active]="showHelp">
           <mat-icon svgIcon="help_outline"></mat-icon>
@@ -301,8 +307,13 @@
       </div>
     </div>
 
+    <!-- ─── Game view ──────────────────────────────────────────────────────── -->
+    <div class="apex-game" *ngIf="showGame">
+      <app-pixel-game (close)="showGame = false; isExpandedManually = false; cdr.markForCheck()"></app-pixel-game>
+    </div>
+
     <!-- ─── Chat view ──────────────────────────────────────────────────────── -->
-    <ng-container *ngIf="!showSettings && !showSessionList && !showHelp">
+    <ng-container *ngIf="!showSettings && !showSessionList && !showHelp && !showGame">
       <div class="apex-chat-history" #chatBody (scroll)="onChatScroll()">
         <div *ngFor="let msg of messages" class="apex-msg-wrapper"
              [class.apex-msg-user]="msg.user_id === currentUserId"
@@ -390,7 +401,7 @@
 
   </div><!-- /.apex-body -->
 
-  <div class="apex-footer" *ngIf="!showSettings && !showSessionList && !showHelp">
+  <div class="apex-footer" *ngIf="!showSettings && !showSessionList && !showHelp && !showGame">
     <div class="apex-image-preview" *ngIf="imagePreview">
       <img [src]="imagePreview" />
       <button class="remove-image-btn" (click)="removeImage()">

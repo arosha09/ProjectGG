@@ -12,6 +12,7 @@ import { TtsSettingsService } from '../services/tts-settings.service';
 import { VoiceTrainingComponent } from './voice-training/voice-training.component';
 import { ApexAvatarComponent } from './apex-avatar/apex-avatar.component';
 import { CyberSelectComponent, CyberSelectOption } from '../components/cyber-select/cyber-select.component';
+import { PixelGameComponent } from '../components/pixel-game/pixel-game.component';
 import { Subscription, takeUntil, Subject } from 'rxjs';
 import { WakeWordState } from './wake-word.service';
 
@@ -34,7 +35,7 @@ interface ChatSession {
 @Component({
   selector: 'app-apex-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatInputModule, MatFormFieldModule, VoiceTrainingComponent, ApexAvatarComponent, CyberSelectComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatInputModule, MatFormFieldModule, VoiceTrainingComponent, ApexAvatarComponent, CyberSelectComponent, PixelGameComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './apex.component.html',
   styleUrls: ['./apex.component.scss'],
@@ -64,6 +65,8 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   showSettings = false;
   showHelp = false;
   showSearch = false;
+  showGame = false;
+  gameFullscreen = false;
   showScrollBtn = false;
   showWakeTranscript = false;
   private trainingForWakeWord = false;
@@ -124,7 +127,7 @@ export class ApexChatComponent implements OnInit, OnDestroy {
   constructor(
     private apexService: ApexService,
     private kokoroTtsService: KokoroTtsService,
-    private cdr: ChangeDetectorRef,
+    public cdr: ChangeDetectorRef,
     private elRef: ElementRef,
   ) {}
 
@@ -289,6 +292,17 @@ export class ApexChatComponent implements OnInit, OnDestroy {
       this.showHelp = true;
       this.showSettings = false;
       this.showSessionList = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleGame(): void {
+    this.showGame = !this.showGame;
+    if (this.showGame) {
+      this.isExpandedManually = true;
+      this.showSettings = false;
+      this.showSessionList = false;
+      this.showHelp = false;
     }
     this.cdr.markForCheck();
   }
