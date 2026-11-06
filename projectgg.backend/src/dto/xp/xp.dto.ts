@@ -91,6 +91,9 @@ export class AwardCustomXpDto {
 
   @ApiPropertyOptional({ example: 'tutorial_01' })
   source_id?: string;
+
+  @ApiPropertyOptional({ example: 'uuid' })
+  character_id?: string;
 }
 
 export class LeaderboardEntryDto {

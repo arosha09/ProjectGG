@@ -93,6 +93,7 @@ export class XpController {
       body.xp,
       body.source,
       body.source_id,
+      body.character_id,
     );
     this.chatGateway.sendToUser(userId, 'xp-update', { userId });
     this.chatGateway.broadcastServerEvent('xp-update', { userId });

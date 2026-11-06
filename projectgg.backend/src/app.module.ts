@@ -22,6 +22,7 @@ import { B2AuthModule } from './modules/b2-auth/b2-auth.module';
 import { TtsModule } from './modules/tts/tts.module';
 import { CallModule } from './modules/call/call.module';
 import { PixelGameModule } from './modules/pixel-game/pixel-game.module';
+import { CharactersModule } from './modules/characters/characters.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -51,6 +52,7 @@ import { PixelGameModule } from './modules/pixel-game/pixel-game.module';
     TtsModule,
     CallModule,
     PixelGameModule,
+    CharactersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -33,6 +33,7 @@ export class XpService {
     xp: number,
     source: string,
     sourceId?: string,
+    characterId?: string,
   ) {
     const result = await this.xpRepository.awardCustomXp(
       userId,
@@ -40,6 +41,7 @@ export class XpService {
       source,
       sourceId,
     );
+    // character-scoped XP recorded separately if needed (no-op for now)
     if (result) {
       this.realtime.emitToUser(userId, 'xp:changed', {
         amount: xp,
