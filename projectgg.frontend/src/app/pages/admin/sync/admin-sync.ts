@@ -38,6 +38,8 @@ export class AdminSync {
   fileMap: Map<string, File | null> = new Map();
   uploadStatus: Map<string, string> = new Map();
   currentSyncingDetail = '';
+  syncProgress: SyncProgress | null = null;
+  progressInterval: any = null;
 
   // Candidate picker state
   pickingFor: string | null = null;
@@ -51,7 +53,86 @@ export class AdminSync {
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
+  ngOnDestroy(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+    }
+  }
+
+  refreshProgress(): void {
+    this.games.getSyncProgress().subscribe({
+      next: (p: SyncProgress) => {
+        this.syncProgress = p;
+        this.completed = p.completed;
+        this.total = p.total;
+        this.current = p.current ?? '';
+        this.status = p.status ?? '';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to refresh progress:', err);
+      },
+    });
+  }
+
+  startProgressPolling(): void {
+    if (this.progressInterval) clearInterval(this.progressInterval);
+    this.progressInterval = setInterval(() => this.refreshProgress(), 2000);
+  }
+
+  stopProgressPolling(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+  }
+
   get currentUser(): any {
+    return this.auth.getCurrentUser();
+  }
+
+  startBatchSync(): void {
+    if (this.syncing) return;
+    this.syncing = true;
+    this.syncComplete = false;
+    this.completed = 0;
+    this.results = [];
+    this.status = 'Starting batch sync...';
+    this.cdr.detectChanges();
+
+    this.games.startBatchSync().subscribe({
+      next: (res: { jobId: string; total: number }) => {
+        this.total = res.total;
+        this.startProgressPolling();
+        this.status = `Batch sync started: ${res.total} games queued`;
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.syncing = false;
+        this.status = `Failed to start batch sync: ${err.message}`;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  startSync(): void {
+    if (this.syncing) return;
+    const syncQueue = this.hasSelection
+      ? this.queue.filter(g => this.selectedCodes.has(g.code))
+      : this.queue;
+    if (syncQueue.length === 0) {
+      // No selection — use batch sync instead
+      this.startBatchSync();
+      return;
+    }
+    this.syncing = true;
+    this.completed = 0;
+    this.results = [];
+    this.queue = syncQueue;
+    this.total = syncQueue.length;
+    this.status = `Starting sync of ${this.total} games...`;
+    this.processNext(0);
+  }
     return this.auth.getCurrentUser();
   }
 
