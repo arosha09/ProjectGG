@@ -1850,9 +1850,9 @@ export class GamesSyncService implements OnModuleInit {
               : 0,
         });
 
-        // Rate limit: wait 2 seconds between games to avoid API rate limits
+        // Rate limit: wait 500ms between games to avoid API rate limits
         if (this.syncProgress.completed < this.syncProgress.total) {
-          await this.sleep(2000);
+          await this.sleep(500);
         }
       }
 
