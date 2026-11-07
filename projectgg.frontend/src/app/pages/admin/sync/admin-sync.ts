@@ -336,21 +336,6 @@ export class AdminSync {
     this.selectedCodes.clear();
   }
 
-  startSync(): void {
-    if (this.syncing) return;
-    const syncQueue = this.hasSelection
-      ? this.queue.filter(g => this.selectedCodes.has(g.code))
-      : this.queue;
-    if (syncQueue.length === 0) return;
-    this.syncing = true;
-    this.completed = 0;
-    this.results = [];
-    this.queue = syncQueue;
-    this.total = syncQueue.length;
-    this.status = `Starting sync of ${this.total} games...`;
-    this.processNext(0);
-  }
-
   cancelSync(): void {
     this.stopSync = true;
     this.status = 'Stopping after current game...';
