@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
-import { GamesService, SyncResult } from '../../../services/games.service';
+import { GamesService, SyncResult, SyncProgress } from '../../../services/games.service';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
