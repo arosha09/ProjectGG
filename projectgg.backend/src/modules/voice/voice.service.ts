@@ -145,9 +145,9 @@ export class VoiceService {
 
   /**
    * Track an incoming call for a user.
-   * Called when a voice invite is sent.
+   * Called when a voice invite is sent - stored in database for persistence.
    */
-  setIncomingCall(
+  async setIncomingCall(
     userId: string,
     callData: {
       fromUserId: string;
@@ -155,32 +155,55 @@ export class VoiceService {
       guildId: string;
       channelId: string;
     },
-  ): void {
-    this.incomingCalls.set(userId, callData);
+  ): Promise<void> {
+    // Store in database with 5-minute expiration
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    
+    await this.supabase
+      .schema('projectgg')
+      .from('incoming_voice_calls')
+      .insert({
+        recipient_id: userId,
+        from_user_id: callData.fromUserId,
+        from_username: callData.fromUsername,
+        guild_id: callData.guildId,
+        channel_id: callData.channelId,
+        expires_at: expiresAt.toISOString(),
+      });
   }
 
   /**
    * Get and clear the incoming call for a user.
    * Called by the game client to check for incoming calls.
+   * Returns null if no pending call exists.
    */
-  getIncomingCall(userId: string):
+  async getIncomingCall(userId: string):
     | { fromUserId: string; fromUsername: string; guildId: string; channelId: string }
     | null {
-    const call = this.incomingCalls.get(userId);
-    if (call) {
-      this.incomingCalls.delete(userId);
-      return call;
-    }
-    return null;
-  }
+    const { data, error } = await this.supabase
+      .schema('projectgg')
+      .from('incoming_voice_calls')
+      .select('from_user_id, from_username, guild_id, channel_id')
+      .eq('recipient_id', userId)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-  private incomingCalls = new Map<
-    string,
-    {
-      fromUserId: string;
-      fromUsername: string;
-      guildId: string;
-      channelId: string;
-    }
-  >();
+    if (error || !data) return null;
+
+    // Delete the call (consume it)
+    await this.supabase
+      .schema('projectgg')
+      .from('incoming_voice_calls')
+      .delete()
+      .eq('recipient_id', userId);
+
+    return {
+      fromUserId: data.from_user_id,
+      fromUsername: data.from_username,
+      guildId: data.guild_id,
+      channelId: data.channel_id,
+    };
+  }
 }
