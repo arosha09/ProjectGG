@@ -26,14 +26,6 @@ export interface SyncResult {
   search_name?: string;
 }
 
-export interface SyncProgress {
-  completed: number;
-  total: number;
-  current: string | null;
-  status: string | null;
-  percentage: number;
-}
-
 @Injectable({
   providedIn: 'root'
 })
@@ -156,14 +148,6 @@ export class GamesService {
     return this.http.get<any[]>(`${this.apiUrl}/games/sync/search/external`, {
       params: { q: query },
     });
-  }
-
-  getSyncProgress(): Observable<SyncProgress> {
-    return this.http.get<SyncProgress>(`${this.apiUrl}/games/sync/progress`);
-  }
-
-  startBatchSync(): Observable<{ jobId: string; total: number }> {
-    return this.http.post<{ jobId: string; total: number }>(`${this.apiUrl}/games/sync/all`, null);
   }
 
   getAuthUrl(platform: string): Observable<any> {

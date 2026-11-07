@@ -49,9 +49,6 @@
               <mat-icon svgIcon="playlist_add"></mat-icon> SCAN QUEUE
             }
           </button>
-          <button class="sync-btn sync-btn-tertiary" (click)="refreshProgress()" [disabled]="syncing || scanning">
-            <mat-icon svgIcon="refresh"></mat-icon> REFRESH PROGRESS
-          </button>
           <button class="sync-btn sync-btn-tertiary" (click)="loadQueue(true)" [disabled]="syncing || scanning || syncComplete">
             <mat-icon svgIcon="refresh"></mat-icon> SCAN ALL
           </button>
