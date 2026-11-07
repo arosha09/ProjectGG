@@ -1,4 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 import {
@@ -6,11 +11,80 @@ import {
   SyncSearchResultDto,
   SyncQueueDto,
 } from 'src/dto/sync/sync.dto';
+import { RealtimeGateway } from 'src/modules/realtime/realtime.gateway';
 
 @Injectable()
-export class GamesSyncService {
+export class GamesSyncService implements OnModuleInit {
   private readonly raggApiKey: string;
   private readonly steamGridDbKey: string;
+  private readonly logger = new Logger(GamesSyncService.name);
+
+  // In-memory progress tracking for batch sync
+  private syncProgress: {
+    active: boolean;
+    completed: number;
+    total: number;
+    current: string | null;
+    status: string | null;
+    results: Array<{ code: string; success: boolean; message: string }>;
+  } = {
+    active: false,
+    completed: 0,
+    total: 0,
+    current: null,
+    status: null,
+    results: [],
+  };
+
+  constructor(
+    configService: ConfigService,
+    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
+    private readonly realtime: RealtimeGateway,
+  ) {
+    this.raggApiKey = configService.get<string>('RAWG_API_KEY') ?? '';
+    this.steamGridDbKey = configService.get<string>('STEAMGRIDDB_API_KEY') ?? '';
+  }
+
+  onModuleInit() {
+    // Reset progress on module init
+    this.syncProgress = {
+      active: false,
+      completed: 0,
+      total: 0,
+      current: null,
+      status: null,
+      results: [],
+    };
+  }
+
+  private setProgress(
+    completed: number,
+    total: number,
+    current: string | null,
+    status: string | null,
+  ) {
+    this.syncProgress.completed = completed;
+    this.syncProgress.total = total;
+    this.syncProgress.current = current;
+    this.syncProgress.status = status;
+    this.realtime.broadcast('sync-progress', {
+      completed,
+      total,
+      current,
+      status,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    });
+  }
+
+  getProgress() {
+    return {
+      ...this.syncProgress,
+      percentage:
+        this.syncProgress.total > 0
+          ? Math.round((this.syncProgress.completed / this.syncProgress.total) * 100)
+          : 0,
+    };
+  }
 
   private static normalizeName(name: string): string {
     return name
@@ -139,15 +213,6 @@ export class GamesSyncService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-  }
-
-  constructor(
-    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
-    configService: ConfigService,
-  ) {
-    this.raggApiKey = configService.get<string>('RAWG_API_KEY') ?? '';
-    this.steamGridDbKey =
-      configService.get<string>('STEAMGRIDDB_API_KEY') ?? '';
   }
 
   private static normalizeForCompare(name: string): string {
@@ -1715,5 +1780,81 @@ export class GamesSyncService {
         platforms,
       };
     });
+  }
+
+  /**
+   * Batch sync all queued games. Processes them sequentially with progress tracking.
+   * Returns a summary immediately; processing continues in the background.
+   */
+  async syncAll(): Promise<{ jobId: string; total: number }> {
+    const queue = await this.getSyncQueue(false, undefined, false);
+    const total = queue.length;
+
+    this.syncProgress = {
+      active: true,
+      completed: 0,
+      total,
+      current: null,
+      status: 'Starting batch sync...',
+      results: [],
+    };
+    this.realtime.broadcast('sync-progress', {
+      ...this.syncProgress,
+      percentage: 0,
+    });
+
+    // Process in background (don't await)
+    (async () => {
+      for (const item of queue) {
+        this.syncProgress.current = item.code;
+        this.syncProgress.status = `Syncing ${item.name}...`;
+        this.realtime.broadcast('sync-progress', {
+          ...this.syncProgress,
+          percentage:
+            this.syncProgress.total > 0
+              ? Math.round(
+                  (this.syncProgress.completed / this.syncProgress.total) *
+                    100,
+                )
+              : 0,
+        });
+
+        try {
+          const result = await this.syncGame(item.code, item.name);
+          this.syncProgress.results.push({
+            code: item.code,
+            success: result.success,
+            message: result.message,
+          });
+        } catch (e: any) {
+          this.syncProgress.results.push({
+            code: item.code,
+            success: false,
+            message: e.message ?? String(e),
+          });
+        }
+
+        this.syncProgress.completed++;
+        this.realtime.broadcast('sync-progress', {
+          ...this.syncProgress,
+          percentage:
+            this.syncProgress.total > 0
+              ? Math.round(
+                  (this.syncProgress.completed / this.syncProgress.total) *
+                    100,
+                )
+              : 0,
+        });
+      }
+
+      this.syncProgress.active = false;
+      this.syncProgress.status = 'Batch sync complete';
+      this.realtime.broadcast('sync-progress', {
+        ...this.syncProgress,
+        percentage: 100,
+      });
+    })();
+
+    return { jobId: 'batch-sync', total };
   }
 }

@@ -20,6 +20,7 @@ import {
   SyncResultDto,
   SyncQueueDto,
   SyncSearchResultDto,
+  SyncProgressDto,
 } from 'src/dto/sync/sync.dto';
 
 @ApiTags('Games Sync')
@@ -213,5 +214,19 @@ export class GamesSyncController {
     if (!req.user || req.user.role !== 'admin')
       throw new ForbiddenException('admin required');
     return this.syncService.forceSetRawgDesc(code, name);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('all')
+  async syncAll(): Promise<{ jobId: string; total: number }> {
+    return this.syncService.syncAll();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('progress')
+  async getProgress(): Promise<SyncProgressDto> {
+    return this.syncService.getProgress();
   }
 }

@@ -22,10 +22,13 @@ export class SyncProgressDto {
   total: number;
 
   @ApiProperty({ example: 'ACU' })
-  current: string;
+  current: string | null;
 
   @ApiProperty({ example: 'Synced via Steam' })
-  status: string;
+  status: string | null;
+
+  @ApiProperty({ example: 20 })
+  percentage: number;
 }
 
 export class SyncResultDto {
