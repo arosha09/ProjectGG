@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 
 @Injectable()
 export class VoiceService {
@@ -12,7 +13,10 @@ export class VoiceService {
   private initPromise: Promise<void> | null = null;
   private botToken: string | null = null;
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    @Inject(SUPABASE_CLIENT) private readonly supabase: any,
+  ) {
     this.botToken = configService.get<string>('DISCORD_BOT_TOKEN') ?? null;
     if (!this.botToken) {
       this.logger.warn('DISCORD_BOT_TOKEN not set — voice unavailable');
@@ -177,9 +181,9 @@ export class VoiceService {
    * Called by the game client to check for incoming calls.
    * Returns null if no pending call exists.
    */
-  async getIncomingCall(userId: string):
-    | { fromUserId: string; fromUsername: string; guildId: string; channelId: string }
-    | null {
+  async getIncomingCall(
+    userId: string,
+  ): Promise<{ fromUserId: string; fromUsername: string; guildId: string; channelId: string } | null> {
     const { data, error } = await this.supabase
       .schema('projectgg')
       .from('incoming_voice_calls')

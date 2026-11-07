@@ -18,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { VoiceGateway } from './voice.gateway';
+import { VoiceService } from './voice.service';
 import { AccessToken } from 'livekit-server-sdk';
 import { TrackSource } from '@livekit/protocol';
 import { ConfigService } from '@nestjs/config';
@@ -34,6 +35,7 @@ import { ChatService } from '../chat/chat.service';
 export class VoiceController {
   constructor(
     private readonly voiceGateway: VoiceGateway,
+    private readonly voiceService: VoiceService,
     private readonly config: ConfigService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: any,
     private readonly chatService: ChatService,
@@ -124,7 +126,7 @@ export class VoiceController {
     guild_id?: string;
   }> {
     const userId = req.user.id;
-    const result = await this.voiceGateway.getIncomingCall(userId);
+    const result = await this.voiceService.getIncomingCall(userId);
     if (!result) {
       return { has_incoming_call: false };
     }
@@ -203,7 +205,7 @@ export class VoiceController {
     });
 
     // Store the incoming call so the game can poll for it
-    this.voiceGateway.setIncomingCall(targetUserId, {
+    this.voiceService.setIncomingCall(targetUserId, {
       fromUserId: senderId,
       fromUsername: senderName,
       guildId: senderChannel.guildId,

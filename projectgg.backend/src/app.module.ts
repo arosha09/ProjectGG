@@ -23,6 +23,7 @@ import { TtsModule } from './modules/tts/tts.module';
 import { CallModule } from './modules/call/call.module';
 import { PixelGameModule } from './modules/pixel-game/pixel-game.module';
 import { CharactersModule } from './modules/characters/characters.module';
+import { SavesModule } from './modules/saves/saves.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -53,6 +54,7 @@ import { CharactersModule } from './modules/characters/characters.module';
     CallModule,
     PixelGameModule,
     CharactersModule,
+    SavesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
