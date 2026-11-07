@@ -133,8 +133,6 @@ export class AdminSync {
     this.status = `Starting sync of ${this.total} games...`;
     this.processNext(0);
   }
-    return this.auth.getCurrentUser();
-  }
 
   loadMissingSeries(): void {
     this.status = 'Loading missing series...';
