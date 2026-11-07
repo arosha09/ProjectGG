@@ -22,6 +22,7 @@ import {
   SyncSearchResultDto,
   SyncProgressDto,
 } from 'src/dto/sync/sync.dto';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('Games Sync')
 @Controller('games/sync')
@@ -31,6 +32,7 @@ export class GamesSyncController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('queue')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiQuery({ name: 'force', type: Boolean, required: false })
   @ApiQuery({ name: 'q', type: String, required: false })
   @ApiQuery({ name: 'broken', type: Boolean, required: false })
@@ -151,6 +153,7 @@ export class GamesSyncController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post(':code')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async syncGame(
     @Param('code') code: string,
     @Query('name') name?: string,
@@ -219,6 +222,7 @@ export class GamesSyncController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post('all')
+  @Throttle({ default: { limit: 1, ttl: 60_000 } })
   async syncAll(): Promise<{ jobId: string; total: number }> {
     return this.syncService.syncAll();
   }
@@ -226,6 +230,7 @@ export class GamesSyncController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Get('progress')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async getProgress(): Promise<SyncProgressDto> {
     return this.syncService.getProgress();
   }

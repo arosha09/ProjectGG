@@ -1782,6 +1782,10 @@ export class GamesSyncService implements OnModuleInit {
     });
   }
 
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   /**
    * Batch sync all queued games. Processes them sequentially with progress tracking.
    * Returns a summary immediately; processing continues in the background.
@@ -1845,6 +1849,11 @@ export class GamesSyncService implements OnModuleInit {
                 )
               : 0,
         });
+
+        // Rate limit: wait 2 seconds between games to avoid API rate limits
+        if (this.syncProgress.completed < this.syncProgress.total) {
+          await this.sleep(2000);
+        }
       }
 
       this.syncProgress.active = false;
