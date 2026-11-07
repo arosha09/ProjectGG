@@ -142,4 +142,45 @@ export class VoiceService {
   getActiveGuilds(): string[] {
     return Array.from(this.connections.keys());
   }
+
+  /**
+   * Track an incoming call for a user.
+   * Called when a voice invite is sent.
+   */
+  setIncomingCall(
+    userId: string,
+    callData: {
+      fromUserId: string;
+      fromUsername: string;
+      guildId: string;
+      channelId: string;
+    },
+  ): void {
+    this.incomingCalls.set(userId, callData);
+  }
+
+  /**
+   * Get and clear the incoming call for a user.
+   * Called by the game client to check for incoming calls.
+   */
+  getIncomingCall(userId: string):
+    | { fromUserId: string; fromUsername: string; guildId: string; channelId: string }
+    | null {
+    const call = this.incomingCalls.get(userId);
+    if (call) {
+      this.incomingCalls.delete(userId);
+      return call;
+    }
+    return null;
+  }
+
+  private incomingCalls = new Map<
+    string,
+    {
+      fromUserId: string;
+      fromUsername: string;
+      guildId: string;
+      channelId: string;
+    }
+  >();
 }

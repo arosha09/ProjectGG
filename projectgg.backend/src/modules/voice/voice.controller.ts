@@ -107,6 +107,36 @@ export class VoiceController {
     return this.voiceGateway.getVoiceState();
   }
 
+  /**
+   * Gets incoming call status for the authenticated user.
+   * Used by the game client to check for calls when the web client initiates one.
+   */
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('incoming-call')
+  async getIncomingCall(
+    @Req() req: any,
+  ): Promise<{
+    has_incoming_call: boolean;
+    from_user_id?: string;
+    from_username?: string;
+    channel_id?: string;
+    guild_id?: string;
+  }> {
+    const userId = req.user.id;
+    const result = await this.voiceGateway.getIncomingCall(userId);
+    if (!result) {
+      return { has_incoming_call: false };
+    }
+    return {
+      has_incoming_call: true,
+      from_user_id: result.fromUserId,
+      from_username: result.fromUsername,
+      channel_id: result.channelId,
+      guild_id: result.guildId,
+    };
+  }
+
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @Post('nudge')
@@ -168,6 +198,14 @@ export class VoiceController {
       fromUserId: senderId,
       fromUsername: senderName,
       fromAvatar: sender?.data?.avatar_url ?? null,
+      guildId: senderChannel.guildId,
+      channelId: senderChannel.channelId,
+    });
+
+    // Store the incoming call so the game can poll for it
+    this.voiceGateway.setIncomingCall(targetUserId, {
+      fromUserId: senderId,
+      fromUsername: senderName,
       guildId: senderChannel.guildId,
       channelId: senderChannel.channelId,
     });
