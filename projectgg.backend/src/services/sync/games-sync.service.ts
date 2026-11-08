@@ -826,10 +826,17 @@ export class GamesSyncService implements OnModuleInit {
       }
     }
 
+    // All sources failed — remove from games_master
+    await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .delete()
+      .eq('code', code);
+
     return {
       code,
       success: false,
-      message: 'Not found on Steam, GOG, RAWG, or SteamGridDB',
+      message: 'Not found on Steam, GOG, RAWG, or SteamGridDB — removed from database',
       search_name: name,
     };
   }
