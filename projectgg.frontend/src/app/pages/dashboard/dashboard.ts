@@ -541,8 +541,9 @@ export class Dashboard implements OnInit, OnDestroy {
     }
 
     return [...grouped.entries()]
-      // Any group with 1+ games is a series tile: every entry that has a
-      // series_name assigned appears as its own series tile.
+      // 1+ = more than 1: a series needs MORE THAN ONE game to be a series.
+      // A single game is NOT a series — it renders as a normal standalone card.
+      .filter(([, games]) => games.length > 1)
       .map(([name, games]) => ({
         name,
         games: [...games].sort((left, right) => {
@@ -631,10 +632,14 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get libraryItems(): LibraryItem[] {
-    // Standalone = games with no series_name. Any game that has a
-    // series_name assigned (1+ games in its group) renders as a series tile.
+    // Standalone = no series_name, OR a series with only 1 game total.
+    // A single game is NOT a series — it renders as a normal game card.
     const standaloneItems: LibraryItem[] = this.allGames
-      .filter((game) => !game.series_name)
+      .filter(
+        (game) =>
+          !game.series_name ||
+          (this.seriesGamesCache.get(game.series_name)?.length ?? 0) <= 1,
+      )
       .map((game) => ({ type: 'game', game }));
 
     const seriesItems: LibraryItem[] = this.seriesGroups.map((series) => ({
