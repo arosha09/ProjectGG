@@ -107,4 +107,10 @@ export class GamesController {
   ): Promise<GetAllGamesDto[]> {
     return this.gamesService.getGamesBySeries(seriesName);
   }
+
+  @Get('library-total')
+  async getLibraryTotal(): Promise<{ total: number }> {
+    const total = await this.gamesService.getLibraryTotal();
+    return { total };
+  }
 }

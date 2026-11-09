@@ -268,4 +268,40 @@ export class GamesRepository {
     }
     return this.withImageUrl(data ?? []);
   }
+
+  /**
+   * Exact number of library tiles: standalone games (series_name IS NULL)
+   * + distinct series (each series occupies exactly one tile regardless of
+   * how many games it has — singletons render as one tile too).
+   */
+  async getLibraryTotal(): Promise<number> {
+    const { data: standalone, error: standaloneError } = await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .select('code')
+      .is('series_name', null);
+
+    if (standaloneError) {
+      throw new InternalServerErrorException(
+        `get_library_total failed: ${standaloneError.message}`,
+      );
+    }
+
+    const { data: seriesRows, error: seriesError } = await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .select('series_name')
+      .not('series_name', 'is', null);
+
+    if (seriesError) {
+      throw new InternalServerErrorException(
+        `get_library_total failed: ${seriesError.message}`,
+      );
+    }
+
+    const distinctSeries = new Set(
+      (seriesRows ?? []).map((row: any) => row.series_name).filter(Boolean),
+    );
+    return (standalone?.length ?? 0) + distinctSeries.size;
+  }
 }

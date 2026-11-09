@@ -42,4 +42,8 @@ export class GamesService {
   async getGamesBySeries(seriesName: string): Promise<GetAllGamesDto[]> {
     return this.gamesRepository.getGamesBySeries(seriesName);
   }
+
+  async getLibraryTotal(): Promise<number> {
+    return this.gamesRepository.getLibraryTotal();
+  }
 }

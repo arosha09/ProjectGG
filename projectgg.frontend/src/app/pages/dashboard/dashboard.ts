@@ -65,6 +65,7 @@ export class Dashboard implements OnInit, OnDestroy {
   private loadedServerPage = 0; // highest server page fetched so far
   private noMoreRawData = false; // server returned a short/empty page
   private fetchingPage = false; // a server page fetch is already in flight
+  libraryTotalTiles: number | null = null; // exact tile count from server
 
   currentUser: any = null;
   allGames: Game[] = [];
@@ -369,6 +370,19 @@ export class Dashboard implements OnInit, OnDestroy {
     this.error = '';
 
     this.fillUntilPageFilled();
+
+    // Exact library tile count (standalone games + distinct series) so the
+    // paginator shows the real total instead of an estimate.
+    this.games
+      .getLibraryTotal()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (total) => {
+          this.libraryTotalTiles = total;
+          this.cdr.markForCheck();
+        },
+        error: () => this.cdr.markForCheck(),
+      });
 
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (userId) {
@@ -680,10 +694,15 @@ export class Dashboard implements OnInit, OnDestroy {
         Math.ceil(this.filteredLibraryItems.length / this.tilesPerPage),
       );
     }
+    // Exact count from the server: standalone games + distinct series.
+    // Each series occupies exactly one tile regardless of how many games.
+    if (this.libraryTotalTiles != null) {
+      return Math.max(1, Math.ceil(this.libraryTotalTiles / this.tilesPerPage));
+    }
     const known = Math.ceil(this.libraryItems.length / this.tilesPerPage);
     // While more catalog data may still load, always offer a "next" page
     // so the user can keep paging forward; it becomes exact at the end.
-    return this.noMoreRawData ? Math.max(1, known) : Math.max(known, 1) + 1;
+    return this.noMoreRawData ? Math.max(known, 1) : Math.max(known, 1) + 1;
   }
 
   get totalPages(): number {

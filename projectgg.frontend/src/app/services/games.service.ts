@@ -71,6 +71,13 @@ export class GamesService {
       );
   }
 
+  /** Exact number of library tiles: standalone games + distinct series. */
+  getLibraryTotal(): Observable<number> {
+    return this.http
+      .get<{ total: number }>(`${this.apiUrl}/games/library-total`)
+      .pipe(map((res) => res?.total ?? 0));
+  }
+
   getUserGames(userId: string, page = 1, pageSize = 12): Observable<Game[]> {
     return this.http.get<unknown>(`${this.apiUrl}/games/get-user-games`, {
       params: {
