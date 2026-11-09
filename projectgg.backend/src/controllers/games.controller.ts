@@ -5,6 +5,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  Param,
   ParseIntPipe,
   ParseUUIDPipe,
   Post,
@@ -98,5 +99,12 @@ export class GamesController {
     pageSize: number,
   ): Promise<GetAllGamesDto[]> {
     return this.gamesService.searchGames(query, page, pageSize);
+  }
+
+  @Get('series/:seriesName')
+  async getGamesBySeries(
+    @Param('seriesName') seriesName: string,
+  ): Promise<GetAllGamesDto[]> {
+    return this.gamesService.getGamesBySeries(seriesName);
   }
 }

@@ -250,4 +250,22 @@ export class GamesRepository {
     }
     return this.withImageUrl(data ?? []);
   }
+
+  async getGamesBySeries(seriesName: string): Promise<GetAllGamesDto[]> {
+    const { data, error } = await this.supabase
+      .schema('projectgg')
+      .from('games_master')
+      .select(
+        'name,code,desc,sequence_timeline,sequence_release,is_series,series_name,genres,cover_url,external_id,rating,platforms,sources,last_synced_at',
+      )
+      .eq('series_name', seriesName)
+      .order('sequence_release', { ascending: true });
+
+    if (error) {
+      throw new InternalServerErrorException(
+        `get_games_by_series failed: ${error.message}`,
+      );
+    }
+    return this.withImageUrl(data ?? []);
+  }
 }

@@ -38,4 +38,8 @@ export class GamesService {
   ): Promise<GetAllGamesDto[]> {
     return this.gamesRepository.searchGames(query, page, pageSize);
   }
+
+  async getGamesBySeries(seriesName: string): Promise<GetAllGamesDto[]> {
+    return this.gamesRepository.getGamesBySeries(seriesName);
+  }
 }

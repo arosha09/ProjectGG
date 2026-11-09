@@ -76,6 +76,7 @@ export class Dashboard implements OnInit, OnDestroy {
   profileDropdownOpen = false;
   expandedSeries = new Set<string>();
   seriesCurrentPages: Record<string, number> = {};
+  private seriesGamesCache = new Map<string, Game[]>();
   libraryCurrentPage = 1;
   searchQuery = '';
   searchResults: Game[] | null = null;
@@ -364,32 +365,7 @@ export class Dashboard implements OnInit, OnDestroy {
     this.loading = true;
     this.error = '';
 
-    this.games
-      .getAllGames(1, 1000)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        }),
-      )
-      .subscribe({
-        next: (games) => {
-          this.allGames = games ?? [];
-          this.totalGames = games?.[0]?.total_count ?? games?.length ?? 0;
-          this.totalPages = this.totalLibraryPages;
-          if (this.libraryCurrentPage > this.totalLibraryPages) {
-            this.libraryCurrentPage = this.totalLibraryPages;
-          }
-          this.cdr.markForCheck();
-        },
-        error: (err) => {
-          console.error('Error loading games:', err);
-          this.error = 'Failed to load the game feed.';
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-      });
+    this.loadLibraryPage(this.libraryCurrentPage);
 
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (userId) {
@@ -406,6 +382,64 @@ export class Dashboard implements OnInit, OnDestroy {
             this.userGames = [];
             this.cdr.markForCheck();
           },
+        });
+    }
+  }
+
+  private loadLibraryPage(page: number): void {
+    this.libraryCurrentPage = page;
+    this.loading = true;
+    this.error = '';
+
+    this.games
+      .getAllGames(page, this.libraryPageSize)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (games) => {
+          this.allGames = games ?? [];
+          this.totalGames = games?.[0]?.total_count ?? 0;
+          this.totalPages = Math.max(
+            1,
+            Math.ceil(this.totalGames / this.libraryPageSize),
+          );
+          this.ensureSeriesLoaded(this.allGames);
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('Error loading games:', err);
+          this.error = 'Failed to load the game feed.';
+          this.loading = false;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private ensureSeriesLoaded(games: Game[]): void {
+    const names = [
+      ...new Set(
+        games
+          .filter((g) => g.series_name)
+          .map((g) => g.series_name as string),
+      ),
+    ];
+    for (const name of names) {
+      if (this.seriesGamesCache.has(name)) continue;
+      this.seriesGamesCache.set(name, []);
+      this.games
+        .getGamesBySeries(name)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (seriesGames) => {
+            this.seriesGamesCache.set(name, seriesGames ?? []);
+            this.cdr.markForCheck();
+          },
+          error: () => this.cdr.markForCheck(),
         });
     }
   }
@@ -433,7 +467,11 @@ export class Dashboard implements OnInit, OnDestroy {
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (!userId) return;
 
-    const game = this.allGames.find((g) => g.code === gameCode);
+    const game =
+      this.allGames.find((g) => g.code === gameCode) ??
+      [...this.seriesGamesCache.values()]
+        .flat()
+        .find((g) => g.code === gameCode);
     if (game && !this.isAdded(gameCode)) {
       this.userGames = [...this.userGames, game];
       this.cdr.markForCheck();
@@ -492,9 +530,14 @@ export class Dashboard implements OnInit, OnDestroy {
         continue;
       }
 
-      const existing = grouped.get(game.series_name) ?? [];
-      existing.push(game);
-      grouped.set(game.series_name, existing);
+      // Prefer the full series list fetched from the server so an
+      // expanded series shows ALL its games, not just this page's subset.
+      const fullList = this.seriesGamesCache.get(game.series_name);
+      const list =
+        fullList && fullList.length > 0 ? fullList : [game];
+      if (!grouped.has(game.series_name)) {
+        grouped.set(game.series_name, [...list]);
+      }
     }
 
     return [...grouped.entries()]
@@ -577,14 +620,12 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get pagedLibraryItems(): LibraryItem[] {
-    const items = this.filteredLibraryItems;
-    const start = (this.libraryCurrentPage - 1) * this.libraryPageSize;
-    return items.slice(start, start + this.libraryPageSize);
+    // Server already paginates — this page's items are the whole slice.
+    return this.filteredLibraryItems;
   }
 
   get totalLibraryPages(): number {
-    const items = this.filteredLibraryItems;
-    return Math.max(1, Math.ceil(items.length / this.libraryPageSize));
+    return Math.max(1, this.totalPages);
   }
 
   get libraryItems(): LibraryItem[] {
@@ -619,11 +660,11 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   goToLibraryPage(page: number): void {
-    const boundedPage = Math.max(1, Math.min(page, this.totalLibraryPages));
+    const boundedPage = Math.max(1, Math.min(page, this.totalPages));
     if (boundedPage === this.libraryCurrentPage) {
       return;
     }
-    this.libraryCurrentPage = boundedPage;
+    this.loadLibraryPage(boundedPage);
   }
 
   isSeriesExpanded(seriesName: string): boolean {

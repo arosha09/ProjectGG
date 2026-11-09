@@ -58,6 +58,19 @@ export class GamesService {
     );
   }
 
+  getGamesBySeries(seriesName: string): Observable<Game[]> {
+    return this.http
+      .get<unknown>(`${this.apiUrl}/games/series/${encodeURIComponent(seriesName)}`)
+      .pipe(
+        map((body: unknown) => {
+          if (!body) return [];
+          const response = body as { data?: GameApiItem[] } | GameApiItem[];
+          const games = Array.isArray(response) ? response : (response.data ?? []);
+          return this.withImageFallback(games);
+        }),
+      );
+  }
+
   getUserGames(userId: string, page = 1, pageSize = 12): Observable<Game[]> {
     return this.http.get<unknown>(`${this.apiUrl}/games/get-user-games`, {
       params: {
