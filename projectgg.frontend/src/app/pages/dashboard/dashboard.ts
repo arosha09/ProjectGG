@@ -64,6 +64,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   private loadedServerPage = 0; // highest server page fetched so far
   private noMoreRawData = false; // server returned a short/empty page
+  private fetchingPage = false; // a server page fetch is already in flight
 
   currentUser: any = null;
   allGames: Game[] = [];
@@ -395,6 +396,12 @@ export class Dashboard implements OnInit, OnDestroy {
    * display page may hold fewer items if the catalog runs out.
    */
   private fillUntilPageFilled(): void {
+    // Guard against concurrent calls (loadData fires twice on init):
+    // only one server page fetch may be in flight at a time, otherwise
+    // the same page gets fetched and appended twice -> duplicate games.
+    if (this.fetchingPage) {
+      return;
+    }
     this.loading = true;
     const needed = this.libraryCurrentPage * this.tilesPerPage;
     const exhausted =
@@ -407,23 +414,28 @@ export class Dashboard implements OnInit, OnDestroy {
       return;
     }
 
+    this.fetchingPage = true;
     const nextPage = this.loadedServerPage + 1;
     this.games
       .getAllGames(nextPage, this.libraryPageSize)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (games) => {
+          this.fetchingPage = false;
           this.loadedServerPage = nextPage;
           const list = games ?? [];
-          this.allGames = [...this.allGames, ...list];
+          const existingCodes = new Set(this.allGames.map((g) => g.code));
+          const fresh = list.filter((g) => !existingCodes.has(g.code));
+          this.allGames = [...this.allGames, ...fresh];
           this.totalGames = list[0]?.total_count ?? this.totalGames;
           if (list.length < this.libraryPageSize) {
             this.noMoreRawData = true;
           }
-          this.ensureSeriesLoaded(list);
+          this.ensureSeriesLoaded(fresh);
           this.fillUntilPageFilled();
         },
         error: (err) => {
+          this.fetchingPage = false;
           console.error('Error loading games:', err);
           this.error = 'Failed to load the game feed.';
           this.loading = false;
