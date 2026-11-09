@@ -57,16 +57,18 @@ export class Dashboard implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
 
   readonly pageSize = 12;
-  readonly libraryPageSize = 12;
+  readonly libraryPageSize = 12; // raw server chunk size (games per API page)
+  readonly tilesPerPage = 9; // display page size: 3 rows x 3 columns
   readonly seriesPageSize = 12;
   readonly cardPageSize = 10;
+
+  private loadedServerPage = 0; // highest server page fetched so far
+  private noMoreRawData = false; // server returned a short/empty page
 
   currentUser: any = null;
   allGames: Game[] = [];
   userGames: Game[] = [];
   totalGames = 0;
-  currentPage = 1;
-  totalPages = 1;
   loading = true;
   error = '';
   currentTheme: 'green' | 'red' | 'yellow' | 'blue' = 'green';
@@ -365,7 +367,7 @@ export class Dashboard implements OnInit, OnDestroy {
     this.loading = true;
     this.error = '';
 
-    this.loadLibraryPage(this.libraryCurrentPage);
+    this.fillUntilPageFilled();
 
     const userId = this.currentUser?.id ?? this.currentUser?.sub;
     if (userId) {
@@ -386,30 +388,40 @@ export class Dashboard implements OnInit, OnDestroy {
     }
   }
 
-  private loadLibraryPage(page: number): void {
-    this.libraryCurrentPage = page;
+  /**
+   * Accumulate raw server pages until the current display page holds a
+   * full set of tiles (3 rows x 3 cols), or the server has no more data.
+   * Pages show a combination of series tiles + single games. The last
+   * display page may hold fewer items if the catalog runs out.
+   */
+  private fillUntilPageFilled(): void {
     this.loading = true;
-    this.error = '';
+    const needed = this.libraryCurrentPage * this.tilesPerPage;
+    const exhausted =
+      this.noMoreRawData ||
+      (this.totalGames > 0 &&
+        this.loadedServerPage * this.libraryPageSize >= this.totalGames);
+    if (this.libraryItems.length >= needed || exhausted) {
+      this.loading = false;
+      this.cdr.markForCheck();
+      return;
+    }
 
+    const nextPage = this.loadedServerPage + 1;
     this.games
-      .getAllGames(page, this.libraryPageSize)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        }),
-      )
+      .getAllGames(nextPage, this.libraryPageSize)
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (games) => {
-          this.allGames = games ?? [];
-          this.totalGames = games?.[0]?.total_count ?? 0;
-          this.totalPages = Math.max(
-            1,
-            Math.ceil(this.totalGames / this.libraryPageSize),
-          );
-          this.ensureSeriesLoaded(this.allGames);
-          this.cdr.markForCheck();
+          this.loadedServerPage = nextPage;
+          const list = games ?? [];
+          this.allGames = [...this.allGames, ...list];
+          this.totalGames = list[0]?.total_count ?? this.totalGames;
+          if (list.length < this.libraryPageSize) {
+            this.noMoreRawData = true;
+          }
+          this.ensureSeriesLoaded(list);
+          this.fillUntilPageFilled();
         },
         error: (err) => {
           console.error('Error loading games:', err);
@@ -623,12 +635,26 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   get pagedLibraryItems(): LibraryItem[] {
-    // Server already paginates — this page's items are the whole slice.
-    return this.filteredLibraryItems;
+    // Each display page shows one full grid (3 rows x 3 cols) of tiles.
+    const start = (this.libraryCurrentPage - 1) * this.tilesPerPage;
+    return this.filteredLibraryItems.slice(start, start + this.tilesPerPage);
   }
 
   get totalLibraryPages(): number {
-    return Math.max(1, this.totalPages);
+    if (this.searchResults) {
+      return Math.max(
+        1,
+        Math.ceil(this.filteredLibraryItems.length / this.tilesPerPage),
+      );
+    }
+    const known = Math.ceil(this.libraryItems.length / this.tilesPerPage);
+    // While more catalog data may still load, always offer a "next" page
+    // so the user can keep paging forward; it becomes exact at the end.
+    return this.noMoreRawData ? Math.max(1, known) : Math.max(known, 1) + 1;
+  }
+
+  get totalPages(): number {
+    return this.totalLibraryPages;
   }
 
   get libraryItems(): LibraryItem[] {
@@ -669,11 +695,16 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   goToLibraryPage(page: number): void {
-    const boundedPage = Math.max(1, Math.min(page, this.totalPages));
+    const boundedPage = Math.max(1, page);
     if (boundedPage === this.libraryCurrentPage) {
       return;
     }
-    this.loadLibraryPage(boundedPage);
+    this.libraryCurrentPage = boundedPage;
+    if (!this.searchResults) {
+      // Fetch more raw pages until this display page is filled.
+      this.fillUntilPageFilled();
+    }
+    this.cdr.markForCheck();
   }
 
   isSeriesExpanded(seriesName: string): boolean {
@@ -717,11 +748,10 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   goToPage(page: number): void {
-    if (page < 1 || page > this.totalPages || page === this.currentPage) {
+    if (page < 1 || page > this.totalPages || page === this.libraryCurrentPage) {
       return;
     }
 
-    this.currentPage = page;
     this.goToLibraryPage(page);
   }
 
