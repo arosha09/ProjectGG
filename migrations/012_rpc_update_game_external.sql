@@ -20,9 +20,7 @@ language plpgsql
 as $$
 declare
   v_game_id bigint;
-  v_current_broken text[];
   v_new_broken text[];
-  v_updates text;
 begin
   -- Find the game by code
   select id into v_game_id
@@ -33,8 +31,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'game_not_found', 'code', in_code);
   end if;
 
-  -- Build the update set clause, only updating non-null values
-  -- All array params are text[], scalar params match column types
+  -- Update fields, only setting non-null values
   update projectgg.games_master
   set
     cover_url = coalesce(in_cover_url, cover_url),
@@ -48,19 +45,35 @@ begin
     last_synced_at = in_last_synced_at
   where id = v_game_id;
 
-  -- Handle clearing broken fields
+  -- Compute broken_fields: fields that are still null after update
+  select array_agg(col) into v_new_broken
+  from (
+    select col from (
+      values
+        ('cover_url', projectgg.games_master.cover_url),
+        ('genres', projectgg.games_master.genres),
+        ('external_id', projectgg.games_master.external_id),
+        ('rating', projectgg.games_master.rating::text),
+        ('sequence_release', projectgg.games_master.sequence_release::text),
+        ('desc', projectgg.games_master.desc),
+        ('platforms', projectgg.games_master.platforms),
+        ('sources', projectgg.games_master.sources)
+      ) as t(col, val)
+    ) sub
+    where val is null
+  ) into v_new_broken;
+
+  update projectgg.games_master
+  set broken_fields = v_new_broken
+  where id = v_game_id;
+
+  -- Handle clearing broken fields (when a field was previously broken but now fixed)
   if in_clear_broken is not null then
-    select broken_fields into v_current_broken
-    from projectgg.games_master
-    where id = v_game_id;
-
-    -- Remove cleared items from broken_fields
-    select array_agg(elem) into v_new_broken
-    from unnest(coalesce(v_current_broken, ARRAY[]::text[])) as elem
-    where elem <> all(in_clear_broken);
-
     update projectgg.games_master
-    set broken_fields = case when v_new_broken is null then null else v_new_broken end
+    set broken_fields = (
+      select array_agg(elem) from unnest(coalesce(broken_fields, ARRAY[]::text[])) as elem
+      where elem <> all(in_clear_broken)
+    )
     where id = v_game_id;
   end if;
 
