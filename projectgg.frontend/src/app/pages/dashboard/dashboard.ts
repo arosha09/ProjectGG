@@ -394,7 +394,25 @@ export class Dashboard implements OnInit, OnDestroy {
    * full set of tiles (3 rows x 3 cols), or the server has no more data.
    * Pages show a combination of series tiles + single games. The last
    * display page may hold fewer items if the catalog runs out.
+   *
+   * Tile counting is cache-independent: each series (regardless of how many
+   * games it has) occupies exactly ONE tile, and each series-less game is
+   * one tile. Otherwise series games that are still loading would be
+   * miscounted as individual cards and the fill loop would stop early.
    */
+  private countLibraryTiles(): number {
+    const seriesNames = new Set<string>();
+    let singles = 0;
+    for (const game of this.allGames) {
+      if (game.series_name) {
+        seriesNames.add(game.series_name);
+      } else {
+        singles++;
+      }
+    }
+    return singles + seriesNames.size;
+  }
+
   private fillUntilPageFilled(): void {
     // Guard against concurrent calls (loadData fires twice on init):
     // only one server page fetch may be in flight at a time, otherwise
@@ -408,7 +426,7 @@ export class Dashboard implements OnInit, OnDestroy {
       this.noMoreRawData ||
       (this.totalGames > 0 &&
         this.loadedServerPage * this.libraryPageSize >= this.totalGames);
-    if (this.libraryItems.length >= needed || exhausted) {
+    if (this.countLibraryTiles() >= needed || exhausted) {
       this.loading = false;
       this.cdr.markForCheck();
       return;
@@ -462,6 +480,9 @@ export class Dashboard implements OnInit, OnDestroy {
           next: (seriesGames) => {
             this.seriesGamesCache.set(name, seriesGames ?? []);
             this.cdr.markForCheck();
+            // Collapsing a series into one tile may drop the tile count
+            // below a full page — re-check so more games get fetched.
+            this.fillUntilPageFilled();
           },
           error: () => this.cdr.markForCheck(),
         });
