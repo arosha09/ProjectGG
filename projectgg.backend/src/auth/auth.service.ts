@@ -167,6 +167,12 @@ export class AuthService {
     }
   }
 
+  async me(userId: string) {
+    const user = await this.repo.findById(userId);
+    if (!user) throw new UnauthorizedException('Account no longer exists');
+    return { id: user.id, username: user.username, email: user.email, role: user.role };
+  }
+
   createToken(user: any) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     return this.jwtService.sign(payload);

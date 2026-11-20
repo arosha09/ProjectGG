@@ -40,7 +40,7 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @Get('me')
   async me(@Req() req: any) {
-    return req.user;
+    return this.auth.me(req.user.id);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })

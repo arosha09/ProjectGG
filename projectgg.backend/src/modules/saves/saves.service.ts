@@ -14,6 +14,9 @@ export class SavesService {
     if (!dto.character_id || dto.save_data === undefined) {
       throw new BadRequestException('character_id and save_data are required');
     }
+    const owned = await this.supabase.schema('projectgg').from('game_characters').select('id').eq('id', dto.character_id).eq('user_id', userId).maybeSingle();
+    if (owned.error) throw new BadRequestException(owned.error.message);
+    if (!owned.data) throw new NotFoundException('Character not found');
     const { error } = await this.supabase
       .schema('projectgg')
       .from('game_saves')
@@ -24,7 +27,7 @@ export class SavesService {
           save_data: dto.save_data,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: ['user_id', 'character_id'] },
+        { onConflict: 'user_id,character_id' },
       );
     if (error) throw new BadRequestException(error.message);
     return { success: true };

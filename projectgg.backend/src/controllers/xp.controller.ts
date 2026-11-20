@@ -58,7 +58,7 @@ export class XpController {
     @Req() req: any,
     @Body() body: DailyClaimRequestDto,
   ): Promise<DailyClaimDto> {
-    const userId = body.user_id || req.user.id;
+    const userId = req.user.id;
     const result = await this.xpService.awardDailyLogin(userId);
     this.chatGateway.sendToUser(userId, 'xp-update', { userId });
     this.chatGateway.broadcastServerEvent('xp-update', { userId });
@@ -87,7 +87,10 @@ export class XpController {
     @Req() req: any,
     @Body() body: AwardCustomXpDto,
   ): Promise<XpResultDto> {
-    const userId = body.user_id || req.user.id;
+    const userId = req.user.id;
+    if (!Number.isSafeInteger(body.xp) || body.xp <= 0 || body.xp > 100000 || typeof body.source !== 'string' || !body.source.trim()) {
+      throw new BadRequestException('A positive XP amount up to 100000 and a source are required');
+    }
     const result = await this.xpService.awardCustomXp(
       userId,
       body.xp,
