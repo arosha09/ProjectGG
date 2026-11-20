@@ -29,7 +29,8 @@ export class JwtInterceptor implements HttpInterceptor {
     return next.handle(request).pipe(
       catchError((error) => {
         if (error instanceof HttpErrorResponse) {
-          if (error.status === 401 && !request.url.includes('/auth/refresh')) {
+          const isAuthEndpoint = request.url.includes('/auth/login') || request.url.includes('/auth/register');
+          if (error.status === 401 && !isAuthEndpoint && !request.url.includes('/auth/refresh')) {
             return this.handle401Error(request, next);
           }
           if (error.status === 404) {

@@ -255,4 +255,35 @@ export class GamesService {
   validatePlatform(platform: string, body: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/platform/${platform}/validate`, body);
   }
+
+  computeTier(rating: number): Observable<string> {
+    return this.http.get<string>(`${this.apiUrl}/cards/compute-tier`, {
+      params: { rating },
+    });
+  }
+
+  generateGameCode(name: string): Observable<string> {
+    return this.http.post<string>(`${this.apiUrl}/cards/generate-code`, { name });
+  }
+
+  addCardToCollection(userId: string, gameCode: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/cards/collection/add`, {
+      user_id: userId,
+      game_code: gameCode,
+    });
+  }
+
+  removeCardFromCollection(userId: string, gameCode: string): Observable<boolean> {
+    return this.http.delete<boolean>(`${this.apiUrl}/cards/collection/remove`, {
+      body: { user_id: userId, game_code: gameCode },
+    });
+  }
+
+  adminAddCard(userId: string, gameCode: string, tier: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/cards/admin/add-card`, {
+      user_id: userId,
+      game_code: gameCode,
+      tier,
+    });
+  }
 }

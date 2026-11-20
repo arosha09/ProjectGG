@@ -1235,6 +1235,15 @@
   }
 }
 
+.account-rank-panel { min-width:0; border:1px solid rgba(0,255,153,.12); border-radius:12px; background:var(--bg-card,#0b1118); overflow:hidden; }
+.account-rank-panel > h3 { margin:22px 24px 12px; text-transform:uppercase; letter-spacing:1px; font-size:14px; color:var(--text-primary,#e5f5ef); }
+.rank-state { margin:20px 24px 24px; color:var(--text-secondary,#99abb8); font-size:13px; line-height:1.7; }
+.rank-error { color:#f6b6bf; } .reward-state { color:var(--text-secondary,#99abb8); font-size:12px; }
+
+/* ============================================================
+   GAME CHARACTERS (added to profile page)
+============================================================ */
+
 /* ── CARD SHOWCASE ── */
 .showcase-card {
   margin-top: 16px;

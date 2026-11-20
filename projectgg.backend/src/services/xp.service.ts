@@ -55,4 +55,20 @@ export class XpService {
   async getLeaderboard(limit: number) {
     return this.xpRepository.getLeaderboard(limit);
   }
+
+  async addXp(userId: string, xp: number, source: string, sourceId?: string) {
+    const result = await this.xpRepository.addXp(userId, xp, source, sourceId);
+    if (result?.new_total_xp) {
+      this.realtime.emitToUser(userId, 'xp:changed', {
+        amount: xp,
+        source,
+        sourceId,
+      });
+    }
+    return result;
+  }
+
+  async awardFirstGameBonus(userId: string) {
+    return this.xpRepository.awardFirstGameBonus(userId);
+  }
 }

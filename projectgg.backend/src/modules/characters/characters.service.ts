@@ -1,3 +1,4 @@
+import { gunzipSync } from 'node:zlib';
 import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SUPABASE_CLIENT } from 'src/config/supabase.provider';
 
@@ -19,7 +20,39 @@ export class CharactersService {
   async list(userId: string) {
     const { data, error } = await this.table().select('*').eq('user_id', userId);
     if (error) throw new BadRequestException(error.message);
-    return data ?? [];
+    const characters = data ?? [];
+    if (!characters.length) return characters;
+    const saves = await this.supabase.schema('projectgg').from('game_saves')
+      .select('character_id,save_data,updated_at').eq('user_id', userId);
+    const snapshots = new Map<string, any>((saves.data ?? []).map((save: any) => [save.character_id, save]));
+    return characters.map((character: any) => {
+      const save = snapshots.get(character.id);
+      return { ...character, progression: this.progression(save?.save_data), last_synced_at: save?.updated_at ?? null, progression_unavailable: Boolean(saves.error) };
+    });
+  }
+  private progression(raw: any) {
+    try {
+      if (!raw || raw.game !== 'project-free-will' || Number(raw.schema) !== 1) return null;
+      let snapshot = raw;
+      if (raw.encoding === 'gzip-base64') {
+        if (typeof raw.payload !== 'string' || raw.payload.length > 6 * 1024 * 1024) return null;
+        snapshot = JSON.parse(gunzipSync(Buffer.from(raw.payload, 'base64'), { maxOutputLength: 64 * 1024 * 1024 }).toString('utf8'));
+      } else if (raw.encoding) return null;
+      if (snapshot.game !== 'project-free-will' || Number(snapshot.schema) !== 1) return null;
+      const result: Record<string, any> = {};
+      const count = (value: any) => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
+      for (const mode of ['solo', 'online']) {
+        const state = snapshot.character?.[mode];
+        if (!state || typeof state !== 'object' || Array.isArray(state) || !Object.keys(state).length) continue;
+        result[mode] = {
+          level: Math.max(1, count(state.level)), experience: count(state.experience),
+          rank_name: typeof state.rank_name === 'string' ? state.rank_name : null,
+          rank_code: typeof state.rank === 'string' ? state.rank : null,
+          card_count: Object.values(state.card_collection ?? {}).reduce<number>((sum, amount) => sum + count(amount), 0),
+        };
+      }
+      return result;
+    } catch { return null; }
   }
   async create(userId: string, body: any) {
     const profile = this.profile(body);

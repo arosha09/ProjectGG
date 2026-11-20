@@ -71,10 +71,13 @@ export class RankDisplayComponent implements AfterViewInit, OnDestroy {
   private theme: RankTheme = RANK_THEMES['VOID'];
   private resizeObs: ResizeObserver | null = null;
   imageLoaded = signal(false);
+  imageFailed = signal(false);
 
   constructor(private cdr: ChangeDetectorRef) {
     effect(() => {
       const rank = this.userRank();
+      this.imageLoaded.set(false);
+      this.imageFailed.set(false);
       if (rank) this.applyTheme(rank.rank_code);
     });
   }
@@ -95,6 +98,8 @@ export class RankDisplayComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.cdr.detectChanges();
     requestAnimationFrame(() => {
+      this.imageLoaded.set(false);
+      this.imageFailed.set(false);
       this.initCanvas();
       const rank = this.userRank();
       if (rank) this.applyTheme(rank.rank_code);
@@ -106,7 +111,10 @@ export class RankDisplayComponent implements AfterViewInit, OnDestroy {
     this.resizeObs?.disconnect();
   }
 
+  onImageError(): void { this.imageFailed.set(true); this.imageLoaded.set(false); }
+
   onImageLoad(): void {
+    this.initCanvas();
     this.imageLoaded.set(true);
     this.cdr.markForCheck();
     if (!this.animFrame) this.startAnimation();
@@ -149,6 +157,7 @@ export class RankDisplayComponent implements AfterViewInit, OnDestroy {
     };
     resize();
     this.ctx = canvas.getContext('2d');
+    this.resizeObs?.disconnect();
     this.resizeObs = new ResizeObserver(() => resize());
     this.resizeObs.observe(parent);
   }

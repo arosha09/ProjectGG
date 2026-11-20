@@ -91,11 +91,17 @@
           </div>
 
           <div class="hero-actions">
-            <app-daily-claim
-              [canClaim]="canClaim"
-              [loading]="claimLoading"
-              (claim)="onClaimDaily()"
-            />
+            @if (claimChecking) {
+              <span class="reward-state" role="status">Checking daily reward...</span>
+            } @else if (claimError) {
+              <button type="button" class="cyber-btn" (click)="refreshRank()">{{ claimError }} - retry</button>
+            } @else {
+              <app-daily-claim
+                [canClaim]="canClaim"
+                [loading]="claimLoading"
+                (claim)="onClaimDaily()"
+              />
+            }
           </div>
         </div>
       </mat-card>
@@ -195,8 +201,22 @@
           </div>
         </mat-card>
 
-        <app-rank-display [userRank]="userRank"></app-rank-display>
+        <section class="account-rank-panel" aria-labelledby="account-rank-heading">
+          <h3 id="account-rank-heading">Account rank</h3>
+          @if (rankLoading && !userRank) {
+            <p class="rank-state" role="status">Loading rank...</p>
+          } @else {
+            @if (userRank) { <app-rank-display [userRank]="userRank"></app-rank-display> }
+            @if (rankError) {
+              <div class="rank-state rank-error" role="alert"><p>{{ rankError }}</p><button class="cyber-btn" type="button" (click)="refreshRank()" [disabled]="rankLoading">Try again</button></div>
+            } @else if (!userRank) {
+              <div class="rank-state"><p>No account rank recorded yet.</p><button class="cyber-btn" type="button" (click)="refreshRank()">Refresh rank</button></div>
+            }
+          }
+        </section>
       </div>
+
+      <app-game-characters [userId]="currentUser?.id || ''"></app-game-characters>
 
       <!-- Favorites -->
       <div class="profile-collection-section">

@@ -121,3 +121,67 @@ export class LeaderboardEntryDto {
   @ApiProperty({ example: 1 })
   rank_position: number;
 }
+
+export class AddXpDto {
+  @ApiProperty({ example: 'uuid' })
+  user_id: string;
+
+  @ApiProperty({ example: 25 })
+  xp: number;
+
+  @ApiProperty({ example: 'tutorial_complete' })
+  source: string;
+
+  @ApiPropertyOptional({ example: 'tutorial_01' })
+  source_id?: string;
+}
+
+export class AwardFirstGameBonusDto {
+  @ApiProperty({ example: 'uuid' })
+  user_id: string;
+}
+
+export class AddCardToCollectionDto {
+  @ApiProperty({ example: 'uuid' })
+  user_id: string;
+
+  @ApiProperty({ example: 'game_001' })
+  game_code: string;
+}
+
+export class RemoveCardFromCollectionDto {
+  @ApiProperty({ example: 'uuid' })
+  user_id: string;
+
+  @ApiProperty({ example: 'game_001' })
+  game_code: string;
+}
+
+export class ComputeTierDto {
+  @ApiProperty({ example: 85 })
+  rating: number;
+}
+
+export class GenerateGameCodeDto {
+  @ApiProperty({ example: 'My Game' })
+  name: string;
+}
+
+export class AdminAddCardDto {
+  @ApiProperty({ example: 'uuid' })
+  user_id: string;
+
+  @ApiProperty({ example: 'game_001' })
+  game_code: string;
+
+  @ApiProperty({ example: 'legendary' })
+  tier: string;
+}
+
+export class CollectGameViaTaskDto {
+  @ApiProperty({ example: 'uuid' })
+  user_id: string;
+
+  @ApiProperty({ example: 1 })
+  task_id: number;
+}

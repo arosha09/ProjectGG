@@ -1210,4 +1210,71 @@ export class CardCollectionRepository {
       );
     return data || [];
   }
+
+  async addCardToCollection(userId: string, gameCode: string): Promise<void> {
+    const { error } = await this.supabase.rpc('add_card_to_collection', {
+      in_user_id: userId,
+      in_game_code: gameCode,
+    });
+    if (error)
+      throw new InternalServerErrorException(
+        `add_card_to_collection: ${error.message}`,
+      );
+  }
+
+  async removeCardFromCollection(
+    userId: string,
+    gameCode: string,
+  ): Promise<boolean> {
+    const { data, error } = await this.supabase.rpc(
+      'remove_card_from_collection',
+      {
+        in_user_id: userId,
+        in_game_code: gameCode,
+      },
+    );
+    if (error)
+      throw new InternalServerErrorException(
+        `remove_card_from_collection: ${error.message}`,
+      );
+    return data === true;
+  }
+
+  async computeTier(rating: number): Promise<string> {
+    const { data, error } = await this.supabase.rpc('compute_tier', {
+      in_rating: rating,
+    });
+    if (error)
+      throw new InternalServerErrorException(
+        `compute_tier: ${error.message}`,
+      );
+    return data;
+  }
+
+  async generateGameCode(name: string): Promise<string> {
+    const { data, error } = await this.supabase.rpc('generate_game_code', {
+      name,
+    });
+    if (error)
+      throw new InternalServerErrorException(
+        `generate_game_code: ${error.message}`,
+      );
+    return data;
+  }
+
+  async adminAddCard(
+    userId: string,
+    gameCode: string,
+    tier: string,
+  ): Promise<void> {
+    const { error } = await this.supabase.rpc('admin_add_card', {
+      in_user_id: userId,
+      in_game_code: gameCode,
+      in_tier: tier,
+    });
+    if (error)
+      throw new InternalServerErrorException(
+        `admin_add_card: ${error.message}`,
+      );
+  }
 }

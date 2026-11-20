@@ -498,4 +498,8 @@ export class TasksService {
   async getCollectionStats(userId: string) {
     return this.repo.getCollectionStats(userId);
   }
+
+  async collectGameViaTask(userId: string, taskId: number) {
+    return this.repo.collectGameViaTask(userId, taskId);
+  }
 }

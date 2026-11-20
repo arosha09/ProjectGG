@@ -310,4 +310,57 @@ export class CardCollectionController {
   ) {
     return this.cardService.getLeaderboard(limit);
   }
+
+  // ── Collection Management ──
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('collection/add')
+  async addCardToCollection(
+    @Req() req: any,
+    @Body() body: { user_id?: string; game_code: string },
+  ) {
+    const userId = body.user_id || req.user.id;
+    return this.cardService.addCardToCollection(userId, body.game_code);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('collection/remove')
+  async removeCardFromCollection(
+    @Req() req: any,
+    @Body() body: { user_id?: string; game_code: string },
+  ) {
+    const userId = body.user_id || req.user.id;
+    return this.cardService.removeCardFromCollection(userId, body.game_code);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('compute-tier')
+  async computeTier(@Query('rating') rating: number) {
+    return this.cardService.computeTier(rating);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('generate-code')
+  async generateGameCode(@Body() body: { name: string }) {
+    return this.cardService.generateGameCode(body.name);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('admin/add-card')
+  async adminAddCard(
+    @Req() req: any,
+    @Body() body: { user_id: string; game_code: string; tier: string },
+  ) {
+    if (req.user.role !== 'admin' && req.user.role !== 'dev')
+      throw new Error('admin required');
+    return this.cardService.adminAddCard(
+      body.user_id,
+      body.game_code,
+      body.tier,
+    );
+  }
 }

@@ -6,12 +6,13 @@ import { Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { Subject } from 'rxjs';
+import { Subject, Subscription, timeout } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { UsersService } from '../../services/users.service';
 import { RankDisplayComponent } from '../../components/rank-display/rank-display.component';
 import { DailyClaimComponent } from '../../components/daily-claim/daily-claim.component';
+import { GameCharactersComponent } from '../../components/game-characters/game-characters.component';
 import { XpService } from '../../services/xp.service';
 import { UserRankDto } from '../../models/rank.model';
 import { environment } from '../../../environments/environment';
@@ -26,7 +27,7 @@ import { ChatService } from '../../services/chat.service';
   selector: 'app-profile',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, RankDisplayComponent, DailyClaimComponent, RouterLink, CyberDropdownComponent],
+  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, RankDisplayComponent, DailyClaimComponent, GameCharactersComponent, RouterLink, CyberDropdownComponent],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss'],
 })
@@ -38,6 +39,16 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   userRank: UserRankDto | null = null;
+  rankLoading = false;
+  rankError = '';
+  claimChecking = false;
+  claimError = '';
+  private rankRequest?: Subscription;
+  private claimRequest?: Subscription;
+  private xpSocket?: ReturnType<ChatService['connect']>;
+  private readonly onXpUpdate = (data: { userId: string }) => {
+    if (data.userId === this.currentUser?.id) this.loadRankData();
+  };
   // debug
   debugMode = false;
   debugData: any = { profile: null, connections: null, rank: null, showcase: null, collectionStats: null };
@@ -117,12 +128,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
       }
     });
 
-    const socket = this.chatService.connect();
-    socket.on('xp-update', (data: { userId: string }) => {
-      if (data.userId === this.currentUser?.id) {
-        this.loadRankData();
-      }
-    });
+    this.xpSocket = this.chatService.connect();
+    this.xpSocket.on('xp-update', this.onXpUpdate);
+    this.loadRankData();
 
     this.refreshProfile();
     this.loadConnections();
@@ -132,7 +140,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.chatService.connect().off('xp-update');
+    this.xpSocket?.off('xp-update', this.onXpUpdate);
   }
 
   // ── Theme (fully delegated to ThemeService) ────────────────────────────────
@@ -413,30 +421,47 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   // ── Rank / XP ──────────────────────────────────────────────────────────────
 
+  refreshRank(): void { this.loadRankData(); }
+
   private loadRankData(): void {
+    this.rankRequest?.unsubscribe();
+    this.claimRequest?.unsubscribe();
     const userId = this.currentUser?.id;
-
-    if (!userId) {
-      this.loading = false;
-      this.cdr.markForCheck();
-      return;
-    }
-
-    let rankDone = false;
-    let claimDone = false;
-
-    const checkDone = () => {
-      if (rankDone && claimDone) { this.loading = false; this.cdr.markForCheck(); }
-    };
-
-    this.xpService.getUserRank(userId).subscribe({
-      next:  (rank) => { this.userRank = rank; this.debugData.rank = rank; rankDone = true; checkDone(); },
-      error: ()     => { this.userRank = null; this.debugData.rank = null; rankDone = true; checkDone(); },
+    if (!userId) return;
+    this.rankLoading = true;
+    this.rankError = '';
+    this.claimChecking = true;
+    this.claimError = '';
+    this.rankRequest = this.xpService.getUserRank(userId).pipe(timeout(30000), takeUntil(this.destroy$)).subscribe({
+      next: rank => {
+        if (this.currentUser?.id !== userId) return;
+        this.userRank = rank;
+        this.debugData.rank = rank;
+        this.rankLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.currentUser?.id !== userId) return;
+        this.rankError = 'Your account rank could not be loaded. Please try again.';
+        this.rankLoading = false;
+        this.cdr.markForCheck();
+      },
     });
-
-    this.xpService.canClaimDaily(userId).subscribe({
-      next:  (res) => { this.canClaim = res.can_claim; this.debugData.canClaim = res; claimDone = true; checkDone(); },
-      error: ()    => { this.canClaim = false; this.debugData.canClaim = null;         claimDone = true; checkDone(); },
+    this.claimRequest = this.xpService.canClaimDaily(userId).pipe(timeout(30000), takeUntil(this.destroy$)).subscribe({
+      next: res => {
+        if (this.currentUser?.id !== userId) return;
+        this.canClaim = res?.can_claim === true;
+        this.claimError = res == null ? 'Daily reward status unavailable' : '';
+        this.debugData.canClaim = res;
+        this.claimChecking = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.currentUser?.id !== userId) return;
+        this.claimError = 'Daily reward status unavailable';
+        this.claimChecking = false;
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -445,7 +470,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.claimLoading = true;
     this.xpService.claimDaily(this.currentUser?.id).subscribe({
       next:  () => { this.canClaim = false; this.claimLoading = false; this.loadRankData(); },
-      error: () => { this.claimLoading = false; },
+      error: () => { this.claimLoading = false; this.claimError = 'Could not claim daily reward'; this.cdr.markForCheck(); },
     });
   }
 

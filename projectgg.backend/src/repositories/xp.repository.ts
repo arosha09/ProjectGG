@@ -36,7 +36,7 @@ export class XpRepository {
         `${functionName} failed: ${error.message}`,
       );
     }
-    const rank = data?.[0] || null;
+    const rank = (Array.isArray(data) ? data[0] : data) || null;
     if (rank) {
       rank.rank_image_url = await this.rankImageUrl(rank.rank_code);
       if (rank.next_rank_code && rank.next_rank_code !== 'MAX') {
@@ -104,5 +104,39 @@ export class XpRepository {
       );
     }
     return data || [];
+  }
+
+  async addXp(
+    userId: string,
+    xp: number,
+    source: string,
+    sourceId?: string,
+  ): Promise<any> {
+    const functionName = 'add_xp';
+    const { data, error } = await this.supabase.rpc(functionName, {
+      in_user_id: userId,
+      in_xp: xp,
+      in_source: source,
+      in_source_id: sourceId || null,
+    });
+    if (error) {
+      throw new InternalServerErrorException(
+        `${functionName} failed: ${error.message}`,
+      );
+    }
+    return data?.[0] || null;
+  }
+
+  async awardFirstGameBonus(userId: string): Promise<any> {
+    const functionName = 'award_first_game_bonus';
+    const { data, error } = await this.supabase.rpc(functionName, {
+      in_user_id: userId,
+    });
+    if (error) {
+      throw new InternalServerErrorException(
+        `${functionName} failed: ${error.message}`,
+      );
+    }
+    return data;
   }
 }

@@ -241,18 +241,6 @@ export class TasksRepository {
     return data || [];
   }
 
-  async collectGameViaTask(userId: string, taskId: number): Promise<any> {
-    const { data, error } = await this.supabase.rpc('collect_game_via_task', {
-      in_user_id: userId,
-      in_task_id: taskId,
-    });
-    if (error)
-      throw new InternalServerErrorException(
-        `collect_game_via_task failed: ${error.message}`,
-      );
-    return data || { success: false, error: 'Unknown error' };
-  }
-
   async getCollectedGames(
     userId: string,
     page: number,
@@ -409,5 +397,17 @@ export class TasksRepository {
         return (c.claims_count ?? 0) < max;
       })
       .map((t) => t.id);
+  }
+
+  async collectGameViaTask(userId: string, taskId: number): Promise<any> {
+    const { data, error } = await this.supabase.rpc('collect_game_via_task', {
+      in_user_id: userId,
+      in_task_id: taskId,
+    });
+    if (error)
+      throw new InternalServerErrorException(
+        `collect_game_via_task failed: ${error.message}`,
+      );
+    return data;
   }
 }

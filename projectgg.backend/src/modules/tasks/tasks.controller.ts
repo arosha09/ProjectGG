@@ -146,4 +146,14 @@ export class TasksController {
   ) {
     return this.tasksService.getCollectedGames(req.user.id, page, pageSize);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('collect-game')
+  async collectGameViaTask(
+    @Req() req: any,
+    @Body() body: { task_id: number },
+  ) {
+    return this.tasksService.collectGameViaTask(req.user.id, body.task_id);
+  }
 }

@@ -72,10 +72,16 @@ export class Login implements OnInit {
       },
       error: (err: any) => {
         this.loading = false;
-        if (err.status === 401) {
-          this.error = 'UNAUTHORIZED — Wrong credentials. Check your email and password and try again.';
+        const status = err?.status;
+        const backendMsg = err?.error?.message || err?.message || '';
+        if (status === 401 || /invalid credentials|wrong credentials|unauthorized/i.test(backendMsg)) {
+          this.error = 'INVALID CREDENTIALS — Wrong email or password. Please try again.';
+        } else if (status === 429) {
+          this.error = 'TOO MANY ATTEMPTS — Please wait a moment before trying again.';
+        } else if (backendMsg) {
+          this.error = `LOGIN ERROR — ${backendMsg}`;
         } else {
-          this.error = err.error?.message || 'SYSTEM ERROR — Login failed. Try again.';
+          this.error = 'SYSTEM ERROR — Login failed. Try again.';
         }
         this.cdr.detectChanges();
       },

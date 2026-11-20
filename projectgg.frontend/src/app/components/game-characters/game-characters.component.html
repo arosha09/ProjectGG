@@ -1,0 +1,43 @@
+<section class="characters-panel" aria-labelledby="characters-heading">
+  <header class="characters-header">
+    <div><p class="eyebrow">PROJECT FREE-WILL</p><h2 id="characters-heading">Your characters</h2></div>
+    <div class="characters-actions">
+      <label>Progress <select [value]="mode" (change)="setMode($event)"><option value="solo">Solo</option><option value="online">Online</option></select></label>
+      <button type="button" (click)="refresh()" [disabled]="loading">{{ loading ? 'Refreshing...' : 'Refresh' }}</button>
+    </div>
+  </header>
+  @if (error) {
+    <div class="characters-state error" role="alert"><p>{{ error }}</p><button type="button" (click)="refresh()">Try again</button></div>
+  } @else if (loading && characters.length === 0) {
+    <p class="characters-state" role="status">Loading your characters...</p>
+  } @else if (characters.length === 0) {
+    <div class="characters-state"><h3>No characters synced yet</h3><p>Create or save a character in Project Free-Will while signed into this ProjectGG account, then refresh.</p></div>
+  } @else {
+    <div class="character-grid" [attr.aria-busy]="loading">
+      @for (character of characters; track character.id) {
+        <article class="character-card">
+          <div class="character-portrait">
+            @if (character.mugshot_url && !failedImages.has(character.id)) {
+              <img [src]="character.mugshot_url" [alt]="character.name + ' portrait'" loading="lazy" (error)="portraitFailed(character.id)" />
+            } @else {
+              <span class="portrait-placeholder" aria-hidden="true">{{ initials(character.name) }}</span>
+              <span class="portrait-note">Portrait not synced</span>
+            }
+          </div>
+          <div class="character-info">
+            <h3>{{ character.name }}</h3>
+            @if (character.data?.backpack_class) { <p class="character-class">{{ character.data?.backpack_class | titlecase }}</p> }
+            @if (progress(character); as saved) {
+              <dl class="character-stats"><div><dt>Level</dt><dd>{{ saved.level | number }}</dd></div><div><dt>XP</dt><dd>{{ saved.experience | number }}</dd></div><div><dt>Cards</dt><dd>{{ saved.card_count | number }}</dd></div></dl>
+              @if (saved.rank_name) { <p class="character-rank">{{ saved.rank_name }}</p> }
+            } @else {
+              <p class="sync-note">{{ character.progression_unavailable ? 'Progress temporarily unavailable' : 'No ' + mode + ' progress synced yet' }}</p>
+            }
+            @if (character.last_synced_at) { <p class="synced-at">Saved {{ character.last_synced_at | date:'medium' }}</p> }
+          </div>
+        </article>
+      }
+    </div>
+    <p class="characters-footer">Manage your characters and transfer belongings in Project Free-Will. Your ProjectGG account rank is shown above.</p>
+  }
+</section>

@@ -24,6 +24,8 @@ import {
   CanClaimDailyDto,
   AwardCustomXpDto,
   LeaderboardEntryDto,
+  AddXpDto,
+  AwardFirstGameBonusDto,
 } from 'src/dto/xp/xp.dto';
 import { ChatGateway } from 'src/modules/chat/chat.gateway';
 
@@ -109,5 +111,33 @@ export class XpController {
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
   ): Promise<LeaderboardEntryDto[]> {
     return this.xpService.getLeaderboard(limit);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('add')
+  @ApiBody({ type: AddXpDto })
+  async addXp(
+    @Req() req: any,
+    @Body() body: AddXpDto,
+  ): Promise<XpResultDto> {
+    const userId = body.user_id || req.user?.id;
+    if (!userId)
+      throw new BadRequestException('Provide user_id or authenticate');
+    return this.xpService.addXp(userId, body.xp, body.source, body.source_id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('first-game-bonus')
+  @ApiBody({ type: AwardFirstGameBonusDto })
+  async awardFirstGameBonus(
+    @Req() req: any,
+    @Body() body: AwardFirstGameBonusDto,
+  ): Promise<any> {
+    const userId = body.user_id || req.user?.id;
+    if (!userId)
+      throw new BadRequestException('Provide user_id or authenticate');
+    return this.xpService.awardFirstGameBonus(userId);
   }
 }

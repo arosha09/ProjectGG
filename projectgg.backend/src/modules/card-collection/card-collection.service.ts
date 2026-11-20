@@ -531,4 +531,24 @@ export class CardCollectionService {
   async getLeaderboard(limit: number) {
     return this.repo.getCardLeaderboard(limit);
   }
+
+  async addCardToCollection(userId: string, gameCode: string) {
+    return this.repo.addCardToCollection(userId, gameCode);
+  }
+
+  async removeCardFromCollection(userId: string, gameCode: string) {
+    return this.repo.removeCardFromCollection(userId, gameCode);
+  }
+
+  async computeTier(rating: number) {
+    return this.repo.computeTier(rating);
+  }
+
+  async generateGameCode(name: string) {
+    return this.repo.generateGameCode(name);
+  }
+
+  async adminAddCard(userId: string, gameCode: string, tier: string) {
+    return this.repo.adminAddCard(userId, gameCode, tier);
+  }
 }

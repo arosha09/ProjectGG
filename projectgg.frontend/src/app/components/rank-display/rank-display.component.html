@@ -10,17 +10,19 @@
       <div class="rank-visual">
         <canvas #particleCanvas class="particle-canvas"></canvas>
         <div class="rank-glow-ring"></div>
-        @if (!imageLoaded()) {
+        @if (rankImageUrl && !imageFailed()) {
           <div class="rank-image-sk"></div>
+          <img loading="lazy" decoding="async" #rankImg
+            class="rank-image"
+            [class.is-loaded]="imageLoaded()"
+            [src]="rankImageUrl"
+            [alt]="rank.rank_name"
+            (load)="onImageLoad()"
+            (error)="onImageError()"
+          />
+        } @else {
+          <span class="rank-emblem-fallback" aria-hidden="true">{{ rank.rank_code }}</span>
         }
-        <img loading="lazy" decoding="async" #rankImg
-          class="rank-image"
-          [class.is-loaded]="imageLoaded()"
-          [src]="rankImageUrl"
-          [alt]="rank.rank_name"
-          (load)="onImageLoad()"
-          (error)="$event.target.style.display='none'; $event.target.previousElementSibling?.classList?.add('sk-err')"
-        />
       </div>
       <div class="rank-info">
         <p class="rank-title">{{ rank.rank_name }}</p>

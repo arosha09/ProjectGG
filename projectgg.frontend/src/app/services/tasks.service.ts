@@ -77,4 +77,8 @@ export class TasksService {
   getCollectedGames(page = 1, pageSize = 12): Observable<Game[]> { return this.http.get<Game[]>(`${this.api}/tasks/collected`, { params: { page, page_size: pageSize } }); }
 
   getCollectionStats(): Observable<CollectionStats> { return this.http.get<CollectionStats>(`${this.api}/cards/collection/stats`); }
+
+  collectGameViaTask(taskId: number): Observable<any> {
+    return this.http.post<any>(`${this.api}/tasks/collect-game`, { task_id: taskId });
+  }
 }
