@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, Input, OnChanges, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -24,7 +26,7 @@ interface GameCharacter {
 @Component({
   selector: 'app-game-characters',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, MatFormFieldModule, MatSelectModule],
   templateUrl: './game-characters.component.html',
   styleUrls: ['./game-characters.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -69,8 +71,8 @@ export class GameCharactersComponent implements OnChanges, OnDestroy {
       },
     });
   }
-  setMode(event: Event): void {
-    this.mode = (event.target as HTMLSelectElement).value === 'online' ? 'online' : 'solo';
+  setMode(value: 'solo' | 'online'): void {
+    this.mode = value === 'online' ? 'online' : 'solo';
   }
   progress(character: GameCharacter): CharacterProgress | null { return character.progression?.[this.mode] ?? null; }
   portraitFailed(id: string): void { this.failedImages.add(id); this.cdr.markForCheck(); }

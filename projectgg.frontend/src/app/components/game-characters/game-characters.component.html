@@ -2,7 +2,13 @@
   <header class="characters-header">
     <div><p class="eyebrow">PROJECT FREE-WILL</p><h2 id="characters-heading">Your characters</h2></div>
     <div class="characters-actions">
-      <label>Progress <select [value]="mode" (change)="setMode($event)"><option value="solo">Solo</option><option value="online">Online</option></select></label>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="progress-select">
+        <mat-label>Character progression</mat-label>
+        <mat-select [value]="mode" (selectionChange)="setMode($event.value)">
+          <mat-option value="solo">Solo</mat-option>
+          <mat-option value="online">Online</mat-option>
+        </mat-select>
+      </mat-form-field>
       <button type="button" (click)="refresh()" [disabled]="loading">{{ loading ? 'Refreshing...' : 'Refresh' }}</button>
     </div>
   </header>
