@@ -2,6 +2,46 @@
   display: block;
 }
 
+.verification-dialog {
+  width: min(28rem, calc(100% - 2rem));
+  padding: clamp(1rem, 5vw, 2rem);
+  border: 1px solid var(--neon-purple);
+  background: var(--bg-darker);
+  color: #e8eef3;
+  overflow-wrap: anywhere;
+
+  &::backdrop {
+    background: rgb(0 0 0 / 75%);
+  }
+
+  h2 {
+    margin-top: 0;
+  }
+
+  input {
+    display: block;
+    width: 100%;
+    margin-top: .5rem;
+    padding: .75rem;
+    border: 1px solid var(--neon-purple);
+    background: transparent;
+    color: inherit;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+  }
+
+  .verification-error {
+    color: #ff899a;
+  }
+
+  .verification-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: .75rem;
+  }
+}
+
 .auth-shell {
   position: relative;
   min-height: 100vh;

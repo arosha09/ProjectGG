@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectorRef, ChangeDetectionStrategy, ElementRef, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { TimeoutError } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
+import { UsersService } from '../../services/users.service';
 import { MatIconModule } from '@angular/material/icon';
 import { StatusMessageComponent } from '../../components/status-message/status-message.component';
 import { CyberDatePickerComponent } from '../../components/cyber-date-picker/cyber-date-picker.component';
@@ -29,6 +31,10 @@ export class Register {
   successMessage = '';
   showPassword = false;
   showConfirmPassword = false;
+  verificationCode = '';
+  verificationError = '';
+  verifyingEmail = false;
+  private readonly verificationDialog = viewChild.required<ElementRef<HTMLDialogElement>>('verificationDialog');
 
   readonly genderOptions: CyberSelectOption[] = [
     { value: 'Male', label: 'Male' },
@@ -38,11 +44,14 @@ export class Register {
 
   constructor(
     private readonly auth: AuthService,
+    private readonly users: UsersService,
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   submit(): void {
+    if (this.loading || this.successMessage) return;
+
     if (!this.name || !this.username || !this.email || !this.dateOfBirth || !this.password || !this.confirmPassword) {
       this.error = 'All fields are required.';
       this.cdr.detectChanges();
@@ -63,16 +72,17 @@ export class Register {
 
     this.auth.register(this.name, this.username, this.email, this.password, dob, this.gender).subscribe({
       next: () => {
+        this.loading = false;
         this.successMessage = 'INITIALIZATION SUCCESSFUL';
         this.cdr.detectChanges();
-        setTimeout(() => {
-          this.router.navigate(['/dashboard']);
-        }, 5000);
+        this.verificationDialog().nativeElement.showModal();
       },
       error: (err: any) => {
         this.loading = false;
         const message = err?.error?.message ?? '';
-        if (message.includes('username') || message.includes('taken') || message.includes('exists')) {
+        if (err instanceof TimeoutError) {
+          this.error = 'Registration took too long. Try signing in before submitting again.';
+        } else if (message.includes('username') || message.includes('taken') || message.includes('exists')) {
           this.error = 'GAMERTAG TAKEN — That username is already claimed.';
         } else if (message.includes('email') || message.includes('already')) {
           this.error = 'EMAIL REGISTERED — This email is already in use.';
@@ -83,11 +93,32 @@ export class Register {
         }
         this.cdr.detectChanges();
       },
-      complete: () => {
-        this.loading = false;
-        this.cdr.detectChanges();
+    });
+  }
+
+  verifyEmail(): void {
+    const code = this.verificationCode.trim().toUpperCase();
+    if (this.verifyingEmail || !/^[A-Z0-9]{6}$/.test(code)) return;
+
+    this.verifyingEmail = true;
+    this.verificationError = '';
+    this.users.verifyEmail(code).subscribe({
+      next: () => {
+        this.verifyingEmail = false;
+        this.cdr.markForCheck();
+        this.continueToDashboard();
+      },
+      error: (err) => {
+        this.verifyingEmail = false;
+        this.verificationError = err?.error?.message || 'Could not verify your email. Please try again.';
+        this.cdr.markForCheck();
       },
     });
+  }
+
+  continueToDashboard(event?: Event): void {
+    event?.preventDefault();
+    if (!this.verifyingEmail) void this.router.navigate(['/dashboard']);
   }
 
   togglePassword(): void {

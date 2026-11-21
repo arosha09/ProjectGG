@@ -1,29 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
-  private readonly transporter: nodemailer.Transporter;
-  private readonly fromName: string;
-  private readonly fromEmail: string;
   private readonly frontendUrl: string;
 
   constructor(private readonly config: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: this.config.get<string>('SMTP_HOST', 'smtp.gmail.com'),
-      port: this.config.get<number>('SMTP_PORT', 587),
-      secure: this.config.get<string>('SMTP_SECURE', 'false') === 'true',
-      auth: {
-        user: this.config.get<string>('SMTP_USER', ''),
-        pass: this.config.get<string>('SMTP_PASS', ''),
-      },
-    });
-    this.fromName = this.config.get<string>('SMTP_FROM_NAME', 'ProjectGG');
-    this.fromEmail = this.config.get<string>(
-      'SMTP_FROM_EMAIL',
-      'noreply@projectgg.app',
-    );
     this.frontendUrl = this.config.get<string>(
       'FRONTEND_URL',
       'http://localhost:4200',
@@ -134,12 +116,20 @@ export class MailService {
 </body>
 </html>`;
 
-    await this.transporter.sendMail({
-      from: `"${this.fromName}" <${this.fromEmail}>`,
-      to,
-      subject: 'Verify your email — ProjectGG',
-      html,
+    const supabaseUrl = this.config.getOrThrow<string>('SUPABASE_URL');
+    const relaySecret = this.config.getOrThrow<string>('VERIFICATION_MAIL_SECRET');
+    const response = await fetch(new URL('/functions/v1/send-verification-email', supabaseUrl), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${relaySecret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ to, html }),
+      signal: AbortSignal.timeout(15000),
     });
+    if (!response.ok) {
+      throw new Error(`Verification mail relay returned HTTP ${response.status}`);
+    }
   }
 
   private escapeHtml(str: string): string {

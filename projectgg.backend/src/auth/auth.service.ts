@@ -4,8 +4,10 @@ import {
   UnauthorizedException,
   NotFoundException,
   BadRequestException,
+  ServiceUnavailableException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -24,6 +26,7 @@ import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly refreshExpiresIn: number;
 
   constructor(
@@ -73,25 +76,22 @@ export class AuthService {
     delete user.password_hash;
     delete user.verification_token;
     delete user.verification_token_expires;
-    await this.resolveUserAvatar(user);
+    if (user.avatar) await this.resolveUserAvatar(user);
 
-    try {
-      await this.mailService.sendVerificationEmail(
+    void this.mailService
+      .sendVerificationEmail(
         user.email,
         verificationToken,
         user.name || user.username,
-      );
-    } catch (e) {
-      // Email sending failed silently
-    }
+      )
+      .catch(() => this.logger.warn(`Verification email failed for user ${user.id}`));
 
     return {
       user,
       token,
       refresh_token,
       success: true,
-      message:
-        'User registered successfully. Check your email to verify your account.',
+      message: 'User registered successfully.',
     };
   }
 
@@ -198,7 +198,7 @@ export class AuthService {
 
   async sendVerification(
     userId: string,
-  ): Promise<{ verification_token: string; message: string }> {
+  ): Promise<{ message: string }> {
     const user = await this.repo.findById(userId);
     if (!user) throw new NotFoundException('User not found');
     if (user.email_verified)
@@ -214,12 +214,12 @@ export class AuthService {
         verificationToken,
         user.name || user.username,
       );
-    } catch (e) {
-      // Email sending failed silently � token is stored for retry
+    } catch {
+      this.logger.warn(`Verification email failed for user ${userId}`);
+      throw new ServiceUnavailableException('Could not send the verification email. Please try again.');
     }
 
     return {
-      verification_token: verificationToken,
       message: 'Verification email sent',
     };
   }

@@ -43,7 +43,18 @@ export class UsersService {
 
   register(payload: { name: string; username: string; email: string; date_of_birth: Date; gender: string; password_hash: string; role?: string; avatar?: string; }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/auth/register`, payload).pipe(
+      timeout(60000),
       tap((response) => this.syncAuthState(response))
+    );
+  }
+
+  verifyEmail(code: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/verify-email`, { code }).pipe(
+      timeout(15000),
+      tap(() => {
+        const user = this.getCurrentUser();
+        if (user) this.updateCurrentUser({ ...user, email_verified: true });
+      }),
     );
   }
 

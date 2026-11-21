@@ -118,10 +118,10 @@
         </div>
       </label>
 
-      <button class="btn btn-large btn-glow" type="submit" [disabled]="loading">
+      <button class="btn btn-large btn-glow" type="submit" [disabled]="loading || !!successMessage">
         <span class="btn-content">
           <span class="btn-spinner" [class.active]="loading"></span>
-          {{ loading ? 'BUILDING PROFILE...' : 'JOIN PROJECT GG' }}
+          {{ loading ? 'BUILDING PROFILE...' : successMessage ? 'PROFILE CREATED' : 'JOIN PROJECT GG' }}
         </span>
       </button>
     </form>
@@ -137,3 +137,25 @@
     </p>
   </div>
 </section>
+
+<dialog #verificationDialog class="verification-dialog" aria-labelledby="verification-title"
+  aria-describedby="verification-help" (cancel)="continueToDashboard($event)">
+  <h2 id="verification-title">Verify your email</h2>
+  <p>Enter the six-character code sent to <strong>{{ email }}</strong>.</p>
+  <form (ngSubmit)="verifyEmail()">
+    <label for="verification-code">Verification code</label>
+    <input id="verification-code" name="verificationCode" [(ngModel)]="verificationCode"
+      autocomplete="one-time-code" autocapitalize="characters" spellcheck="false"
+      pattern="[A-Za-z0-9]{6}" maxlength="6" required autofocus />
+    @if (verificationError) {
+      <p role="alert" class="verification-error">{{ verificationError }}</p>
+    }
+    <p id="verification-help">You can skip now and verify your email in Settings.</p>
+    <div class="verification-actions">
+      <button type="button" class="btn" [disabled]="verifyingEmail" (click)="continueToDashboard()">Skip for now</button>
+      <button type="submit" class="btn btn-glow" [disabled]="verifyingEmail || verificationCode.length !== 6">
+        {{ verifyingEmail ? 'Verifying…' : 'Verify email' }}
+      </button>
+    </div>
+  </form>
+</dialog>
