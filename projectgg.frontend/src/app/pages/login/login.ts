@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -70,16 +71,22 @@ export class Login implements OnInit {
           this.cdr.detectChanges();
         }, 2000);
       },
-      error: (err: any) => {
+      error: (err: unknown) => {
         this.loading = false;
-        const status = err?.status;
-        const backendMsg = err?.error?.message || err?.message || '';
-        if (status === 401 || /invalid credentials|wrong credentials|unauthorized/i.test(backendMsg)) {
-          this.error = 'INVALID CREDENTIALS — Wrong email or password. Please try again.';
+        const status = err instanceof HttpErrorResponse ? err.status : undefined;
+        const message = err instanceof HttpErrorResponse ? err.error?.message : undefined;
+        const backendMessage = typeof message === 'string' ? message : '';
+
+        if (status === 401 && /^account locked\b/i.test(backendMessage)) {
+          this.error = backendMessage;
+        } else if (status === 401) {
+          this.error = 'Invalid email or password.';
         } else if (status === 429) {
           this.error = 'TOO MANY ATTEMPTS — Please wait a moment before trying again.';
-        } else if (backendMsg) {
-          this.error = `LOGIN ERROR — ${backendMsg}`;
+        } else if (status === 0) {
+          this.error = 'Could not reach the login service. Please try again.';
+        } else if (backendMessage) {
+          this.error = `LOGIN ERROR — ${backendMessage}`;
         } else {
           this.error = 'SYSTEM ERROR — Login failed. Try again.';
         }
