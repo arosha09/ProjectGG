@@ -38,6 +38,15 @@ export class XpController {
     private readonly chatGateway: ChatGateway,
   ) {}
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('character-events')
+  async awardCharacterEvents(@Req() req: any, @Body() body: any) {
+    const result = await this.xpService.awardCharacterEvents(req.user.id, body);
+    if (result.awarded_xp > 0) this.chatGateway.sendToUser(req.user.id, 'xp-update', { userId: req.user.id });
+    return result;
+  }
+
   @Get('rank')
   @ApiQuery({ name: 'user_id', type: String, required: false, example: 'uuid' })
   async getUserRank(

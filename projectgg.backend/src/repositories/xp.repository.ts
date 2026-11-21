@@ -46,6 +46,15 @@ export class XpRepository {
     return rank;
   }
 
+  async awardCharacterEvents(userId: string, events: any[]) {
+    const { data, error } = await this.supabase.rpc('award_character_xp_events', {
+      in_user_id: userId, in_events: events,
+    });
+    if (error) throw new InternalServerErrorException(`Character XP sync failed: ${error.message}`);
+    const result = Array.isArray(data) ? data[0] : data;
+    return { ...result, rank: await this.getUserRank(userId) };
+  }
+
   async awardDailyLogin(userId: string): Promise<any> {
     const functionName = 'award_daily_login';
     const { data, error } = await this.supabase.rpc(functionName, {
