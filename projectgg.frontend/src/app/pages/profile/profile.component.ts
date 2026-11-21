@@ -516,6 +516,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.currentUser = { ...this.currentUser, ...profile };
         this.usersService.updateCurrentUser(this.currentUser);
         this.profileError = '';
+        this.loading = false;
         this.debugData.profile = profile;
         this.loadRankData();
         this.loadFavoriteGames();
