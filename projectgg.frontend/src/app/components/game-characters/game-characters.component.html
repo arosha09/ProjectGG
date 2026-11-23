@@ -32,10 +32,16 @@
           </div>
           <div class="character-info">
             <h3>{{ character.name }}</h3>
-            @if (character.data?.backpack_class) { <p class="character-class">{{ character.data?.backpack_class | titlecase }}</p> }
             @if (progress(character); as saved) {
-              <dl class="character-stats"><div><dt>Level</dt><dd>{{ saved.level | number }}</dd></div><div><dt>XP</dt><dd>{{ saved.experience | number }}</dd></div><div><dt>Cards</dt><dd>{{ saved.card_count | number }}</dd></div></dl>
-              @if (saved.rank_name) { <p class="character-rank">{{ saved.rank_name }}</p> }
+              <dl class="character-stats">
+                <div><dt>Character rank</dt><dd class="character-rank">{{ saved.rank_name || saved.rank_code || '—' }}</dd></div>
+                <div><dt>Level</dt><dd>{{ saved.level | number }}</dd></div>
+                <div><dt>XP</dt><dd>{{ saved.experience | number }}</dd></div>
+                <div><dt>Cards</dt><dd>{{ saved.card_count | number }}</dd></div>
+                @if (saved.skill_points != null) {
+                  <div><dt>Available skill points</dt><dd>{{ saved.skill_points | number }}</dd></div>
+                }
+              </dl>
             } @else {
               <p class="sync-note">{{ character.progression_unavailable ? 'Progress temporarily unavailable' : 'No ' + mode + ' progress synced yet' }}</p>
             }

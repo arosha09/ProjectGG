@@ -1,4 +1,5 @@
 import { CharactersService } from './characters.service';
+import { gzipSync } from 'node:zlib';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('Project Free Will character contract', () => {
@@ -52,6 +53,25 @@ describe('Project Free Will character contract', () => {
     answers.push({data:{id:'remote'}},{data:[{card_id:'rare_card'}]});
     expect(await service.belongings('owner','remote')).toEqual({collections:[{card_id:'rare_card'}]});
     expect(table.eq).toHaveBeenCalledWith('user_id','owner');
+  });
+  it('reads the rank and stats for each mode from an existing synced save', async () => {
+    const snapshot = {
+      game: 'project-free-will', schema: 1,
+      character: {
+        solo: { rank: 'IC', rank_name: 'Iron', level: 3, experience: 150, skill_points: 0, card_collection: { rare: 2 } },
+        online: { rank: 'VOID', level: 1, experience: 0 },
+      },
+    };
+    const saveData = {
+      game: snapshot.game, schema: snapshot.schema, encoding: 'gzip-base64',
+      payload: gzipSync(JSON.stringify(snapshot)).toString('base64'),
+    };
+    answers.push({ data: [{ id: 'remote' }] }, { data: [{ character_id: 'remote', save_data: saveData }] });
+    const [character] = await service.list('owner');
+    expect(character.progression).toEqual({
+      solo: { rank_code: 'IC', rank_name: 'Iron', level: 3, experience: 150, skill_points: 0, card_count: 2 },
+      online: { rank_code: 'VOID', rank_name: null, level: 1, experience: 0, skill_points: null, card_count: 0 },
+    });
   });
   it('checks both characters before moving cloud cards', async () => {
     answers.push({data:{id:'source'}},{data:null});

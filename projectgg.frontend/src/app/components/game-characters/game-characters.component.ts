@@ -9,6 +9,7 @@ import { environment } from '../../../environments/environment';
 interface CharacterProgress {
   level: number;
   experience: number;
+  skill_points?: number | null;
   rank_name: string | null;
   rank_code: string | null;
   card_count: number;
@@ -17,7 +18,6 @@ interface GameCharacter {
   id: string;
   name: string;
   mugshot_url?: string | null;
-  data?: { backpack_class?: string; voice_type?: string };
   progression?: Partial<Record<'solo' | 'online', CharacterProgress>> | null;
   progression_unavailable?: boolean;
   last_synced_at?: string | null;

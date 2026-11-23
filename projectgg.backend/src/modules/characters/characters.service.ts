@@ -46,6 +46,7 @@ export class CharactersService {
         if (!state || typeof state !== 'object' || Array.isArray(state) || !Object.keys(state).length) continue;
         result[mode] = {
           level: Math.max(1, count(state.level)), experience: count(state.experience),
+          skill_points: state.skill_points == null ? null : count(state.skill_points),
           rank_name: typeof state.rank_name === 'string' ? state.rank_name : null,
           rank_code: typeof state.rank === 'string' ? state.rank : null,
           card_count: Object.values(state.card_collection ?? {}).reduce<number>((sum, amount) => sum + count(amount), 0),
