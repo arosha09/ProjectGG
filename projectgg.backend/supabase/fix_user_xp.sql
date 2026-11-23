@@ -1,7 +1,5 @@
 -- Fix: ambiguous column reference "total_xp" in award_daily_login
--- Drop and recreate both functions with fully qualified, unambiguous references.
--- Output parameter names kept as xp_earned/total_xp/rank_name/can_claim_again
--- to match backend DTO expectations. Local variables (v_*) used internally.
+-- Drop and recreate both functions with local variables to avoid ambiguity.
 
 DROP FUNCTION IF EXISTS public.award_daily_login(uuid);
 DROP FUNCTION IF EXISTS public.get_user_rank(uuid);
@@ -96,7 +94,6 @@ BEGIN
   ) INTO v_exists;
 
   IF v_exists THEN
-    -- Already claimed today — return current state
     SELECT COALESCE(ux.total_xp, 0), COALESCE(rt.rank_name, 'Void')
     INTO v_total_xp, v_rank_name
     FROM projectgg.user_xp ux
@@ -166,10 +163,13 @@ BEGIN
 END;
 $$;
 
--- Verify the fix
+-- Verify
 SELECT proname, pg_get_function_result(p.oid) AS return_type
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
   AND p.proname IN ('get_user_rank', 'award_daily_login')
 ORDER BY p.proname;
+
+-- Force PostgREST to reload schema cache
+notify pgrst, 'reload schema';
